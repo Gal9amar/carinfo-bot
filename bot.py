@@ -20,6 +20,7 @@ from telegram.ext import (
 
 from src.api.gov_api import fetch_vehicle_data
 from src.api.stolen_api import check_stolen
+from src.api.image_api import fetch_car_image
 from src.cache import cache
 from src.formatter import format_error, format_not_found, format_vehicle_message
 
@@ -93,12 +94,36 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         return
 
     if record is None:
-        msg = format_not_found(plate)
-    else:
-        msg = format_vehicle_message(record, stolen)
+        await update.message.reply_text(format_not_found(plate), parse_mode=ParseMode.MARKDOWN_V2)
+        return
 
+    msg = format_vehicle_message(record, stolen)
     cache.set(plate, msg)
 
+    # Try to fetch a matching car image
+    manufacturer = record.get("tozeret_nm", "")
+    model        = record.get("kinuy_mishari") or record.get("degem_nm") or ""
+    year         = str(record.get("shnat_yitzur", ""))
+    color        = record.get("tzeva_rechev", "")
+
+    image_url = None
+    try:
+        image_url = await fetch_car_image(manufacturer, model, year, color)
+    except Exception as exc:
+        logger.warning("Image fetch failed for plate %s: %s", plate, exc)
+
+    if image_url:
+        try:
+            await update.message.reply_photo(
+                photo=image_url,
+                caption=msg,
+                parse_mode=ParseMode.MARKDOWN_V2,
+            )
+            return
+        except Exception as exc:
+            logger.warning("Failed to send photo for plate %s: %s", plate, exc)
+
+    # Fallback: text only
     await update.message.reply_text(
         msg, parse_mode=ParseMode.MARKDOWN_V2, disable_web_page_preview=True
     )
