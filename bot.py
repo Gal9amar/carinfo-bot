@@ -46,18 +46,23 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-PLATE_RE = re.compile(r"^[\d\-]{5,10}$")
+PLATE_RE  = re.compile(r"^[\d\-]{5,10}$")
 ADMIN_ID  = int(os.environ.get("ADMIN_TELEGRAM_ID", "0"))
+BOT_USERNAME = "israelcarinfobot"
 
 PAYMENT_MSG = (
-    "🔒 *ניצלת את 5 הבדיקות החינמיות שלך*\n\n"
-    "לרכישת גישה מלאה:\n"
-    "💳 שלח תשלום לביט: *053\\-388\\-8381*\n"
-    "📝 ציין בהודעה: *קוד גישה CarInfo*\n\n"
-    "לאחר התשלום תקבל קוד גישה\\.\n"
-    "הזן אותו עם הפקודה:\n"
-    "`/code XXXXXXXX`"
+    "🔒 *נגמרו הבדיקות החינמיות שלך*\n\n"
+    "לרכישת בדיקות נוספות לחץ על הכפתור למטה\\.\n"
+    "נחזור אליך בהקדם\\!"
 )
+
+def _payment_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton(
+            "💳 רכישת בדיקות נוספות",
+            url=f"https://t.me/{BOT_USERNAME}?start=buy"
+        )
+    ]])
 
 
 def normalize_plate(text: str) -> str:
@@ -82,7 +87,38 @@ async def cmd_myid(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = update.effective_user.id
+    user_id   = update.effective_user.id
+    user      = update.effective_user
+    args      = context.args
+
+    # /start buy  →  purchase flow
+    if args and args[0] == "buy":
+        uname    = f"@{user.username}" if user.username else f"id:{user_id}"
+        fullname = user.full_name or ""
+        # Notify admin
+        if ADMIN_ID:
+            try:
+                await context.bot.send_message(
+                    ADMIN_ID,
+                    f"💰 *בקשת רכישה חדשה\\!*\n\n"
+                    f"👤 משתמש: {uname}\n"
+                    f"📛 שם: {fullname}\n"
+                    f"🆔 ID: `{user_id}`\n\n"
+                    f"לפתיחת גישה:\n`/admin grant {uname} 50`",
+                    parse_mode=ParseMode.MARKDOWN_V2,
+                )
+            except Exception as e:
+                logger.warning("Failed to notify admin: %s", e)
+        # Reply to user
+        await update.message.reply_text(
+            "✅ *קיבלנו את בקשתך\\!*\n\n"
+            "ניצור איתך קשר בהקדם לאחר אישור התשלום\\.\n\n"
+            "💳 לתשלום מהיר דרך ביט:\n*053\\-388\\-8381*\n"
+            "📝 ציין בהודעה: *CarInfo*",
+            parse_mode=ParseMode.MARKDOWN_V2,
+        )
+        return
+
     allowed, left = is_allowed(user_id)
     searches_info = f"נותרו לך *{left}* בדיקות חינמיות\\." if left >= 0 else "גישה מלאה פעילה ✅"
 
@@ -385,7 +421,11 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     # Check access
     allowed, left = is_allowed(user_id)
     if not allowed:
-        await update.message.reply_text(PAYMENT_MSG, parse_mode=ParseMode.MARKDOWN_V2)
+        await update.message.reply_text(
+            PAYMENT_MSG,
+            parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=_payment_keyboard(),
+        )
         return
 
     # Warn if last free search
