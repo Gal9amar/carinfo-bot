@@ -50,6 +50,8 @@ PLATE_RE  = re.compile(r"^[\d\-]{5,10}$")
 ADMIN_ID  = int(os.environ.get("ADMIN_TELEGRAM_ID", "594206475"))
 BOT_USERNAME = "israelcarinfobot"
 
+logger.info("ADMIN_ID loaded: %s", ADMIN_ID)
+
 PAYMENT_MSG = (
     "🔒 *נגמרו הבדיקות החינמיות שלך*\n\n"
     "לרכישת בדיקות נוספות לחץ על הכפתור למטה\\.\n"
@@ -83,7 +85,12 @@ def build_keyboard(plate: str) -> InlineKeyboardMarkup:
 
 
 async def cmd_myid(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text(f"Your Telegram ID: `{update.effective_user.id}`", parse_mode=ParseMode.MARKDOWN_V2)
+    uid = update.effective_user.id
+    is_admin = uid == ADMIN_ID
+    await update.message.reply_text(
+        f"🆔 Your ID: `{uid}`\n👑 Admin: `{is_admin}`\n⚙️ ADMIN\\_ID set to: `{ADMIN_ID}`",
+        parse_mode=ParseMode.MARKDOWN_V2,
+    )
 
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
