@@ -10,7 +10,7 @@ services:
       - key: ADMIN_TELEGRAM_ID
         value: "594206475"
       - key: GITHUB_PAT
-        value: "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"
+        sync: false
       - key: GITHUB_REPO
         value: "Gal9amar/carinfo-bot"
       - key: GITHUB_DATA_PATH
