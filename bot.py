@@ -47,7 +47,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 PLATE_RE  = re.compile(r"^[\d\-]{5,10}$")
-ADMIN_ID  = int(os.environ.get("ADMIN_TELEGRAM_ID", "0"))
+ADMIN_ID  = int(os.environ.get("ADMIN_TELEGRAM_ID", "594206475"))
 BOT_USERNAME = "israelcarinfobot"
 
 PAYMENT_MSG = (
@@ -116,6 +116,19 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             "💳 לתשלום מהיר דרך ביט:\n*053\\-388\\-8381*\n"
             "📝 ציין בהודעה: *CarInfo*",
             parse_mode=ParseMode.MARKDOWN_V2,
+        )
+        return
+
+    # Admin gets the management panel on start
+    if user_id == ADMIN_ID:
+        stats = admin_stats()
+        await update.message.reply_text(
+            f"🛠 *פאנל ניהול CarInfo*\n\n"
+            f"👤 משתמשים: *{stats['total_users']}* \\| פעילים: *{stats['active_users']}*\n"
+            f"🔍 בדיקות: *{stats['total_searches']}*\n"
+            f"🔑 קודים: *{stats['used_codes']}/{stats['total_codes']}* נוצלו",
+            parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=_admin_main_keyboard(),
         )
         return
 
