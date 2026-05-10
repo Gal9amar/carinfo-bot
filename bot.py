@@ -8,6 +8,8 @@ import logging
 import os
 import re
 import sys
+from threading import Thread
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -132,10 +134,30 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     )
 
 
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"OK")
+
+    def log_message(self, *args):
+        pass  # silence access logs
+
+
+def run_health_server():
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(("0.0.0.0", port), HealthHandler)
+    server.serve_forever()
+
+
 def main() -> None:
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     if not token:
         raise RuntimeError("TELEGRAM_BOT_TOKEN environment variable is not set")
+
+    # Keep Render alive – health check server on PORT
+    Thread(target=run_health_server, daemon=True).start()
+    logger.info("Health server started")
 
     app = Application.builder().token(token).build()
 
