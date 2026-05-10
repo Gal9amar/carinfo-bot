@@ -24,7 +24,6 @@ from telegram.ext import (
 )
 
 from src.api.gov_api import fetch_vehicle_data
-from src.api.stolen_api import check_stolen
 from src.api.image_api import fetch_car_image
 from src.cache import cache
 from src.formatter import format_error, format_not_found, format_vehicle_message
@@ -89,10 +88,7 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await update.message.reply_text("🔍 מחפש נתונים...")
 
     try:
-        record, stolen = await asyncio.gather(
-            fetch_vehicle_data(plate),
-            check_stolen(plate),
-        )
+        record = await fetch_vehicle_data(plate)
     except Exception as exc:
         logger.error("Error fetching data for plate %s: %s", plate, exc)
         await update.message.reply_text(format_error(), parse_mode=ParseMode.MARKDOWN_V2)
@@ -102,7 +98,7 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await update.message.reply_text(format_not_found(plate), parse_mode=ParseMode.MARKDOWN_V2)
         return
 
-    msg = format_vehicle_message(record, stolen)
+    msg = format_vehicle_message(record)
     cache.set(plate, msg)
 
     # Try to fetch a matching car image

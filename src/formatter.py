@@ -69,7 +69,7 @@ def row(label: str, value) -> str:
     return f"• *{_escape(label)}:* {_escape(v)}\n"
 
 
-def format_vehicle_message(record: dict, stolen: Optional[bool]) -> str:
+def format_vehicle_message(record: dict) -> str:
     plate        = _val(record, "mispar_rechev")
     manufacturer = _val(record, "tozeret_nm")
     model        = _val(record, "kinuy_mishari", "degem_nm")
@@ -141,17 +141,8 @@ def format_vehicle_message(record: dict, stolen: Optional[bool]) -> str:
     # Recalls
     recalls = record.get("_recalls") or []
 
-    # Stolen status line
-    if stolen is True:
-        stolen_line = "🚨 *רכב זה מדווח כגנוב במשטרה\\!*"
-    elif stolen is False:
-        stolen_line = "✅ לא מדווח כגנוב"
-    else:
-        stolen_line = "❓ בדיקת גנבה לא זמינה"
-
     lines = []
     lines.append(f"🚗 *מידע על רכב {_escape(plate)}*\n")
-    lines.append(f"{stolen_line}\n")
     lines.append("━━━━━━━━━━━━━━━━━━\n")
 
     # --- פרטים כלליים ---
