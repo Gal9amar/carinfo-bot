@@ -19,6 +19,7 @@ from telegram.ext import (
     Application,
     CallbackQueryHandler,
     CommandHandler,
+    ConversationHandler,
     ContextTypes,
     MessageHandler,
     filters,
@@ -56,13 +57,13 @@ PAYMENT_MSG = (
     "נחזור אליך בהקדם\\!"
 )
 
+WAITING_CODE = 1  # ConversationHandler state
+
 def _payment_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([[
-        InlineKeyboardButton(
-            "💳 רכישת בדיקות נוספות",
-            url=f"https://t.me/{BOT_USERNAME}?start=buy"
-        )
-    ]])
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("💳 רכישת בדיקות נוספות", url=f"https://t.me/{BOT_USERNAME}?start=buy")],
+        [InlineKeyboardButton("🔑 יש לי קוד גישה",      callback_data="enter_code")],
+    ])
 
 
 def normalize_plate(text: str) -> str:
@@ -119,7 +120,6 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(
             "✅ *קיבלנו את בקשתך\\!*\n\n"
             "ניצור איתך קשר בהקדם לאחר אישור התשלום\\.\n\n"
-            "💳 לתשלום מהיר דרך ביט:\n*053\\-388\\-8381*\n"
             "📝 ציין בהודעה: *CarInfo*",
             parse_mode=ParseMode.MARKDOWN_V2,
         )
@@ -202,6 +202,37 @@ async def cmd_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"{'✅' if success else '❌'} {msg}",
         parse_mode=ParseMode.MARKDOWN_V2 if not success else None,
     )
+
+
+async def cb_enter_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """User tapped 'I have a code' button."""
+    query = update.callback_query
+    await query.answer()
+    await query.message.reply_text(
+        "🔑 הקלד את קוד הגישה שלך:",
+        reply_markup=ReplyKeyboardRemove(),
+    )
+    return WAITING_CODE
+
+
+async def receive_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Receives the code text and applies it."""
+    user_id = update.effective_user.id
+    code    = update.message.text.strip().upper()
+    success, msg = apply_code(user_id, code)
+    if success:
+        await update.message.reply_text(msg)
+    else:
+        await update.message.reply_text(
+            f"❌ {msg}\n\nנסה שוב או שלח מספר רכב לחיפוש\\.",
+            parse_mode=ParseMode.MARKDOWN_V2,
+        )
+    return ConversationHandler.END
+
+
+async def cancel_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    await update.message.reply_text("בוטל.")
+    return ConversationHandler.END
 
 
 def _admin_main_keyboard() -> InlineKeyboardMarkup:
@@ -585,6 +616,12 @@ def main() -> None:
         "^(" + "|".join(re.escape(l) for l in category_labels) + "|🔍 חיפוש רכב חדש)$"
     )
     app.add_handler(MessageHandler(category_filter & ~filters.COMMAND, handle_category))
+    app.add_handler(ConversationHandler(
+        entry_points=[CallbackQueryHandler(cb_enter_code, pattern="^enter_code$")],
+        states={WAITING_CODE: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_code)]},
+        fallbacks=[CommandHandler("cancel", cancel_code)],
+        per_message=False,
+    ))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_plate))
 
     logger.info("Bot is starting (polling mode)...")

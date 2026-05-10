@@ -1,7 +1,6 @@
 """
 User management – free quota + access code system.
-Storage: GitHub API (users.json in the repo) so data survives Render deployments.
-Falls back to local file if GitHub env vars are not set.
+Storage: GitHub API for persistence, in-memory cache to minimize API calls.
 """
 
 import base64
@@ -18,18 +17,21 @@ _GH_TOKEN  = os.environ.get("GITHUB_PAT", "")
 _GH_REPO   = os.environ.get("GITHUB_REPO", "Gal9amar/carinfo-bot")
 _GH_PATH   = os.environ.get("GITHUB_DATA_PATH", "data/users.json")
 _GH_BRANCH = os.environ.get("GITHUB_BRANCH", "main")
+_GH_API    = f"https://api.github.com/repos/{_GH_REPO}/contents/{_GH_PATH}"
+_GH_HEADERS = {
+    "Authorization": f"token {_GH_TOKEN}",
+    "Accept": "application/vnd.github+json",
+}
 
-# Local fallback path (dev / no GitHub creds)
+# Local fallback
 _LOCAL_DIR  = os.environ.get("DATA_DIR") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
 _LOCAL_FILE = os.path.join(_LOCAL_DIR, "users.json")
 
 FREE_SEARCHES = 5
 
-_GH_HEADERS = {
-    "Authorization": f"token {_GH_TOKEN}",
-    "Accept": "application/vnd.github+json",
-}
-_GH_API = f"https://api.github.com/repos/{_GH_REPO}/contents/{_GH_PATH}"
+# ── In-memory cache ────────────────────────────────────────────────────────
+_cache: Optional[dict] = None   # the data dict
+_cache_sha: Optional[str] = None  # GitHub file SHA (needed for updates)
 
 
 def _gh_available() -> bool:
@@ -37,59 +39,67 @@ def _gh_available() -> bool:
 
 
 def _load() -> dict:
+    global _cache, _cache_sha
+    if _cache is not None:
+        return _cache
+
     if _gh_available():
         try:
             r = httpx.get(_GH_API, headers=_GH_HEADERS, params={"ref": _GH_BRANCH}, timeout=10)
             if r.status_code == 200:
-                content = r.json().get("content", "")
-                return json.loads(base64.b64decode(content).decode("utf-8"))
+                body = r.json()
+                _cache_sha = body.get("sha")
+                _cache = json.loads(base64.b64decode(body["content"]).decode("utf-8"))
+                return _cache
             if r.status_code == 404:
-                return {}
+                _cache = {}
+                return _cache
         except Exception:
             pass
+
     # Local fallback
     os.makedirs(_LOCAL_DIR, exist_ok=True)
-    if not os.path.exists(_LOCAL_FILE):
-        return {}
-    try:
-        with open(_LOCAL_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
-
-
-def _get_sha() -> Optional[str]:
-    """Get current file SHA (required for GitHub updates)."""
-    try:
-        r = httpx.get(_GH_API, headers=_GH_HEADERS, params={"ref": _GH_BRANCH}, timeout=10)
-        if r.status_code == 200:
-            return r.json().get("sha")
-    except Exception:
-        pass
-    return None
+    if os.path.exists(_LOCAL_FILE):
+        try:
+            with open(_LOCAL_FILE, "r", encoding="utf-8") as f:
+                _cache = json.load(f)
+                return _cache
+        except Exception:
+            pass
+    _cache = {}
+    return _cache
 
 
 def _save(data: dict) -> None:
+    global _cache, _cache_sha
+    _cache = data  # always update in-memory cache
+
     if _gh_available():
         try:
-            content = base64.b64encode(json.dumps(data, ensure_ascii=False, indent=2).encode()).decode()
-            sha = _get_sha()
-            payload = {
+            content = base64.b64encode(
+                json.dumps(data, ensure_ascii=False, indent=2).encode()
+            ).decode()
+            payload: dict = {
                 "message": "update users data",
                 "content": content,
                 "branch": _GH_BRANCH,
             }
-            if sha:
-                payload["sha"] = sha
-            httpx.put(_GH_API, headers=_GH_HEADERS, json=payload, timeout=15)
+            if _cache_sha:
+                payload["sha"] = _cache_sha
+            r = httpx.put(_GH_API, headers=_GH_HEADERS, json=payload, timeout=15)
+            if r.status_code in (200, 201):
+                _cache_sha = r.json().get("content", {}).get("sha", _cache_sha)
             return
         except Exception:
             pass
+
     # Local fallback
     os.makedirs(_LOCAL_DIR, exist_ok=True)
     with open(_LOCAL_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
+
+# ── Helpers ────────────────────────────────────────────────────────────────
 
 def _ukey(user_id: int) -> str:
     return str(user_id)
@@ -112,15 +122,10 @@ def _ensure_user(data: dict, user_id: int, username: str = "") -> dict:
     return data
 
 
-def get_user(user_id: int, username: str = "") -> dict:
-    data = _load()
-    data = _ensure_user(data, user_id, username)
-    _save(data)
-    return data[_ukey(user_id)]
-
+# ── Public API ─────────────────────────────────────────────────────────────
 
 def is_allowed(user_id: int, username: str = "") -> tuple[bool, int]:
-    """Returns (allowed, searches_left). searches_left = -1 means unlimited."""
+    """Returns (allowed, searches_left). -1 = unlimited."""
     data = _load()
     data = _ensure_user(data, user_id, username)
     u = data[_ukey(user_id)]
