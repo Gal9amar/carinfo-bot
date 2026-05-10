@@ -11,6 +11,8 @@ import json
 from threading import Thread
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
+import httpx
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -119,16 +121,23 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     year         = str(record.get("shnat_yitzur", ""))
     color        = record.get("tzeva_rechev", "")
 
-    image_url = None
+    image_bytes = None
     try:
         image_url = await fetch_car_image(manufacturer, model, year, color)
+        if image_url:
+            async with httpx.AsyncClient(timeout=10, headers={
+                "User-Agent": "CarInfoBot/1.0 (Telegram bot; educational use)"
+            }) as http:
+                r = await http.get(image_url)
+                if r.status_code == 200 and "image" in r.headers.get("content-type", ""):
+                    image_bytes = r.content
     except Exception as exc:
         logger.warning("Image fetch failed for plate %s: %s", plate, exc)
 
-    if image_url:
+    if image_bytes:
         try:
             await update.message.reply_photo(
-                photo=image_url,
+                photo=image_bytes,
                 caption=summary,
                 parse_mode=ParseMode.MARKDOWN_V2,
                 reply_markup=keyboard,
