@@ -233,6 +233,71 @@ def cat_history(record: dict, w: dict) -> str:
     return "".join(lines)
 
 
+def cat_ownership(record: dict, w: dict) -> str:
+    ownership = record.get("_ownership") or []
+
+    if not ownership:
+        return "*👥 היסטוריית בעלויות*\n• לא נמצא מידע על בעלויות קודמות\n"
+
+    # Count unique owners (private transitions)
+    private_count = sum(1 for o in ownership if o.get("baalut") == "פרטי")
+    dealer_count  = sum(1 for o in ownership if o.get("baalut") == "סוחר")
+    total         = len(ownership)
+
+    def _fmt_baalut_dt(dt: str) -> str:
+        try:
+            y, m = str(dt)[:4], str(dt)[4:6]
+            months = ["","ינואר","פברואר","מרץ","אפריל","מאי","יוני",
+                      "יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"]
+            return f"{months[int(m)]} {y}"
+        except Exception:
+            return str(dt)
+
+    lines = [f"*👥 היסטוריית בעלויות*\n"]
+    lines.append(f"• *{_escape('סה\"כ רשומות')}:* {_escape(str(total))}\n")
+    lines.append(f"• *{_escape('בעלויות פרטיות')}:* {_escape(str(private_count))}\n")
+    lines.append(f"• *{_escape('עברו דרך סוחר')}:* {_escape(str(dealer_count))}\n")
+    lines.append("━━━━━━━━━━━━━━━━━━\n")
+
+    for i, o in enumerate(ownership, 1):
+        dt      = _fmt_baalut_dt(o.get("baalut_dt", ""))
+        baalut  = o.get("baalut", "לא ידוע")
+        emoji   = "👤" if baalut == "פרטי" else "🏢" if baalut == "סוחר" else "❓"
+        lines.append(f"*{_escape(str(i))}\\.* {emoji} {_escape(baalut)} — {_escape(dt)}\n")
+
+    return "".join(lines)
+
+
+def _check_km_fraud(record: dict) -> str:
+    """
+    Basic km fraud detection using last reported km vs ownership timeline.
+    Returns a warning string or empty string if ok.
+    """
+    km = record.get("kilometer_test_aharon")
+    if not km:
+        return ""
+    try:
+        km_val = int(float(str(km)))
+    except Exception:
+        return ""
+
+    ownership = record.get("_ownership") or []
+    first_dt = ownership[0].get("baalut_dt", "") if ownership else ""
+    try:
+        year_start = int(str(first_dt)[:4])
+        from datetime import date
+        years = date.today().year - year_start
+        if years > 0:
+            avg_km_per_year = km_val / years
+            if avg_km_per_year < 3000:
+                return f"⚠️ ק\"מ נמוך מאוד \\({_escape(str(km_val))} ב\\-{_escape(str(years))} שנים\\) — בדוק זיוף"
+            if avg_km_per_year > 50000:
+                return f"⚠️ ק\"מ גבוה מאוד \\({_escape(str(km_val))} ב\\-{_escape(str(years))} שנים\\)"
+    except Exception:
+        pass
+    return ""
+
+
 def cat_recalls(record: dict) -> str:
     recalls = record.get("_recalls") or []
     if not recalls:
@@ -262,6 +327,7 @@ CATEGORIES = {
     "safety":    ("🛡️ בטיחות",       cat_safety),
     "adas":      ("🤖 ADAS",          cat_adas),
     "history":   ("📅 היסטוריה",      cat_history),
+    "ownership": ("👥 בעלויות",       cat_ownership),
     "recalls":   ("🔔 ריקולים",       cat_recalls),
 }
 
@@ -279,6 +345,13 @@ def get_summary(record: dict) -> str:
     baalut       = _ownership_label(record.get("baalut")) or "✖ לא קיים"
     mkoriut      = _val(record, "mkoriut_nm") or "✖ לא קיים"
 
+    # Ownership summary
+    ownership = record.get("_ownership") or []
+    private_count = sum(1 for o in ownership if o.get("baalut") == "פרטי")
+    owners_str = f"{private_count} בעלים פרטיים" if ownership else "✖ לא קיים"
+
+    km_fraud_warning = _check_km_fraud(record)
+
     lines = [
         f"🚗 *{_escape(manufacturer)} {_escape(model)}*\n",
         "━━━━━━━━━━━━━━━━━━\n",
@@ -286,20 +359,24 @@ def get_summary(record: dict) -> str:
         f"• *{_escape('דגם')}:* {_escape(model)}\n",
         f"• *{_escape('שנת ייצור')}:* {_escape(year)}\n" if year else f"• *{_escape('שנת ייצור')}:* ✖ לא קיים\n",
         f"• *{_escape('גימור')}:* {_escape(trim)}\n" if trim else f"• *{_escape('גימור')}:* ✖ לא קיים\n",
-        f"• *{_escape('בעלות')}:* {_escape(baalut)}\n",
+        f"• *{_escape('בעלות נוכחית')}:* {_escape(baalut)}\n",
+        f"• *{_escape('כמות בעלים')}:* {_escape(owners_str)}\n",
         f"• *{_escape('מקוריות')}:* {_escape(mkoriut)}\n",
         f"• *{_escape('עלייה לכביש')}:* {_escape(road_entry)}\n" if road_entry else f"• *{_escape('עלייה לכביש')}:* ✖ לא קיים\n",
         f"• *{_escape('תוקף טסט')}:* {_escape(test)}\n",
         f"• *{_escape('ק\"מ אחרון שדווח')}:* {_escape(km)} ק\"מ\n" if km else f"• *{_escape('ק\"מ אחרון שדווח')}:* ✖ לא קיים\n",
+        f"\n{km_fraud_warning}\n" if km_fraud_warning else "",
         "\n_בחר קטגוריה למידע נוסף_ ⬇️",
     ]
-    return "".join(lines)
+    return "".join(l for l in lines if l)
 
 
 def get_category_text(category: str, record: dict) -> str:
     w = record.get("_wltp") or {}
     if category == "recalls":
         return cat_recalls(record)
+    if category == "ownership":
+        return cat_ownership(record, w)
     fn = CATEGORIES.get(category)
     if fn:
         return fn[1](record, w)
