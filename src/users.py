@@ -1,37 +1,93 @@
 """
 User management – free quota + access code system.
-Supports:
-  - Free searches per new user (FREE_SEARCHES)
-  - Codes with fixed search quota OR unlimited days
-  - Admin can grant searches directly to any user
-  - Full per-user tracking
+Storage: GitHub API (users.json in the repo) so data survives Render deployments.
+Falls back to local file if GitHub env vars are not set.
 """
 
+import base64
 import json
 import os
 import secrets
 from datetime import datetime, timedelta
 from typing import Optional
 
-_data_dir = os.environ.get("DATA_DIR") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
-DATA_FILE = os.path.join(_data_dir, "users.json")
+import httpx
+
+# ── GitHub storage config ──────────────────────────────────────────────────
+_GH_TOKEN  = os.environ.get("GITHUB_PAT", "")
+_GH_REPO   = os.environ.get("GITHUB_REPO", "Gal9amar/carinfo-bot")
+_GH_PATH   = os.environ.get("GITHUB_DATA_PATH", "data/users.json")
+_GH_BRANCH = os.environ.get("GITHUB_BRANCH", "main")
+
+# Local fallback path (dev / no GitHub creds)
+_LOCAL_DIR  = os.environ.get("DATA_DIR") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
+_LOCAL_FILE = os.path.join(_LOCAL_DIR, "users.json")
+
 FREE_SEARCHES = 5
+
+_GH_HEADERS = {
+    "Authorization": f"token {_GH_TOKEN}",
+    "Accept": "application/vnd.github+json",
+}
+_GH_API = f"https://api.github.com/repos/{_GH_REPO}/contents/{_GH_PATH}"
+
+
+def _gh_available() -> bool:
+    return bool(_GH_TOKEN)
 
 
 def _load() -> dict:
-    os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
-    if not os.path.exists(DATA_FILE):
+    if _gh_available():
+        try:
+            r = httpx.get(_GH_API, headers=_GH_HEADERS, params={"ref": _GH_BRANCH}, timeout=10)
+            if r.status_code == 200:
+                content = r.json().get("content", "")
+                return json.loads(base64.b64decode(content).decode("utf-8"))
+            if r.status_code == 404:
+                return {}
+        except Exception:
+            pass
+    # Local fallback
+    os.makedirs(_LOCAL_DIR, exist_ok=True)
+    if not os.path.exists(_LOCAL_FILE):
         return {}
     try:
-        with open(DATA_FILE, "r", encoding="utf-8") as f:
+        with open(_LOCAL_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception:
         return {}
 
 
+def _get_sha() -> Optional[str]:
+    """Get current file SHA (required for GitHub updates)."""
+    try:
+        r = httpx.get(_GH_API, headers=_GH_HEADERS, params={"ref": _GH_BRANCH}, timeout=10)
+        if r.status_code == 200:
+            return r.json().get("sha")
+    except Exception:
+        pass
+    return None
+
+
 def _save(data: dict) -> None:
-    os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
+    if _gh_available():
+        try:
+            content = base64.b64encode(json.dumps(data, ensure_ascii=False, indent=2).encode()).decode()
+            sha = _get_sha()
+            payload = {
+                "message": "update users data",
+                "content": content,
+                "branch": _GH_BRANCH,
+            }
+            if sha:
+                payload["sha"] = sha
+            httpx.put(_GH_API, headers=_GH_HEADERS, json=payload, timeout=15)
+            return
+        except Exception:
+            pass
+    # Local fallback
+    os.makedirs(_LOCAL_DIR, exist_ok=True)
+    with open(_LOCAL_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
@@ -46,9 +102,9 @@ def _ensure_user(data: dict, user_id: int, username: str = "") -> dict:
             "user_id": user_id,
             "username": username,
             "searches_done": 0,
-            "searches_quota": FREE_SEARCHES,  # total allowed
+            "searches_quota": FREE_SEARCHES,
             "codes_used": [],
-            "grants": [],  # log of admin grants
+            "grants": [],
             "first_seen": datetime.now().isoformat(),
         }
     elif username and not data[key].get("username"):
@@ -64,20 +120,14 @@ def get_user(user_id: int, username: str = "") -> dict:
 
 
 def is_allowed(user_id: int, username: str = "") -> tuple[bool, int]:
-    """
-    Returns (allowed, searches_left).
-    searches_left = -1 means unlimited.
-    """
+    """Returns (allowed, searches_left). searches_left = -1 means unlimited."""
     data = _load()
     data = _ensure_user(data, user_id, username)
     u = data[_ukey(user_id)]
-
     quota = u.get("searches_quota", FREE_SEARCHES)
     done  = u.get("searches_done", 0)
-
     if quota == -1:
         return True, -1
-
     left = max(0, quota - done)
     return left > 0, left
 
@@ -92,21 +142,15 @@ def increment_search(user_id: int) -> None:
 def apply_code(user_id: int, code: str, username: str = "") -> tuple[bool, str]:
     data = _load()
     codes = data.get("_codes", {})
-
     if code not in codes:
         return False, "קוד לא תקין"
-
     code_data = codes[code]
-
     data = _ensure_user(data, user_id, username)
     u = data[_ukey(user_id)]
-
     if code in u.get("codes_used", []):
         return False, "קוד זה כבר נוצל על ידך"
-
     if code_data.get("single_use") and code_data.get("used_by"):
         return False, "קוד זה כבר נוצל"
-
     code_exp = code_data.get("expires")
     if code_exp:
         try:
@@ -114,11 +158,8 @@ def apply_code(user_id: int, code: str, username: str = "") -> tuple[bool, str]:
                 return False, "קוד פג תוקף"
         except Exception:
             pass
-
-    # Add searches from code
     add_searches = code_data.get("searches", 0)
-    unlimited = code_data.get("unlimited", False)
-
+    unlimited    = code_data.get("unlimited", False)
     if unlimited:
         data[_ukey(user_id)]["searches_quota"] = -1
         result_msg = "✅ גישה בלתי מוגבלת הופעלה"
@@ -130,23 +171,19 @@ def apply_code(user_id: int, code: str, username: str = "") -> tuple[bool, str]:
             new_quota = current + add_searches
             data[_ukey(user_id)]["searches_quota"] = new_quota
             done = data[_ukey(user_id)].get("searches_done", 0)
-            result_msg = f"✅ נוספו {add_searches} בדיקות \\(סה\"כ {max(0, new_quota - done)} בדיקות נותרו\\)"
-
+            result_msg = f"✅ נוספו {add_searches} בדיקות \\(סה\"כ {max(0, new_quota - done)} נותרו\\)"
     data[_ukey(user_id)].setdefault("codes_used", []).append(code)
     codes[code]["used_by"] = _ukey(user_id)
     codes[code]["used_at"] = datetime.now().isoformat()
     data["_codes"] = codes
     _save(data)
-
     return True, result_msg
 
 
 def admin_grant(user_id: int, target_id: int, searches: int, note: str = "") -> str:
-    """Admin grants X searches to a user directly."""
     data = _load()
     data = _ensure_user(data, target_id)
     u = data[_ukey(target_id)]
-
     if searches == -1:
         data[_ukey(target_id)]["searches_quota"] = -1
         msg = "גישה בלתי מוגבלת"
@@ -158,8 +195,7 @@ def admin_grant(user_id: int, target_id: int, searches: int, note: str = "") -> 
             new_q = current + searches
             data[_ukey(target_id)]["searches_quota"] = new_q
             done = u.get("searches_done", 0)
-            msg = f"נוספו {searches} בדיקות \\(סה\"כ {max(0,new_q-done)} נותרו\\)"
-
+            msg = f"נוספו {searches} בדיקות \\(סה\"כ {max(0, new_q - done)} נותרו\\)"
     data[_ukey(target_id)].setdefault("grants", []).append({
         "by": user_id,
         "searches": searches,

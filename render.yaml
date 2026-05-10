@@ -9,10 +9,12 @@ services:
         sync: false
       - key: ADMIN_TELEGRAM_ID
         value: "594206475"
-      - key: DATA_DIR
-        value: /data
+      - key: GITHUB_PAT
+        value: "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"
+      - key: GITHUB_REPO
+        value: "Gal9amar/carinfo-bot"
+      - key: GITHUB_DATA_PATH
+        value: "data/users.json"
+      - key: GITHUB_BRANCH
+        value: "main"
     healthCheckPath: /
-    disk:
-      name: carinfo-data
-      mountPath: /data
-      sizeGB: 1
