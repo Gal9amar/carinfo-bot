@@ -140,101 +140,234 @@ async def cmd_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
+def _admin_main_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📊 סטטיסטיקות",      callback_data="adm|stats")],
+        [InlineKeyboardButton("👥 משתמשים",          callback_data="adm|users"),
+         InlineKeyboardButton("🔑 צור קוד",          callback_data="adm|gen_menu")],
+        [InlineKeyboardButton("💳 הענק גישה",        callback_data="adm|grant_info")],
+        [InlineKeyboardButton("⚙️ הגדרות בוט",       callback_data="adm|settings")],
+    ])
+
+
+def _admin_gen_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("10 בדיקות",  callback_data="adm|gen|10|single"),
+         InlineKeyboardButton("25 בדיקות",  callback_data="adm|gen|25|single")],
+        [InlineKeyboardButton("50 בדיקות",  callback_data="adm|gen|50|single"),
+         InlineKeyboardButton("100 בדיקות", callback_data="adm|gen|100|single")],
+        [InlineKeyboardButton("♾️ בלתי מוגבל (חד פעמי)",  callback_data="adm|gen|-1|single")],
+        [InlineKeyboardButton("♾️ בלתי מוגבל (רב פעמי)", callback_data="adm|gen|-1|multi")],
+        [InlineKeyboardButton("🔙 חזרה", callback_data="adm|main")],
+    ])
+
+
+def _admin_settings_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("✏️ שנה הודעת תשלום",  callback_data="adm|set_payment")],
+        [InlineKeyboardButton("🆓 שנה מספר בדיקות חינמיות", callback_data="adm|set_free")],
+        [InlineKeyboardButton("🔙 חזרה", callback_data="adm|main")],
+    ])
+
+
 async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Admin only – stats / generate code / grant searches / list users."""
+    """Admin only – interactive admin panel."""
     user_id = update.effective_user.id
     if ADMIN_ID and user_id != ADMIN_ID:
         return
 
     args = context.args
 
-    # /admin  →  stats dashboard
-    if not args:
-        stats = admin_stats()
-        await update.message.reply_text(
-            f"📊 *סטטיסטיקות*\n"
-            f"• משתמשים: {stats['total_users']}\n"
-            f"• פעילים: {stats['active_users']}\n"
-            f"• סה\"כ בדיקות: {stats['total_searches']}\n"
-            f"• קודים שנוצרו: {stats['total_codes']}\n"
-            f"• קודים שנוצלו: {stats['used_codes']}\n\n"
-            f"`/admin gen 50` ← קוד עם 50 בדיקות\n"
-            f"`/admin gen 50 multi` ← קוד לשימוש מרובה\n"
-            f"`/admin grant @user 30` ← הענק 30 בדיקות\n"
-            f"`/admin grant @user -1` ← גישה בלתי מוגבלת\n"
-            f"`/admin users` ← רשימת משתמשים",
-            parse_mode=ParseMode.MARKDOWN_V2,
-        )
-        return
+    # Legacy text sub-commands still work
+    if args:
+        if args[0] == "grant" and len(args) >= 3:
+            username = args[1].lstrip("@")
+            try:
+                amount = int(args[2])
+            except ValueError:
+                await update.message.reply_text("כמות חייבת להיות מספר", parse_mode=ParseMode.MARKDOWN_V2)
+                return
+            target = get_user_by_username(username)
+            if not target:
+                await update.message.reply_text(f"משתמש @{username} לא נמצא\\.", parse_mode=ParseMode.MARKDOWN_V2)
+                return
+            note = " ".join(args[3:]) if len(args) > 3 else ""
+            msg = admin_grant(user_id, target["user_id"], amount, note)
+            await update.message.reply_text(f"✅ @{username}: {msg}", parse_mode=ParseMode.MARKDOWN_V2)
+            return
 
-    # /admin gen [count] [multi]  →  generate a code
-    if args[0] == "gen":
-        try:
-            count = int(args[1]) if len(args) > 1 and args[1] != "multi" else 10
-        except ValueError:
-            count = 10
-        single = "multi" not in args
-        unlimited = count == -1
-        code = generate_code(searches=count, single_use=single, unlimited=unlimited)
-        kind = "בלתי מוגבל" if unlimited else f"{count} בדיקות"
-        use_str = "שימוש חד פעמי" if single else "שימוש מרובה"
-        await update.message.reply_text(
-            f"✅ קוד חדש \\({kind}, {use_str}\\):\n`{code}`",
-            parse_mode=ParseMode.MARKDOWN_V2,
-        )
-        return
-
-    # /admin grant @username [searches]  →  grant searches to user
-    if args[0] == "grant":
-        if len(args) < 3:
+        if args[0] == "gen":
+            try:
+                count = int(args[1]) if len(args) > 1 and args[1] != "multi" else 10
+            except ValueError:
+                count = 10
+            single = "multi" not in args
+            unlimited = count == -1
+            code = generate_code(searches=count, single_use=single, unlimited=unlimited)
+            kind = "בלתי מוגבל" if unlimited else f"{count} בדיקות"
+            use_str = "חד פעמי" if single else "רב פעמי"
             await update.message.reply_text(
-                "שימוש: `/admin grant @username 50`",
+                f"✅ קוד חדש \\({kind}, {use_str}\\):\n`{code}`",
                 parse_mode=ParseMode.MARKDOWN_V2,
             )
             return
-        username = args[1].lstrip("@")
-        try:
-            amount = int(args[2])
-        except ValueError:
-            await update.message.reply_text("כמות חייבת להיות מספר \\(\\-1 לבלתי מוגבל\\)", parse_mode=ParseMode.MARKDOWN_V2)
-            return
-        target = get_user_by_username(username)
-        if not target:
-            await update.message.reply_text(f"משתמש @{username} לא נמצא\\.", parse_mode=ParseMode.MARKDOWN_V2)
-            return
-        note = " ".join(args[3:]) if len(args) > 3 else ""
-        msg = admin_grant(user_id, target["user_id"], amount, note)
-        await update.message.reply_text(
-            f"✅ @{username}: {msg}",
+
+    # /admin  → show main panel
+    stats = admin_stats()
+    await update.message.reply_text(
+        f"🛠 *פאנל ניהול CarInfo*\n\n"
+        f"👤 משתמשים: *{stats['total_users']}* \\| פעילים: *{stats['active_users']}*\n"
+        f"🔍 בדיקות: *{stats['total_searches']}*\n"
+        f"🔑 קודים: *{stats['used_codes']}/{stats['total_codes']}* נוצלו",
+        parse_mode=ParseMode.MARKDOWN_V2,
+        reply_markup=_admin_main_keyboard(),
+    )
+
+
+async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handles all adm|... callback buttons."""
+    query = update.callback_query
+    user_id = query.from_user.id
+    if ADMIN_ID and user_id != ADMIN_ID:
+        await query.answer("אין הרשאה", show_alert=True)
+        return
+    await query.answer()
+
+    parts = query.data.split("|")
+    action = parts[1] if len(parts) > 1 else ""
+
+    # ── Main panel ──
+    if action == "main":
+        stats = admin_stats()
+        await query.edit_message_text(
+            f"🛠 *פאנל ניהול CarInfo*\n\n"
+            f"👤 משתמשים: *{stats['total_users']}* \\| פעילים: *{stats['active_users']}*\n"
+            f"🔍 בדיקות: *{stats['total_searches']}*\n"
+            f"🔑 קודים: *{stats['used_codes']}/{stats['total_codes']}* נוצלו",
             parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=_admin_main_keyboard(),
         )
         return
 
-    # /admin users  →  list all users
-    if args[0] == "users":
+    # ── Stats ──
+    if action == "stats":
+        stats = admin_stats()
+        await query.edit_message_text(
+            f"📊 *סטטיסטיקות מפורטות*\n\n"
+            f"• סה\"כ משתמשים: *{stats['total_users']}*\n"
+            f"• פעילים \\(יש להם מכסה\\): *{stats['active_users']}*\n"
+            f"• סה\"כ בדיקות שבוצעו: *{stats['total_searches']}*\n"
+            f"• קודים שנוצרו: *{stats['total_codes']}*\n"
+            f"• קודים שנוצלו: *{stats['used_codes']}*",
+            parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 חזרה", callback_data="adm|main")]]),
+        )
+        return
+
+    # ── Users list ──
+    if action == "users":
         users = get_all_users()
         if not users:
-            await update.message.reply_text("אין משתמשים עדיין\\.", parse_mode=ParseMode.MARKDOWN_V2)
+            await query.edit_message_text(
+                "אין משתמשים עדיין\\.",
+                parse_mode=ParseMode.MARKDOWN_V2,
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 חזרה", callback_data="adm|main")]]),
+            )
             return
-        lines = ["👥 *משתמשים*\n"]
-        for u in users[:30]:  # cap at 30 to avoid message size limit
+        lines = ["👥 *משתמשים* \\(מסודר לפי בדיקות\\)\n"]
+        for u in users[:25]:
             uname = f"@{u['username']}" if u.get("username") else f"id:{u['user_id']}"
-            done = u.get("searches_done", 0)
+            done  = u.get("searches_done", 0)
             quota = u.get("searches_quota", 0)
-            left = u.get("searches_left", 0)
+            left  = u.get("searches_left", 0)
             quota_str = "∞" if quota == -1 else str(quota)
-            left_str = "∞" if left == -1 else str(left)
-            lines.append(f"• {uname}: {done}/{quota_str} \\(נותרו: {left_str}\\)")
-        await update.message.reply_text(
-            "\n".join(lines),
+            left_str  = "∞" if left  == -1 else str(left)
+            from src.formatter import _escape
+            lines.append(f"• {_escape(uname)}: {done}/{quota_str} \\(נותרו: {left_str}\\)\n")
+        await query.edit_message_text(
+            "".join(lines),
             parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 חזרה", callback_data="adm|main")]]),
         )
         return
 
-    await update.message.reply_text(
-        "פקודה לא מוכרת\\. נסה `/admin` לעזרה\\.",
-        parse_mode=ParseMode.MARKDOWN_V2,
-    )
+    # ── Gen menu ──
+    if action == "gen_menu":
+        await query.edit_message_text(
+            "🔑 *יצירת קוד גישה*\n\nבחר כמות בדיקות לקוד:",
+            parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=_admin_gen_keyboard(),
+        )
+        return
+
+    # ── Gen code ──
+    if action == "gen":
+        count_str = parts[2] if len(parts) > 2 else "10"
+        use_type  = parts[3] if len(parts) > 3 else "single"
+        count     = int(count_str)
+        single    = use_type == "single"
+        unlimited = count == -1
+        code = generate_code(searches=count, single_use=single, unlimited=unlimited)
+        kind     = "♾️ בלתי מוגבל" if unlimited else f"{count} בדיקות"
+        use_str  = "חד פעמי" if single else "רב פעמי"
+        await query.edit_message_text(
+            f"✅ *קוד חדש נוצר*\n\n"
+            f"סוג: {kind} \\| {use_str}\n\n"
+            f"`{code}`\n\n"
+            f"_העתק את הקוד ושלח ללקוח_",
+            parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔑 צור קוד נוסף", callback_data="adm|gen_menu")],
+                [InlineKeyboardButton("🔙 ראשי",          callback_data="adm|main")],
+            ]),
+        )
+        return
+
+    # ── Grant info ──
+    if action == "grant_info":
+        await query.edit_message_text(
+            "💳 *הענקת גישה למשתמש*\n\n"
+            "שלח פקודה בפורמט:\n"
+            "`/admin grant @username 50`\n\n"
+            "לגישה בלתי מוגבלת:\n"
+            "`/admin grant @username \\-1`",
+            parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 חזרה", callback_data="adm|main")]]),
+        )
+        return
+
+    # ── Settings ──
+    if action == "settings":
+        import src.users as _u
+        free = _u.FREE_SEARCHES
+        await query.edit_message_text(
+            f"⚙️ *הגדרות בוט*\n\n"
+            f"• בדיקות חינמיות למשתמש חדש: *{free}*\n"
+            f"• הודעת תשלום: מוגדרת\n\n"
+            f"לשינוי מספר הבדיקות החינמיות, ערוך את המשתנה `FREE_SEARCHES` ב\\-`src/users\\.py`",
+            parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=_admin_settings_keyboard(),
+        )
+        return
+
+    if action == "set_payment":
+        await query.edit_message_text(
+            "✏️ *שינוי הודעת תשלום*\n\n"
+            "ערוך את המשתנה `PAYMENT_MSG` ב\\-`bot\\.py` ודחוף לגיטהאב\\.",
+            parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 חזרה", callback_data="adm|settings")]]),
+        )
+        return
+
+    if action == "set_free":
+        await query.edit_message_text(
+            "🆓 *שינוי מספר בדיקות חינמיות*\n\n"
+            "ערוך את השורה `FREE_SEARCHES = 5` ב\\-`src/users\\.py` לכל ערך שתרצה ודחוף לגיטהאב\\.\n\n"
+            "_שים לב: משפיע רק על משתמשים חדשים_",
+            parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 חזרה", callback_data="adm|settings")]]),
+        )
+        return
 
 
 async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -384,6 +517,7 @@ def main() -> None:
     app.add_handler(CommandHandler("code", cmd_code))
     app.add_handler(CommandHandler("admin", cmd_admin))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_plate))
+    app.add_handler(CallbackQueryHandler(handle_admin_callback, pattern=r"^adm\|"))
     app.add_handler(CallbackQueryHandler(handle_callback))
 
     logger.info("Bot is starting (polling mode)...")
