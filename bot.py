@@ -10,7 +10,6 @@ import sys
 from threading import Thread
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-import httpx
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -26,7 +25,6 @@ from telegram.ext import (
 )
 
 from src.api.gov_api import fetch_vehicle_data
-from src.api.image_api import fetch_car_image
 from src.cache import cache
 from src.users import (
     is_allowed, increment_search, apply_code, generate_code,
@@ -496,37 +494,7 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         if remaining > 0:
             summary += f"\n\n_נותרו לך {remaining} בדיקות חינמיות_"
 
-    manufacturer = record.get("tozeret_nm", "")
-    model        = record.get("kinuy_mishari") or record.get("degem_nm") or ""
-    year         = str(record.get("shnat_yitzur", ""))
-    color        = record.get("tzeva_rechev", "")
-
-    image_bytes = None
-    try:
-        image_url = await fetch_car_image(manufacturer, model, year, color)
-        if image_url:
-            async with httpx.AsyncClient(timeout=10, headers={
-                "User-Agent": "CarInfoBot/1.0 (Telegram bot; educational use)"
-            }) as http:
-                r = await http.get(image_url)
-                if r.status_code == 200 and "image" in r.headers.get("content-type", ""):
-                    image_bytes = r.content
-    except Exception as exc:
-        logger.warning("Image fetch failed for plate %s: %s", plate, exc)
-
     await searching_msg.delete()
-
-    if image_bytes:
-        try:
-            await update.message.reply_photo(
-                photo=image_bytes,
-                caption=summary,
-                parse_mode=ParseMode.MARKDOWN_V2,
-                reply_markup=keyboard,
-            )
-            return
-        except Exception as exc:
-            logger.warning("Failed to send photo for plate %s: %s", plate, exc)
 
     await update.message.reply_text(
         summary,
@@ -555,37 +523,12 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     text = get_category_text(category, record)
     keyboard = build_keyboard(plate)
 
-    # Try to edit the message that contains the keyboard (the category message).
-    # If it has a caption (photo message) we can't edit text, so fall back to reply+delete.
-    try:
-        if query.message.caption is not None:
-            # Summary is a photo – send category as a separate editable message,
-            # or edit a previously sent category message tracked via user_data
-            raise ValueError("photo message")
-        await query.message.edit_text(
-            text,
-            parse_mode=ParseMode.MARKDOWN_V2,
-            reply_markup=keyboard,
-            disable_web_page_preview=True,
-        )
-    except Exception:
-        # First click after a photo summary, or edit failed – send new message
-        # and store its id so next click can edit it
-        chat_id  = query.message.chat_id
-        data_key = f"cat_msg_{chat_id}_{plate}"
-        prev_id  = context.user_data.get(data_key)
-        if prev_id:
-            try:
-                await context.bot.delete_message(chat_id=chat_id, message_id=prev_id)
-            except Exception:
-                pass
-        sent = await query.message.reply_text(
-            text,
-            parse_mode=ParseMode.MARKDOWN_V2,
-            reply_markup=keyboard,
-            disable_web_page_preview=True,
-        )
-        context.user_data[data_key] = sent.message_id
+    await query.message.edit_text(
+        text,
+        parse_mode=ParseMode.MARKDOWN_V2,
+        reply_markup=keyboard,
+        disable_web_page_preview=True,
+    )
 
 
 class HealthHandler(BaseHTTPRequestHandler):
