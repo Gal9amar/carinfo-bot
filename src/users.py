@@ -13,7 +13,8 @@ import secrets
 from datetime import datetime, timedelta
 from typing import Optional
 
-DATA_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "users.json")
+_data_dir = os.environ.get("DATA_DIR") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
+DATA_FILE = os.path.join(_data_dir, "users.json")
 FREE_SEARCHES = 5
 
 

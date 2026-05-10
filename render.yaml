@@ -7,4 +7,12 @@ services:
     envVars:
       - key: TELEGRAM_BOT_TOKEN
         sync: false
+      - key: ADMIN_TELEGRAM_ID
+        value: "594206475"
+      - key: DATA_DIR
+        value: /data
     healthCheckPath: /
+    disk:
+      name: carinfo-data
+      mountPath: /data
+      sizeGB: 1
