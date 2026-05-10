@@ -1,6 +1,5 @@
 """
 Formats vehicle data into categorized Hebrew Telegram messages (MarkdownV2).
-Each category is returned separately for InlineKeyboard navigation.
 """
 
 from datetime import datetime, date
@@ -43,9 +42,10 @@ def _ownership_label(baalut: Optional[str]) -> str:
     return mapping.get(str(baalut).strip(), str(baalut))
 
 
-def _yn(val) -> str:
+def _yn_always(val) -> str:
+    """Always returns a value – ✅/❌ or ✖ לא קיים."""
     if val is None or str(val).strip() in ("", "None", "nan"):
-        return ""
+        return "✖ לא קיים"
     s = str(val).strip().upper()
     if s in ("1", "Y", "YES", "TRUE"):
         return "✅ כן"
@@ -62,10 +62,31 @@ def _val(record: dict, *keys) -> str:
     return ""
 
 
+def _val_always(record: dict, *keys) -> str:
+    """Always returns a value – raw or ✖ לא קיים."""
+    for k in keys:
+        v = record.get(k)
+        if v is not None and str(v).strip() not in ("", "None", "nan"):
+            s = str(v).strip()
+            if s == "0":
+                return s
+            return s
+    return "✖ לא קיים"
+
+
 def _row(label: str, value) -> str:
+    """Row only if value exists."""
     v = str(value).strip() if value else ""
-    if not v or v in ("None", "nan", "0"):
+    if not v or v in ("None", "nan"):
         return ""
+    return f"• *{_escape(label)}:* {_escape(v)}\n"
+
+
+def _row_always(label: str, value) -> str:
+    """Row always shown – shows ✖ לא קיים if missing."""
+    v = str(value).strip() if value is not None else ""
+    if not v or v in ("None", "nan", ""):
+        v = "✖ לא קיים"
     return f"• *{_escape(label)}:* {_escape(v)}\n"
 
 
@@ -75,135 +96,147 @@ def _row(label: str, value) -> str:
 
 def cat_general(record: dict, w: dict) -> str:
     lines = ["*📋 פרטים כלליים*\n"]
-    lines.append(_row("יצרן", _val(record, "tozeret_nm")))
-    lines.append(_row("דגם", _val(record, "kinuy_mishari", "degem_nm")))
-    lines.append(_row("רמת גימור", _val(w, "ramat_gimur")))
-    lines.append(_row("שנת ייצור", _val(record, "shnat_yitzur")))
-    lines.append(_row("צבע", _val(record, "tzeva_rechev")))
-    lines.append(_row("סוג רכב", _val(record, "sug_rechev_nm")))
-    lines.append(_row("בעלות", _ownership_label(record.get("baalut"))))
-    lines.append(_row("מקוריות", _val(record, "mkoriut_nm")))
-    lines.append(_row("מסגרת (שלדה)", _val(record, "misgeret")))
-    lines.append(_row("מספר מנוע", _val(record, "mispar_manoa")))
-    return "".join(l for l in lines if l)
+    lines.append(_row_always("יצרן", _val(record, "tozeret_nm")))
+    lines.append(_row_always("דגם", _val(record, "kinuy_mishari", "degem_nm")))
+    lines.append(_row_always("רמת גימור", _val(w, "ramat_gimur")))
+    lines.append(_row_always("שנת ייצור", _val(record, "shnat_yitzur")))
+    lines.append(_row_always("צבע", _val(record, "tzeva_rechev")))
+    lines.append(_row_always("ארץ ייצור", _val(w, "tozeret_eretz_nm")))
+    lines.append(_row_always("יבואן/תוצר", _val(w, "tozar")))
+    lines.append(_row_always("סוג מרכב", _val(w, "merkav")))
+    lines.append(_row_always("סוג רכב", _val(record, "sug_rechev_nm")))
+    lines.append(_row_always("סוג תקינה", _val(w, "sug_tkina_nm")))
+    lines.append(_row_always("מסגרת (שלדה)", _val(record, "misgeret")))
+    lines.append(_row_always("מספר מנוע", _val(record, "mispar_manoa")))
+    return "".join(lines)
 
 
 def cat_specs(record: dict, w: dict) -> str:
-    engine_cc  = _val(w, "nefah_manoa") or _val(record, "nefach_manoa")
-    weight     = _val(w, "mishkal_kolel")
-    height     = _val(w, "gova")
-    wheelbase  = _val(w, "merkav")
-    tow_with   = _val(w, "kosher_grira_im_blamim")
-    tow_without= _val(w, "kosher_grira_bli_blamim")
-    auto       = _yn(w.get("automatic_ind"))
-    gearbox    = "אוטומטית" if auto == "✅ כן" else ("ידנית" if auto == "❌ לא" else "")
+    engine_cc   = _val(w, "nefah_manoa") or _val(record, "nefach_manoa")
+    weight      = _val(w, "mishkal_kolel")
+    height      = _val(w, "gova")
+    wheelbase   = _val(w, "merkav")
+    tow_with    = _val(w, "kosher_grira_im_blamim")
+    tow_without = _val(w, "kosher_grira_bli_blamim")
+    auto        = w.get("automatic_ind")
+    gearbox     = "אוטומטית" if str(auto) == "1" else ("ידנית" if str(auto) == "0" else "✖ לא קיים")
 
     lines = ["*⚙️ מפרט טכני*\n"]
-    lines.append(_row("סוג דלק", _val(record, "sug_delek_nm")))
-    lines.append(_row("נפח מנוע", f"{engine_cc} סמ\"ק" if engine_cc else ""))
-    lines.append(_row("כוח סוס", _val(w, "koah_sus")))
-    lines.append(_row("תיבת הילוכים", gearbox))
-    lines.append(_row("מושבים", _val(w, "mispar_moshavim")))
-    lines.append(_row("דלתות", _val(w, "mispar_dlatot")))
-    lines.append(_row("משקל כולל", f"{weight} ק\"ג" if weight else ""))
-    lines.append(_row("גובה", f"{height} מ\"מ" if height else ""))
-    lines.append(_row("מרחק סרנים", f"{wheelbase} מ\"מ" if wheelbase else ""))
-    lines.append(_row("גרירה עם בלמים", f"{tow_with} ק\"ג" if tow_with else ""))
-    lines.append(_row("גרירה ללא בלמים", f"{tow_without} ק\"ג" if tow_without else ""))
-    return "".join(l for l in lines if l)
+    lines.append(_row_always("סוג דלק", _val(record, "sug_delek_nm")))
+    lines.append(_row_always("טכנולוגיית הנעה", _val(w, "technologiat_hanaa_nm")))
+    lines.append(_row_always("סוג הנעה", _val(w, "hanaa_nm")))
+    lines.append(_row_always("נפח מנוע", f"{engine_cc} סמ\"ק" if engine_cc else ""))
+    lines.append(_row_always("כוח סוס", _val(w, "koah_sus")))
+    lines.append(_row_always("תיבת הילוכים", gearbox))
+    lines.append(_row_always("סוג ממיר", _val(w, "sug_mamir_nm")))
+    lines.append(_row_always("מושבים", _val(w, "mispar_moshavim")))
+    lines.append(_row_always("דלתות", _val(w, "mispar_dlatot")))
+    lines.append(_row_always("משקל כולל", f"{weight} ק\"ג" if weight else ""))
+    lines.append(_row_always("גובה", f"{height} מ\"מ" if height else ""))
+    lines.append(_row_always("מרחק סרנים", f"{wheelbase} מ\"מ" if wheelbase else ""))
+    lines.append(_row_always("גרירה עם בלמים", f"{tow_with} ק\"ג" if tow_with else ""))
+    lines.append(_row_always("גרירה ללא בלמים", f"{tow_without} ק\"ג" if tow_without else ""))
+    return "".join(lines)
 
 
 def cat_tires(record: dict, w: dict) -> str:
     front = _val(record, "zmig_kidmi")
     rear  = _val(record, "zmig_ahori", "zmig_achori")
     lines = ["*🔧 גלגלים וצמיגים*\n"]
-    lines.append(_row("צמיג קדמי", front))
-    lines.append(_row("צמיג אחורי", rear))
-    if not front and not rear:
-        lines.append("_אין נתוני צמיגים במאגר_\n")
-    return "".join(l for l in lines if l)
+    lines.append(_row_always("צמיג קדמי", front))
+    lines.append(_row_always("צמיג אחורי", rear))
+    return "".join(lines)
 
 
 def cat_equipment(record: dict, w: dict) -> str:
     power_win = _val(w, "mispar_halonot_hashmal")
     lines = ["*🛋️ ציוד ונוחות*\n"]
-    lines.append(_row("מיזוג אוויר", _yn(w.get("mazgan_ind"))))
-    lines.append(_row("הגה כוח", _yn(w.get("hege_koah_ind"))))
-    lines.append(_row("חלונות חשמל", f"{power_win} חלונות" if power_win else ""))
-    lines.append(_row("גג פנורמי/שמש", _yn(w.get("halon_bagg_ind"))))
-    lines.append(_row("חישוקי סגסוגת", _yn(w.get("galgaley_sagsoget_kala_ind"))))
-    lines.append(_row("ארגז/תא מטען", _yn(w.get("argaz_ind"))))
-    return "".join(l for l in lines if l)
+    lines.append(_row_always("מיזוג אוויר", _yn_always(w.get("mazgan_ind"))))
+    lines.append(_row_always("הגה כוח", _yn_always(w.get("hege_koah_ind"))))
+    lines.append(_row_always("חלונות חשמל", f"{power_win} חלונות" if power_win else ""))
+    lines.append(_row_always("גג פנורמי/שמש", _yn_always(w.get("halon_bagg_ind"))))
+    lines.append(_row_always("חישוקי סגסוגת", _yn_always(w.get("galgaley_sagsoget_kala_ind"))))
+    lines.append(_row_always("ארגז/תא מטען", _yn_always(w.get("argaz_ind"))))
+    return "".join(lines)
 
 
 def cat_safety(record: dict, w: dict) -> str:
-    co2        = _val(w, "CO2_WLTP", "kamut_CO2")
-    nox        = _val(w, "NOX_WLTP", "kamut_NOX")
-    airbags    = _val(w, "mispar_kariot_avir")
+    co2     = _val(w, "CO2_WLTP", "kamut_CO2")
+    nox     = _val(w, "NOX_WLTP", "kamut_NOX")
+    hc      = _val(w, "HC_WLTP", "kamut_HC")
+    pm      = _val(w, "PM_WLTP", "kamut_PM10")
+    co      = _val(w, "CO_WLTP", "kamut_CO")
+    co2_city  = _val(w, "kamut_CO2_city")
+    co2_hway  = _val(w, "kamut_CO2_hway")
+    airbags = _val(w, "mispar_kariot_avir")
+
     lines = ["*🛡️ בטיחות ופליטות*\n"]
-    lines.append(_row("ניקוד בטיחות", _val(w, "nikud_betihut")))
-    lines.append(_row("רמת ציוד בטיחותי", _val(w, "ramat_eivzur_betihuty")))
-    lines.append(_row("כריות אוויר", f"{airbags} כריות" if airbags else ""))
-    lines.append(_row("ABS", _yn(w.get("abs_ind"))))
-    lines.append(_row("קבוצת זיהום", _val(record, "kvuzat_zihum")))
-    lines.append(_row("מדד ירוק", _val(w, "madad_yarok")))
-    lines.append(_row("CO2", f"{co2} גר'/ק\"מ" if co2 else ""))
-    lines.append(_row("NOX", f"{nox} מ\"ג/ק\"מ" if nox else ""))
-    return "".join(l for l in lines if l)
+    lines.append(_row_always("ניקוד בטיחות", _val(w, "nikud_betihut")))
+    lines.append(_row_always("רמת ציוד בטיחותי", _val(w, "ramat_eivzur_betihuty")))
+    lines.append(_row_always("כריות אוויר", f"{airbags} כריות" if airbags else ""))
+    lines.append(_row_always("ABS", _yn_always(w.get("abs_ind"))))
+    lines.append(_row_always("בקרת יציבות ESP", _yn_always(w.get("bakarat_yatzivut_ind"))))
+    lines.append(_row_always("קבוצת זיהום", _val(record, "kvuzat_zihum")))
+    lines.append(_row_always("מדד ירוק", _val(w, "madad_yarok")))
+    lines.append(_row_always("CO2 (WLTP)", f"{co2} גר'/ק\"מ" if co2 else ""))
+    lines.append(_row_always("CO2 בעיר", f"{co2_city} גר'/ק\"מ" if co2_city else ""))
+    lines.append(_row_always("CO2 בכביש", f"{co2_hway} גר'/ק\"מ" if co2_hway else ""))
+    lines.append(_row_always("NOX", f"{nox} מ\"ג/ק\"מ" if nox else ""))
+    lines.append(_row_always("HC", f"{hc}" if hc else ""))
+    lines.append(_row_always("PM10", f"{pm}" if pm else ""))
+    lines.append(_row_always("CO", f"{co}" if co else ""))
+    return "".join(lines)
 
 
 def cat_adas(record: dict, w: dict) -> str:
-    rows = [
-        _row("שמירת נתיב", _yn(w.get("bakarat_stiya_menativ_ind"))),
-        _row("ניטור מרחק קדמי", _yn(w.get("nitur_merhak_milfanim_ind"))),
-        _row("זיהוי שטח עיוור", _yn(w.get("zihuy_beshetah_nistar_ind"))),
-        _row("בקרת שיוט אדפטיבית", _yn(w.get("bakarat_shyut_adaptivit_ind"))),
-        _row("זיהוי הולכי רגל", _yn(w.get("zihuy_holchey_regel_ind"))),
-        _row("בלימת חירום אוטומטית", _yn(w.get("maarechet_ezer_labalam_ind"))),
-        _row("מצלמת רוורס", _yn(w.get("matzlemat_reverse_ind"))),
-        _row("חיישני לחץ צמיגים", _yn(w.get("hayshaney_lahatz_avir_batzmigim_ind"))),
-        _row("חיישן עייפות נהג", _yn(w.get("hayshaney_hagorot_ind"))),
-        _row("זיהוי תמרורים", _yn(w.get("zihuy_tamrurey_tnua_ind"))),
-        _row("שליטה אוטו' בפנסי גבוה", _yn(w.get("shlita_automatit_beorot_gvohim_ind"))),
-        _row("התראת נסיעה קדימה", _yn(w.get("teura_automatit_benesiya_kadima_ind"))),
-        _row("זיהוי אופניים/קורקינט", _yn(w.get("zihuy_rechev_do_galgali"))),
-        _row("נעילת אלכוהול", _yn(w.get("alco_lock"))),
-    ]
-    content = "".join(r for r in rows if r)
-    if not content:
-        return "*🤖 מערכות ADAS*\n_אין נתוני ADAS במאגר_\n"
-    return "*🤖 מערכות ADAS*\n" + content
+    lines = ["*🤖 מערכות ADAS*\n"]
+    lines.append(_row_always("שמירת נתיב", _yn_always(w.get("bakarat_stiya_menativ_ind"))))
+    lines.append(_row_always("בקרת סטייה אקטיבית", _yn_always(w.get("bakarat_stiya_activ_s"))))
+    lines.append(_row_always("ניטור מרחק קדמי", _yn_always(w.get("nitur_merhak_milfanim_ind"))))
+    lines.append(_row_always("זיהוי שטח עיוור", _yn_always(w.get("zihuy_beshetah_nistar_ind"))))
+    lines.append(_row_always("בקרת שיוט אדפטיבית", _yn_always(w.get("bakarat_shyut_adaptivit_ind"))))
+    lines.append(_row_always("בקרת מהירות ISA", _yn_always(w.get("bakarat_mehirut_isa"))))
+    lines.append(_row_always("זיהוי הולכי רגל", _yn_always(w.get("zihuy_holchey_regel_ind"))))
+    lines.append(_row_always("בלימת חירום אוטומטית", _yn_always(w.get("maarechet_ezer_labalam_ind"))))
+    lines.append(_row_always("בלימה לפני הולכי רגל/אופניים", _yn_always(w.get("blimat_hirum_lifnei_holhei_regel_ofanaim"))))
+    lines.append(_row_always("בלימה אוטומטית לאחור", _yn_always(w.get("blima_otomatit_nesia_leahor"))))
+    lines.append(_row_always("מצלמת רוורס", _yn_always(w.get("matzlemat_reverse_ind"))))
+    lines.append(_row_always("חיישני לחץ צמיגים", _yn_always(w.get("hayshaney_lahatz_avir_batzmigim_ind"))))
+    lines.append(_row_always("חיישן עייפות נהג", _yn_always(w.get("hayshaney_hagorot_ind"))))
+    lines.append(_row_always("זיהוי תמרורים", _yn_always(w.get("zihuy_tamrurey_tnua_ind"))))
+    lines.append(_row_always("שליטה אוטו' בפנסי גבוה", _yn_always(w.get("shlita_automatit_beorot_gvohim_ind"))))
+    lines.append(_row_always("התראת נסיעה קדימה", _yn_always(w.get("teura_automatit_benesiya_kadima_ind"))))
+    lines.append(_row_always("זיהוי מצב התקרבות מסוכנת", _yn_always(w.get("zihuy_matzav_hitkarvut_mesukenet_ind"))))
+    lines.append(_row_always("זיהוי אופניים/קורקינט", _yn_always(w.get("zihuy_rechev_do_galgali"))))
+    lines.append(_row_always("נעילת אלכוהול", _yn_always(w.get("alco_lock"))))
+    lines.append(_row_always("מתח סולל", _val(w, "dg_metach_solela")))
+    return "".join(lines)
 
 
 def cat_history(record: dict, w: dict) -> str:
     km = _val(record, "kilometer_test_aharon")
-    changed_body  = _yn(record.get("shinui_mivne_ind"))
-    changed_color = _yn(record.get("shnui_zeva_ind"))
-    changed_tire  = _yn(record.get("shinui_zmig_ind"))
-    gapam         = _yn(record.get("gapam_ind"))
+    changed_body  = record.get("shinui_mivne_ind")
+    changed_color = record.get("shnui_zeva_ind")
+    changed_tire  = record.get("shinui_zmig_ind")
+    gapam         = record.get("gapam_ind")
 
     lines = ["*📅 היסטוריה ורישום*\n"]
-    lines.append(_row("תאריך רישום ראשון", _format_date(record.get("rishum_rishon_dt"))))
-    lines.append(_row("עלייה לכביש", _format_date(record.get("moed_aliya_lakvish"))))
-    lines.append(_row("ק\"מ בטסט אחרון", f"{km} ק\"מ" if km else ""))
-    lines.append(_row("טסט אחרון", _format_date(record.get("mivchan_acharon_dt"))))
+    lines.append(_row_always("תאריך רישום ראשון", _format_date(record.get("rishum_rishon_dt"))))
+    lines.append(_row_always("עלייה לכביש", _format_date(record.get("moed_aliya_lakvish"))))
+    lines.append(_row_always("ק\"מ בטסט אחרון", f"{km} ק\"מ" if km else ""))
+    lines.append(_row_always("טסט אחרון", _format_date(record.get("mivchan_acharon_dt"))))
     lines.append(f"• *{_escape('תוקף טסט')}:* {_escape(_test_status(record.get('tokef_dt')))}\n")
-
-    changes = []
-    if changed_body  == "✅ כן": changes.append("מבנה")
-    if changed_color == "✅ כן": changes.append("צבע")
-    if changed_tire  == "✅ כן": changes.append("צמיגים")
-    if gapam         == "✅ כן": changes.append("GAPAM")
-    if changes:
-        lines.append(f"• *{_escape('שינויים ברכב')}:* {_escape(', '.join(changes))}\n")
-
-    return "".join(l for l in lines if l)
+    lines.append(_row_always("שינוי מבנה", _yn_always(changed_body)))
+    lines.append(_row_always("שינוי צבע", _yn_always(changed_color)))
+    lines.append(_row_always("שינוי צמיגים", _yn_always(changed_tire)))
+    lines.append(_row_always("GAPAM", _yn_always(gapam)))
+    return "".join(lines)
 
 
 def cat_recalls(record: dict) -> str:
     recalls = record.get("_recalls") or []
     if not recalls:
-        return "*🔔 ריקולים*\n_לא נמצאו ריקולים לדגם זה_\n"
+        return "*🔔 ריקולים*\n• לא נמצאו ריקולים לדגם זה\n"
     lines = [f"*🔔 ריקולים \\({_escape(str(len(recalls)))}\\)*\n"]
     for r in recalls:
         teur  = r.get("TEUR_TAKALA", "")
@@ -222,14 +255,14 @@ def cat_recalls(record: dict) -> str:
 # ─────────────────────────────────────────────
 
 CATEGORIES = {
-    "general":   ("📋 פרטים כלליים",  cat_general),
-    "specs":     ("⚙️ מפרט טכני",     cat_specs),
-    "tires":     ("🔧 גלגלים",        cat_tires),
-    "equipment": ("🛋️ ציוד",          cat_equipment),
-    "safety":    ("🛡️ בטיחות",        cat_safety),
-    "adas":      ("🤖 ADAS",           cat_adas),
-    "history":   ("📅 היסטוריה",       cat_history),
-    "recalls":   ("🔔 ריקולים",        cat_recalls),
+    "general":   ("📋 פרטים כלליים", cat_general),
+    "specs":     ("⚙️ מפרט טכני",    cat_specs),
+    "tires":     ("🔧 גלגלים",       cat_tires),
+    "equipment": ("🛋️ ציוד",         cat_equipment),
+    "safety":    ("🛡️ בטיחות",       cat_safety),
+    "adas":      ("🤖 ADAS",          cat_adas),
+    "history":   ("📅 היסטוריה",      cat_history),
+    "recalls":   ("🔔 ריקולים",       cat_recalls),
 }
 
 
@@ -243,20 +276,24 @@ def get_summary(record: dict) -> str:
     road_entry   = _format_date(record.get("moed_aliya_lakvish"))
     test         = _test_status(record.get("tokef_dt"))
     km           = _val(record, "kilometer_test_aharon")
+    baalut       = _ownership_label(record.get("baalut")) or "✖ לא קיים"
+    mkoriut      = _val(record, "mkoriut_nm") or "✖ לא קיים"
 
     lines = [
         f"🚗 *{_escape(manufacturer)} {_escape(model)}*\n",
-        f"━━━━━━━━━━━━━━━━━━\n",
+        "━━━━━━━━━━━━━━━━━━\n",
         f"• *{_escape('מספר רכב')}:* {_escape(plate)}\n",
-        f"• *{_escape('דגם')}:* {_escape(model)}\n" if model else "",
-        f"• *{_escape('שנת ייצור')}:* {_escape(year)}\n" if year else "",
-        f"• *{_escape('גימור')}:* {_escape(trim)}\n" if trim else "",
-        f"• *{_escape('עלייה לכביש')}:* {_escape(road_entry)}\n" if road_entry else "",
+        f"• *{_escape('דגם')}:* {_escape(model)}\n",
+        f"• *{_escape('שנת ייצור')}:* {_escape(year)}\n" if year else f"• *{_escape('שנת ייצור')}:* ✖ לא קיים\n",
+        f"• *{_escape('גימור')}:* {_escape(trim)}\n" if trim else f"• *{_escape('גימור')}:* ✖ לא קיים\n",
+        f"• *{_escape('בעלות')}:* {_escape(baalut)}\n",
+        f"• *{_escape('מקוריות')}:* {_escape(mkoriut)}\n",
+        f"• *{_escape('עלייה לכביש')}:* {_escape(road_entry)}\n" if road_entry else f"• *{_escape('עלייה לכביש')}:* ✖ לא קיים\n",
         f"• *{_escape('תוקף טסט')}:* {_escape(test)}\n",
-        f"• *{_escape('ק\"מ אחרון שדווח')}:* {_escape(km)} ק\"מ\n" if km else "",
-        f"\n_בחר קטגוריה למידע נוסף_ ⬇️",
+        f"• *{_escape('ק\"מ אחרון שדווח')}:* {_escape(km)} ק\"מ\n" if km else f"• *{_escape('ק\"מ אחרון שדווח')}:* ✖ לא קיים\n",
+        "\n_בחר קטגוריה למידע נוסף_ ⬇️",
     ]
-    return "".join(l for l in lines if l)
+    return "".join(lines)
 
 
 def get_category_text(category: str, record: dict) -> str:
