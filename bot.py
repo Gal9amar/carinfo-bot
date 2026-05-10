@@ -77,6 +77,10 @@ def build_keyboard(plate: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(buttons)
 
 
+async def cmd_myid(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text(f"Your Telegram ID: `{update.effective_user.id}`", parse_mode=ParseMode.MARKDOWN_V2)
+
+
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
     allowed, left = is_allowed(user_id)
@@ -373,6 +377,7 @@ def main() -> None:
     logger.info("Health server started")
 
     app = Application.builder().token(token).build()
+    app.add_handler(CommandHandler("myid", cmd_myid))
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("status", cmd_status))
