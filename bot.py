@@ -7,7 +7,6 @@ import logging
 import os
 import re
 import sys
-import json
 from threading import Thread
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
@@ -29,6 +28,10 @@ from telegram.ext import (
 from src.api.gov_api import fetch_vehicle_data
 from src.api.image_api import fetch_car_image
 from src.cache import cache
+from src.users import (
+    is_allowed, increment_search, apply_code, generate_code,
+    admin_stats, admin_grant, get_all_users, get_user_by_username,
+)
 from src.formatter import (
     CATEGORIES,
     format_error,
@@ -44,6 +47,17 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 PLATE_RE = re.compile(r"^[\d\-]{5,10}$")
+ADMIN_ID  = int(os.environ.get("ADMIN_TELEGRAM_ID", "0"))
+
+PAYMENT_MSG = (
+    "🔒 *ניצלת את 5 הבדיקות החינמיות שלך*\n\n"
+    "לרכישת גישה מלאה:\n"
+    "💳 שלח תשלום לביט: *053\\-388\\-8381*\n"
+    "📝 ציין בהודעה: *קוד גישה CarInfo*\n\n"
+    "לאחר התשלום תקבל קוד גישה\\.\n"
+    "הזן אותו עם הפקודה:\n"
+    "`/code XXXXXXXX`"
+)
 
 
 def normalize_plate(text: str) -> str:
@@ -64,10 +78,15 @@ def build_keyboard(plate: str) -> InlineKeyboardMarkup:
 
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = update.effective_user.id
+    allowed, left = is_allowed(user_id)
+    searches_info = f"נותרו לך *{left}* בדיקות חינמיות\\." if left >= 0 else "גישה מלאה פעילה ✅"
+
     await update.message.reply_text(
         "👋 שלום\\! אני בוט לבדיקת פרטי רכב ישראלי\\.\n\n"
         "שלח לי מספר לוחית רישוי \\(לדוגמה: 1234567\\)\n"
-        "ואחזיר לך את כל המידע הזמין על הרכב\\.",
+        "ואחזיר לך את כל המידע הזמין על הרכב\\.\n\n"
+        f"{searches_info}",
         parse_mode=ParseMode.MARKDOWN_V2,
     )
 
@@ -80,12 +99,142 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "📋 פרטים כלליים · ⚙️ מפרט טכני\n"
         "🔧 גלגלים · 🛋️ ציוד\n"
         "🛡️ בטיחות · 🤖 ADAS\n"
-        "📅 היסטוריה · 🔔 ריקולים",
+        "📅 היסטוריה · 👥 בעלויות · 🔔 ריקולים\n\n"
+        "*פקודות:*\n"
+        "`/code XXXXXXXX` \\– הזן קוד גישה\n"
+        "`/status` \\– בדוק את מצב חשבונך",
+        parse_mode=ParseMode.MARKDOWN_V2,
+    )
+
+
+async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = update.effective_user.id
+    allowed, left = is_allowed(user_id)
+    if left == -1:
+        msg = "✅ גישה מלאה פעילה"
+    elif left > 0:
+        msg = f"🆓 נותרו לך *{left}* בדיקות חינמיות"
+    else:
+        msg = "🔒 הבדיקות החינמיות שלך נוצלו\n\nשלח `/help` לפרטי רכישה"
+    await update.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN_V2)
+
+
+async def cmd_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = update.effective_user.id
+    args = context.args
+    if not args:
+        await update.message.reply_text(
+            "הזן קוד גישה: `/code XXXXXXXX`",
+            parse_mode=ParseMode.MARKDOWN_V2,
+        )
+        return
+    code = args[0].strip().upper()
+    success, msg = apply_code(user_id, code)
+    await update.message.reply_text(
+        f"{'✅' if success else '❌'} {msg}",
+        parse_mode=ParseMode.MARKDOWN_V2 if not success else None,
+    )
+
+
+async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Admin only – stats / generate code / grant searches / list users."""
+    user_id = update.effective_user.id
+    if ADMIN_ID and user_id != ADMIN_ID:
+        return
+
+    args = context.args
+
+    # /admin  →  stats dashboard
+    if not args:
+        stats = admin_stats()
+        await update.message.reply_text(
+            f"📊 *סטטיסטיקות*\n"
+            f"• משתמשים: {stats['total_users']}\n"
+            f"• פעילים: {stats['active_users']}\n"
+            f"• סה\"כ בדיקות: {stats['total_searches']}\n"
+            f"• קודים שנוצרו: {stats['total_codes']}\n"
+            f"• קודים שנוצלו: {stats['used_codes']}\n\n"
+            f"`/admin gen 50` ← קוד עם 50 בדיקות\n"
+            f"`/admin gen 50 multi` ← קוד לשימוש מרובה\n"
+            f"`/admin grant @user 30` ← הענק 30 בדיקות\n"
+            f"`/admin grant @user -1` ← גישה בלתי מוגבלת\n"
+            f"`/admin users` ← רשימת משתמשים",
+            parse_mode=ParseMode.MARKDOWN_V2,
+        )
+        return
+
+    # /admin gen [count] [multi]  →  generate a code
+    if args[0] == "gen":
+        try:
+            count = int(args[1]) if len(args) > 1 and args[1] != "multi" else 10
+        except ValueError:
+            count = 10
+        single = "multi" not in args
+        unlimited = count == -1
+        code = generate_code(searches=count, single_use=single, unlimited=unlimited)
+        kind = "בלתי מוגבל" if unlimited else f"{count} בדיקות"
+        use_str = "שימוש חד פעמי" if single else "שימוש מרובה"
+        await update.message.reply_text(
+            f"✅ קוד חדש \\({kind}, {use_str}\\):\n`{code}`",
+            parse_mode=ParseMode.MARKDOWN_V2,
+        )
+        return
+
+    # /admin grant @username [searches]  →  grant searches to user
+    if args[0] == "grant":
+        if len(args) < 3:
+            await update.message.reply_text(
+                "שימוש: `/admin grant @username 50`",
+                parse_mode=ParseMode.MARKDOWN_V2,
+            )
+            return
+        username = args[1].lstrip("@")
+        try:
+            amount = int(args[2])
+        except ValueError:
+            await update.message.reply_text("כמות חייבת להיות מספר \\(\\-1 לבלתי מוגבל\\)", parse_mode=ParseMode.MARKDOWN_V2)
+            return
+        target = get_user_by_username(username)
+        if not target:
+            await update.message.reply_text(f"משתמש @{username} לא נמצא\\.", parse_mode=ParseMode.MARKDOWN_V2)
+            return
+        note = " ".join(args[3:]) if len(args) > 3 else ""
+        msg = admin_grant(user_id, target["user_id"], amount, note)
+        await update.message.reply_text(
+            f"✅ @{username}: {msg}",
+            parse_mode=ParseMode.MARKDOWN_V2,
+        )
+        return
+
+    # /admin users  →  list all users
+    if args[0] == "users":
+        users = get_all_users()
+        if not users:
+            await update.message.reply_text("אין משתמשים עדיין\\.", parse_mode=ParseMode.MARKDOWN_V2)
+            return
+        lines = ["👥 *משתמשים*\n"]
+        for u in users[:30]:  # cap at 30 to avoid message size limit
+            uname = f"@{u['username']}" if u.get("username") else f"id:{u['user_id']}"
+            done = u.get("searches_done", 0)
+            quota = u.get("searches_quota", 0)
+            left = u.get("searches_left", 0)
+            quota_str = "∞" if quota == -1 else str(quota)
+            left_str = "∞" if left == -1 else str(left)
+            lines.append(f"• {uname}: {done}/{quota_str} \\(נותרו: {left_str}\\)")
+        await update.message.reply_text(
+            "\n".join(lines),
+            parse_mode=ParseMode.MARKDOWN_V2,
+        )
+        return
+
+    await update.message.reply_text(
+        "פקודה לא מוכרת\\. נסה `/admin` לעזרה\\.",
         parse_mode=ParseMode.MARKDOWN_V2,
     )
 
 
 async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = update.effective_user.id
     raw = update.message.text.strip()
     plate = normalize_plate(raw)
 
@@ -95,6 +244,21 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             parse_mode=ParseMode.MARKDOWN_V2,
         )
         return
+
+    # Check access
+    allowed, left = is_allowed(user_id)
+    if not allowed:
+        await update.message.reply_text(PAYMENT_MSG, parse_mode=ParseMode.MARKDOWN_V2)
+        return
+
+    # Warn if last free search
+    if left == 1:
+        await update.message.reply_text(
+            "⚠️ זוהי הבדיקה החינמית האחרונה שלך\\.",
+            parse_mode=ParseMode.MARKDOWN_V2,
+        )
+
+    increment_search(user_id)
 
     await update.message.reply_text("🔍 מחפש נתונים\\.\\.\\.", parse_mode=ParseMode.MARKDOWN_V2)
 
@@ -109,13 +273,17 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await update.message.reply_text(format_not_found(plate), parse_mode=ParseMode.MARKDOWN_V2)
         return
 
-    # Cache the full record for callback reuse (keyed by plate)
     cache.set(f"record_{plate}", record)
 
     summary = get_summary(record)
     keyboard = build_keyboard(plate)
 
-    # Try to send with car image
+    # Add remaining searches note for free users
+    if left > 0 and left != -1:
+        remaining = left - 1
+        if remaining > 0:
+            summary += f"\n\n_נותרו לך {remaining} בדיקות חינמיות_"
+
     manufacturer = record.get("tozeret_nm", "")
     model        = record.get("kinuy_mishari") or record.get("degem_nm") or ""
     year         = str(record.get("shnat_yitzur", ""))
@@ -207,6 +375,9 @@ def main() -> None:
     app = Application.builder().token(token).build()
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("help", cmd_help))
+    app.add_handler(CommandHandler("status", cmd_status))
+    app.add_handler(CommandHandler("code", cmd_code))
+    app.add_handler(CommandHandler("admin", cmd_admin))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_plate))
     app.add_handler(CallbackQueryHandler(handle_callback))
 
