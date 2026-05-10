@@ -13,7 +13,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton
 from telegram.constants import ParseMode
 from telegram.ext import (
     Application,
@@ -69,17 +69,18 @@ def normalize_plate(text: str) -> str:
     return text.strip().replace("-", "").replace(" ", "")
 
 
-def build_keyboard(plate: str) -> InlineKeyboardMarkup:
-    buttons = []
-    row = []
-    for key, (label, _) in CATEGORIES.items():
-        row.append(InlineKeyboardButton(label, callback_data=f"{plate}|{key}"))
-        if len(row) == 2:
-            buttons.append(row)
-            row = []
-    if row:
-        buttons.append(row)
-    return InlineKeyboardMarkup(buttons)
+def build_category_keyboard() -> ReplyKeyboardMarkup:
+    """Bottom reply keyboard with category buttons."""
+    labels = [label for label, _ in CATEGORIES.values()]
+    rows = [[KeyboardButton(labels[i]), KeyboardButton(labels[i+1])] for i in range(0, len(labels)-1, 2)]
+    if len(labels) % 2:
+        rows.append([KeyboardButton(labels[-1])])
+    rows.append([KeyboardButton("🔍 חיפוש רכב חדש")])
+    return ReplyKeyboardMarkup(rows, resize_keyboard=True, one_time_keyboard=False)
+
+
+# Map label → category key for handler lookup
+LABEL_TO_KEY = {label: key for key, (label, _) in CATEGORIES.items()}
 
 
 async def cmd_myid(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -484,9 +485,9 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     increment_search(user_id)
 
     cache.set(f"record_{plate}", record)
+    context.user_data["last_plate"] = plate
 
     summary = get_summary(record)
-    keyboard = build_keyboard(plate)
 
     # Add remaining searches note for free users
     if left > 0 and left != -1:
@@ -499,34 +500,50 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await update.message.reply_text(
         summary,
         parse_mode=ParseMode.MARKDOWN_V2,
-        reply_markup=keyboard,
+        reply_markup=build_category_keyboard(),
     )
 
 
-async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
+async def handle_category(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handles taps on the reply keyboard category buttons."""
+    text = update.message.text.strip()
 
-    try:
-        plate, category = query.data.split("|", 1)
-    except ValueError:
+    if text == "🔍 חיפוש רכב חדש":
+        await update.message.reply_text(
+            "🔢 שלח מספר רכב לחיפוש:",
+            parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=ReplyKeyboardRemove(),
+        )
+        context.user_data.pop("last_plate", None)
         return
 
-    record = cache.get(f"record_{plate}")
-    if record is None:
-        await query.message.reply_text(
-            "⏰ פג תוקף הנתונים\\. שלח את מספר הרכב שוב\\.",
+    category = LABEL_TO_KEY.get(text)
+    if not category:
+        return  # not a category button – fall through to handle_plate
+
+    plate = context.user_data.get("last_plate")
+    if not plate:
+        await update.message.reply_text(
+            "שלח מספר רכב תחילה\\.",
             parse_mode=ParseMode.MARKDOWN_V2,
         )
         return
 
-    text = get_category_text(category, record)
-    keyboard = build_keyboard(plate)
+    record = cache.get(f"record_{plate}")
+    if record is None:
+        await update.message.reply_text(
+            "⏰ פג תוקף הנתונים\\. שלח את מספר הרכב שוב\\.",
+            parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=ReplyKeyboardRemove(),
+        )
+        context.user_data.pop("last_plate", None)
+        return
 
-    await query.message.edit_text(
-        text,
+    result = get_category_text(category, record)
+    await update.message.reply_text(
+        result,
         parse_mode=ParseMode.MARKDOWN_V2,
-        reply_markup=keyboard,
+        reply_markup=build_category_keyboard(),
         disable_web_page_preview=True,
     )
 
@@ -561,9 +578,14 @@ def main() -> None:
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("code", cmd_code))
     app.add_handler(CommandHandler("admin", cmd_admin))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_plate))
     app.add_handler(CallbackQueryHandler(handle_admin_callback, pattern=r"^adm\|"))
-    app.add_handler(CallbackQueryHandler(handle_callback))
+    # Category keyboard buttons – must be before handle_plate
+    category_labels = [label for label, _ in CATEGORIES.values()]
+    category_filter = filters.TEXT & filters.Regex(
+        "^(" + "|".join(re.escape(l) for l in category_labels) + "|🔍 חיפוש רכב חדש)$"
+    )
+    app.add_handler(MessageHandler(category_filter & ~filters.COMMAND, handle_category))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_plate))
 
     logger.info("Bot is starting (polling mode)...")
     app.run_polling(drop_pending_updates=True)
