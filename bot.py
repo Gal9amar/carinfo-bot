@@ -1,6 +1,5 @@
 """
 CarInfo Bot – Israel vehicle lookup Telegram bot.
-Sends vehicle plate → returns all available data from data.gov.il + police stolen check.
 """
 
 import asyncio
@@ -8,15 +7,17 @@ import logging
 import os
 import re
 import sys
+import json
 from threading import Thread
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import ParseMode
 from telegram.ext import (
     Application,
+    CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
     MessageHandler,
@@ -26,7 +27,13 @@ from telegram.ext import (
 from src.api.gov_api import fetch_vehicle_data
 from src.api.image_api import fetch_car_image
 from src.cache import cache
-from src.formatter import format_error, format_not_found, format_vehicle_message
+from src.formatter import (
+    CATEGORIES,
+    format_error,
+    format_not_found,
+    get_category_text,
+    get_summary,
+)
 
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -41,26 +48,37 @@ def normalize_plate(text: str) -> str:
     return text.strip().replace("-", "").replace(" ", "")
 
 
+def build_keyboard(plate: str) -> InlineKeyboardMarkup:
+    buttons = []
+    row = []
+    for key, (label, _) in CATEGORIES.items():
+        row.append(InlineKeyboardButton(label, callback_data=f"{plate}|{key}"))
+        if len(row) == 2:
+            buttons.append(row)
+            row = []
+    if row:
+        buttons.append(row)
+    return InlineKeyboardMarkup(buttons)
+
+
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
-        "👋 שלום! אני בוט לבדיקת פרטי רכב ישראלי.\n\n"
-        "שלח לי מספר לוחית רישוי (לדוגמה: 1234567 או 123-45-678)\n"
-        "ואחזיר לך את כל המידע הזמין על הרכב מממשלת ישראל."
+        "👋 שלום\\! אני בוט לבדיקת פרטי רכב ישראלי\\.\n\n"
+        "שלח לי מספר לוחית רישוי \\(לדוגמה: 1234567\\)\n"
+        "ואחזיר לך את כל המידע הזמין על הרכב\\.",
+        parse_mode=ParseMode.MARKDOWN_V2,
     )
 
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         "📖 *שימוש בבוט*\n\n"
-        "פשוט שלח מספר רכב כהודעה\\.\n\n"
-        "*מה הבוט בודק:*\n"
-        "• פרטי רישוי \\(data\\.gov\\.il\\)\n"
-        "• יצרן, דגם, שנה, צבע, דלק\n"
-        "• תוקף טסט \\+ האם פג תוקף\n"
-        "• בעלות \\(ראשונה/שנייה\\.\\.\\.\n"
-        "• מפרט מנוע \\(נפח, כ\"ס, זיהום\\)\n"
-        "• בדיקת גנבה \\(מאגר משטרה\\)\n\n"
-        "המידע מגיע ממאגרי ממשלת ישראל בזמן אמת\\.",
+        "שלח מספר רכב → קבל סיכום \\+ תפריט קטגוריות\\.\n\n"
+        "*קטגוריות:*\n"
+        "📋 פרטים כלליים · ⚙️ מפרט טכני\n"
+        "🔧 גלגלים · 🛋️ ציוד\n"
+        "🛡️ בטיחות · 🤖 ADAS\n"
+        "📅 היסטוריה · 🔔 ריקולים",
         parse_mode=ParseMode.MARKDOWN_V2,
     )
 
@@ -71,21 +89,12 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     if not PLATE_RE.match(plate) or len(plate) < 5:
         await update.message.reply_text(
-            "🔢 שלח מספר רכב תקין בלבד (למשל: 1234567 או 12-345-67)"
+            "🔢 שלח מספר רכב תקין בלבד \\(למשל: 1234567\\)",
+            parse_mode=ParseMode.MARKDOWN_V2,
         )
         return
 
-    # Check cache
-    cached = cache.get(plate)
-    if cached:
-        logger.info("Cache hit for plate %s", plate)
-        await update.message.reply_text(
-            cached, parse_mode=ParseMode.MARKDOWN_V2, disable_web_page_preview=True
-        )
-        return
-
-    # Show typing indicator
-    await update.message.reply_text("🔍 מחפש נתונים...")
+    await update.message.reply_text("🔍 מחפש נתונים\\.\\.\\.", parse_mode=ParseMode.MARKDOWN_V2)
 
     try:
         record = await fetch_vehicle_data(plate)
@@ -98,10 +107,13 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await update.message.reply_text(format_not_found(plate), parse_mode=ParseMode.MARKDOWN_V2)
         return
 
-    msg = format_vehicle_message(record)
-    cache.set(plate, msg)
+    # Cache the full record for callback reuse (keyed by plate)
+    cache.set(f"record_{plate}", record)
 
-    # Try to fetch a matching car image
+    summary = get_summary(record)
+    keyboard = build_keyboard(plate)
+
+    # Try to send with car image
     manufacturer = record.get("tozeret_nm", "")
     model        = record.get("kinuy_mishari") or record.get("degem_nm") or ""
     year         = str(record.get("shnat_yitzur", ""))
@@ -117,16 +129,46 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         try:
             await update.message.reply_photo(
                 photo=image_url,
-                caption=msg,
+                caption=summary,
                 parse_mode=ParseMode.MARKDOWN_V2,
+                reply_markup=keyboard,
             )
             return
         except Exception as exc:
             logger.warning("Failed to send photo for plate %s: %s", plate, exc)
 
-    # Fallback: text only
     await update.message.reply_text(
-        msg, parse_mode=ParseMode.MARKDOWN_V2, disable_web_page_preview=True
+        summary,
+        parse_mode=ParseMode.MARKDOWN_V2,
+        reply_markup=keyboard,
+    )
+
+
+async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+
+    try:
+        plate, category = query.data.split("|", 1)
+    except ValueError:
+        return
+
+    record = cache.get(f"record_{plate}")
+    if record is None:
+        await query.message.reply_text(
+            "⏰ פג תוקף הנתונים\\. שלח את מספר הרכב שוב\\.",
+            parse_mode=ParseMode.MARKDOWN_V2,
+        )
+        return
+
+    text = get_category_text(category, record)
+    keyboard = build_keyboard(plate)
+
+    await query.message.reply_text(
+        text,
+        parse_mode=ParseMode.MARKDOWN_V2,
+        reply_markup=keyboard,
+        disable_web_page_preview=True,
     )
 
 
@@ -137,13 +179,12 @@ class HealthHandler(BaseHTTPRequestHandler):
         self.wfile.write(b"OK")
 
     def log_message(self, *args):
-        pass  # silence access logs
+        pass
 
 
 def run_health_server():
     port = int(os.environ.get("PORT", 8080))
-    server = HTTPServer(("0.0.0.0", port), HealthHandler)
-    server.serve_forever()
+    HTTPServer(("0.0.0.0", port), HealthHandler).serve_forever()
 
 
 def main() -> None:
@@ -151,15 +192,14 @@ def main() -> None:
     if not token:
         raise RuntimeError("TELEGRAM_BOT_TOKEN environment variable is not set")
 
-    # Keep Render alive – health check server on PORT
     Thread(target=run_health_server, daemon=True).start()
     logger.info("Health server started")
 
     app = Application.builder().token(token).build()
-
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_plate))
+    app.add_handler(CallbackQueryHandler(handle_callback))
 
     logger.info("Bot is starting (polling mode)...")
     app.run_polling(drop_pending_updates=True)
