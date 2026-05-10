@@ -354,6 +354,7 @@ def get_summary(record: dict) -> str:
     owners_str = f"{private_count} בעלים פרטיים" if ownership else "✖ לא קיים"
 
     km_fraud_warning = _check_km_fraud(record)
+    agra = _val(record, "agra_siduri") or _val(record, "agra")
 
     lines = [
         f"🚗 *{_escape(manufacturer)} {_escape(model)}*\n",
@@ -368,6 +369,7 @@ def get_summary(record: dict) -> str:
         f"• *{_escape('עלייה לכביש')}:* {_escape(road_entry)}\n" if road_entry else f"• *{_escape('עלייה לכביש')}:* ✖ לא קיים\n",
         f"• *{_escape('תוקף טסט')}:* {_escape(test)}\n",
         f"• *{_escape('ק\"מ אחרון שדווח')}:* {_escape(km)} ק\"מ\n" if km else f"• *{_escape('ק\"מ אחרון שדווח')}:* ✖ לא קיים\n",
+        f"• *{_escape('אגרת רישוי שנתית')}:* ₪{_escape(agra)}\n" if agra else f"• *{_escape('אגרת רישוי שנתית')}:* ✖ לא קיים\n",
         f"\n{km_fraud_warning}\n" if km_fraud_warning else "",
         "\n_בחר קטגוריה למידע נוסף_ ⬇️",
     ]
