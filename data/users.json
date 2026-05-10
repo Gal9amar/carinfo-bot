@@ -7,5 +7,16 @@
     "codes_used": [],
     "grants": [],
     "first_seen": "2026-05-10T21:06:12.869023"
+  },
+  "_codes": {
+    "DB461C75": {
+      "searches": 10,
+      "unlimited": false,
+      "single_use": true,
+      "expires": "2026-08-08T21:07:52.464223",
+      "used_by": null,
+      "used_at": null,
+      "created": "2026-05-10T21:07:52.464233"
+    }
   }
 }
