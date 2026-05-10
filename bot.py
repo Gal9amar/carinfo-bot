@@ -435,16 +435,21 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             parse_mode=ParseMode.MARKDOWN_V2,
         )
 
-    await update.message.reply_text("🔍 מחפש נתונים\\.\\.\\.", parse_mode=ParseMode.MARKDOWN_V2)
+    # Send "searching..." and keep the message object so we can delete it later
+    searching_msg = await update.message.reply_text(
+        "🔍 מחפש נתונים\\.\\.\\.", parse_mode=ParseMode.MARKDOWN_V2
+    )
 
     try:
         record = await fetch_vehicle_data(plate)
     except Exception as exc:
         logger.error("Error fetching data for plate %s: %s", plate, exc)
+        await searching_msg.delete()
         await update.message.reply_text(format_error(), parse_mode=ParseMode.MARKDOWN_V2)
         return
 
     if record is None:
+        await searching_msg.delete()
         await update.message.reply_text(format_not_found(plate), parse_mode=ParseMode.MARKDOWN_V2)
         return
 
@@ -479,6 +484,8 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                     image_bytes = r.content
     except Exception as exc:
         logger.warning("Image fetch failed for plate %s: %s", plate, exc)
+
+    await searching_msg.delete()
 
     if image_bytes:
         try:
@@ -519,12 +526,25 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     text = get_category_text(category, record)
     keyboard = build_keyboard(plate)
 
-    await query.message.reply_text(
+    # Key in bot_data to track the current category message for this plate+user
+    chat_id   = query.message.chat_id
+    data_key  = f"cat_msg_{chat_id}_{plate}"
+    prev_msg_id = context.bot_data.get(data_key)
+
+    # Delete previous category message if exists
+    if prev_msg_id:
+        try:
+            await context.bot.delete_message(chat_id=chat_id, message_id=prev_msg_id)
+        except Exception:
+            pass
+
+    sent = await query.message.reply_text(
         text,
         parse_mode=ParseMode.MARKDOWN_V2,
         reply_markup=keyboard,
         disable_web_page_preview=True,
     )
+    context.bot_data[data_key] = sent.message_id
 
 
 class HealthHandler(BaseHTTPRequestHandler):
