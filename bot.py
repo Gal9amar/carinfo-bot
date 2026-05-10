@@ -555,25 +555,37 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     text = get_category_text(category, record)
     keyboard = build_keyboard(plate)
 
-    # Key in bot_data to track the current category message for this plate+user
-    chat_id   = query.message.chat_id
-    data_key  = f"cat_msg_{chat_id}_{plate}"
-    prev_msg_id = context.bot_data.get(data_key)
-
-    # Delete previous category message if exists
-    if prev_msg_id:
-        try:
-            await context.bot.delete_message(chat_id=chat_id, message_id=prev_msg_id)
-        except Exception:
-            pass
-
-    sent = await query.message.reply_text(
-        text,
-        parse_mode=ParseMode.MARKDOWN_V2,
-        reply_markup=keyboard,
-        disable_web_page_preview=True,
-    )
-    context.bot_data[data_key] = sent.message_id
+    # Try to edit the message that contains the keyboard (the category message).
+    # If it has a caption (photo message) we can't edit text, so fall back to reply+delete.
+    try:
+        if query.message.caption is not None:
+            # Summary is a photo – send category as a separate editable message,
+            # or edit a previously sent category message tracked via user_data
+            raise ValueError("photo message")
+        await query.message.edit_text(
+            text,
+            parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=keyboard,
+            disable_web_page_preview=True,
+        )
+    except Exception:
+        # First click after a photo summary, or edit failed – send new message
+        # and store its id so next click can edit it
+        chat_id  = query.message.chat_id
+        data_key = f"cat_msg_{chat_id}_{plate}"
+        prev_id  = context.user_data.get(data_key)
+        if prev_id:
+            try:
+                await context.bot.delete_message(chat_id=chat_id, message_id=prev_id)
+            except Exception:
+                pass
+        sent = await query.message.reply_text(
+            text,
+            parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=keyboard,
+            disable_web_page_preview=True,
+        )
+        context.user_data[data_key] = sent.message_id
 
 
 class HealthHandler(BaseHTTPRequestHandler):
