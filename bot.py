@@ -133,7 +133,16 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     allowed, left = is_allowed(user_id)
-    searches_info = f"נותרו לך *{left}* בדיקות חינמיות\\." if left >= 0 else "גישה מלאה פעילה ✅"
+
+    if not allowed:
+        await update.message.reply_text(
+            PAYMENT_MSG,
+            parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=_payment_keyboard(),
+        )
+        return
+
+    searches_info = f"נותרו לך *{left}* בדיקות חינמיות\\." if left > 0 else "גישה מלאה פעילה ✅"
 
     await update.message.reply_text(
         "👋 שלום\\! אני בוט לבדיקת פרטי רכב ישראלי\\.\n\n"
