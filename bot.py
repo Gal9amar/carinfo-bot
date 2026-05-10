@@ -395,8 +395,6 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             parse_mode=ParseMode.MARKDOWN_V2,
         )
 
-    increment_search(user_id)
-
     await update.message.reply_text("🔍 מחפש נתונים\\.\\.\\.", parse_mode=ParseMode.MARKDOWN_V2)
 
     try:
@@ -409,6 +407,9 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if record is None:
         await update.message.reply_text(format_not_found(plate), parse_mode=ParseMode.MARKDOWN_V2)
         return
+
+    # Count the search only after confirming the vehicle exists
+    increment_search(user_id)
 
     cache.set(f"record_{plate}", record)
 
