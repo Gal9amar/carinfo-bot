@@ -108,6 +108,9 @@ def cat_general(record: dict, w: dict) -> str:
     lines.append(_row_always("סוג תקינה", _val(w, "sug_tkina_nm")))
     lines.append(_row_always("מסגרת (שלדה)", _val(record, "misgeret")))
     lines.append(_row_always("מספר מנוע", _val(record, "mispar_manoa")))
+    agra = _val(record, "agra_siduri") or _val(record, "agra")
+    if agra:
+        lines.append(_row_always("אגרת רישוי שנתית", f"₪{agra}"))
     return "".join(lines)
 
 
