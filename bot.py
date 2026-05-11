@@ -336,8 +336,8 @@ def _admin_gen_keyboard() -> InlineKeyboardMarkup:
          InlineKeyboardButton("25 בדיקות",  callback_data="adm|gen|25|single")],
         [InlineKeyboardButton("50 בדיקות",  callback_data="adm|gen|50|single"),
          InlineKeyboardButton("100 בדיקות", callback_data="adm|gen|100|single")],
-        [InlineKeyboardButton("♾️ בלתי מוגבל (חד פעמי)",  callback_data="adm|gen|-1|single")],
-        [InlineKeyboardButton("♾️ בלתי מוגבל (רב פעמי)", callback_data="adm|gen|-1|multi")],
+        [InlineKeyboardButton("📅 חודש – חיפושים חופשיים (חד פעמי)", callback_data="adm|gen|monthly|single")],
+        [InlineKeyboardButton("📅 חודש – חיפושים חופשיים (רב פעמי)", callback_data="adm|gen|monthly|multi")],
         [InlineKeyboardButton("🔙 חזרה", callback_data="adm|main")],
     ])
 
@@ -380,17 +380,21 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             return
 
         if args[0] == "gen":
-            try:
-                count = int(args[1]) if len(args) > 1 and args[1] != "multi" else 10
-            except ValueError:
-                count = 10
-            single    = "multi" not in args
-            unlimited = count == -1
-            code = await generate_code(searches=count, single_use=single, unlimited=unlimited)
-            kind    = "בלתי מוגבל" if unlimited else f"{count} בדיקות"
+            single = "multi" not in args
+            if len(args) > 1 and args[1] == "monthly":
+                code = await generate_code(monthly=True, single_use=single)
+                kind = "חודש חיפושים חופשיים"
+            else:
+                try:
+                    count = int(args[1]) if len(args) > 1 else 10
+                except ValueError:
+                    count = 10
+                unlimited = count == -1
+                code = await generate_code(searches=count, single_use=single, unlimited=unlimited)
+                kind = f"{count} בדיקות"
             use_str = "חד פעמי" if single else "רב פעמי"
             await update.message.reply_text(
-                f"✅ קוד חדש \\({kind}, {use_str}\\):\n`{code}`",
+                f"✅ קוד חדש \\({_escape_md(kind)}, {use_str}\\):\n`{code}`",
                 parse_mode=ParseMode.MARKDOWN_V2,
             )
             return
@@ -482,15 +486,22 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
     if action == "gen":
         count_str = parts[2] if len(parts) > 2 else "10"
         use_type  = parts[3] if len(parts) > 3 else "single"
-        count     = int(count_str)
         single    = use_type == "single"
-        unlimited = count == -1
-        code = await generate_code(searches=count, single_use=single, unlimited=unlimited)
-        kind    = "♾️ בלתי מוגבל" if unlimited else f"{count} בדיקות"
+        is_monthly = count_str == "monthly"
+
+        if is_monthly:
+            code = await generate_code(monthly=True, single_use=single)
+            kind = "📅 חודש – חיפושים חופשיים"
+        else:
+            count     = int(count_str)
+            unlimited = count == -1
+            code = await generate_code(searches=count, single_use=single, unlimited=unlimited)
+            kind = f"{count} בדיקות"
+
         use_str = "חד פעמי" if single else "רב פעמי"
         await query.edit_message_text(
             f"✅ *קוד חדש נוצר*\n\n"
-            f"סוג: {kind} \\| {use_str}\n\n"
+            f"סוג: {_escape_md(kind)} \\| {use_str}\n\n"
             f"`{code}`\n\n"
             f"_העתק את הקוד ושלח ללקוח_",
             parse_mode=ParseMode.MARKDOWN_V2,

@@ -46,7 +46,7 @@ async def is_allowed(user_id: int, username: str = "", full_name: str = "") -> t
     """Returns (allowed, searches_left). -1 = unlimited."""
     await _ensure_user(user_id, username, full_name)
     r = await execute(
-        "SELECT searches_done, searches_quota, blocked FROM users WHERE user_id = ?",
+        "SELECT searches_done, searches_quota, blocked, quota_expires FROM users WHERE user_id = ?",
         [user_id],
     )
     u = _row(r)
@@ -54,10 +54,27 @@ async def is_allowed(user_id: int, username: str = "", full_name: str = "") -> t
         return False, 0
     if u.get("blocked"):
         return False, 0
-    quota = u["searches_quota"]
-    done  = u["searches_done"]
+
+    quota         = u["searches_quota"]
+    done          = u["searches_done"]
+    quota_expires = u.get("quota_expires")
+
+    # If unlimited but time-limited – check expiry
+    if quota == -1 and quota_expires:
+        try:
+            if datetime.now() > datetime.fromisoformat(quota_expires):
+                # Subscription expired – revert to 0
+                await execute(
+                    "UPDATE users SET searches_quota = 0, quota_expires = NULL WHERE user_id = ?",
+                    [user_id],
+                )
+                return False, 0
+        except Exception:
+            pass
+
     if quota == -1:
         return True, -1
+
     left = max(0, quota - done)
     return left > 0, left
 
@@ -118,13 +135,26 @@ async def apply_code(user_id: int, code: str, username: str = "") -> tuple[bool,
     unlimited = bool(code_data["unlimited"])
     add       = code_data["searches"]
     now_iso   = datetime.now().isoformat()
+    # monthly = unlimited code that carries a duration (searches field holds days)
+    is_monthly = unlimited and add and add > 0
 
     if unlimited:
-        await execute(
-            "UPDATE users SET searches_quota = -1 WHERE user_id = ?",
-            [user_id],
-        )
-        result_msg = "✅ גישה בלתי מוגבלת הופעלה"
+        if is_monthly:
+            # add = number of days the subscription lasts
+            expires_dt  = datetime.now() + timedelta(days=int(add))
+            expires_iso = expires_dt.isoformat()
+            await execute(
+                "UPDATE users SET searches_quota = -1, quota_expires = ? WHERE user_id = ?",
+                [expires_iso, user_id],
+            )
+            exp_str = expires_dt.strftime("%d/%m/%Y")
+            result_msg = f"✅ גישה חופשית לחודש הופעלה\\!\nתוקף עד: *{exp_str}*"
+        else:
+            await execute(
+                "UPDATE users SET searches_quota = -1, quota_expires = NULL WHERE user_id = ?",
+                [user_id],
+            )
+            result_msg = "✅ גישה בלתי מוגבלת הופעלה"
     else:
         r2 = await execute(
             "SELECT searches_quota, searches_done FROM users WHERE user_id = ?",
@@ -191,17 +221,28 @@ async def generate_code(
     searches: int = 10,
     single_use: bool = True,
     unlimited: bool = False,
+    monthly: bool = False,
     expires_days: int = 90,
 ) -> str:
-    code    = secrets.token_hex(4).upper()
+    code = secrets.token_hex(4).upper()
     expires = (datetime.now() + timedelta(days=expires_days)).isoformat()
-    await execute(
-        """
-        INSERT INTO codes (code, searches, unlimited, single_use, expires)
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        [code, searches, int(unlimited), int(single_use), expires],
-    )
+    if monthly:
+        # unlimited=True, searches holds subscription duration in days (30)
+        await execute(
+            """
+            INSERT INTO codes (code, searches, unlimited, single_use, expires)
+            VALUES (?, ?, 1, ?, ?)
+            """,
+            [code, 30, int(single_use), expires],
+        )
+    else:
+        await execute(
+            """
+            INSERT INTO codes (code, searches, unlimited, single_use, expires)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            [code, searches, int(unlimited), int(single_use), expires],
+        )
     return code
 
 

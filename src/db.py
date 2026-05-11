@@ -40,7 +40,8 @@ async def init_db() -> None:
             first_seen     TEXT DEFAULT (datetime('now')),
             last_seen      TEXT DEFAULT (datetime('now')),
             last_plate     TEXT DEFAULT '',
-            blocked        INTEGER DEFAULT 0
+            blocked        INTEGER DEFAULT 0,
+            quota_expires  TEXT DEFAULT NULL
         )
         """,
         """
@@ -81,8 +82,16 @@ async def init_db() -> None:
         )
         """,
     ]
+    migrations = [
+        "ALTER TABLE users ADD COLUMN quota_expires TEXT DEFAULT NULL",
+    ]
     for sql in statements:
         conn.execute(sql)
+    for sql in migrations:
+        try:
+            conn.execute(sql)
+        except Exception:
+            pass
     conn.commit()
 
 
