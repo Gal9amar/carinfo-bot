@@ -94,6 +94,23 @@ def _row_always(label: str, value) -> str:
 # Category builders
 # ─────────────────────────────────────────────
 
+_AGRA_GROUPS = {
+    1: 230, 2: 335, 3: 440, 4: 545, 5: 660, 6: 775, 7: 900,
+    8: 1040, 9: 1195, 10: 1365, 11: 1555, 12: 1770, 13: 2010,
+    14: 2295, 15: 2610,
+}
+
+
+def _agra_from_group(code) -> str:
+    try:
+        amount = _AGRA_GROUPS.get(int(code))
+        if amount:
+            return f"₪{amount:,} \\(קבוצה {int(code)}\\)"
+    except Exception:
+        pass
+    return ""
+
+
 def cat_general(record: dict, w: dict) -> str:
     lines = ["*📋 פרטים כלליים*\n"]
     lines.append(_row_always("יצרן", _val(record, "tozeret_nm")))
@@ -101,16 +118,18 @@ def cat_general(record: dict, w: dict) -> str:
     lines.append(_row_always("רמת גימור", _val(w, "ramat_gimur")))
     lines.append(_row_always("שנת ייצור", _val(record, "shnat_yitzur")))
     lines.append(_row_always("צבע", _val(record, "tzeva_rechev")))
+    lines.append(_row_always("בעלות נוכחית", _val(record, "baalut")))
     lines.append(_row_always("ארץ ייצור", _val(w, "tozeret_eretz_nm")))
     lines.append(_row_always("יבואן/תוצר", _val(w, "tozar")))
     lines.append(_row_always("סוג מרכב", _val(w, "merkav")))
-    lines.append(_row_always("סוג רכב", _val(record, "sug_rechev_nm")))
     lines.append(_row_always("סוג תקינה", _val(w, "sug_tkina_nm")))
     lines.append(_row_always("מסגרת (שלדה)", _val(record, "misgeret")))
+    lines.append(_row_always("דגם מנוע", _val(record, "degem_manoa")))
     lines.append(_row_always("מספר מנוע", _val(record, "mispar_manoa")))
-    agra = _val(record, "agra_siduri") or _val(record, "agra")
-    if agra:
-        lines.append(_row_always("אגרת רישוי שנתית", f"₪{agra}"))
+    lines.append(_row_always("מקוריות", _val(record, "mkoriut_nm")))
+    agra_group = _val(w, "kvuzat_agra_cd")
+    agra_str   = _agra_from_group(agra_group) if agra_group else ""
+    lines.append(_row_always("אגרת רישוי שנתית", agra_str))
     return "".join(lines)
 
 
@@ -179,9 +198,11 @@ def cat_safety(record: dict, w: dict) -> str:
     lines.append(_row_always("כריות אוויר", f"{airbags} כריות" if airbags else ""))
     lines.append(_row_always("ABS", _yn_always(w.get("abs_ind"))))
     lines.append(_row_always("בקרת יציבות ESP", _yn_always(w.get("bakarat_yatzivut_ind"))))
-    lines.append(_row_always("קבוצת זיהום", _val(record, "kvuzat_zihum")))
+    lines.append(_row_always("קבוצת זיהום", _val(record, "kvutzat_zihum", "kvuzat_zihum")))
     lines.append(_row_always("מדד ירוק", _val(w, "madad_yarok")))
+    co2_nedc = _val(w, "CO2_WLTP_NEDC")
     lines.append(_row_always("CO2 (WLTP)", f"{co2} גר'/ק\"מ" if co2 else ""))
+    lines.append(_row_always("CO2 (NEDC)", f"{co2_nedc} גר'/ק\"מ" if co2_nedc else ""))
     lines.append(_row_always("CO2 בעיר", f"{co2_city} גר'/ק\"מ" if co2_city else ""))
     lines.append(_row_always("CO2 בכביש", f"{co2_hway} גר'/ק\"מ" if co2_hway else ""))
     lines.append(_row_always("NOX", f"{nox} מ\"ג/ק\"מ" if nox else ""))
@@ -212,6 +233,7 @@ def cat_adas(record: dict, w: dict) -> str:
     lines.append(_row_always("זיהוי מצב התקרבות מסוכנת", _yn_always(w.get("zihuy_matzav_hitkarvut_mesukenet_ind"))))
     lines.append(_row_always("זיהוי אופניים/קורקינט", _yn_always(w.get("zihuy_rechev_do_galgali"))))
     lines.append(_row_always("נעילת אלכוהול", _yn_always(w.get("alco_lock"))))
+    lines.append(_row_always("התנגשות קרקע מת", _yn_always(w.get("hitnagshut_cad_shetah_met"))))
     lines.append(_row_always("מתח סולל", _val(w, "dg_metach_solela")))
     return "".join(lines)
 
