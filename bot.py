@@ -35,10 +35,8 @@ from src.users import (
     get_last_plate, set_last_plate,
 )
 from src.formatter import (
-    CATEGORIES,
     format_error,
     format_not_found,
-    get_category_text,
     get_summary,
 )
 
@@ -66,8 +64,16 @@ WAITING_PAYMENT_MSG = 3
 
 def _payment_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("💳 רכישת בדיקות נוספות", url=f"https://t.me/{BOT_USERNAME}?start=buy")],
+        [InlineKeyboardButton("🛒 רכישת חבילת חיפושים", callback_data="show_packages")],
+        [InlineKeyboardButton("ℹ️ איך זה עובד?",         callback_data="how_it_works")],
         [InlineKeyboardButton("🔑 יש לי קוד גישה",      callback_data="enter_code")],
+    ])
+
+
+def _welcome_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("ℹ️ איך זה עובד?",         callback_data="how_it_works")],
+        [InlineKeyboardButton("🛒 רכישת חבילת חיפושים", callback_data="show_packages")],
     ])
 
 
@@ -93,17 +99,22 @@ def normalize_plate(text: str) -> str:
     return text.strip().replace("-", "").replace(" ", "")
 
 
-def build_category_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
-    labels = [label for label, _ in CATEGORIES.values()]
-    rows = [[KeyboardButton(labels[i + j]) for j in range(3) if i + j < len(labels)]
-            for i in range(0, len(labels), 3)]
-    rows.append([KeyboardButton("🔍 חיפוש רכב חדש"), KeyboardButton("💬 צ'אט עם מנהל")])
+def build_result_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
+    rows = [
+        [KeyboardButton("🔍 חיפוש רכב חדש")],
+        [KeyboardButton("💬 צ'אט עם מנהל")],
+    ]
     if is_admin:
         rows.append([KeyboardButton("🛠 פאנל מנהל")])
     return ReplyKeyboardMarkup(rows, resize_keyboard=True, one_time_keyboard=False)
 
 
-LABEL_TO_KEY = {label: key for key, (label, _) in CATEGORIES.items()}
+def _packages_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("50 חיפושים – ₪10",  callback_data="pkg|50|10")],
+        [InlineKeyboardButton("100 חיפושים – ₪20", callback_data="pkg|100|20")],
+        [InlineKeyboardButton("200 חיפושים – ₪30", callback_data="pkg|200|30")],
+    ])
 
 
 async def cmd_myid(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -200,12 +211,12 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     searches_info = f"נותרו לך *{left}* בדיקות חינמיות\\." if left > 0 else "גישה מלאה פעילה ✅"
 
     await update.message.reply_text(
-        "👋 שלום\\! אני בוט לבדיקת פרטי רכב ישראלי\\.\n\n"
-        "שלח לי מספר לוחית רישוי \\(לדוגמה: 1234567\\)\n"
-        "ואחזיר לך את כל המידע הזמין על הרכב\\.\n\n"
-        f"{searches_info}",
+        "👋 *ברוך הבא ל\\-CarInfo\\!*\n\n"
+        "🔍 שלח מספר לוחית רישוי \\(לדוגמה: 1234567\\)\n"
+        "ותקבל דוח מלא על הרכב תוך שניות\\.\n\n"
+        f"🆓 {searches_info}",
         parse_mode=ParseMode.MARKDOWN_V2,
-        reply_markup=build_category_keyboard(is_admin=(user_id == ADMIN_ID)),
+        reply_markup=_welcome_keyboard(),
     )
 
 
@@ -593,6 +604,83 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         return
 
 
+async def handle_how_it_works(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text(
+        "ℹ️ *איך CarInfo עובד?*\n\n"
+        "🔍 *מה המערכת מציגה לך על כל רכב:*\n"
+        "• פרטים כלליים – יצרן, דגם, שנה, צבע, מסגרת\n"
+        "• מפרט טכני – מנוע, הנעה, הילוכים, דלק, כוח סוס\n"
+        "• גלגלים וצמיגים\n"
+        "• ציוד ונוחות – מיזוג, הגה כוח, חלונות חשמל\n"
+        "• בטיחות ופליטות – ABS, ESP, כריות אוויר, CO2\n"
+        "• מערכות ADAS – בלימה אוטומטית, שמירת נתיב ועוד\n"
+        "• היסטוריה – רישום, טסט, ק\"מ, שינויי מבנה\n"
+        "• היסטוריית בעלויות – כמה בעלים, פרטי/סוחר\n"
+        "• ריקולים – תקלות ידועות של הדגם\n\n"
+        "🆓 *חיפושים חינמיים:*\n"
+        "כל משתמש חדש מקבל *20 חיפושים חינמיים* לניסיון\n\n"
+        "📦 *חבילות חיפוש:*\n"
+        "• 50 חיפושים – ₪10\n"
+        "• 100 חיפושים – ₪20\n"
+        "• 200 חיפושים – ₪30\n\n"
+        "💡 *איך משתמשים?*\n"
+        "פשוט שלח מספר לוחית רישוי \\(לדוגמה: 1234567\\)\n"
+        "והמערכת תחזיר לך דוח מלא תוך שניות\\.",
+        parse_mode=ParseMode.MARKDOWN_V2,
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🛒 רכישת חבילה", callback_data="show_packages")],
+            [InlineKeyboardButton("🔙 חזרה",         callback_data="back_to_start")],
+        ]),
+    )
+
+
+async def handle_package_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query   = update.callback_query
+    user_id = query.from_user.id
+    user    = query.from_user
+    await query.answer()
+
+    data = query.data
+    if data == "show_packages":
+        await query.edit_message_text(
+            "🛒 *בחר חבילת חיפושים:*",
+            parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=_packages_keyboard(),
+        )
+        return
+
+    # pkg|50|10
+    parts   = data.split("|")
+    amount  = parts[1]
+    price   = parts[2]
+    uname   = f"@{user.username}" if user.username else f"id:{user_id}"
+    fullname = user.full_name or ""
+
+    if ADMIN_ID:
+        try:
+            await context.bot.send_message(
+                ADMIN_ID,
+                f"💰 *בקשת רכישה חדשה\\!*\n\n"
+                f"👤 משתמש: {uname}\n"
+                f"📛 שם: {fullname}\n"
+                f"🆔 ID: `{user_id}`\n\n"
+                f"📦 חבילה: *{amount} חיפושים* \\– ₪{price}\n\n"
+                f"לפתיחת גישה:\n`/admin grant {uname} {amount}`",
+                parse_mode=ParseMode.MARKDOWN_V2,
+            )
+        except Exception as e:
+            logger.warning("Failed to notify admin of package purchase: %s", e)
+
+    await query.edit_message_text(
+        f"✅ *בקשתך התקבלה\\!*\n\n"
+        f"📦 חבילה: *{amount} חיפושים* \\– ₪{price}\n\n"
+        f"ניצור איתך קשר בהקדם לאישור התשלום ופתיחת הגישה\\.",
+        parse_mode=ParseMode.MARKDOWN_V2,
+    )
+
+
 async def handle_admin_keyboard(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id  = update.effective_user.id
     if user_id != ADMIN_ID:
@@ -701,7 +789,7 @@ async def handle_admin_keyboard(update: Update, context: ContextTypes.DEFAULT_TY
     if text_msg == "🔍 חזור לחיפוש":
         await update.message.reply_text(
             "🔍 שלח מספר לוחית לחיפוש:",
-            reply_markup=build_category_keyboard(is_admin=True),
+            reply_markup=build_result_keyboard(is_admin=True),
         )
         return
     fn = dispatch.get(text_msg)
@@ -859,13 +947,16 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await update.message.reply_text(format_not_found(plate), parse_mode=ParseMode.MARKDOWN_V2)
         return
 
-    await increment_search(user_id, plate)
-    cache.set(f"record_{plate}", record)
-    await set_last_plate(user_id, plate)
+    # Only count if this is a NEW plate (not a repeat search for same plate)
+    last_plate = await get_last_plate(user_id)
+    is_repeat  = (last_plate == plate)
+    if not is_repeat:
+        await increment_search(user_id, plate)
+        await set_last_plate(user_id, plate)
 
     summary = get_summary(record)
 
-    if left > 0 and left != -1:
+    if not is_repeat and left > 0 and left != -1:
         remaining = left - 1
         if remaining > 0:
             summary += f"\n\n_נותרו לך {remaining} בדיקות חינמיות_"
@@ -875,11 +966,11 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await update.message.reply_text(
         summary,
         parse_mode=ParseMode.MARKDOWN_V2,
-        reply_markup=build_category_keyboard(is_admin=(user_id == ADMIN_ID)),
+        reply_markup=build_result_keyboard(is_admin=(user_id == ADMIN_ID)),
     )
 
 
-async def handle_category(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def handle_quick_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text    = update.message.text.strip()
     user_id = update.effective_user.id
 
@@ -889,7 +980,6 @@ async def handle_category(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             parse_mode=ParseMode.MARKDOWN_V2,
             reply_markup=ReplyKeyboardRemove(),
         )
-        await set_last_plate(user_id, "")
         return
 
     if text == "💬 צ'אט עם מנהל":
@@ -903,47 +993,6 @@ async def handle_category(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             ]),
         )
         return
-
-    category = LABEL_TO_KEY.get(text)
-    if not category:
-        return
-
-    plate = await get_last_plate(user_id)
-    if not plate:
-        await update.message.reply_text(
-            "שלח מספר רכב תחילה\\.",
-            parse_mode=ParseMode.MARKDOWN_V2,
-        )
-        return
-
-    record = cache.get(f"record_{plate}")
-    if record is None:
-        searching_msg = await update.message.reply_text(
-            "🔍 טוען נתונים\\.\\.\\.", parse_mode=ParseMode.MARKDOWN_V2
-        )
-        try:
-            record = await fetch_vehicle_data(plate)
-        except Exception as exc:
-            logger.error("Error re-fetching data for plate %s: %s", plate, exc)
-            record = None
-        await searching_msg.delete()
-        if record is None:
-            await update.message.reply_text(
-                "⏰ לא ניתן לטעון נתונים\\. שלח את מספר הרכב שוב\\.",
-                parse_mode=ParseMode.MARKDOWN_V2,
-                reply_markup=ReplyKeyboardRemove(),
-            )
-            await set_last_plate(user_id, "")
-            return
-        cache.set(f"record_{plate}", record)
-
-    result = get_category_text(category, record)
-    await update.message.reply_text(
-        result,
-        parse_mode=ParseMode.MARKDOWN_V2,
-        reply_markup=build_category_keyboard(is_admin=(user_id == ADMIN_ID)),
-        disable_web_page_preview=True,
-    )
 
 
 class HealthHandler(BaseHTTPRequestHandler):
@@ -998,13 +1047,12 @@ def main() -> None:
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("code",   cmd_code))
     app.add_handler(CommandHandler("admin",  cmd_admin))
-    app.add_handler(CallbackQueryHandler(handle_admin_callback, pattern=r"^adm\|"))
+    app.add_handler(CallbackQueryHandler(handle_admin_callback,  pattern=r"^adm\|"))
+    app.add_handler(CallbackQueryHandler(handle_package_callback, pattern=r"^(show_packages|pkg\|)"))
+    app.add_handler(CallbackQueryHandler(handle_how_it_works,    pattern=r"^how_it_works$"))
 
-    category_labels = [label for label, _ in CATEGORIES.values()]
-    category_filter = filters.TEXT & filters.Regex(
-        "^(" + "|".join(re.escape(l) for l in category_labels) + r"|🔍 חיפוש רכב חדש|💬 צ'אט עם מנהל)$"
-    )
-    app.add_handler(MessageHandler(category_filter & ~filters.COMMAND, handle_category))
+    quick_filter = filters.TEXT & filters.Regex(r"^(🔍 חיפוש רכב חדש|💬 צ'אט עם מנהל)$")
+    app.add_handler(MessageHandler(quick_filter & ~filters.COMMAND, handle_quick_buttons))
 
     app.add_handler(ConversationHandler(
         entry_points=[CallbackQueryHandler(cb_enter_code, pattern="^enter_code$")],

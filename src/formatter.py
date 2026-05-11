@@ -336,44 +336,33 @@ CATEGORIES = {
 
 
 def get_summary(record: dict) -> str:
+    """Returns full vehicle report – all categories combined."""
+    w = record.get("_wltp") or {}
+
     plate        = _val(record, "mispar_rechev")
     manufacturer = _val(record, "tozeret_nm")
     model        = _val(record, "kinuy_mishari", "degem_nm")
-    year         = _val(record, "shnat_yitzur")
-    w            = record.get("_wltp") or {}
-    trim         = _val(w, "ramat_gimur")
-    road_entry   = _format_date(record.get("moed_aliya_lakvish"))
-    test         = _test_status(record.get("tokef_dt"))
-    km           = _val(record, "kilometer_test_aharon")
-    baalut       = _ownership_label(record.get("baalut")) or "✖ לא קיים"
-    mkoriut      = _val(record, "mkoriut_nm") or "✖ לא קיים"
-
-    # Ownership summary
-    ownership = record.get("_ownership") or []
-    private_count = sum(1 for o in ownership if o.get("baalut") == "פרטי")
-    owners_str = f"{private_count} בעלים פרטיים" if ownership else "✖ לא קיים"
-
     km_fraud_warning = _check_km_fraud(record)
-    agra = _val(record, "agra_siduri") or _val(record, "agra")
 
-    lines = [
+    sections = [
         f"🚗 *{_escape(manufacturer)} {_escape(model)}*\n",
         "━━━━━━━━━━━━━━━━━━\n",
-        f"• *{_escape('מספר רכב')}:* {_escape(plate)}\n",
-        f"• *{_escape('דגם')}:* {_escape(model)}\n",
-        f"• *{_escape('שנת ייצור')}:* {_escape(year)}\n" if year else f"• *{_escape('שנת ייצור')}:* ✖ לא קיים\n",
-        f"• *{_escape('גימור')}:* {_escape(trim)}\n" if trim else f"• *{_escape('גימור')}:* ✖ לא קיים\n",
-        f"• *{_escape('בעלות נוכחית')}:* {_escape(baalut)}\n",
-        f"• *{_escape('כמות בעלים')}:* {_escape(owners_str)}\n",
-        f"• *{_escape('מקוריות')}:* {_escape(mkoriut)}\n",
-        f"• *{_escape('עלייה לכביש')}:* {_escape(road_entry)}\n" if road_entry else f"• *{_escape('עלייה לכביש')}:* ✖ לא קיים\n",
-        f"• *{_escape('תוקף טסט')}:* {_escape(test)}\n",
-        f"• *{_escape('ק\"מ אחרון שדווח')}:* {_escape(km)} ק\"מ\n" if km else f"• *{_escape('ק\"מ אחרון שדווח')}:* ✖ לא קיים\n",
-        f"• *{_escape('אגרת רישוי שנתית')}:* ₪{_escape(agra)}\n" if agra else f"• *{_escape('אגרת רישוי שנתית')}:* ✖ לא קיים\n",
-        f"\n{km_fraud_warning}\n" if km_fraud_warning else "",
-        "\n_בחר קטגוריה למידע נוסף_ ⬇️",
+        f"• *{_escape('מספר רכב')}:* {_escape(plate)}\n\n",
+        cat_general(record, w) + "\n",
+        cat_specs(record, w) + "\n",
+        cat_tires(record, w) + "\n",
+        cat_equipment(record, w) + "\n",
+        cat_safety(record, w) + "\n",
+        cat_adas(record, w) + "\n",
+        cat_history(record, w) + "\n",
+        cat_ownership(record, w) + "\n",
+        cat_recalls(record),
     ]
-    return "".join(l for l in lines if l)
+
+    if km_fraud_warning:
+        sections.append(f"\n{km_fraud_warning}\n")
+
+    return "".join(s for s in sections if s)
 
 
 def get_category_text(category: str, record: dict) -> str:
