@@ -99,14 +99,14 @@ def normalize_plate(text: str) -> str:
     return text.strip().replace("-", "").replace(" ", "")
 
 
-def build_result_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
+def build_result_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
     rows = [
-        [KeyboardButton("🔍 חיפוש רכב חדש")],
-        [KeyboardButton("💬 צ'אט עם מנהל")],
+        [InlineKeyboardButton("🔍 חיפוש רכב חדש", callback_data="new_search")],
+        [InlineKeyboardButton("💬 צ'אט עם מנהל",  callback_data="chat_admin")],
     ]
     if is_admin:
-        rows.append([KeyboardButton("🛠 פאנל מנהל")])
-    return ReplyKeyboardMarkup(rows, resize_keyboard=True, one_time_keyboard=False)
+        rows.append([InlineKeyboardButton("🛠 פאנל מנהל", callback_data="admin_panel")])
+    return InlineKeyboardMarkup(rows)
 
 
 def _packages_keyboard() -> InlineKeyboardMarkup:
@@ -802,7 +802,7 @@ async def handle_admin_keyboard(update: Update, context: ContextTypes.DEFAULT_TY
     if text_msg == "🔍 חזור לחיפוש":
         await update.message.reply_text(
             "🔍 שלח מספר לוחית לחיפוש:",
-            reply_markup=build_result_keyboard(is_admin=True),
+            reply_markup=ReplyKeyboardRemove(),
         )
         return
     fn = dispatch.get(text_msg)
@@ -983,27 +983,39 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     )
 
 
-async def handle_quick_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    text    = update.message.text.strip()
-    user_id = update.effective_user.id
+async def handle_result_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query   = update.callback_query
+    user_id = query.from_user.id
+    await query.answer()
 
-    if text == "🔍 חיפוש רכב חדש":
-        await update.message.reply_text(
+    if query.data == "new_search":
+        await query.message.reply_text(
             "🔢 שלח מספר רכב לחיפוש:",
             parse_mode=ParseMode.MARKDOWN_V2,
-            reply_markup=ReplyKeyboardRemove(),
         )
         return
 
-    if text == "💬 צ'אט עם מנהל":
+    if query.data == "chat_admin":
         admin_username = os.environ.get("ADMIN_USERNAME", "")
         url = f"https://t.me/{admin_username}" if admin_username else f"https://t.me/{BOT_USERNAME}?start=admin_chat"
-        await update.message.reply_text(
+        await query.message.reply_text(
             "💬 *לחץ לפתיחת שיחה עם המנהל:*",
             parse_mode=ParseMode.MARKDOWN_V2,
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("💬 פתח שיחה עם מנהל", url=url)]
             ]),
+        )
+        return
+
+    if query.data == "admin_panel" and user_id == ADMIN_ID:
+        stats = await admin_stats()
+        await query.message.reply_text(
+            f"🛠 *פאנל ניהול CarInfo*\n\n"
+            f"👤 משתמשים: *{stats['total_users']}* \\| פעילים: *{stats['active_users']}*\n"
+            f"🔍 בדיקות: *{stats['total_searches']}*\n"
+            f"🔑 קודים: *{stats['used_codes']}/{stats['total_codes']}* נוצלו",
+            parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=_admin_reply_keyboard(),
         )
         return
 
@@ -1064,9 +1076,7 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(handle_package_callback, pattern=r"^show_packages$|^pkg\|"))
     app.add_handler(CallbackQueryHandler(handle_how_it_works,    pattern=r"^how_it_works$"))
     app.add_handler(CallbackQueryHandler(handle_back_to_start,   pattern=r"^back_to_start$"))
-
-    quick_filter = filters.TEXT & filters.Regex(r"^(🔍 חיפוש רכב חדש|💬 צ'אט עם מנהל)$")
-    app.add_handler(MessageHandler(quick_filter & ~filters.COMMAND, handle_quick_buttons))
+    app.add_handler(CallbackQueryHandler(handle_result_callback,  pattern=r"^(new_search|chat_admin|admin_panel)$"))
 
     app.add_handler(ConversationHandler(
         entry_points=[CallbackQueryHandler(cb_enter_code, pattern="^enter_code$")],
