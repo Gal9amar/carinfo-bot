@@ -1048,7 +1048,7 @@ def main() -> None:
     app.add_handler(CommandHandler("code",   cmd_code))
     app.add_handler(CommandHandler("admin",  cmd_admin))
     app.add_handler(CallbackQueryHandler(handle_admin_callback,  pattern=r"^adm\|"))
-    app.add_handler(CallbackQueryHandler(handle_package_callback, pattern=r"^(show_packages|pkg\|)"))
+    app.add_handler(CallbackQueryHandler(handle_package_callback, pattern=r"^show_packages$|^pkg\|"))
     app.add_handler(CallbackQueryHandler(handle_how_it_works,    pattern=r"^how_it_works$"))
 
     quick_filter = filters.TEXT & filters.Regex(r"^(🔍 חיפוש רכב חדש|💬 צ'אט עם מנהל)$")
