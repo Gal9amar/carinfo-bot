@@ -1005,7 +1005,6 @@ async def handle_result_callback(update: Update, context: ContextTypes.DEFAULT_T
         await query.message.reply_text(
             "🔢 שלח מספר רכב לחיפוש:",
             parse_mode=ParseMode.MARKDOWN_V2,
-            reply_markup=_persistent_keyboard(is_admin),
         )
         return
 
