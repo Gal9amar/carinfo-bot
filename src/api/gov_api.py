@@ -19,9 +19,11 @@ RES_HISTORY   = "56063a99-8a3e-4ff4-912e-5966c0279bad"  # ק"מ, מנוע, שי�
 RES_OWNERSHIP = "bb2355dc-9ec7-4f06-9c3f-3344672171da"  # היסטוריית בעלויות
 RES_WLTP      = "142afde2-6228-49f9-8a29-9b6c3a0cbe40"  # WLTP: בטיחות, פליטות, ציוד
 RES_RECALL    = "2c33523f-87aa-44ec-a736-edbb0a82975e"  # ריקולים לפי דגם
-RES_TAG_NACHE = "c8b9f9c8-4612-4068-934f-d4acd2e3c06e"  # תגי נכה לפי מספר רכב
-RES_RENTAL    = "f6efe89a-fb3d-43a4-bb61-9bf12a9b9099"  # רכבים שנרשמו כ"רכב שכור"
-RES_IMPORTER  = "39f455bf-6db0-4926-859d-017f34eacbcb"  # מחירון יבואן לפי דגם+שנה
+RES_TAG_NACHE  = "c8b9f9c8-4612-4068-934f-d4acd2e3c06e"  # תגי נכה לפי מספר רכב
+RES_RENTAL     = "f6efe89a-fb3d-43a4-bb61-9bf12a9b9099"  # רכבים שנרשמו כ"רכב שכור"
+RES_IMPORTER   = "39f455bf-6db0-4926-859d-017f34eacbcb"  # מחירון יבואן לפי דגם+שנה
+RES_RECALL_CAR = "36bf1404-0be4-49d2-82dc-2f1ead4a8b93"  # ריקולים לפי מספר רכב ספציפי
+RES_SCRAPPED   = "851ecab1-0622-4dbe-a6c7-f950cf82abf9"  # רכבים מבוטלים/גרוטאה
 
 
 async def _search_q(client: httpx.AsyncClient, resource_id: str, q: str, limit: int = 1) -> list:
@@ -94,14 +96,17 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
             if degem_cd and tozeret_cd else _empty()
         )
         tasks = [
-            _search_filter(client, RES_OWNERSHIP, {"mispar_rechev": mispar}, limit=50),
+            _search_filter(client, RES_OWNERSHIP,  {"mispar_rechev": mispar}, limit=50),
             wltp_task,
-            _search_filter(client, RES_RECALL,    {"DEGEM": record.get("degem_nm", "")}, limit=5),
-            _search_filter(client, RES_TAG_NACHE, {"MISPAR RECHEV": mispar}, limit=1),
-            _search_filter(client, RES_RENTAL,    {"mispar_rechev": mispar}, limit=1),
+            _search_filter(client, RES_RECALL_CAR, {"MISPAR_RECHEV": mispar}, limit=10),
+            _search_filter(client, RES_TAG_NACHE,  {"MISPAR RECHEV": mispar}, limit=1),
+            _search_filter(client, RES_RENTAL,     {"mispar_rechev": mispar}, limit=1),
             importer_task,
+            _search_filter(client, RES_SCRAPPED,   {"mispar_rechev": mispar}, limit=1),
         ]
-        ownership_records, wltp_records, recall_records, tag_nache_records, rental_records, importer_records = await asyncio.gather(*tasks)
+        (ownership_records, wltp_records, recall_records,
+         tag_nache_records, rental_records, importer_records,
+         scrapped_records) = await asyncio.gather(*tasks)
 
     # Ownership history – sort by date ascending
     if ownership_records:
@@ -111,19 +116,24 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
     if wltp_records:
         record["_wltp"] = wltp_records[0]
 
+    # Recalls: per-car lookup (specific plate) – more accurate than by model
     if recall_records:
         record["_recalls"] = recall_records
+        record["_recalls_by_plate"] = True  # flag for formatter
 
     if tag_nache_records:
         t = tag_nache_records[0]
         record["_tag_nache"] = {
-            "sug_tav":  t.get("SUG TAV"),
-            "hafakat":  t.get("TAARICH HAFAKAT TAG"),
+            "sug_tav": t.get("SUG TAV"),
+            "hafakat": t.get("TAARICH HAFAKAT TAG"),
         }
 
     record["_was_rental"] = bool(rental_records)
 
     if importer_records:
         record["_importer_price"] = importer_records[0].get("mehir")
+
+    if scrapped_records:
+        record["_scrapped_dt"] = scrapped_records[0].get("bitul_dt", "")
 
     return record

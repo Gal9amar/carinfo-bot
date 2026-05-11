@@ -362,18 +362,41 @@ def _check_km_fraud(record: dict) -> str:
 
 def cat_recalls(record: dict) -> str:
     recalls = record.get("_recalls") or []
+    by_plate = record.get("_recalls_by_plate", False)
+
     if not recalls:
-        return "*🔔 ריקולים*\n• לא נמצאו ריקולים לדגם זה\n"
+        label = "לרכב זה" if by_plate else "לדגם זה"
+        return f"*🔔 ריקולים*\n• לא נמצאו ריקולים {_escape(label)}\n"
+
     lines = [f"*🔔 ריקולים \\({_escape(str(len(recalls)))}\\)*\n"]
-    for r in recalls:
-        teur  = r.get("TEUR_TAKALA", "")
-        ofen  = r.get("OFEN_TIKUN", "")
-        shnat = r.get("SHNAT_RECALL", "")
-        if teur:
-            line = f"• *{_escape(str(shnat))}:* {_escape(str(teur))}"
-            if ofen:
-                line += f" _\\({_escape(str(ofen))}\\)_"
-            lines.append(line + "\n")
+
+    if by_plate:
+        # hagbalat_recall fields: SUG_RECALL, SUG_TAKALA, TEUR_TAKALA, TAARICH_PTICHA
+        for r in recalls:
+            teur     = r.get("TEUR_TAKALA", "")
+            kategory = r.get("SUG_TAKALA", "")
+            sug      = r.get("SUG_RECALL", "")
+            taarich  = str(r.get("TAARICH_PTICHA", ""))[:10]
+            if teur:
+                line = f"• *{_escape(taarich)}*"
+                if kategory:
+                    line += f" \\| {_escape(kategory)}"
+                line += f"\n  {_escape(str(teur)[:120])}"
+                if sug:
+                    line += f"\n  _סוג: {_escape(sug)}_"
+                lines.append(line + "\n")
+    else:
+        # legacy RES_RECALL fields: SHNAT_RECALL, TEUR_TAKALA, OFEN_TIKUN
+        for r in recalls:
+            teur  = r.get("TEUR_TAKALA", "")
+            ofen  = r.get("OFEN_TIKUN", "")
+            shnat = r.get("SHNAT_RECALL", "")
+            if teur:
+                line = f"• *{_escape(str(shnat))}:* {_escape(str(teur))}"
+                if ofen:
+                    line += f" _\\({_escape(str(ofen))}\\)_"
+                lines.append(line + "\n")
+
     return "".join(lines)
 
 
@@ -403,10 +426,22 @@ def get_summary(record: dict) -> str:
     model        = _val(record, "kinuy_mishari", "degem_nm")
     km_fraud_warning = _check_km_fraud(record)
 
+    scrapped_dt  = record.get("_scrapped_dt", "")
+    scrapped_warning = ""
+    if scrapped_dt:
+        dt_str = _format_date(scrapped_dt)
+        scrapped_warning = (
+            f"🚨 *אזהרה\\: רכב זה בוטל רשמית \\(גרוטאה\\)*\n"
+            f"• תאריך ביטול: *{_escape(dt_str)}*\n"
+            f"• רכב זה אינו רשאי לנסוע על הכביש\\!\n"
+            "━━━━━━━━━━━━━━━━━━\n"
+        )
+
     sections = [
         f"🚗 *{_escape(manufacturer)} {_escape(model)}*\n",
         "━━━━━━━━━━━━━━━━━━\n",
         f"• *{_escape('מספר רכב')}:* {_escape(plate)}\n\n",
+        scrapped_warning,
         cat_general(record, w) + "\n",
         cat_specs(record, w) + "\n",
         cat_tires(record, w) + "\n",
