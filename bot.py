@@ -62,27 +62,37 @@ WAITING_CODE = 1
 WAITING_FREE_COUNT = 2
 WAITING_PAYMENT_MSG = 3
 
-def _payment_keyboard() -> InlineKeyboardMarkup:
+def _persistent_rows(is_admin: bool = False) -> list:
+    """Bottom rows always shown on every screen."""
+    rows = [
+        [InlineKeyboardButton("🔍 חיפוש רכב חדש",        callback_data="new_search"),
+         InlineKeyboardButton("ℹ️ איך זה עובד?",          callback_data="how_it_works")],
+        [InlineKeyboardButton("🛒 רכישת חבילת חיפושים",  callback_data="show_packages")],
+    ]
+    if is_admin:
+        rows.append([InlineKeyboardButton("🛠 פאנל מנהל", callback_data="admin_panel")])
+    return rows
+
+
+def _persistent_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(_persistent_rows(is_admin))
+
+
+def _payment_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🛒 רכישת חבילת חיפושים", callback_data="show_packages")],
-        [InlineKeyboardButton("ℹ️ איך זה עובד?",         callback_data="how_it_works")],
-        [InlineKeyboardButton("🔑 יש לי קוד גישה",      callback_data="enter_code")],
+        [InlineKeyboardButton("🔑 יש לי קוד גישה", callback_data="enter_code")],
+        *_persistent_rows(is_admin),
     ])
 
 
-def _welcome_keyboard() -> InlineKeyboardMarkup:
+def _welcome_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
+    return _persistent_keyboard(is_admin)
+
+
+def _blocked_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("ℹ️ איך זה עובד?",         callback_data="how_it_works")],
-        [InlineKeyboardButton("🛒 רכישת חבילת חיפושים", callback_data="show_packages")],
+        [InlineKeyboardButton("💬 צ'אט עם מנהל", callback_data="chat_admin")],
     ])
-
-
-def _blocked_keyboard() -> ReplyKeyboardMarkup:
-    return ReplyKeyboardMarkup(
-        [[KeyboardButton("💬 צ'אט עם מנהל")]],
-        resize_keyboard=True,
-        one_time_keyboard=False,
-    )
 
 
 def _admin_reply_keyboard() -> ReplyKeyboardMarkup:
@@ -100,21 +110,15 @@ def normalize_plate(text: str) -> str:
 
 
 def build_result_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
-    rows = [
-        [InlineKeyboardButton("🔍 חיפוש רכב חדש", callback_data="new_search")],
-        [InlineKeyboardButton("💬 צ'אט עם מנהל",  callback_data="chat_admin")],
-    ]
-    if is_admin:
-        rows.append([InlineKeyboardButton("🛠 פאנל מנהל", callback_data="admin_panel")])
-    return InlineKeyboardMarkup(rows)
+    return _persistent_keyboard(is_admin)
 
 
-def _packages_keyboard() -> InlineKeyboardMarkup:
+def _packages_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("50 חיפושים – ₪10",  callback_data="pkg|50|10")],
         [InlineKeyboardButton("100 חיפושים – ₪20", callback_data="pkg|100|20")],
         [InlineKeyboardButton("200 חיפושים – ₪30", callback_data="pkg|200|30")],
-        [InlineKeyboardButton("🔙 חזרה",            callback_data="back_to_start")],
+        *_persistent_rows(is_admin),
     ])
 
 
@@ -217,7 +221,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "ותקבל דוח מלא על הרכב תוך שניות\\.\n\n"
         f"🆓 {searches_info}",
         parse_mode=ParseMode.MARKDOWN_V2,
-        reply_markup=_welcome_keyboard(),
+        reply_markup=_welcome_keyboard(False),
     )
 
 
@@ -606,19 +610,21 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
 
 async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
+    query    = update.callback_query
+    is_admin = query.from_user.id == ADMIN_ID
     await query.answer()
     await query.edit_message_text(
         "👋 *ברוך הבא ל\\-CarInfo\\!*\n\n"
         "🔍 שלח מספר לוחית רישוי \\(לדוגמה: 1234567\\)\n"
         "ותקבל דוח מלא על הרכב תוך שניות\\.",
         parse_mode=ParseMode.MARKDOWN_V2,
-        reply_markup=_welcome_keyboard(),
+        reply_markup=_welcome_keyboard(is_admin),
     )
 
 
 async def handle_how_it_works(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
+    query    = update.callback_query
+    is_admin = query.from_user.id == ADMIN_ID
     await query.answer()
     await query.edit_message_text(
         "ℹ️ *איך CarInfo עובד?*\n\n"
@@ -642,17 +648,15 @@ async def handle_how_it_works(update: Update, context: ContextTypes.DEFAULT_TYPE
         "פשוט שלח מספר לוחית רישוי \\(לדוגמה: 1234567\\)\n"
         "והמערכת תחזיר לך דוח מלא תוך שניות\\.",
         parse_mode=ParseMode.MARKDOWN_V2,
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🛒 רכישת חבילה", callback_data="show_packages")],
-            [InlineKeyboardButton("🔙 חזרה",         callback_data="back_to_start")],
-        ]),
+        reply_markup=_persistent_keyboard(is_admin),
     )
 
 
 async def handle_package_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query   = update.callback_query
-    user_id = query.from_user.id
-    user    = query.from_user
+    query    = update.callback_query
+    user_id  = query.from_user.id
+    user     = query.from_user
+    is_admin = user_id == ADMIN_ID
     await query.answer()
 
     data = query.data
@@ -660,15 +664,15 @@ async def handle_package_callback(update: Update, context: ContextTypes.DEFAULT_
         await query.edit_message_text(
             "🛒 *בחר חבילת חיפושים:*",
             parse_mode=ParseMode.MARKDOWN_V2,
-            reply_markup=_packages_keyboard(),
+            reply_markup=_packages_keyboard(is_admin),
         )
         return
 
     # pkg|50|10
-    parts   = data.split("|")
-    amount  = parts[1]
-    price   = parts[2]
-    uname   = f"@{user.username}" if user.username else f"id:{user_id}"
+    parts    = data.split("|")
+    amount   = parts[1]
+    price    = parts[2]
+    uname    = f"@{user.username}" if user.username else f"id:{user_id}"
     fullname = user.full_name or ""
 
     if ADMIN_ID:
@@ -691,6 +695,7 @@ async def handle_package_callback(update: Update, context: ContextTypes.DEFAULT_
         f"📦 חבילה: *{amount} חיפושים* \\– ₪{price}\n\n"
         f"ניצור איתך קשר בהקדם לאישור התשלום ופתיחת הגישה\\.",
         parse_mode=ParseMode.MARKDOWN_V2,
+        reply_markup=_persistent_keyboard(is_admin),
     )
 
 
@@ -920,7 +925,8 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         )
         return
 
-    tg_user = update.effective_user
+    tg_user  = update.effective_user
+    is_admin = user_id == ADMIN_ID
     allowed, left = await is_allowed(user_id, tg_user.username or "", tg_user.full_name or "")
     if not allowed:
         if await is_blocked(user_id):
@@ -933,7 +939,7 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             await update.message.reply_text(
                 PAYMENT_MSG,
                 parse_mode=ParseMode.MARKDOWN_V2,
-                reply_markup=_payment_keyboard(),
+                reply_markup=_payment_keyboard(is_admin),
             )
         return
 
@@ -952,12 +958,18 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     except Exception as exc:
         logger.error("Error fetching data for plate %s: %s", plate, exc)
         await searching_msg.delete()
-        await update.message.reply_text(format_error(), parse_mode=ParseMode.MARKDOWN_V2)
+        await update.message.reply_text(
+            format_error(), parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=_persistent_keyboard(is_admin),
+        )
         return
 
     if record is None:
         await searching_msg.delete()
-        await update.message.reply_text(format_not_found(plate), parse_mode=ParseMode.MARKDOWN_V2)
+        await update.message.reply_text(
+            format_not_found(plate), parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=_persistent_keyboard(is_admin),
+        )
         return
 
     # Only count if this is a NEW plate (not a repeat search for same plate)
@@ -984,14 +996,16 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def handle_result_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query   = update.callback_query
-    user_id = query.from_user.id
+    query    = update.callback_query
+    user_id  = query.from_user.id
+    is_admin = user_id == ADMIN_ID
     await query.answer()
 
     if query.data == "new_search":
         await query.message.reply_text(
             "🔢 שלח מספר רכב לחיפוש:",
             parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=_persistent_keyboard(is_admin),
         )
         return
 
