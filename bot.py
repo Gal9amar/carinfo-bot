@@ -114,6 +114,7 @@ def _packages_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton("50 חיפושים – ₪10",  callback_data="pkg|50|10")],
         [InlineKeyboardButton("100 חיפושים – ₪20", callback_data="pkg|100|20")],
         [InlineKeyboardButton("200 חיפושים – ₪30", callback_data="pkg|200|30")],
+        [InlineKeyboardButton("🔙 חזרה",            callback_data="back_to_start")],
     ])
 
 
@@ -604,6 +605,18 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         return
 
 
+async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text(
+        "👋 *ברוך הבא ל\\-CarInfo\\!*\n\n"
+        "🔍 שלח מספר לוחית רישוי \\(לדוגמה: 1234567\\)\n"
+        "ותקבל דוח מלא על הרכב תוך שניות\\.",
+        parse_mode=ParseMode.MARKDOWN_V2,
+        reply_markup=_welcome_keyboard(),
+    )
+
+
 async def handle_how_it_works(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
@@ -1050,6 +1063,7 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(handle_admin_callback,  pattern=r"^adm\|"))
     app.add_handler(CallbackQueryHandler(handle_package_callback, pattern=r"^show_packages$|^pkg\|"))
     app.add_handler(CallbackQueryHandler(handle_how_it_works,    pattern=r"^how_it_works$"))
+    app.add_handler(CallbackQueryHandler(handle_back_to_start,   pattern=r"^back_to_start$"))
 
     quick_filter = filters.TEXT & filters.Regex(r"^(🔍 חיפוש רכב חדש|💬 צ'אט עם מנהל)$")
     app.add_handler(MessageHandler(quick_filter & ~filters.COMMAND, handle_quick_buttons))
