@@ -156,7 +156,9 @@ def cat_general(record: dict, w: dict) -> str:
     agra_group = _val(w, "kvuzat_agra_cd")
     shnat      = _val(record, "shnat_yitzur")
     agra_str   = _agra_from_group(agra_group, shnat) if agra_group else ""
-    lines.append(_row_always("אגרת רישוי שנתית", agra_str))
+    if agra_str:
+        lines.append(_row_always("אגרת רישוי שנתית", agra_str))
+        lines.append(f"  _\\* מחיר משוער לפי קבוצת אגרה וגיל הרכב_\n")
 
     importer_price = record.get("_importer_price")
     if importer_price:
