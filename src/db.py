@@ -88,7 +88,7 @@ async def init_db() -> None:
 
 async def execute(sql: str, args: list | None = None) -> _Result:
     conn = _get_conn()
-    cur  = conn.execute(sql, args or [])
+    cur  = conn.execute(sql, tuple(args) if args else ())
     conn.commit()
     rows    = cur.fetchall()
     columns = [desc[0] for desc in (cur.description or [])]
