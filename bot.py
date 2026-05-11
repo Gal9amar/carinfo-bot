@@ -27,9 +27,11 @@ from telegram.ext import (
 
 from src.api.gov_api import fetch_vehicle_data
 from src.cache import cache
+from src.db import init_db
 from src.users import (
     is_allowed, increment_search, apply_code, generate_code,
     admin_stats, admin_grant, get_all_users, get_user_by_username,
+    get_last_plate, set_last_plate,
 )
 from src.formatter import (
     CATEGORIES,
@@ -138,7 +140,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    allowed, left = is_allowed(user_id)
+    allowed, left = await is_allowed(user_id, user.username or "", user.full_name or "")
 
     if not allowed:
         await update.message.reply_text(
@@ -177,7 +179,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
-    allowed, left = is_allowed(user_id)
+    allowed, left = await is_allowed(user_id)
     if left == -1:
         msg = "✅ גישה מלאה פעילה"
     elif left > 0:
@@ -197,7 +199,7 @@ async def cmd_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
     code = args[0].strip().upper()
-    success, msg = apply_code(user_id, code)
+    success, msg = await apply_code(user_id, code)
     await update.message.reply_text(
         f"{'✅' if success else '❌'} {msg}",
         parse_mode=ParseMode.MARKDOWN_V2 if not success else None,
@@ -219,7 +221,7 @@ async def receive_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     """Receives the code text and applies it."""
     user_id = update.effective_user.id
     code    = update.message.text.strip().upper()
-    success, msg = apply_code(user_id, code)
+    success, msg = await apply_code(user_id, code)
     if success:
         await update.message.reply_text(msg)
     else:
@@ -282,12 +284,12 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             except ValueError:
                 await update.message.reply_text("כמות חייבת להיות מספר", parse_mode=ParseMode.MARKDOWN_V2)
                 return
-            target = get_user_by_username(username)
+            target = await get_user_by_username(username)
             if not target:
                 await update.message.reply_text(f"משתמש @{username} לא נמצא\\.", parse_mode=ParseMode.MARKDOWN_V2)
                 return
             note = " ".join(args[3:]) if len(args) > 3 else ""
-            msg = admin_grant(user_id, target["user_id"], amount, note)
+            msg = await admin_grant(user_id, target["user_id"], amount, note)
             await update.message.reply_text(f"✅ @{username}: {msg}", parse_mode=ParseMode.MARKDOWN_V2)
             return
 
@@ -298,7 +300,7 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 count = 10
             single = "multi" not in args
             unlimited = count == -1
-            code = generate_code(searches=count, single_use=single, unlimited=unlimited)
+            code = await generate_code(searches=count, single_use=single, unlimited=unlimited)
             kind = "בלתי מוגבל" if unlimited else f"{count} בדיקות"
             use_str = "חד פעמי" if single else "רב פעמי"
             await update.message.reply_text(
@@ -308,7 +310,7 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             return
 
     # /admin  → show main panel
-    stats = admin_stats()
+    stats = await admin_stats()
     await update.message.reply_text(
         f"🛠 *פאנל ניהול CarInfo*\n\n"
         f"👤 משתמשים: *{stats['total_users']}* \\| פעילים: *{stats['active_users']}*\n"
@@ -333,7 +335,7 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
     # ── Main panel ──
     if action == "main":
-        stats = admin_stats()
+        stats = await admin_stats()
         await query.edit_message_text(
             f"🛠 *פאנל ניהול CarInfo*\n\n"
             f"👤 משתמשים: *{stats['total_users']}* \\| פעילים: *{stats['active_users']}*\n"
@@ -346,7 +348,7 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
     # ── Stats ──
     if action == "stats":
-        stats = admin_stats()
+        stats = await admin_stats()
         await query.edit_message_text(
             f"📊 *סטטיסטיקות מפורטות*\n\n"
             f"• סה\"כ משתמשים: *{stats['total_users']}*\n"
@@ -361,7 +363,7 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
     # ── Users list ──
     if action == "users":
-        users = get_all_users()
+        users = await get_all_users()
         if not users:
             await query.edit_message_text(
                 "אין משתמשים עדיין\\.",
@@ -402,7 +404,7 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         count     = int(count_str)
         single    = use_type == "single"
         unlimited = count == -1
-        code = generate_code(searches=count, single_use=single, unlimited=unlimited)
+        code = await generate_code(searches=count, single_use=single, unlimited=unlimited)
         kind     = "♾️ בלתי מוגבל" if unlimited else f"{count} בדיקות"
         use_str  = "חד פעמי" if single else "רב פעמי"
         await query.edit_message_text(
@@ -478,7 +480,8 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         return
 
     # Check access
-    allowed, left = is_allowed(user_id)
+    tg_user = update.effective_user
+    allowed, left = await is_allowed(user_id, tg_user.username or "", tg_user.full_name or "")
     if not allowed:
         await update.message.reply_text(
             PAYMENT_MSG,
@@ -513,10 +516,10 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         return
 
     # Count the search only after confirming the vehicle exists
-    increment_search(user_id)
+    await increment_search(user_id, plate)
 
     cache.set(f"record_{plate}", record)
-    context.user_data["last_plate"] = plate
+    await set_last_plate(user_id, plate)
 
     summary = get_summary(record)
 
@@ -539,20 +542,22 @@ async def handle_category(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     """Handles taps on the reply keyboard category buttons."""
     text = update.message.text.strip()
 
+    user_id = update.effective_user.id
+
     if text == "🔍 חיפוש רכב חדש":
         await update.message.reply_text(
             "🔢 שלח מספר רכב לחיפוש:",
             parse_mode=ParseMode.MARKDOWN_V2,
             reply_markup=ReplyKeyboardRemove(),
         )
-        context.user_data.pop("last_plate", None)
+        await set_last_plate(user_id, "")
         return
 
     category = LABEL_TO_KEY.get(text)
     if not category:
         return  # not a category button – fall through to handle_plate
 
-    plate = context.user_data.get("last_plate")
+    plate = await get_last_plate(user_id)
     if not plate:
         await update.message.reply_text(
             "שלח מספר רכב תחילה\\.",
@@ -562,13 +567,25 @@ async def handle_category(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     record = cache.get(f"record_{plate}")
     if record is None:
-        await update.message.reply_text(
-            "⏰ פג תוקף הנתונים\\. שלח את מספר הרכב שוב\\.",
-            parse_mode=ParseMode.MARKDOWN_V2,
-            reply_markup=ReplyKeyboardRemove(),
+        # Cache expired (e.g. after bot restart) – re-fetch silently
+        searching_msg = await update.message.reply_text(
+            "🔍 טוען נתונים\\.\\.\\.", parse_mode=ParseMode.MARKDOWN_V2
         )
-        context.user_data.pop("last_plate", None)
-        return
+        try:
+            record = await fetch_vehicle_data(plate)
+        except Exception as exc:
+            logger.error("Error re-fetching data for plate %s: %s", plate, exc)
+            record = None
+        await searching_msg.delete()
+        if record is None:
+            await update.message.reply_text(
+                "⏰ לא ניתן לטעון נתונים\\. שלח את מספר הרכב שוב\\.",
+                parse_mode=ParseMode.MARKDOWN_V2,
+                reply_markup=ReplyKeyboardRemove(),
+            )
+            await set_last_plate(user_id, "")
+            return
+        cache.set(f"record_{plate}", record)
 
     result = get_category_text(category, record)
     await update.message.reply_text(
@@ -594,6 +611,11 @@ def run_health_server():
     HTTPServer(("0.0.0.0", port), HealthHandler).serve_forever()
 
 
+async def _post_init(app) -> None:
+    await init_db()
+    logger.info("Turso DB initialized")
+
+
 def main() -> None:
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     if not token:
@@ -602,7 +624,7 @@ def main() -> None:
     Thread(target=run_health_server, daemon=True).start()
     logger.info("Health server started")
 
-    app = Application.builder().token(token).build()
+    app = Application.builder().token(token).post_init(_post_init).build()
     app.add_handler(CommandHandler("myid", cmd_myid))
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("help", cmd_help))
