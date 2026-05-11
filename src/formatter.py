@@ -238,12 +238,24 @@ def cat_adas(record: dict, w: dict) -> str:
     return "".join(lines)
 
 
+def _format_tag_nache_date(raw) -> str:
+    try:
+        s = str(int(raw))
+        if len(s) == 8:
+            return f"{s[6:8]}/{s[4:6]}/{s[:4]}"
+    except Exception:
+        pass
+    return str(raw) if raw else ""
+
+
 def cat_history(record: dict, w: dict) -> str:
     km = _val(record, "kilometer_test_aharon")
     changed_body  = record.get("shinui_mivne_ind")
     changed_color = record.get("shnui_zeva_ind")
     changed_tire  = record.get("shinui_zmig_ind")
     gapam         = record.get("gapam_ind")
+    tag_nache     = record.get("_tag_nache")
+    was_rental    = record.get("_was_rental", False)
 
     lines = ["*📅 היסטוריה ורישום*\n"]
     lines.append(_row_always("תאריך רישום ראשון", _format_date(record.get("rishum_rishon_dt"))))
@@ -255,6 +267,14 @@ def cat_history(record: dict, w: dict) -> str:
     lines.append(_row_always("שינוי צבע", _yn_always(changed_color)))
     lines.append(_row_always("שינוי צמיגים", _yn_always(changed_tire)))
     lines.append(_row_always("GAPAM", _yn_always(gapam)))
+
+    if tag_nache:
+        hafakat = _format_tag_nache_date(tag_nache.get("hafakat"))
+        lines.append(f"• *{_escape('תו נכה')}:* ✅ כן \\(הופק: {_escape(hafakat)}\\)\n" if hafakat else f"• *{_escape('תו נכה')}:* ✅ כן\n")
+    else:
+        lines.append(f"• *{_escape('תו נכה')}:* ❌ לא\n")
+
+    lines.append(_row_always("רכב שכור בעבר", "✅ כן" if was_rental else "❌ לא"))
     return "".join(lines)
 
 

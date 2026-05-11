@@ -19,6 +19,8 @@ RES_HISTORY   = "56063a99-8a3e-4ff4-912e-5966c0279bad"  # ק"מ, מנוע, שי�
 RES_OWNERSHIP = "bb2355dc-9ec7-4f06-9c3f-3344672171da"  # היסטוריית בעלויות
 RES_WLTP      = "142afde2-6228-49f9-8a29-9b6c3a0cbe40"  # WLTP: בטיחות, פליטות, ציוד
 RES_RECALL    = "2c33523f-87aa-44ec-a736-edbb0a82975e"  # ריקולים לפי דגם
+RES_TAG_NACHE = "c8b9f9c8-4612-4068-934f-d4acd2e3c06e"  # תגי נכה לפי מספר רכב
+RES_RENTAL    = "f6efe89a-fb3d-43a4-bb61-9bf12a9b9099"  # רכבים שנרשמו כ"רכב שכור"
 
 
 async def _search_q(client: httpx.AsyncClient, resource_id: str, q: str, limit: int = 1) -> list:
@@ -75,12 +77,21 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
     mispar     = int(clean)
 
     async with httpx.AsyncClient(timeout=12) as client:
+        async def _empty():
+            return []
+
+        wltp_task = (
+            _search_filter(client, RES_WLTP, {"degem_cd": degem_cd, "tozeret_cd": tozeret_cd}, limit=1)
+            if degem_cd and tozeret_cd else _empty()
+        )
         tasks = [
             _search_filter(client, RES_OWNERSHIP, {"mispar_rechev": mispar}, limit=50),
-            _search_filter(client, RES_WLTP,      {"degem_cd": degem_cd, "tozeret_cd": tozeret_cd}, limit=1) if degem_cd and tozeret_cd else asyncio.coroutine(lambda: [])(),
+            wltp_task,
             _search_filter(client, RES_RECALL,    {"DEGEM": record.get("degem_nm", "")}, limit=5),
+            _search_filter(client, RES_TAG_NACHE, {"MISPAR RECHEV": mispar}, limit=1),
+            _search_filter(client, RES_RENTAL,    {"mispar_rechev": mispar}, limit=1),
         ]
-        ownership_records, wltp_records, recall_records = await asyncio.gather(*tasks)
+        ownership_records, wltp_records, recall_records, tag_nache_records, rental_records = await asyncio.gather(*tasks)
 
     # Ownership history – sort by date ascending
     if ownership_records:
@@ -92,5 +103,14 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
 
     if recall_records:
         record["_recalls"] = recall_records
+
+    if tag_nache_records:
+        t = tag_nache_records[0]
+        record["_tag_nache"] = {
+            "sug_tav":  t.get("SUG TAV"),
+            "hafakat":  t.get("TAARICH HAFAKAT TAG"),
+        }
+
+    record["_was_rental"] = bool(rental_records)
 
     return record
