@@ -94,21 +94,47 @@ def _row_always(label: str, value) -> str:
 # Category builders
 # ─────────────────────────────────────────────
 
-_AGRA_GROUPS = {
-    1: 230, 2: 335, 3: 440, 4: 545, 5: 660, 6: 775, 7: 900,
-    8: 1040, 9: 1195, 10: 1365, 11: 1555, 12: 1770, 13: 2010,
-    14: 2295, 15: 2610,
+# אגרת רישוי לפי קבוצה (1-15) וגיל רכב: 0-3 / 4-7 / 8-11 / 12+
+_AGRA_TABLE = {
+    1:  (438,   329,   219,   110),
+    2:  (613,   460,   306,   153),
+    3:  (788,   591,   394,   197),
+    4:  (963,   722,   481,   241),
+    5:  (1138,  854,   569,   285),
+    6:  (1313,  985,   657,   329),
+    7:  (1488,  1116,  744,   372),
+    8:  (1750,  1313,  875,   438),
+    9:  (2100,  1575,  1050,  525),
+    10: (2450,  1838,  1225,  613),
+    11: (2888,  2166,  1444,  722),
+    12: (3238,  2429,  1619,  810),
+    13: (3675,  2756,  1838,  919),
+    14: (4200,  3150,  2100,  1050),
+    15: (4725,  3544,  2363,  1182),
 }
 
 
-def _agra_from_group(code) -> str:
+def _agra_from_group(code, shnat_yitzur=None) -> str:
     try:
-        amount = _AGRA_GROUPS.get(int(code))
-        if amount:
-            return f"₪{amount:,} \\(קבוצה {int(code)}\\)"
+        grp = int(code)
+        row = _AGRA_TABLE.get(grp)
+        if not row:
+            return ""
+        if shnat_yitzur:
+            age = date.today().year - int(shnat_yitzur)
+            if age <= 3:
+                amount = row[0]
+            elif age <= 7:
+                amount = row[1]
+            elif age <= 11:
+                amount = row[2]
+            else:
+                amount = row[3]
+        else:
+            amount = row[0]
+        return f"₪{amount:,} \\(קבוצה {grp}\\)"
     except Exception:
-        pass
-    return ""
+        return ""
 
 
 def cat_general(record: dict, w: dict) -> str:
@@ -128,7 +154,8 @@ def cat_general(record: dict, w: dict) -> str:
     lines.append(_row_always("מספר מנוע", _val(record, "mispar_manoa")))
     lines.append(_row_always("מקוריות", _val(record, "mkoriut_nm")))
     agra_group = _val(w, "kvuzat_agra_cd")
-    agra_str   = _agra_from_group(agra_group) if agra_group else ""
+    shnat      = _val(record, "shnat_yitzur")
+    agra_str   = _agra_from_group(agra_group, shnat) if agra_group else ""
     lines.append(_row_always("אגרת רישוי שנתית", agra_str))
 
     importer_price = record.get("_importer_price")
