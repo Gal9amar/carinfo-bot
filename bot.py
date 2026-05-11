@@ -50,6 +50,10 @@ PLATE_RE  = re.compile(r"^[\d\-]{5,10}$")
 ADMIN_ID  = int(os.environ.get("ADMIN_TELEGRAM_ID", "594206475"))
 BOT_USERNAME = "israelcarinfobot"
 
+_MD_SPECIAL = r"\_*[]()~`>#+-=|{}.!"
+def _escape_md(text: str) -> str:
+    return "".join(f"\\{c}" if c in _MD_SPECIAL else c for c in str(text))
+
 logger.info("ADMIN_ID loaded: %s", ADMIN_ID)
 
 PAYMENT_MSG = (
@@ -118,6 +122,7 @@ def _packages_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
         [InlineKeyboardButton("50 חיפושים – ₪10",  callback_data="pkg|50|10")],
         [InlineKeyboardButton("100 חיפושים – ₪20", callback_data="pkg|100|20")],
         [InlineKeyboardButton("200 חיפושים – ₪30", callback_data="pkg|200|30")],
+        [InlineKeyboardButton("🎟️ יש לי קוד הטבה", callback_data="enter_code")],
         *_persistent_rows(is_admin),
     ])
 
@@ -271,25 +276,40 @@ async def cmd_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def cb_enter_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    query = update.callback_query
+    query    = update.callback_query
+    is_admin = query.from_user.id == ADMIN_ID
     await query.answer()
-    await query.message.reply_text(
-        "🔑 הקלד את קוד הגישה שלך:",
-        reply_markup=ReplyKeyboardRemove(),
+    await query.edit_message_text(
+        "🎟️ *הזן קוד הטבה*\n\n"
+        "שלח את הקוד שקיבלת \\(לא תלוי רישיות\\):",
+        parse_mode=ParseMode.MARKDOWN_V2,
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔙 חזרה", callback_data="show_packages")],
+        ]),
     )
+    context.user_data["code_is_admin"] = is_admin
     return WAITING_CODE
 
 
 async def receive_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    user_id = update.effective_user.id
-    code    = update.message.text.strip().upper()
+    user_id  = update.effective_user.id
+    is_admin = context.user_data.pop("code_is_admin", user_id == ADMIN_ID)
+    code     = update.message.text.strip().upper()
     success, msg = await apply_code(user_id, code)
     if success:
-        await update.message.reply_text(msg)
+        await update.message.reply_text(
+            f"✅ *{_escape_md(msg)}*\n\nתוכל להתחיל לחפש רכבים עכשיו\\!",
+            parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=_persistent_keyboard(is_admin),
+        )
     else:
         await update.message.reply_text(
-            f"❌ {msg}\n\nנסה שוב או שלח מספר רכב לחיפוש\\.",
+            f"❌ *קוד לא תקין*\n\n{_escape_md(msg)}\n\nנסה שוב או חזור לתפריט החבילות\\.",
             parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔙 חזרה לחבילות", callback_data="show_packages")],
+                *_persistent_rows(is_admin),
+            ]),
         )
     return ConversationHandler.END
 
@@ -1094,7 +1114,10 @@ def main() -> None:
     app.add_handler(ConversationHandler(
         entry_points=[CallbackQueryHandler(cb_enter_code, pattern="^enter_code$")],
         states={WAITING_CODE: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_code)]},
-        fallbacks=[CommandHandler("cancel", cancel_code)],
+        fallbacks=[
+            CommandHandler("cancel", cancel_code),
+            CallbackQueryHandler(handle_package_callback, pattern=r"^show_packages$"),
+        ],
         per_message=False,
     ))
 
