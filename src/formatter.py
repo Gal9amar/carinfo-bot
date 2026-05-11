@@ -130,6 +130,23 @@ def cat_general(record: dict, w: dict) -> str:
     agra_group = _val(w, "kvuzat_agra_cd")
     agra_str   = _agra_from_group(agra_group) if agra_group else ""
     lines.append(_row_always("אגרת רישוי שנתית", agra_str))
+
+    importer_price = record.get("_importer_price")
+    if importer_price:
+        try:
+            price_int = int(float(importer_price))
+            lines.append(_row_always("מחיר יבואן (חדש)", f"₪{price_int:,}"))
+            shnat = record.get("shnat_yitzur")
+            if shnat:
+                from datetime import date as _date
+                age = _date.today().year - int(shnat)
+                if age > 0:
+                    dep_pct = min(age * 8, 70)
+                    est = int(price_int * (1 - dep_pct / 100))
+                    lines.append(_row_always("הערכת שווי יד\\-2", f"~₪{est:,} \\(ירידת ערך ≈{dep_pct}%\\)"))
+        except Exception:
+            pass
+
     return "".join(lines)
 
 

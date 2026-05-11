@@ -21,6 +21,7 @@ RES_WLTP      = "142afde2-6228-49f9-8a29-9b6c3a0cbe40"  # WLTP: בטיחות, פ
 RES_RECALL    = "2c33523f-87aa-44ec-a736-edbb0a82975e"  # ריקולים לפי דגם
 RES_TAG_NACHE = "c8b9f9c8-4612-4068-934f-d4acd2e3c06e"  # תגי נכה לפי מספר רכב
 RES_RENTAL    = "f6efe89a-fb3d-43a4-bb61-9bf12a9b9099"  # רכבים שנרשמו כ"רכב שכור"
+RES_IMPORTER  = "39f455bf-6db0-4926-859d-017f34eacbcb"  # מחירון יבואן לפי דגם+שנה
 
 
 async def _search_q(client: httpx.AsyncClient, resource_id: str, q: str, limit: int = 1) -> list:
@@ -84,14 +85,23 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
             _search_filter(client, RES_WLTP, {"degem_cd": degem_cd, "tozeret_cd": tozeret_cd}, limit=1)
             if degem_cd and tozeret_cd else _empty()
         )
+        importer_task = (
+            _search_filter(client, RES_IMPORTER, {
+                "tozeret_cd": tozeret_cd,
+                "degem_cd":   degem_cd,
+                "shnat_yitzur": record.get("shnat_yitzur"),
+            }, limit=1)
+            if degem_cd and tozeret_cd else _empty()
+        )
         tasks = [
             _search_filter(client, RES_OWNERSHIP, {"mispar_rechev": mispar}, limit=50),
             wltp_task,
             _search_filter(client, RES_RECALL,    {"DEGEM": record.get("degem_nm", "")}, limit=5),
             _search_filter(client, RES_TAG_NACHE, {"MISPAR RECHEV": mispar}, limit=1),
             _search_filter(client, RES_RENTAL,    {"mispar_rechev": mispar}, limit=1),
+            importer_task,
         ]
-        ownership_records, wltp_records, recall_records, tag_nache_records, rental_records = await asyncio.gather(*tasks)
+        ownership_records, wltp_records, recall_records, tag_nache_records, rental_records, importer_records = await asyncio.gather(*tasks)
 
     # Ownership history – sort by date ascending
     if ownership_records:
@@ -112,5 +122,8 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
         }
 
     record["_was_rental"] = bool(rental_records)
+
+    if importer_records:
+        record["_importer_price"] = importer_records[0].get("mehir")
 
     return record
