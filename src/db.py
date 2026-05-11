@@ -32,7 +32,8 @@ async def init_db() -> None:
             searches_quota INTEGER DEFAULT 5,
             first_seen     TEXT DEFAULT (datetime('now')),
             last_seen      TEXT DEFAULT (datetime('now')),
-            last_plate     TEXT DEFAULT ''
+            last_plate     TEXT DEFAULT '',
+            blocked        INTEGER DEFAULT 0
         )
         """,
         """

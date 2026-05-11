@@ -9,7 +9,7 @@ from typing import Optional
 
 from src.db import execute
 
-FREE_SEARCHES = 5
+FREE_SEARCHES = 20
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
@@ -46,11 +46,13 @@ async def is_allowed(user_id: int, username: str = "", full_name: str = "") -> t
     """Returns (allowed, searches_left). -1 = unlimited."""
     await _ensure_user(user_id, username, full_name)
     r = await execute(
-        "SELECT searches_done, searches_quota FROM users WHERE user_id = ?",
+        "SELECT searches_done, searches_quota, blocked FROM users WHERE user_id = ?",
         [user_id],
     )
     u = _row(r)
     if u is None:
+        return False, 0
+    if u.get("blocked"):
         return False, 0
     quota = u["searches_quota"]
     done  = u["searches_done"]
@@ -96,7 +98,6 @@ async def apply_code(user_id: int, code: str, username: str = "") -> tuple[bool,
     if code_data is None:
         return False, "קוד לא תקין"
 
-    # Already used by this user?
     uc = await execute(
         "SELECT 1 FROM user_codes WHERE user_id = ? AND code = ?",
         [user_id, code],
@@ -104,11 +105,9 @@ async def apply_code(user_id: int, code: str, username: str = "") -> tuple[bool,
     if uc.rows:
         return False, "קוד זה כבר נוצל על ידך"
 
-    # Single-use already taken?
     if code_data["single_use"] and code_data["used_by"] is not None:
         return False, "קוד זה כבר נוצל"
 
-    # Expired?
     if code_data["expires"]:
         try:
             if datetime.now() > datetime.fromisoformat(code_data["expires"]):
@@ -208,7 +207,7 @@ async def generate_code(
 
 async def get_all_users() -> list[dict]:
     r = await execute(
-        "SELECT user_id, username, full_name, searches_done, searches_quota, first_seen, last_seen FROM users ORDER BY searches_done DESC"
+        "SELECT user_id, username, full_name, searches_done, searches_quota, first_seen, last_seen, blocked FROM users ORDER BY searches_done DESC"
     )
     users = []
     for u in _rows(r):
@@ -222,7 +221,7 @@ async def get_all_users() -> list[dict]:
 async def get_user_by_username(username: str) -> Optional[dict]:
     username = username.lstrip("@").lower()
     r = await execute(
-        "SELECT user_id, username, searches_done, searches_quota FROM users WHERE LOWER(username) = ?",
+        "SELECT user_id, username, full_name, searches_done, searches_quota, blocked FROM users WHERE LOWER(username) = ?",
         [username],
     )
     u = _row(r)
@@ -234,9 +233,38 @@ async def get_user_by_username(username: str) -> Optional[dict]:
     return u
 
 
+async def get_user_by_id(user_id: int) -> Optional[dict]:
+    r = await execute(
+        "SELECT user_id, username, full_name, searches_done, searches_quota, blocked FROM users WHERE user_id = ?",
+        [user_id],
+    )
+    u = _row(r)
+    if u is None:
+        return None
+    quota = u["searches_quota"]
+    done  = u["searches_done"]
+    u["searches_left"] = -1 if quota == -1 else max(0, quota - done)
+    return u
+
+
+async def block_user(user_id: int) -> None:
+    await _ensure_user(user_id)
+    await execute("UPDATE users SET blocked = 1 WHERE user_id = ?", [user_id])
+
+
+async def unblock_user(user_id: int) -> None:
+    await execute("UPDATE users SET blocked = 0 WHERE user_id = ?", [user_id])
+
+
+async def is_blocked(user_id: int) -> bool:
+    r = await execute("SELECT blocked FROM users WHERE user_id = ?", [user_id])
+    u = _row(r)
+    return bool(u["blocked"]) if u else False
+
+
 async def admin_stats() -> dict:
-    total_r   = await execute("SELECT COUNT(*) as c FROM users")
-    active_r  = await execute(
+    total_r    = await execute("SELECT COUNT(*) as c FROM users")
+    active_r   = await execute(
         "SELECT COUNT(*) as c FROM users WHERE searches_quota = -1 OR searches_quota > searches_done"
     )
     searches_r = await execute("SELECT COALESCE(SUM(searches_done), 0) as c FROM users")
