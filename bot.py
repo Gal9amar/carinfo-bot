@@ -1029,7 +1029,13 @@ async def handle_admin_keyboard(update: Update, context: ContextTypes.DEFAULT_TY
     if text_msg == "🔍 חזור לחיפוש":
         await update.message.reply_text(
             "🔍 שלח מספר לוחית לחיפוש:",
-            reply_markup=ReplyKeyboardRemove(),
+            reply_markup=_cancel_search_keyboard(),
+        )
+        return
+    if text_msg == "❌ ביטול":
+        await update.message.reply_text(
+            "בסדר, חיפוש בוטל.",
+            reply_markup=build_category_keyboard(is_admin=True),
         )
         return
     fn = dispatch.get(text_msg)
@@ -1533,7 +1539,7 @@ def main() -> None:
     admin_kb_labels = [
         "📊 סטטיסטיקות", "👥 משתמשים", "🔑 צור קוד", "💳 הענק גישה",
         "🚫 חסום/שחרר", "⚙️ הגדרות בוט", "📢 שלח הודעה לכולם",
-        "🛠 פאנל מנהל", "🔍 חזור לחיפוש",
+        "🛠 פאנל מנהל", "🔍 חזור לחיפוש", "❌ ביטול",
     ]
     import re as _re_main
     app.add_handler(MessageHandler(
