@@ -290,6 +290,16 @@ async def get_user_by_id(user_id: int) -> Optional[dict]:
     return u
 
 
+
+async def get_quota_expires(user_id: int) -> str | None:
+    """Returns quota_expires ISO string or None."""
+    r = await execute(
+        "SELECT quota_expires FROM users WHERE user_id = ?",
+        [user_id],
+    )
+    u = _row(r)
+    return u["quota_expires"] if u else None
+
 async def block_user(user_id: int) -> None:
     await _ensure_user(user_id)
     await execute("UPDATE users SET blocked = 1 WHERE user_id = ?", [user_id])
