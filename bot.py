@@ -914,38 +914,41 @@ async def handle_paid_callback(update: Update, context: ContextTypes.DEFAULT_TYP
 async def handle_approve_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Admin approves payment — grant searches."""
     query = update.callback_query
+    await query.answer()  # always answer first
     if query.from_user.id != ADMIN_ID:
         await query.answer("אין הרשאה", show_alert=True)
         return
-    await query.answer()
-    parts    = query.data.split("|")
-    target   = int(parts[1])
-    searches = int(parts[2])
-
-    admin_grant(target, searches)
-
-    await query.edit_message_text(
-        f"✅ אושר\! נוספו *{searches}* בדיקות למשתמש `{target}`",
-        parse_mode=ParseMode.MARKDOWN_V2,
-    )
     try:
-        await context.bot.send_message(
-            target,
-            f"🎉 *התשלום אושר\!*\n\n"
-            f"נוספו לך *{searches}* בדיקות רכב\. תוכל להתחיל מיד\!",
+        parts    = query.data.split("|")
+        target   = int(parts[1])
+        searches = int(parts[2])
+
+        admin_grant(target, searches)
+
+        await query.edit_message_text(
+            f"✅ אושר\! נוספו *{searches}* בדיקות למשתמש `{target}`",
             parse_mode=ParseMode.MARKDOWN_V2,
         )
-    except Exception:
-        pass
+        try:
+            await context.bot.send_message(
+                target,
+                f"🎉 *התשלום אושר\!*\n\n"
+                f"נוספו לך *{searches}* בדיקות רכב\. תוכל להתחיל מיד\!",
+                parse_mode=ParseMode.MARKDOWN_V2,
+            )
+        except Exception:
+            pass
+    except Exception as e:
+        logger.error("approve_callback error: %s", e)
+        await context.bot.send_message(ADMIN_ID, f"❌ שגיאה באישור: {e}")
 
 
 async def handle_decline_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Admin declines payment."""
     query = update.callback_query
+    await query.answer()  # always answer first
     if query.from_user.id != ADMIN_ID:
-        await query.answer("אין הרשאה", show_alert=True)
         return
-    await query.answer()
     parts  = query.data.split("|")
     target = int(parts[1])
 
