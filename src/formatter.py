@@ -95,44 +95,51 @@ def _row_always(label: str, value) -> str:
 # ─────────────────────────────────────────────
 
 # אגרת רישוי לפי קבוצה (1-15) וגיל רכב: 0-3 / 4-7 / 8-11 / 12+
+# אגרת רישוי 2024 — 7 קבוצות × 3 טווחי גיל
+# (עד 3 שנים, 4–10 שנים, 11+ שנים)
+# רכבי 2000 ומטה — 25% מהאגרה הרגילה
 _AGRA_TABLE = {
-    1:  (438,   329,   219,   110),
-    2:  (613,   460,   306,   153),
-    3:  (788,   591,   394,   197),
-    4:  (963,   722,   481,   241),
-    5:  (1138,  854,   569,   285),
-    6:  (1313,  985,   657,   329),
-    7:  (1488,  1116,  744,   372),
-    8:  (1750,  1313,  875,   438),
-    9:  (2100,  1575,  1050,  525),
-    10: (2450,  1838,  1225,  613),
-    11: (2888,  2166,  1444,  722),
-    12: (3238,  2429,  1619,  810),
-    13: (3675,  2756,  1838,  919),
-    14: (4200,  3150,  2100,  1050),
-    15: (4725,  3544,  2363,  1182),
+    1: (1_012,   759,   506),
+    2: (1_417,  1_063,   709),
+    3: (1_822,  1_367,   911),
+    4: (2_480,  1_860,  1_240),
+    5: (3_290,  2_468,  1_645),
+    6: (4_352,  3_264,  2_176),
+    7: (5_771,  4_328,  2_886),
 }
+_AGRA_ELECTRIC = 177   # אגרה סמלית לרכב חשמלי (כל קבוצה/גיל)
 
 
-def _agra_from_group(code, shnat_yitzur=None) -> str:
+def _agra_from_group(code, shnat_yitzur=None, sug_delek_nm=None) -> str:
     try:
         grp = int(code)
         row = _AGRA_TABLE.get(grp)
         if not row:
             return ""
-        if shnat_yitzur:
-            age = date.today().year - int(shnat_yitzur)
-            if age <= 3:
-                amount = row[0]
-            elif age <= 7:
-                amount = row[1]
-            elif age <= 11:
-                amount = row[2]
-            else:
-                amount = row[3]
-        else:
+
+        # חשמלי — אגרה סמלית
+        fuel = (sug_delek_nm or "").strip()
+        if any(w in fuel for w in ("חשמל", "electric", "ELECTRIC", "חשמלי")):
+            return f"₪{_AGRA_ELECTRIC:,} \\(חשמלי — אגרה מופחתת\\)"
+
+        year = int(shnat_yitzur) if shnat_yitzur else date.today().year
+        age  = date.today().year - year
+
+        # רכב 2000 ומטה — 25% מהאגרה הרגילה
+        if year <= 2000:
+            amount = round(row[2] * 0.25)
+            note   = "ייצור 2000 ומטה"
+        elif age <= 3:
             amount = row[0]
-        return f"₪{amount:,} \\(קבוצה {grp}\\)"
+            note   = f"גיל {age} שנים"
+        elif age <= 10:
+            amount = row[1]
+            note   = f"גיל {age} שנים"
+        else:
+            amount = row[2]
+            note   = f"גיל {age} שנים"
+
+        return f"₪{amount:,} \\(קבוצה {grp}, {note}\\)"
     except Exception:
         return ""
 
@@ -155,7 +162,8 @@ def cat_general(record: dict, w: dict) -> str:
     lines.append(_row_always("מקוריות", _val(record, "mkoriut_nm")))
     agra_group = _val(w, "kvuzat_agra_cd")
     shnat      = _val(record, "shnat_yitzur")
-    agra_str   = _agra_from_group(agra_group, shnat) if agra_group else ""
+    sug_delek  = _val(record, "sug_delek_nm") or _val(w, "sug_delek_nm")
+    agra_str   = _agra_from_group(agra_group, shnat, sug_delek) if agra_group else ""
     if agra_str:
         lines.append(_row_always("אגרת רישוי שנתית", agra_str))
         lines.append(f"  _\\* מחיר משוער לפי קבוצת אגרה וגיל הרכב_\n")
