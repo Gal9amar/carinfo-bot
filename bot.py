@@ -240,7 +240,22 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             )
         return
 
-    searches_info = f"נותרו לך *{left}* בדיקות חינמיות\\." if left > 0 else "גישה מלאה פעילה ✅"
+    if left == -1:
+        from src.users import get_quota_expires
+        expires = await get_quota_expires(user_id)
+        if expires:
+            try:
+                from datetime import datetime as _dt
+                exp_str = _dt.fromisoformat(expires[:10]).strftime("%d/%m/%Y")
+            except Exception:
+                exp_str = expires[:10]
+            searches_info = f"♾️ מנוי חודשי פעיל עד {exp_str}"
+        else:
+            searches_info = "✅ גישה בלתי מוגבלת"
+    elif left > 0:
+        searches_info = f"נותרו לך *{left}* בדיקות\\."
+    else:
+        searches_info = "גישה מלאה פעילה ✅"
 
     await update.message.reply_text(
         "👋 *ברוך הבא ל\\-CarInfo\\!*\n\n"
@@ -398,6 +413,15 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             note = " ".join(args[3:]) if len(args) > 3 else ""
             msg = await admin_grant(user_id, target["user_id"], amount, note)
             await update.message.reply_text(f"✅ {username}: {msg}")
+            # Notify user
+            try:
+                if amount == -1:
+                    user_msg = f"🎉 המנוי החודשי שלך אושר!\n\n{msg}\n\nתוכל לחפש רכבים ללא הגבלה!"
+                else:
+                    user_msg = f"🎉 נוספו לך {amount} בדיקות רכב!\n\nתוכל להתחיל לחפש מיד."
+                await context.bot.send_message(target["user_id"], user_msg)
+            except Exception as e:
+                logger.warning("Failed to notify user after grant: %s", e)
             return
 
         if args[0] == "gen":
