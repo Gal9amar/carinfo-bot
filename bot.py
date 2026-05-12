@@ -50,11 +50,12 @@ PAYMENT_PROVIDER_TOKEN = os.environ.get("PAYMENT_PROVIDER_TOKEN", "6073714100:TE
 PAYPAL_ME = os.environ.get("PAYPAL_ME", "https://www.paypal.me/G9ST")
 
 # Payment packages: (label, searches, price_ILS)
+# searches=-1 means monthly unlimited
 PAYMENT_PACKAGES = [
-    ("🔍 חבילה בסיסית",  20,   9),
-    ("🔍 חבילה רגילה",   50,  19),
-    ("🔍 חבילה פרימיום", 120,  39),
-    ("🔍 500 בדיקות",   500, 500),
+    ("🔍 חבילה בסיסית",   20,  9),
+    ("🔍 חבילה רגילה",    50, 19),
+    ("🔍 חבילה פרימיום", 120, 39),
+    ("♾️ מנוי חודשי",     -1, 59),
 ]
 
 _MD_SPECIAL = r"\_*[]()~`>#+-=|{}.!"
@@ -131,8 +132,9 @@ def build_result_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
 def _packages_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
     buttons = []
     for label, searches, price in PAYMENT_PACKAGES:
+        desc = "ללא הגבלה — 30 יום" if searches == -1 else f"{searches} בדיקות"
         buttons.append([InlineKeyboardButton(
-            f"{label} — {searches} בדיקות ב-₪{price}",
+            f"{label} — {desc} ב-₪{price}",
             callback_data=f"buy|{searches}|{price}"
         )])
     buttons.append([InlineKeyboardButton("🎟️ יש לי קוד הטבה", callback_data="enter_code")])
@@ -858,9 +860,10 @@ async def handle_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     price    = int(parts[2])
     label = next((l for l, s, p in PAYMENT_PACKAGES if s == searches and p == price), f"{searches} בדיקות")
 
+    desc = "ללא הגבלה למשך 30 יום" if searches == -1 else f"{searches} בדיקות רכב"
     await query.message.reply_text(
         f"💳 *{label}*\n\n"
-        f"• {searches} בדיקות רכב\n"
+        f"• {desc}\n"
         f"• מחיר: *₪{price}*\n\n"
         f"1\. לחץ על כפתור התשלום למטה\n"
         f"2\. השלם את התשלום ב\-PayPal\n"
@@ -1179,7 +1182,20 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     if not is_repeat:
         if left == -1:
-            summary += "\n\n_✅ גישה בלתי מוגבלת_"
+            # Check expiry date for monthly subscription
+            from src.users import get_quota_expires
+            expires = get_quota_expires(user_id)
+            if expires:
+                expires_str = expires[:10]  # YYYY-MM-DD
+                # Convert to DD/MM/YYYY
+                try:
+                    from datetime import datetime as _dt
+                    expires_str = _dt.fromisoformat(expires[:10]).strftime("%d/%m/%Y")
+                except Exception:
+                    pass
+                summary += f"\n\n_♾️ מנוי חודשי פעיל — תוקף עד {expires_str}_"
+            else:
+                summary += "\n\n_✅ גישה בלתי מוגבלת_"
         elif left > 0:
             remaining = left - 1
             label = "בדיקות" if remaining != 1 else "בדיקה"
