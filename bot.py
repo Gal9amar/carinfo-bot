@@ -13,7 +13,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton, LabeledPrice
 from telegram.constants import ParseMode
 from telegram.ext import (
     Application, CommandHandler, MessageHandler,
@@ -851,16 +851,22 @@ async def handle_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     # Find label
     label = next((l for l, s, p in PAYMENT_PACKAGES if s == searches and p == price), f"{searches} בדיקות")
 
-    await context.bot.send_invoice(
-        chat_id=query.from_user.id,
-        title=label,
-        description=f"{searches} בדיקות רכב בבוט israelcarinfobot",
-        payload=f"searches:{searches}",
-        provider_token=PAYMENT_PROVIDER_TOKEN,
-        currency="ILS",
-        prices=[{"label": label, "amount": price * 100}],  # amount in agorot
-        start_parameter="buy",
-    )
+    try:
+        await context.bot.send_invoice(
+            chat_id=query.from_user.id,
+            title=label,
+            description=f"{searches} בדיקות רכב בבוט israelcarinfobot",
+            payload=f"searches:{searches}",
+            provider_token=PAYMENT_PROVIDER_TOKEN,
+            currency="ILS",
+            prices=[LabeledPrice(label=label, amount=price * 100)],
+        )
+    except Exception as e:
+        logger.error("send_invoice failed: %s", e)
+        await context.bot.send_message(
+            query.from_user.id,
+            f"❌ שגיאה בפתיחת תשלום: {e}",
+        )
 
 
 async def handle_pre_checkout(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
