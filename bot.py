@@ -47,6 +47,7 @@ PLATE_RE  = re.compile(r"^[\d\-]{5,10}$")
 ADMIN_ID  = int(os.environ.get("ADMIN_TELEGRAM_ID", "594206475"))
 BOT_USERNAME = "israelcarinfobot"
 PAYMENT_PROVIDER_TOKEN = os.environ.get("PAYMENT_PROVIDER_TOKEN", "6073714100:TEST:TG_2ZwhGNC5yAq7J6bMbZfUti0A")
+PAYPAL_ME = os.environ.get("PAYPAL_ME", "https://www.paypal.me/G9ST")
 
 # Payment packages: (label, searches, price_ILS)
 PAYMENT_PACKAGES = [
@@ -136,6 +137,14 @@ def _packages_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
         )])
     buttons.append([InlineKeyboardButton("🎟️ יש לי קוד הטבה", callback_data="enter_code")])
     return InlineKeyboardMarkup(buttons)
+
+
+def _paypal_keyboard(searches: int, price: int) -> InlineKeyboardMarkup:
+    paypal_url = f"{PAYPAL_ME}/{price}"
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(f"💳 שלם ₪{price} ב-PayPal", url=paypal_url)],
+        [InlineKeyboardButton("✅ שילמתי — שלח אישור", callback_data=f"paid|{searches}|{price}")],
+    ])
 
 
 async def cmd_myid(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -841,32 +850,114 @@ async def cmd_buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def handle_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send invoice after user picks a package."""
+    """Show PayPal payment link for selected package."""
     query = update.callback_query
     await query.answer()
     parts = query.data.split("|")
     searches = int(parts[1])
     price    = int(parts[2])
-
-    # Find label
     label = next((l for l, s, p in PAYMENT_PACKAGES if s == searches and p == price), f"{searches} בדיקות")
 
+    await query.message.reply_text(
+        f"💳 *{label}*\n\n"
+        f"• {searches} בדיקות רכב\n"
+        f"• מחיר: *₪{price}*\n\n"
+        f"1\. לחץ על כפתור התשלום למטה\n"
+        f"2\. השלם את התשלום ב\-PayPal\n"
+        f"3\. חזור לכאן ולחץ *שילמתי* לשליחת אישור\n\n"
+        f"_הגישה תיפתח לאחר אישור ידני על ידי המנהל_",
+        parse_mode=ParseMode.MARKDOWN_V2,
+        reply_markup=_paypal_keyboard(searches, price),
+    )
+
+
+async def handle_paid_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """User clicked 'I paid' — notify admin for manual approval."""
+    query = update.callback_query
+    await query.answer()
+    parts    = query.data.split("|")
+    searches = int(parts[1])
+    price    = int(parts[2])
+    user     = query.from_user
+    user_id  = user.id
+    uname    = f"@{user.username}" if user.username else f"id:{user_id}"
+    fullname = user.full_name or ""
+    label    = next((l for l, s, p in PAYMENT_PACKAGES if s == searches and p == price), f"{searches} בדיקות")
+
+    # Notify admin with approve button
+    if ADMIN_ID:
+        try:
+            await context.bot.send_message(
+                ADMIN_ID,
+                f"💰 *בקשת אישור תשלום\!*\n\n"
+                f"👤 {uname} \| {fullname}\n"
+                f"🆔 `{user_id}`\n"
+                f"📦 {label} — {searches} בדיקות\n"
+                f"💵 ₪{price}\n\n"
+                f"לאחר אימות התשלום ב\-PayPal לחץ אשר:",
+                parse_mode=ParseMode.MARKDOWN_V2,
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("✅ אשר ופתח גישה", callback_data=f"approve|{user_id}|{searches}"),
+                    InlineKeyboardButton("❌ דחה", callback_data=f"decline|{user_id}"),
+                ]]),
+            )
+        except Exception as e:
+            logger.warning("Failed to notify admin of payment: %s", e)
+
+    await query.edit_message_text(
+        "✅ *בקשתך נשלחה למנהל\!*\n\n"
+        "הגישה תיפתח לאחר אימות התשלום\. בדרך כלל תוך מספר דקות\.",
+        parse_mode=ParseMode.MARKDOWN_V2,
+    )
+
+
+async def handle_approve_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Admin approves payment — grant searches."""
+    query = update.callback_query
+    if query.from_user.id != ADMIN_ID:
+        await query.answer("אין הרשאה", show_alert=True)
+        return
+    await query.answer()
+    parts    = query.data.split("|")
+    target   = int(parts[1])
+    searches = int(parts[2])
+
+    admin_grant(target, searches)
+
+    await query.edit_message_text(
+        f"✅ אושר\! נוספו *{searches}* בדיקות למשתמש `{target}`",
+        parse_mode=ParseMode.MARKDOWN_V2,
+    )
     try:
-        await context.bot.send_invoice(
-            chat_id=query.from_user.id,
-            title=label,
-            description=f"{searches} בדיקות רכב בבוט israelcarinfobot",
-            payload=f"searches:{searches}",
-            provider_token=PAYMENT_PROVIDER_TOKEN,
-            currency="USD",
-            prices=[LabeledPrice(label=label, amount=max(1, round(price * 27)))],  # ILS→USD cents (×0.27)
-        )
-    except Exception as e:
-        logger.error("send_invoice failed: %s", e)
         await context.bot.send_message(
-            query.from_user.id,
-            f"❌ שגיאה בפתיחת תשלום: {e}",
+            target,
+            f"🎉 *התשלום אושר\!*\n\n"
+            f"נוספו לך *{searches}* בדיקות רכב\. תוכל להתחיל מיד\!",
+            parse_mode=ParseMode.MARKDOWN_V2,
         )
+    except Exception:
+        pass
+
+
+async def handle_decline_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Admin declines payment."""
+    query = update.callback_query
+    if query.from_user.id != ADMIN_ID:
+        await query.answer("אין הרשאה", show_alert=True)
+        return
+    await query.answer()
+    parts  = query.data.split("|")
+    target = int(parts[1])
+
+    await query.edit_message_text("❌ הבקשה נדחתה.")
+    try:
+        await context.bot.send_message(
+            target,
+            "❌ *התשלום לא אומת\.*\n\nלשאלות פנה למנהל דרך צ'אט המנהל\.",
+            parse_mode=ParseMode.MARKDOWN_V2,
+        )
+    except Exception:
+        pass
 
 
 async def handle_pre_checkout(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1189,7 +1280,10 @@ def main() -> None:
     app.add_handler(CommandHandler("admin",  cmd_admin))
     app.add_handler(CallbackQueryHandler(handle_admin_callback,  pattern=r"^adm\|"))
     app.add_handler(CommandHandler("buy", cmd_buy))
-    app.add_handler(CallbackQueryHandler(handle_buy_callback, pattern=r"^buy\|"))
+    app.add_handler(CallbackQueryHandler(handle_buy_callback,     pattern=r"^buy\|"))
+    app.add_handler(CallbackQueryHandler(handle_paid_callback,    pattern=r"^paid\|"))
+    app.add_handler(CallbackQueryHandler(handle_approve_callback, pattern=r"^approve\|"))
+    app.add_handler(CallbackQueryHandler(handle_decline_callback, pattern=r"^decline\|"))
     app.add_handler(PreCheckoutQueryHandler(handle_pre_checkout))
     app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, handle_successful_payment))
     app.add_handler(CallbackQueryHandler(handle_package_callback, pattern=r"^show_packages$|^pkg\|"))
