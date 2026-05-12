@@ -747,6 +747,178 @@ async def handle_package_callback(update: Update, context: ContextTypes.DEFAULT_
 
     # buy| handled by handle_buy_callback
 
+async def handle_user_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Admin clicked on a user — show options."""
+    query = update.callback_query
+    await query.answer()
+    if query.from_user.id != ADMIN_ID:
+        return
+
+    parts = query.data.split("|")
+
+    # usr|UID — show user options
+    if parts[0] == "usr" and len(parts) == 2:
+        uid = int(parts[1])
+        users = await get_all_users()
+        u = next((x for x in users if x["user_id"] == uid), None)
+        if not u:
+            await query.edit_message_text("משתמש לא נמצא.")
+            return
+        uname    = f"@{u['username']}" if u.get("username") else ""
+        fullname = u.get("full_name", "")
+        display  = " | ".join(filter(None, [uname, fullname])) or f"id:{uid}"
+        quota    = u.get("searches_quota", 0)
+        done     = u.get("searches_done", 0)
+        left     = u.get("searches_left", 0)
+        blocked  = u.get("blocked", False)
+        expires  = u.get("quota_expires", "")
+        quota_str = "ללא הגבלה" if quota == -1 else str(quota)
+        left_str  = "ללא הגבלה" if left  == -1 else str(left)
+        exp_str   = f" (עד {expires[:10]})" if expires else ""
+
+        info = (
+            f"👤 {display}\n"
+            f"🆔 {uid}\n"
+            f"📊 בדיקות: {done}/{quota_str}{exp_str}\n"
+            f"📌 נותרו: {left_str}\n"
+            f"{'🔴 חסום' if blocked else '🟢 פעיל'}"
+        )
+        buttons = [
+            [InlineKeyboardButton("➕ 50 בדיקות",  callback_data=f"ugrant|{uid}|50"),
+             InlineKeyboardButton("➕ 100 בדיקות", callback_data=f"ugrant|{uid}|100")],
+            [InlineKeyboardButton("➕ 200 בדיקות", callback_data=f"ugrant|{uid}|200"),
+             InlineKeyboardButton("♾️ מנוי חודשי", callback_data=f"ugrant|{uid}|-1")],
+            [InlineKeyboardButton("🚫 חסום" if not blocked else "✅ שחרר", callback_data=f"utoggle|{uid}")],
+            [InlineKeyboardButton("🔙 חזור למשתמשים", callback_data="usr|back")],
+        ]
+        await query.edit_message_text(info, reply_markup=InlineKeyboardMarkup(buttons))
+        return
+
+    # usr|back — back to user list
+    if parts[0] == "usr" and parts[1] == "back":
+        users = await get_all_users()
+        buttons = []
+        for u in users[:25]:
+            uid      = u["user_id"]
+            uname    = f"@{u['username']}" if u.get("username") else ""
+            fullname = u.get("full_name", "")
+            display  = " | ".join(filter(None, [uname, fullname])) or f"id:{uid}"
+            blocked  = "🔴 " if u.get("blocked") else ""
+            quota    = u.get("searches_quota", 0)
+            done     = u.get("searches_done", 0)
+            left     = u.get("searches_left", 0)
+            quota_str = "∞" if quota == -1 else str(quota)
+            left_str  = "∞" if left  == -1 else str(left)
+            label    = f"{blocked}{display} ({done}/{quota_str}, נותרו:{left_str})"
+            buttons.append([InlineKeyboardButton(label, callback_data=f"usr|{uid}")])
+        await query.edit_message_text("👥 בחר משתמש:", reply_markup=InlineKeyboardMarkup(buttons))
+        return
+
+    # ugrant|UID|AMOUNT — grant searches
+    if parts[0] == "ugrant":
+        uid     = int(parts[1])
+        amount  = int(parts[2])
+        msg     = await admin_grant(ADMIN_ID, uid, amount, "granted via admin panel")
+        desc    = "מנוי חודשי" if amount == -1 else f"{amount} בדיקות"
+        await query.answer(f"✅ הוענקו {desc}", show_alert=True)
+        # Notify user
+        try:
+            user_msg = (
+                f"🎉 המנוי החודשי שלך אושר!\n{msg}\n\nתוכל לחפש ללא הגבלה!"
+                if amount == -1 else
+                f"🎉 נוספו לך {amount} בדיקות רכב!"
+            )
+            await context.bot.send_message(uid, user_msg)
+        except Exception:
+            pass
+        # Refresh user view
+        users = await get_all_users()
+        u = next((x for x in users if x["user_id"] == uid), None)
+        if not u:
+            await query.edit_message_text("✅ עודכן.")
+            return
+        uname    = f"@{u['username']}" if u.get("username") else ""
+        fullname = u.get("full_name", "")
+        display  = " | ".join(filter(None, [uname, fullname])) or f"id:{uid}"
+        quota    = u.get("searches_quota", 0)
+        done     = u.get("searches_done", 0)
+        left     = u.get("searches_left", 0)
+        blocked  = u.get("blocked", False)
+        expires  = u.get("quota_expires", "")
+        quota_str = "ללא הגבלה" if quota == -1 else str(quota)
+        left_str  = "ללא הגבלה" if left  == -1 else str(left)
+        exp_str   = f" (עד {expires[:10]})" if expires else ""
+        info = (
+            f"👤 {display}\n"
+            f"🆔 {uid}\n"
+            f"📊 בדיקות: {done}/{quota_str}{exp_str}\n"
+            f"📌 נותרו: {left_str}\n"
+            f"{'🔴 חסום' if blocked else '🟢 פעיל'}"
+        )
+        buttons = [
+            [InlineKeyboardButton("➕ 50 בדיקות",  callback_data=f"ugrant|{uid}|50"),
+             InlineKeyboardButton("➕ 100 בדיקות", callback_data=f"ugrant|{uid}|100")],
+            [InlineKeyboardButton("➕ 200 בדיקות", callback_data=f"ugrant|{uid}|200"),
+             InlineKeyboardButton("♾️ מנוי חודשי", callback_data=f"ugrant|{uid}|-1")],
+            [InlineKeyboardButton("🚫 חסום" if not blocked else "✅ שחרר", callback_data=f"utoggle|{uid}")],
+            [InlineKeyboardButton("🔙 חזור למשתמשים", callback_data="usr|back")],
+        ]
+        await query.edit_message_text(info, reply_markup=InlineKeyboardMarkup(buttons))
+        return
+
+    # utoggle|UID — block/unblock
+    if parts[0] == "utoggle":
+        uid = int(parts[1])
+        users = await get_all_users()
+        u = next((x for x in users if x["user_id"] == uid), None)
+        currently_blocked = u.get("blocked", False) if u else False
+        if currently_blocked:
+            await unblock_user(uid)
+            await query.answer("✅ שוחרר", show_alert=True)
+            try:
+                await context.bot.send_message(uid, "✅ החסימה שלך הוסרה. תוכל להמשיך להשתמש בבוט.")
+            except Exception:
+                pass
+        else:
+            await block_user(uid)
+            await query.answer("🚫 נחסם", show_alert=True)
+            try:
+                await context.bot.send_message(uid, "🚫 הגישה שלך לבוט נחסמה. לפרטים פנה למנהל.")
+            except Exception:
+                pass
+        # Refresh
+        users = await get_all_users()
+        u = next((x for x in users if x["user_id"] == uid), {})
+        uname    = f"@{u.get('username', '')}" if u.get("username") else ""
+        fullname = u.get("full_name", "")
+        display  = " | ".join(filter(None, [uname, fullname])) or f"id:{uid}"
+        quota    = u.get("searches_quota", 0)
+        done     = u.get("searches_done", 0)
+        left     = u.get("searches_left", 0)
+        blocked  = u.get("blocked", False)
+        expires  = u.get("quota_expires", "")
+        quota_str = "ללא הגבלה" if quota == -1 else str(quota)
+        left_str  = "ללא הגבלה" if left  == -1 else str(left)
+        exp_str   = f" (עד {expires[:10]})" if expires else ""
+        info = (
+            f"👤 {display}\n"
+            f"🆔 {uid}\n"
+            f"📊 בדיקות: {done}/{quota_str}{exp_str}\n"
+            f"📌 נותרו: {left_str}\n"
+            f"{'🔴 חסום' if blocked else '🟢 פעיל'}"
+        )
+        buttons = [
+            [InlineKeyboardButton("➕ 50 בדיקות",  callback_data=f"ugrant|{uid}|50"),
+             InlineKeyboardButton("➕ 100 בדיקות", callback_data=f"ugrant|{uid}|100")],
+            [InlineKeyboardButton("➕ 200 בדיקות", callback_data=f"ugrant|{uid}|200"),
+             InlineKeyboardButton("♾️ מנוי חודשי", callback_data=f"ugrant|{uid}|-1")],
+            [InlineKeyboardButton("🚫 חסום" if not blocked else "✅ שחרר", callback_data=f"utoggle|{uid}")],
+            [InlineKeyboardButton("🔙 חזור למשתמשים", callback_data="usr|back")],
+        ]
+        await query.edit_message_text(info, reply_markup=InlineKeyboardMarkup(buttons))
+        return
+
+
 async def handle_admin_keyboard(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id  = update.effective_user.id
     if user_id != ADMIN_ID:
@@ -766,23 +938,26 @@ async def handle_admin_keyboard(update: Update, context: ContextTypes.DEFAULT_TY
     async def send_users():
         users = await get_all_users()
         if not users:
-            await update.message.reply_text("אין משתמשים עדיין\\.", parse_mode=ParseMode.MARKDOWN_V2)
+            await update.message.reply_text("אין משתמשים עדיין.")
             return
-        from src.formatter import _escape
-        lines = ["👥 *משתמשים*\n"]
+        buttons = []
         for u in users[:25]:
             uid      = u["user_id"]
             uname    = f"@{u['username']}" if u.get("username") else ""
             fullname = u.get("full_name", "")
             display  = " | ".join(filter(None, [uname, fullname])) or f"id:{uid}"
-            done     = u.get("searches_done", 0)
+            blocked  = "🔴 " if u.get("blocked") else ""
             quota    = u.get("searches_quota", 0)
+            done     = u.get("searches_done", 0)
             left     = u.get("searches_left", 0)
             quota_str = "∞" if quota == -1 else str(quota)
-            left_str  = "∞" if left  == -1 else str(left)
-            blocked   = "🔴 " if u.get("blocked") else ""
-            lines.append(f"• {blocked}{_escape(display)}: {done}/{quota_str} \\(נותרו: {left_str}\\)\n")
-        await update.message.reply_text("".join(lines), parse_mode=ParseMode.MARKDOWN_V2)
+            left_str  = "∞" if left == -1 else str(left)
+            label    = f"{blocked}{display} ({done}/{quota_str}, נותרו:{left_str})"
+            buttons.append([InlineKeyboardButton(label, callback_data=f"usr|{uid}")])
+        await update.message.reply_text(
+            "👥 בחר משתמש:",
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
 
     async def send_block_list():
         users = await get_all_users()
@@ -1324,6 +1499,7 @@ def main() -> None:
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("code",   cmd_code))
     app.add_handler(CommandHandler("admin",  cmd_admin))
+    app.add_handler(CallbackQueryHandler(handle_user_callback,   pattern=r"^(usr|ugrant|utoggle)\|"))
     app.add_handler(CallbackQueryHandler(handle_admin_callback,  pattern=r"^adm\|"))
     app.add_handler(CommandHandler("buy", cmd_buy))
     app.add_handler(CallbackQueryHandler(handle_buy_callback,     pattern=r"^buy\|"))
