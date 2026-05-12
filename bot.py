@@ -121,6 +121,15 @@ def _admin_reply_keyboard() -> ReplyKeyboardMarkup:
     ], resize_keyboard=True, one_time_keyboard=False)
 
 
+def _cancel_search_keyboard() -> ReplyKeyboardMarkup:
+    """Minimal keyboard shown while waiting for plate — just a cancel button."""
+    return ReplyKeyboardMarkup(
+        [[KeyboardButton("❌ ביטול")]],
+        resize_keyboard=True,
+        one_time_keyboard=False,
+    )
+
+
 def normalize_plate(text: str) -> str:
     return text.strip().replace("-", "").replace(" ", "")
 
@@ -1235,6 +1244,14 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     user_id = update.effective_user.id
     raw     = update.message.text.strip()
 
+    # Cancel search
+    if raw == "❌ ביטול":
+        await update.message.reply_text(
+            "בסדר, חיפוש בוטל.",
+            reply_markup=build_category_keyboard(is_admin=(user_id == ADMIN_ID)),
+        )
+        return
+
     # Admin settings input
     if user_id == ADMIN_ID:
         setting = context.user_data.get("admin_setting")
@@ -1408,7 +1425,7 @@ async def handle_result_callback(update: Update, context: ContextTypes.DEFAULT_T
     if query.data == "new_search":
         await query.message.reply_text(
             "🔢 שלח מספר רכב לחיפוש:",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=_cancel_search_keyboard(),
         )
         return
 
