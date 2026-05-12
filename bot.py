@@ -50,9 +50,10 @@ PAYMENT_PROVIDER_TOKEN = os.environ.get("PAYMENT_PROVIDER_TOKEN", "6073714100:TE
 
 # Payment packages: (label, searches, price_ILS)
 PAYMENT_PACKAGES = [
-    ("🔍 חבילה בסיסית",  20,  9),
-    ("🔍 חבילה רגילה",   50, 19),
-    ("🔍 חבילה פרימיום", 120, 39),
+    ("🔍 חבילה בסיסית",  20,   9),
+    ("🔍 חבילה רגילה",   50,  19),
+    ("🔍 חבילה פרימיום", 120,  39),
+    ("🔍 500 בדיקות",   500, 500),
 ]
 
 _MD_SPECIAL = r"\_*[]()~`>#+-=|{}.!"
@@ -88,10 +89,14 @@ def _persistent_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
 
 
 def _payment_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔑 יש לי קוד גישה", callback_data="enter_code")],
-        *_persistent_rows(is_admin),
-    ])
+    buttons = []
+    for label, searches, price in PAYMENT_PACKAGES:
+        buttons.append([InlineKeyboardButton(
+            f"{label} — {searches} בדיקות ב-₪{price}",
+            callback_data=f"buy|{searches}|{price}"
+        )])
+    buttons.append([InlineKeyboardButton("🔑 יש לי קוד גישה", callback_data="enter_code")])
+    return InlineKeyboardMarkup(buttons)
 
 
 def _welcome_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
