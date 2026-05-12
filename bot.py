@@ -365,7 +365,7 @@ async def cancel_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     user_id = update.effective_user.id
     await update.message.reply_text(
         "בסדר, חיפוש בוטל.",
-        reply_markup=build_category_keyboard(is_admin=(user_id == ADMIN_ID)),
+        reply_markup=ReplyKeyboardRemove(),
     )
     return ConversationHandler.END
 
@@ -1039,7 +1039,7 @@ async def handle_admin_keyboard(update: Update, context: ContextTypes.DEFAULT_TY
     if text_msg == "❌ ביטול":
         await update.message.reply_text(
             "בסדר, חיפוש בוטל.",
-            reply_markup=build_category_keyboard(is_admin=True),
+            reply_markup=_admin_reply_keyboard(),
         )
         return
     fn = dispatch.get(text_msg)
@@ -1202,7 +1202,7 @@ async def handle_successful_payment(update: Update, context: ContextTypes.DEFAUL
         f"סכום שחויב: ₪{amount_ils}\n\n"
         f"תודה על הרכישה\! 🙏",
         parse_mode=ParseMode.MARKDOWN_V2,
-        reply_markup=build_category_keyboard(is_admin=(user_id == ADMIN_ID)),
+        reply_markup=ReplyKeyboardRemove(),
     )
 
     # Notify admin
@@ -1258,7 +1258,7 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if raw == "❌ ביטול":
         await update.message.reply_text(
             "בסדר, חיפוש בוטל.",
-            reply_markup=build_category_keyboard(is_admin=(user_id == ADMIN_ID)),
+            reply_markup=ReplyKeyboardRemove(),
         )
         return
 
