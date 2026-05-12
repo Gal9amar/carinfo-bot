@@ -760,7 +760,7 @@ async def handle_user_callback(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
     # ugrant|UID|AMOUNT    # usr|UID — show user options
-    if parts[0] == "usr" and len(parts) == 2:
+    if parts[0] == "usr" and len(parts) == 2 and parts[1] != "back":
         uid = int(parts[1])
         users = await get_all_users()
         u = next((x for x in users if x["user_id"] == uid), None)
