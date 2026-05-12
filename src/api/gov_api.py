@@ -83,10 +83,20 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
         async def _empty():
             return []
 
-        wltp_task = (
-            _search_filter(client, RES_WLTP, {"degem_cd": degem_cd, "tozeret_cd": tozeret_cd}, limit=1)
-            if degem_cd and tozeret_cd else _empty()
-        )
+        async def _wltp_with_fallback():
+            if not degem_cd or not tozeret_cd:
+                return []
+            shnat = record.get("shnat_yitzur")
+            # Try exact year match first
+            if shnat:
+                res = await _search_filter(client, RES_WLTP,
+                    {"degem_cd": degem_cd, "tozeret_cd": tozeret_cd, "shnat_yitzur": shnat}, limit=1)
+                if res:
+                    return res
+            # Fallback: any year for this model
+            return await _search_filter(client, RES_WLTP,
+                {"degem_cd": degem_cd, "tozeret_cd": tozeret_cd}, limit=1)
+        wltp_task = _wltp_with_fallback()
         importer_task = (
             _search_filter(client, RES_IMPORTER, {
                 "tozeret_cd": tozeret_cd,
