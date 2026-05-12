@@ -858,8 +858,8 @@ async def handle_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             description=f"{searches} בדיקות רכב בבוט israelcarinfobot",
             payload=f"searches:{searches}",
             provider_token=PAYMENT_PROVIDER_TOKEN,
-            currency="ILS",
-            prices=[LabeledPrice(label=label, amount=price * 100)],
+            currency="USD",
+            prices=[LabeledPrice(label=label, amount=max(1, round(price * 27)))],  # ILS→USD cents (×0.27)
         )
     except Exception as e:
         logger.error("send_invoice failed: %s", e)
