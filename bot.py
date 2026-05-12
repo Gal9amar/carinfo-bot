@@ -128,13 +128,14 @@ def build_result_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
 
 
 def _packages_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("50 חיפושים – ₪10",  callback_data="pkg|50|10")],
-        [InlineKeyboardButton("100 חיפושים – ₪20", callback_data="pkg|100|20")],
-        [InlineKeyboardButton("200 חיפושים – ₪30", callback_data="pkg|200|30")],
-        [InlineKeyboardButton("🎟️ יש לי קוד הטבה", callback_data="enter_code")],
-        *_persistent_rows(is_admin),
-    ])
+    buttons = []
+    for label, searches, price in PAYMENT_PACKAGES:
+        buttons.append([InlineKeyboardButton(
+            f"{label} — {searches} בדיקות ב-₪{price}",
+            callback_data=f"buy|{searches}|{price}"
+        )])
+    buttons.append([InlineKeyboardButton("🎟️ יש לי קוד הטבה", callback_data="enter_code")])
+    return InlineKeyboardMarkup(buttons)
 
 
 async def cmd_myid(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -708,36 +709,7 @@ async def handle_package_callback(update: Update, context: ContextTypes.DEFAULT_
         )
         return
 
-    # pkg|50|10
-    parts    = data.split("|")
-    amount   = parts[1]
-    price    = parts[2]
-    uname    = f"@{user.username}" if user.username else f"id:{user_id}"
-    fullname = user.full_name or ""
-
-    if ADMIN_ID:
-        try:
-            await context.bot.send_message(
-                ADMIN_ID,
-                f"💰 *בקשת רכישה חדשה\\!*\n\n"
-                f"👤 משתמש: {uname}\n"
-                f"📛 שם: {fullname}\n"
-                f"🆔 ID: `{user_id}`\n\n"
-                f"📦 חבילה: *{amount} חיפושים* \\– ₪{price}\n\n"
-                f"לפתיחת גישה:\n`/admin grant {uname} {amount}`",
-                parse_mode=ParseMode.MARKDOWN_V2,
-            )
-        except Exception as e:
-            logger.warning("Failed to notify admin of package purchase: %s", e)
-
-    await query.edit_message_text(
-        f"✅ *בקשתך התקבלה\\!*\n\n"
-        f"📦 חבילה: *{amount} חיפושים* \\– ₪{price}\n\n"
-        f"ניצור איתך קשר בהקדם לאישור התשלום ופתיחת הגישה\\.",
-        parse_mode=ParseMode.MARKDOWN_V2,
-        reply_markup=_persistent_keyboard(is_admin),
-    )
-
+    # buy| handled by handle_buy_callback
 
 async def handle_admin_keyboard(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id  = update.effective_user.id
