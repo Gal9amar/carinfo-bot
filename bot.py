@@ -52,10 +52,10 @@ PAYPAL_ME = os.environ.get("PAYPAL_ME", "https://www.paypal.me/G9ST")
 # Payment packages: (label, searches, price_ILS)
 # searches=-1 means monthly unlimited
 PAYMENT_PACKAGES = [
-    ("🔍 חבילה בסיסית",   20,  9),
-    ("🔍 חבילה רגילה",    50, 19),
-    ("🔍 חבילה פרימיום", 120, 39),
-    ("♾️ מנוי חודשי",     -1, 59),
+    ("🔍 50 חיפושים",   50,  10),
+    ("🔍 100 חיפושים", 100,  20),
+    ("🔍 200 חיפושים", 200,  30),
+    ("♾️ מנוי חודשי",   -1,  25),
 ]
 
 _MD_SPECIAL = r"\_*[]()~`>#+-=|{}.!"
