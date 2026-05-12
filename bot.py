@@ -16,13 +16,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton
 from telegram.constants import ParseMode
 from telegram.ext import (
-    Application,
-    CallbackQueryHandler,
-    CommandHandler,
-    ConversationHandler,
-    ContextTypes,
-    MessageHandler,
-    filters,
+    Application, CommandHandler, MessageHandler,
+    CallbackQueryHandler, ConversationHandler,
+    PreCheckoutQueryHandler,
+    ContextTypes, filters,
 )
 
 from src.api.gov_api import fetch_vehicle_data
@@ -1208,6 +1205,10 @@ def main() -> None:
     app.add_handler(CommandHandler("code",   cmd_code))
     app.add_handler(CommandHandler("admin",  cmd_admin))
     app.add_handler(CallbackQueryHandler(handle_admin_callback,  pattern=r"^adm\|"))
+    app.add_handler(CommandHandler("buy", cmd_buy))
+    app.add_handler(CallbackQueryHandler(handle_buy_callback, pattern=r"^buy\|"))
+    app.add_handler(PreCheckoutQueryHandler(handle_pre_checkout))
+    app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, handle_successful_payment))
     app.add_handler(CallbackQueryHandler(handle_package_callback, pattern=r"^show_packages$|^pkg\|"))
     app.add_handler(CallbackQueryHandler(handle_how_it_works,    pattern=r"^how_it_works$"))
     app.add_handler(CallbackQueryHandler(handle_back_to_start,   pattern=r"^back_to_start$"))
