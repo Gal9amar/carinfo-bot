@@ -147,6 +147,7 @@ def _packages_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
             callback_data=f"buy|{searches}|{price}"
         )])
     buttons.append([InlineKeyboardButton("🎟️ יש לי קוד הטבה", callback_data="enter_code")])
+    buttons.append([InlineKeyboardButton("🔙 חזרה", callback_data="back_to_start")])
     return InlineKeyboardMarkup(buttons)
 
 
