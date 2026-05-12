@@ -1371,7 +1371,7 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         if left == -1:
             # Check expiry date for monthly subscription
             from src.users import get_quota_expires
-            expires = get_quota_expires(user_id)
+            expires = await get_quota_expires(user_id)
             if expires:
                 expires_str = expires[:10]  # YYYY-MM-DD
                 # Convert to DD/MM/YYYY
