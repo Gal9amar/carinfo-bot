@@ -362,7 +362,11 @@ async def receive_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
 
 async def cancel_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    await update.message.reply_text("בוטל.")
+    user_id = update.effective_user.id
+    await update.message.reply_text(
+        "בסדר, חיפוש בוטל.",
+        reply_markup=build_category_keyboard(is_admin=(user_id == ADMIN_ID)),
+    )
     return ConversationHandler.END
 
 
@@ -1532,6 +1536,7 @@ def main() -> None:
         fallbacks=[
             CommandHandler("cancel", cancel_code),
             CallbackQueryHandler(handle_package_callback, pattern=r"^show_packages$"),
+            MessageHandler(filters.Regex("^❌ ביטול$"), cancel_code),
         ],
         per_message=False,
     ))
