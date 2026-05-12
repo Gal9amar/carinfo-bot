@@ -923,7 +923,7 @@ async def handle_approve_callback(update: Update, context: ContextTypes.DEFAULT_
         target   = int(parts[1])
         searches = int(parts[2])
 
-        admin_grant(target, searches)
+        admin_grant(ADMIN_ID, target, searches, note="PayPal payment approved")
 
         await query.edit_message_text(
             f"✅ אושר\! נוספו *{searches}* בדיקות למשתמש `{target}`",
