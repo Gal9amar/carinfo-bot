@@ -758,7 +758,8 @@ async def handle_user_callback(update: Update, context: ContextTypes.DEFAULT_TYP
 
     parts = query.data.split("|")
 
-    # usr|UID — show user options
+
+    # ugrant|UID|AMOUNT    # usr|UID — show user options
     if parts[0] == "usr" and len(parts) == 2:
         uid = int(parts[1])
         users = await get_all_users()
@@ -797,27 +798,8 @@ async def handle_user_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         await query.edit_message_text(info, reply_markup=InlineKeyboardMarkup(buttons))
         return
 
-    # usr|back — back to user list
-    if parts[0] == "usr" and parts[1] == "back":
-        users = await get_all_users()
-        buttons = []
-        for u in users[:25]:
-            uid      = u["user_id"]
-            uname    = f"@{u['username']}" if u.get("username") else ""
-            fullname = u.get("full_name", "")
-            display  = " | ".join(filter(None, [uname, fullname])) or f"id:{uid}"
-            blocked  = "🔴 " if u.get("blocked") else ""
-            quota    = u.get("searches_quota", 0)
-            done     = u.get("searches_done", 0)
-            left     = u.get("searches_left", 0)
-            quota_str = "∞" if quota == -1 else str(quota)
-            left_str  = "∞" if left  == -1 else str(left)
-            label    = f"{blocked}{display} ({done}/{quota_str}, נותרו:{left_str})"
-            buttons.append([InlineKeyboardButton(label, callback_data=f"usr|{uid}")])
-        await query.edit_message_text("👥 בחר משתמש:", reply_markup=InlineKeyboardMarkup(buttons))
-        return
 
-    # ugrant|UID|AMOUNT — grant searches
+    # ugrant|UID|AMOUNT    # ugrant|UID|AMOUNT — grant searches
     if parts[0] == "ugrant":
         uid     = int(parts[1])
         amount  = int(parts[2])
