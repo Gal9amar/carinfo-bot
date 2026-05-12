@@ -415,7 +415,9 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await update.message.reply_text(f"✅ {username}: {msg}")
             # Notify user
             try:
-                if amount == -1:
+                if amount == -2:
+                    user_msg = "🎖️ קיבלת גישה חופשית ללא הגבלת זמן! תוכל לחפש רכבים ללא הגבלה."
+                elif amount == -1:
                     user_msg = f"🎉 המנוי החודשי שלך אושר!\n\n{msg}\n\nתוכל לחפש רכבים ללא הגבלה!"
                 else:
                     user_msg = f"🎉 נוספו לך {amount} בדיקות רכב!\n\nתוכל להתחיל לחפש מיד."
@@ -788,6 +790,7 @@ async def handle_user_callback(update: Update, context: ContextTypes.DEFAULT_TYP
              InlineKeyboardButton("➕ 100 בדיקות", callback_data=f"ugrant|{uid}|100")],
             [InlineKeyboardButton("➕ 200 בדיקות", callback_data=f"ugrant|{uid}|200"),
              InlineKeyboardButton("♾️ מנוי חודשי", callback_data=f"ugrant|{uid}|-1")],
+            [InlineKeyboardButton("🎖️ גישה חופשית", callback_data=f"ugrant|{uid}|-2")],
             [InlineKeyboardButton("🚫 חסום" if not blocked else "✅ שחרר", callback_data=f"utoggle|{uid}")],
             [InlineKeyboardButton("🔙 חזור למשתמשים", callback_data="usr|back")],
         ]
@@ -819,11 +822,13 @@ async def handle_user_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         uid     = int(parts[1])
         amount  = int(parts[2])
         msg     = await admin_grant(ADMIN_ID, uid, amount, "granted via admin panel")
-        desc    = "מנוי חודשי" if amount == -1 else f"{amount} בדיקות"
+        desc    = "גישה חופשית" if amount == -2 else ("מנוי חודשי" if amount == -1 else f"{amount} בדיקות")
         await query.answer(f"✅ הוענקו {desc}", show_alert=True)
         # Notify user
         try:
             user_msg = (
+                "🎖️ קיבלת גישה חופשית ללא הגבלת זמן! תוכל לחפש רכבים ללא הגבלה."
+                if amount == -2 else
                 f"🎉 המנוי החודשי שלך אושר!\n{msg}\n\nתוכל לחפש ללא הגבלה!"
                 if amount == -1 else
                 f"🎉 נוספו לך {amount} בדיקות רכב!"
@@ -860,6 +865,7 @@ async def handle_user_callback(update: Update, context: ContextTypes.DEFAULT_TYP
              InlineKeyboardButton("➕ 100 בדיקות", callback_data=f"ugrant|{uid}|100")],
             [InlineKeyboardButton("➕ 200 בדיקות", callback_data=f"ugrant|{uid}|200"),
              InlineKeyboardButton("♾️ מנוי חודשי", callback_data=f"ugrant|{uid}|-1")],
+            [InlineKeyboardButton("🎖️ גישה חופשית", callback_data=f"ugrant|{uid}|-2")],
             [InlineKeyboardButton("🚫 חסום" if not blocked else "✅ שחרר", callback_data=f"utoggle|{uid}")],
             [InlineKeyboardButton("🔙 חזור למשתמשים", callback_data="usr|back")],
         ]
@@ -912,6 +918,7 @@ async def handle_user_callback(update: Update, context: ContextTypes.DEFAULT_TYP
              InlineKeyboardButton("➕ 100 בדיקות", callback_data=f"ugrant|{uid}|100")],
             [InlineKeyboardButton("➕ 200 בדיקות", callback_data=f"ugrant|{uid}|200"),
              InlineKeyboardButton("♾️ מנוי חודשי", callback_data=f"ugrant|{uid}|-1")],
+            [InlineKeyboardButton("🎖️ גישה חופשית", callback_data=f"ugrant|{uid}|-2")],
             [InlineKeyboardButton("🚫 חסום" if not blocked else "✅ שחרר", callback_data=f"utoggle|{uid}")],
             [InlineKeyboardButton("🔙 חזור למשתמשים", callback_data="usr|back")],
         ]
