@@ -146,6 +146,7 @@ def _paypal_keyboard(searches: int, price: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(f"💳 שלם ₪{price} ב-PayPal", url=paypal_url)],
         [InlineKeyboardButton("✅ שילמתי — שלח אישור", callback_data=f"paid|{searches}|{price}")],
+        [InlineKeyboardButton("🔙 חזרה לחבילות", callback_data="show_packages")],
     ])
 
 
