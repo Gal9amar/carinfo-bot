@@ -198,7 +198,7 @@ async def admin_grant(admin_id: int, target_id: int, searches: int, note: str = 
         from datetime import timedelta
         expires = (datetime.now() + timedelta(days=30)).isoformat()
         await execute(
-            "UPDATE users SET searches_quota = -1, quota_expires = ? WHERE user_id = ?",
+            "UPDATE users SET searches_quota = -1, searches_done = 0, quota_expires = ? WHERE user_id = ?",
             [expires, target_id],
         )
         msg = f"מנוי חודשי עד {expires[:10]}"
