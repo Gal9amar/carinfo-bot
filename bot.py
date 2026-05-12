@@ -929,17 +929,15 @@ async def handle_approve_callback(update: Update, context: ContextTypes.DEFAULT_
 
         admin_grant(ADMIN_ID, target, searches, note="PayPal payment approved")
 
-        await query.edit_message_text(
-            f"✅ אושר\! נוספו *{searches}* בדיקות למשתמש `{target}`",
-            parse_mode=ParseMode.MARKDOWN_V2,
-        )
+        desc = "מנוי חודשי ללא הגבלה" if searches == -1 else f"{searches} בדיקות"
+        await query.edit_message_text(f"✅ אושר! {desc} למשתמש {target}")
         try:
-            await context.bot.send_message(
-                target,
-                f"🎉 *התשלום אושר\!*\n\n"
-                f"נוספו לך *{searches}* בדיקות רכב\. תוכל להתחיל מיד\!",
-                parse_mode=ParseMode.MARKDOWN_V2,
+            user_msg = (
+                "🎉 המנוי החודשי שלך פעיל! תוכל לבצע חיפושים ללא הגבלה למשך 30 יום."
+                if searches == -1 else
+                f"🎉 התשלום אושר! נוספו לך {searches} בדיקות רכב. תוכל להתחיל מיד!"
             )
+            await context.bot.send_message(target, user_msg)
         except Exception:
             pass
     except Exception as e:
