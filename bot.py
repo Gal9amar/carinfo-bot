@@ -80,7 +80,7 @@ def _persistent_rows(is_admin: bool = False) -> list:
         [InlineKeyboardButton("🔍 חיפוש רכב חדש",        callback_data="new_search"),
          InlineKeyboardButton("ℹ️ איך זה עובד?",          callback_data="how_it_works")],
         [InlineKeyboardButton("📜 היסטוריית חיפושים",     callback_data="history"),
-         InlineKeyboardButton("🛒 רכישת חבילת חיפושים",  callback_data="show_packages")],
+         InlineKeyboardButton("🛒 רכישת חבילה",  callback_data="show_packages")],
     ]
     if is_admin:
         rows.append([InlineKeyboardButton("🛠 פאנל מנהל", callback_data="admin_panel")])
