@@ -49,6 +49,14 @@ logger = logging.getLogger(__name__)
 PLATE_RE  = re.compile(r"^[\d\-]{5,10}$")
 ADMIN_ID  = int(os.environ.get("ADMIN_TELEGRAM_ID", "594206475"))
 BOT_USERNAME = "israelcarinfobot"
+PAYMENT_PROVIDER_TOKEN = os.environ.get("PAYMENT_PROVIDER_TOKEN", "6073714100:TEST:TG_2ZwhGNC5yAq7J6bMbZfUti0A")
+
+# Payment packages: (label, searches, price_ILS)
+PAYMENT_PACKAGES = [
+    ("🔍 חבילה בסיסית",  20,  9),
+    ("🔍 חבילה רגילה",   50, 19),
+    ("🔍 חבילה פרימיום", 120, 39),
+]
 
 _MD_SPECIAL = r"\_*[]()~`>#+-=|{}.!"
 def _escape_md(text: str) -> str:
@@ -843,6 +851,90 @@ async def handle_admin_keyboard(update: Update, context: ContextTypes.DEFAULT_TY
     fn = dispatch.get(text_msg)
     if fn:
         await fn()
+
+
+async def cmd_buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show payment packages."""
+    buttons = []
+    for label, searches, price in PAYMENT_PACKAGES:
+        cb = f"buy|{searches}|{price}"
+        buttons.append([InlineKeyboardButton(f"{label} — {searches} בדיקות ב-₪{price}", callback_data=cb)])
+    await update.message.reply_text(
+        "💳 *רכישת בדיקות*\n\nבחר חבילה:",
+        parse_mode=ParseMode.MARKDOWN_V2,
+        reply_markup=InlineKeyboardMarkup(buttons),
+    )
+
+
+async def handle_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send invoice after user picks a package."""
+    query = update.callback_query
+    await query.answer()
+    parts = query.data.split("|")
+    searches = int(parts[1])
+    price    = int(parts[2])
+
+    # Find label
+    label = next((l for l, s, p in PAYMENT_PACKAGES if s == searches and p == price), f"{searches} בדיקות")
+
+    await context.bot.send_invoice(
+        chat_id=query.from_user.id,
+        title=label,
+        description=f"{searches} בדיקות רכב בבוט israelcarinfobot",
+        payload=f"searches:{searches}",
+        provider_token=PAYMENT_PROVIDER_TOKEN,
+        currency="ILS",
+        prices=[{"label": label, "amount": price * 100}],  # amount in agorot
+        start_parameter="buy",
+    )
+
+
+async def handle_pre_checkout(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Approve all valid checkout queries."""
+    query = update.pre_checkout_query
+    if not query.invoice_payload.startswith("searches:"):
+        await query.answer(ok=False, error_message="תשלום לא תקין")
+        return
+    await query.answer(ok=True)
+
+
+async def handle_successful_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Grant searches after successful payment."""
+    payment = update.message.successful_payment
+    payload = payment.invoice_payload  # e.g. "searches:50"
+    user_id = update.effective_user.id
+
+    try:
+        searches = int(payload.split(":")[1])
+    except Exception:
+        return
+
+    admin_grant(user_id, searches)
+
+    amount_ils = payment.total_amount // 100
+    await update.message.reply_text(
+        f"✅ *תשלום התקבל\!*\n\n"
+        f"נוספו לך *{searches}* בדיקות רכב\.\n"
+        f"סכום שחויב: ₪{amount_ils}\n\n"
+        f"תודה על הרכישה\! 🙏",
+        parse_mode=ParseMode.MARKDOWN_V2,
+        reply_markup=build_category_keyboard(is_admin=(user_id == ADMIN_ID)),
+    )
+
+    # Notify admin
+    uname = f"@{update.effective_user.username}" if update.effective_user.username else f"id:{user_id}"
+    try:
+        await context.bot.send_message(
+            ADMIN_ID,
+            f"💰 *תשלום חדש\!*\n\n"
+            f"👤 {uname}\n"
+            f"🔍 {searches} בדיקות\n"
+            f"💵 ₪{amount_ils}",
+            parse_mode=ParseMode.MARKDOWN_V2,
+        )
+    except Exception:
+        pass
+
 
 
 async def handle_admin_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
