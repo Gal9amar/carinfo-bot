@@ -893,13 +893,13 @@ async def handle_paid_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         try:
             await context.bot.send_message(
                 ADMIN_ID,
-                f"💰 *בקשת אישור תשלום\!*\n\n"
-                f"👤 {uname} \| {fullname}\n"
-                f"🆔 `{user_id}`\n"
-                f"📦 {label} — {searches} בדיקות\n"
-                f"💵 ₪{price}\n\n"
-                f"לאחר אימות התשלום ב\-PayPal לחץ אשר:",
-                parse_mode=ParseMode.MARKDOWN_V2,
+                f"💰 *בקשת אישור תשלום!*\n\n"
+                f"👤 {uname} | {fullname}\n"
+                f"🆔 {user_id}\n"
+                f"📦 {label}\n"
+                f"💵 {price} שח\n\n"
+                f"לאחר אימות התשלום ב-PayPal לחץ אשר:",
+                parse_mode=None,
                 reply_markup=InlineKeyboardMarkup([[
                     InlineKeyboardButton("✅ אשר ופתח גישה", callback_data=f"approve|{user_id}|{searches}"),
                     InlineKeyboardButton("❌ דחה", callback_data=f"decline|{user_id}"),
