@@ -29,7 +29,7 @@ from src.users import (
     is_allowed, increment_search, apply_code, generate_code,
     admin_stats, admin_grant, get_all_users, get_user_by_username, get_user_by_id,
     block_user, unblock_user, is_blocked,
-    get_last_plate, set_last_plate,
+    get_last_plate, set_last_plate, get_search_history,
 )
 from src.formatter import (
     format_error,
@@ -79,7 +79,8 @@ def _persistent_rows(is_admin: bool = False) -> list:
     rows = [
         [InlineKeyboardButton("🔍 חיפוש רכב חדש",        callback_data="new_search"),
          InlineKeyboardButton("ℹ️ איך זה עובד?",          callback_data="how_it_works")],
-        [InlineKeyboardButton("🛒 רכישת חבילת חיפושים",  callback_data="show_packages")],
+        [InlineKeyboardButton("📜 היסטוריית חיפושים",     callback_data="history"),
+         InlineKeyboardButton("🛒 רכישת חבילת חיפושים",  callback_data="show_packages")],
     ]
     if is_admin:
         rows.append([InlineKeyboardButton("🛠 פאנל מנהל", callback_data="admin_panel")])
@@ -701,6 +702,56 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
             reply_markup=InlineKeyboardMarkup(buttons),
         )
         return
+
+
+async def handle_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show user's search history as clickable plate buttons."""
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    is_admin = user_id == ADMIN_ID
+
+    # Check if it's a specific plate from history
+    if query.data.startswith("hist_plate|"):
+        plate = query.data.split("|")[1]
+        await query.message.reply_text(f"🔍 מחפש {plate}...")
+        # Simulate plate search — set as text and process
+        context.user_data["history_plate"] = plate
+        from src.api.gov_api import fetch_vehicle
+        record = await fetch_vehicle(plate)
+        if not record:
+            await query.message.reply_text(f"לא נמצאו נתונים לרכב {plate}.")
+            return
+        from src.formatter import get_summary
+        summary = get_summary(record)
+        await query.message.reply_text(
+            summary,
+            parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=_persistent_keyboard(is_admin),
+        )
+        return
+
+    # Show history list
+    history = await get_search_history(user_id, limit=10)
+    if not history:
+        await query.edit_message_text(
+            "📜 אין היסטוריית חיפושים עדיין.",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔙 חזרה", callback_data="back_to_start")
+            ]])
+        )
+        return
+
+    buttons = []
+    for plate in history:
+        buttons.append([InlineKeyboardButton(f"🚗 {plate}", callback_data=f"hist_plate|{plate}")])
+    buttons.append([InlineKeyboardButton("🔙 חזרה", callback_data="back_to_start")])
+
+    await query.edit_message_text(
+        "📜 *היסטוריית החיפושים שלך:*\n_לחץ על מספר רכב לצפייה חוזרת \(לא מנכה בדיקה\)_",
+        parse_mode=ParseMode.MARKDOWN_V2,
+        reply_markup=InlineKeyboardMarkup(buttons),
+    )
 
 
 async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1531,6 +1582,7 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(handle_package_callback, pattern=r"^show_packages$|^pkg\|"))
     app.add_handler(CallbackQueryHandler(handle_how_it_works,    pattern=r"^how_it_works$"))
     app.add_handler(CallbackQueryHandler(handle_back_to_start,   pattern=r"^back_to_start$"))
+    app.add_handler(CallbackQueryHandler(handle_history,         pattern=r"^(history|hist_plate\|.*)$"))
     app.add_handler(CallbackQueryHandler(handle_result_callback,  pattern=r"^(new_search|chat_admin|admin_panel)$"))
 
     app.add_handler(ConversationHandler(
