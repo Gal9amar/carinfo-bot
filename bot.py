@@ -363,10 +363,11 @@ async def receive_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
 async def cancel_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user_id = update.effective_user.id
-    await update.message.reply_text(
-        "בסדר, חיפוש בוטל.",
-        reply_markup=ReplyKeyboardRemove(),
-    )
+    if user_id == ADMIN_ID:
+        await update.message.reply_text("בסדר, חיפוש בוטל.", reply_markup=_admin_reply_keyboard())
+    else:
+        await update.message.reply_text("בסדר, חיפוש בוטל.", reply_markup=ReplyKeyboardRemove())
+        await update.message.reply_text("👇", reply_markup=_persistent_keyboard(is_admin=False))
     return ConversationHandler.END
 
 
@@ -1256,10 +1257,11 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     # Cancel search
     if raw == "❌ ביטול":
-        await update.message.reply_text(
-            "בסדר, חיפוש בוטל.",
-            reply_markup=ReplyKeyboardRemove(),
-        )
+        if user_id == ADMIN_ID:
+            await update.message.reply_text("בסדר, חיפוש בוטל.", reply_markup=_admin_reply_keyboard())
+        else:
+            await update.message.reply_text("בסדר, חיפוש בוטל. בחר פעולה:", reply_markup=ReplyKeyboardRemove())
+            await update.message.reply_text("👇", reply_markup=_persistent_keyboard(is_admin=False))
         return
 
     # Admin settings input
