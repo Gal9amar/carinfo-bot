@@ -397,7 +397,7 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 return
             note = " ".join(args[3:]) if len(args) > 3 else ""
             msg = await admin_grant(user_id, target["user_id"], amount, note)
-            await update.message.reply_text(f"✅ @{username}: {msg}", parse_mode=ParseMode.MARKDOWN_V2)
+            await update.message.reply_text(f"✅ {username}: {msg}")
             return
 
         if args[0] == "gen":
