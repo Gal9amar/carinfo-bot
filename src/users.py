@@ -194,7 +194,13 @@ async def admin_grant(admin_id: int, target_id: int, searches: int, note: str = 
     quota = u["searches_quota"] if u else FREE_SEARCHES
     done  = u["searches_done"]  if u else 0
 
-    if searches == -1:
+    if searches == -2:  # permanent unlimited
+        await execute(
+            "UPDATE users SET searches_quota = -1, searches_done = 0, quota_expires = NULL WHERE user_id = ?",
+            [target_id],
+        )
+        msg = "גישה חופשית ללא הגבלת זמן"
+    elif searches == -1:
         from datetime import timedelta
         expires = (datetime.now() + timedelta(days=30)).isoformat()
         await execute(
