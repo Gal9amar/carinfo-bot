@@ -1177,10 +1177,14 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     summary = get_summary(record)
 
-    if not is_repeat and left > 0 and left != -1:
-        remaining = left - 1
-        if remaining > 0:
-            summary += f"\n\n_נותרו לך {remaining} בדיקות חינמיות_"
+    if not is_repeat:
+        if left == -1:
+            summary += "\n\n_✅ גישה בלתי מוגבלת_"
+        elif left > 0:
+            remaining = left - 1
+            label = "בדיקות" if remaining != 1 else "בדיקה"
+            emoji = "🟢" if remaining > 5 else ("🟡" if remaining > 1 else "🔴")
+            summary += f"\n\n_{emoji} נותרו לך {remaining} {label}_"
 
     await searching_msg.delete()
 
