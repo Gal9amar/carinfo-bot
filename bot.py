@@ -714,15 +714,17 @@ async def handle_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     # Check if it's a specific plate from history
     if query.data.startswith("hist_plate|"):
         plate = query.data.split("|")[1]
-        await query.message.reply_text(f"🔍 מחפש {plate}...")
-        # Simulate plate search — set as text and process
-        context.user_data["history_plate"] = plate
-        from src.api.gov_api import fetch_vehicle
-        record = await fetch_vehicle(plate)
-        if not record:
-            await query.message.reply_text(f"לא נמצאו נתונים לרכב {plate}.")
+        searching_msg = await query.message.reply_text("🔍 מחפש נתונים\\.\\.\\.", parse_mode=ParseMode.MARKDOWN_V2)
+        try:
+            record = await fetch_vehicle_data(plate)
+        except Exception as exc:
+            await searching_msg.delete()
+            await query.message.reply_text(format_error(), parse_mode=ParseMode.MARKDOWN_V2)
             return
-        from src.formatter import get_summary
+        await searching_msg.delete()
+        if not record:
+            await query.message.reply_text(format_not_found(plate), parse_mode=ParseMode.MARKDOWN_V2)
+            return
         summary = get_summary(record)
         await query.message.reply_text(
             summary,
