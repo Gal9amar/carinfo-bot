@@ -219,8 +219,7 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
     if text == "1":
         allowed, left = await is_allowed(user_id)
         expires = await get_quota_expires(user_id) if left == -1 else None
-        status  = menu.format_status(left, expires)
-        await send_message(chat_id, f"📊 סטטוס חשבון:\n\n{status}")
+        await send_message(chat_id, menu.format_status_full(left, expires))
         return
 
     if text == "2":
