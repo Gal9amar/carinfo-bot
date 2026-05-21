@@ -61,9 +61,11 @@ PLATE_RE = re.compile(r"^[\d\-]{5,10}$")
 
 # ── Green API HTTP helpers ──────────────────────────────────────────────────
 
+API_URL = os.environ.get("GREEN_API_URL", "https://api.green-api.com")
+
 def _green_url(method: str) -> str:
     return (
-        f"https://api.green-api.com/waInstance{ID_INSTANCE}"
+        f"{API_URL}/waInstance{ID_INSTANCE}"
         f"/{method}/{TOKEN_INSTANCE}"
     )
 
@@ -314,11 +316,16 @@ class WebhookHandler(BaseHTTPRequestHandler):
 
 async def _dispatch(data: dict) -> None:
     try:
-        type_webhook = data.get("typeWebhook", "")
+        # Green API wraps the payload in a "body" key when using receiveNotification
+        # but sends it flat when using webhook endpoint — handle both
+        payload = data.get("body", data)
+
+        type_webhook = payload.get("typeWebhook", "")
         if type_webhook != "incomingMessageReceived":
+            logger.debug("Ignoring webhook type: %s", type_webhook)
             return
 
-        msg_data = data.get("messageData", {})
+        msg_data = payload.get("messageData", {})
         if msg_data.get("typeMessage") not in ("textMessage", "extendedTextMessage"):
             return
 
@@ -331,13 +338,14 @@ async def _dispatch(data: dict) -> None:
         if not body:
             return
 
-        sender   = data.get("senderData", {})
-        chat_id  = sender.get("chatId", "")       # e.g. 972501234567@c.us
-        phone    = _normalize_phone(chat_id)       # e.g. 972501234567
+        sender  = payload.get("senderData", {})
+        chat_id = sender.get("chatId", "")
+        phone   = _normalize_phone(chat_id)
 
         if not phone or not chat_id:
             return
 
+        logger.info("Incoming WA message from %s: %s", phone, body[:50])
         await handle_message(chat_id, phone, body)
 
     except Exception as exc:
