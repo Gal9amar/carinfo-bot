@@ -133,6 +133,7 @@ async def notify_telegram_admin(text: str) -> None:
 
 async def handle_admin(chat_id: str, phone: str, text: str) -> bool:
     """Handle admin commands. Returns True if handled."""
+    logger.info("handle_admin: phone='%s' ADMIN_WA_PHONE='%s' match=%s", phone, ADMIN_WA_PHONE, phone == ADMIN_WA_PHONE)
     if not ADMIN_WA_PHONE or phone != ADMIN_WA_PHONE:
         return False
 
