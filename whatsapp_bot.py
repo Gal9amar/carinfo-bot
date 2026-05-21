@@ -200,10 +200,79 @@ async def handle_admin(chat_id: str, phone: str, text: str) -> bool:
         "ז  שלח הודעה לכולם\n"
         "ח  נקה שורות זבל\n"
         "ט  צור קוד הטבה\n"
+        "י  עריכת מחירי חבילות\n"
         "─────────────────\n"
         "שלח אות לבחירה\n"
         "יציאה: שלח *תפריט*"
     )
+
+    if state == "ADMIN_EDIT_PKG":
+        if lower in ("אדמין", "admin", "ביטול", "תפריט"):
+            await set_wa_state(phone, "ADMIN_MENU")
+            await send_message(chat_id, ADMIN_MENU)
+            return True
+        parts_cmd = text.strip().split(None, 4)
+        cmd = parts_cmd[0].lower() if parts_cmd else ""
+        sub = parts_cmd[1].lower() if len(parts_cmd) > 1 else ""
+        try:
+            from src.packages import get_packages, update_package, add_package, delete_package
+            if cmd == "pkg" and sub not in ("add", "del") and len(parts_cmd) >= 4:
+                pkg_id   = int(parts_cmd[1])
+                searches = int(parts_cmd[2])
+                price    = int(parts_cmd[3])
+                pkgs = await get_packages()
+                pkg_row = next((p for p in pkgs if p[0] == pkg_id), None)
+                if pkg_row is None:
+                    await send_message(chat_id, f"❌ חבילה {pkg_id} לא קיימת.")
+                    return True
+                await update_package(pkg_id, pkg_row[1], searches, price)
+                pkgs = await get_packages()
+                lines = ["✅ *חבילה עודכנה!*", "─────────────────"]
+                for pid, lbl, srch, prc in pkgs:
+                    desc = "ללא הגבלה" if srch == -1 else f"{srch} חיפושים"
+                    lines.append(f"{pid}. {lbl} — {desc} ₪{prc}")
+                lines += ["─────────────────", ADMIN_MENU]
+                await set_wa_state(phone, "ADMIN_MENU")
+                await send_message(chat_id, "\n".join(lines))
+            elif cmd == "pkg" and sub == "add" and len(parts_cmd) >= 5:
+                searches = int(parts_cmd[2])
+                price    = int(parts_cmd[3])
+                label    = parts_cmd[4]
+                await add_package(label, searches, price)
+                pkgs = await get_packages()
+                lines = ["✅ *חבילה נוספה!*", "─────────────────"]
+                for pid, lbl, srch, prc in pkgs:
+                    desc = "ללא הגבלה" if srch == -1 else f"{srch} חיפושים"
+                    lines.append(f"{pid}. {lbl} — {desc} ₪{prc}")
+                lines += ["─────────────────", ADMIN_MENU]
+                await set_wa_state(phone, "ADMIN_MENU")
+                await send_message(chat_id, "\n".join(lines))
+            elif cmd == "pkg" and sub == "del" and len(parts_cmd) >= 3:
+                pkg_id = int(parts_cmd[2])
+                pkgs = await get_packages()
+                if not any(p[0] == pkg_id for p in pkgs):
+                    await send_message(chat_id, f"❌ חבילה {pkg_id} לא קיימת.")
+                    return True
+                await delete_package(pkg_id)
+                pkgs = await get_packages()
+                lines = ["✅ *חבילה נמחקה!*", "─────────────────"]
+                for pid, lbl, srch, prc in pkgs:
+                    desc = "ללא הגבלה" if srch == -1 else f"{srch} חיפושים"
+                    lines.append(f"{pid}. {lbl} — {desc} ₪{prc}")
+                lines += ["─────────────────", ADMIN_MENU]
+                await set_wa_state(phone, "ADMIN_MENU")
+                await send_message(chat_id, "\n".join(lines))
+            else:
+                await send_message(chat_id,
+                    "❌ פורמט שגוי.\n\n"
+                    "עריכה: pkg 1 50 15\n"
+                    "הוספה: pkg add 50 15 תווית החבילה\n"
+                    "מחיקה: pkg del 1\n"
+                    "לביטול: שלח *אדמין*"
+                )
+        except (ValueError, StopIteration):
+            await send_message(chat_id, "❌ פורמט שגוי.\nלביטול: שלח *אדמין*")
+        return True
 
     if state == "ADMIN_CREATE_CODE":
         if lower in ("אדמין", "admin", "ביטול", "תפריט"):
@@ -320,6 +389,23 @@ async def handle_admin(chat_id: str, phone: str, text: str) -> bool:
                 "*חינם* — ללא הגבלה\n\n"
                 "לביטול: שלח *אדמין*"
             )
+            return True
+        if text == "י":
+            from src.packages import get_packages
+            pkgs = await get_packages()
+            lines = ["💰 *עריכת מחירי חבילות*", "─────────────────"]
+            for pid, label, searches, price in pkgs:
+                desc = "ללא הגבלה" if searches == -1 else f"{searches} חיפושים"
+                lines.append(f"{pid}. {desc} — ₪{price}")
+            lines += [
+                "─────────────────",
+                "עריכה: pkg 1 50 15",
+                "הוספה: pkg add 50 15 תווית חדשה",
+                "מחיקה: pkg del 1",
+                "לביטול: שלח *אדמין*",
+            ]
+            await set_wa_state(phone, "ADMIN_EDIT_PKG")
+            await send_message(chat_id, "\n".join(lines))
             return True
         # אות לא מוכרת — הצג תפריט שוב
         await send_message(chat_id, ADMIN_MENU)
@@ -580,7 +666,7 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
             await set_wa_state(phone, None)
             await send_message(chat_id, menu.WELCOME)
             return
-        pkg = menu.PACKAGE_DETAILS.get(text.strip())
+        pkg = menu.get_package_details(text.strip())
         if not pkg:
             await send_message(chat_id, "שלח מספר 1-4 לבחירת חבילה, או 'תפריט' לחזרה.")
             return
@@ -703,7 +789,7 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
 
     if text == "2":
         await set_wa_state(phone, "WAITING_PACKAGE")
-        await send_message(chat_id, menu.PACKAGES)
+        await send_message(chat_id, menu.build_packages_menu())
         return
 
     if text == "3":
@@ -712,7 +798,7 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
         return
 
     if text == "4":
-        await send_message(chat_id, menu.HELP)
+        await send_message(chat_id, menu.build_help())
         return
 
     if text == "5" or lower in ("היסטוריה", "history"):
@@ -946,7 +1032,15 @@ def main() -> None:
     logger.info("Turso DB initialized (WA bot)")
 
     from threading import Thread
-    Thread(target=_run_renewal_reminders, daemon=True).start()
+
+    def _run_cache_cleanup():
+        import time as _time
+        while True:
+            _time.sleep(600)
+            cache.clear_expired()
+
+    Thread(target=_run_cache_cleanup,       daemon=True).start()
+    Thread(target=_run_renewal_reminders,   daemon=True).start()
     logger.info("Renewal reminder thread started")
 
     server = HTTPServer(("0.0.0.0", PORT), WebhookHandler)

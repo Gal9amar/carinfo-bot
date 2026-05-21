@@ -118,6 +118,9 @@ async def init_db() -> None:
             pass
     conn.commit()
 
+    from src.packages import init_packages
+    await init_packages()
+
 
 async def execute(sql: str, args: list | None = None) -> _Result:
     """Execute with automatic reconnect on 502/connection errors."""

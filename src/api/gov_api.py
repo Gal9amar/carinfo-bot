@@ -12,8 +12,11 @@ Resources:
 
 import asyncio
 import json
+import logging
 import httpx
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 BASE_URL = "https://data.gov.il/api/3/action/datastore_search"
 
@@ -47,7 +50,8 @@ async def _search_q(client: httpx.AsyncClient, resource_id: str, q: str, limit: 
         resp = await client.get(BASE_URL, params=params)
         resp.raise_for_status()
         return resp.json().get("result", {}).get("records", [])
-    except Exception:
+    except Exception as exc:
+        logger.warning("gov_api _search_q failed resource=%s q=%s: %s", resource_id, q, exc)
         return []
 
 
@@ -59,7 +63,8 @@ async def _search_filter(
         resp = await client.get(BASE_URL, params=params)
         resp.raise_for_status()
         return resp.json().get("result", {}).get("records", [])
-    except Exception:
+    except Exception as exc:
+        logger.warning("gov_api _search_filter failed resource=%s filters=%s: %s", resource_id, filters, exc)
         return []
 
 

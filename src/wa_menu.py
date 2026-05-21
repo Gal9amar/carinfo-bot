@@ -32,44 +32,69 @@ EXPIRY_WARNING = (
     "3️⃣  שלח *3* אם יש לך קוד הטבה"
 )
 
-HELP = (
-    "ℹ️ *איך CarInfo עובד?*\n"
-    "─────────────────\n"
-    "שלח מספר לוחית → קבל דוח מיידי:\n\n"
-    "📋 פרטים כלליים\n"
-    "⚙️ מפרט טכני\n"
-    "🔧 גלגלים וצמיגים\n"
-    "🛡️ בטיחות ו-ADAS\n"
-    "📅 היסטוריה ובעלויות\n"
-    "🔔 ריקולים\n\n"
-    "─────────────────\n"
-    "🆓 *20 חיפושים חינמיים* למשתמש חדש\n\n"
-    "💰 *חבילות:*\n"
-    "• 50 חיפושים ← ₪10\n"
-    "• 100 חיפושים ← ₪20\n"
-    "• 200 חיפושים ← ₪30\n"
-    "• ♾️ מנוי חודשי ← ₪25\n\n"
-    "⬅️ לתפריט: שלח *תפריט*"
-)
+def build_help() -> str:
+    from src.users import FREE_SEARCHES
+    pkg_lines = []
+    for _, label, searches, price in _get_pkgs():
+        desc = "♾️ מנוי חודשי" if searches == -1 else f"{searches} חיפושים"
+        pkg_lines.append(f"• {desc} ← ₪{price}")
+    return (
+        "ℹ️ *איך CarInfo עובד?*\n"
+        "─────────────────\n"
+        "שלח מספר לוחית → קבל דוח מיידי:\n\n"
+        "📋 פרטים כלליים\n"
+        "⚙️ מפרט טכני\n"
+        "🔧 גלגלים וצמיגים\n"
+        "🛡️ בטיחות ו-ADAS\n"
+        "📅 היסטוריה ובעלויות\n"
+        "🔔 ריקולים\n\n"
+        "─────────────────\n"
+        f"🆓 *{FREE_SEARCHES} חיפושים חינמיים* למשתמש חדש\n\n"
+        "💰 *חבילות:*\n"
+        + "\n".join(pkg_lines) + "\n\n"
+        "⬅️ לתפריט: שלח *תפריט*"
+    )
 
-PACKAGES = (
-    "🛒 *בחר חבילת חיפושים:*\n"
-    "─────────────────\n"
-    "1️⃣  50 חיפושים — ₪10\n"
-    "2️⃣  100 חיפושים — ₪20\n"
-    "3️⃣  200 חיפושים — ₪30\n"
-    "4️⃣  ♾️ מנוי חודשי — ₪25\n"
-    "─────────────────\n"
-    "שלח מספר 1-4 לבחירה\n"
-    "⬅️ ביטול: שלח *תפריט*"
-)
 
-PACKAGE_DETAILS = {
-    "1": ("50 חיפושים", 50,  10),
-    "2": ("100 חיפושים", 100, 20),
-    "3": ("200 חיפושים", 200, 30),
-    "4": ("מנוי חודשי ללא הגבלה", -1, 25),
-}
+HELP = ""  # legacy — use build_help() instead
+
+def _get_pkgs() -> list[tuple[int, str, int, int]]:
+    from src.packages import _cache
+    if _cache:
+        return _cache
+    return [
+        (1, "50 חיפושים",              50,  10),
+        (2, "100 חיפושים",             100, 20),
+        (3, "200 חיפושים",             200, 30),
+        (4, "מנוי חודשי ללא הגבלה",   -1,  25),
+    ]
+
+
+def build_packages_menu() -> str:
+    nums = ["1️⃣", "2️⃣", "3️⃣", "4️⃣"]
+    lines = ["🛒 *בחר חבילת חיפושים:*", "─────────────────"]
+    for i, (_, label, searches, price) in enumerate(_get_pkgs()):
+        desc = "ללא הגבלה" if searches == -1 else f"{searches} חיפושים"
+        num  = nums[i] if i < len(nums) else f"{i+1}️⃣"
+        lines.append(f"{num}  {desc} — ₪{price}")
+    lines += ["─────────────────", "שלח מספר לבחירה", "⬅️ ביטול: שלח *תפריט*"]
+    return "\n".join(lines)
+
+
+def get_package_details(choice: str) -> tuple[str, int, int] | None:
+    """Returns (label, searches, price) for choice '1'..'4', or None."""
+    pkgs = _get_pkgs()
+    try:
+        idx = int(choice) - 1
+        if 0 <= idx < len(pkgs):
+            _, label, searches, price = pkgs[idx]
+            return label, searches, price
+    except (ValueError, IndexError):
+        pass
+    return None
+
+
+PACKAGE_DETAILS = {}  # legacy — use get_package_details() instead
 
 PAYMENT_REQUEST = (
     "💳 *{label} — ₪{price}*\n"

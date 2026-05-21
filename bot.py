@@ -55,14 +55,19 @@ BOT_USERNAME = "israelcarinfobot"
 PAYMENT_PROVIDER_TOKEN = os.environ.get("PAYMENT_PROVIDER_TOKEN", "6073714100:TEST:TG_2ZwhGNC5yAq7J6bMbZfUti0A")
 PAYPAL_ME = os.environ.get("PAYPAL_ME", "https://www.paypal.me/G9ST")
 
-# Payment packages: (label, searches, price_ILS)
-# searches=-1 means monthly unlimited
-PAYMENT_PACKAGES = [
-    ("🔍 50 חיפושים",   50,  10),
-    ("🔍 100 חיפושים", 100,  20),
-    ("🔍 200 חיפושים", 200,  30),
-    ("♾️ מנוי חודשי",   -1,  25),
-]
+from src.packages import get_packages as _get_packages
+
+def _pkgs() -> list[tuple[str, int, int]]:
+    """Returns (label, searches, price) from DB cache. Falls back to defaults."""
+    from src.packages import _cache
+    if _cache:
+        return [(p[1], p[2], p[3]) for p in _cache]
+    return [
+        ("🔍 50 חיפושים",  50,  10),
+        ("🔍 100 חיפושים", 100, 20),
+        ("🔍 200 חיפושים", 200, 30),
+        ("♾️ מנוי חודשי",  -1,  25),
+    ]
 
 _MD_SPECIAL = r"\_*[]()~`>#+-=|{}.!"
 def _escape_md(text: str) -> str:
@@ -100,7 +105,7 @@ def _persistent_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
 
 def _payment_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
     buttons = []
-    for label, searches, price in PAYMENT_PACKAGES:
+    for label, searches, price in _pkgs():
         buttons.append([InlineKeyboardButton(
             f"{label} — {searches} בדיקות ב-₪{price}",
             callback_data=f"buy|{searches}|{price}"
@@ -125,6 +130,7 @@ def _admin_reply_keyboard() -> ReplyKeyboardMarkup:
         [KeyboardButton("🔑 צור קוד"),    KeyboardButton("💳 הענק גישה")],
         [KeyboardButton("🚫 חסום/שחרר"),  KeyboardButton("⚙️ הגדרות בוט")],
         [KeyboardButton("📢 שלח הודעה לכולם")],
+        [KeyboardButton("💰 מחירי חבילות")],
         [KeyboardButton("🔍 חזור לחיפוש")],
     ], resize_keyboard=True, one_time_keyboard=False)
 
@@ -160,7 +166,7 @@ def build_result_keyboard(
 
 def _packages_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
     buttons = []
-    for label, searches, price in PAYMENT_PACKAGES:
+    for label, searches, price in _pkgs():
         desc = "ללא הגבלה — 30 יום" if searches == -1 else f"{searches} בדיקות"
         buttons.append([InlineKeyboardButton(
             f"{label} — {desc} ב-₪{price}",
@@ -1089,6 +1095,25 @@ async def handle_admin_keyboard(update: Update, context: ContextTypes.DEFAULT_TY
         )
         context.user_data["admin_setting"] = "broadcast"
 
+    async def send_packages_editor():
+        from src.packages import get_packages
+        pkgs = await get_packages()
+        lines = ["💰 *עריכת מחירי חבילות*\n"]
+        for pid, label, searches, price in pkgs:
+            desc = "ללא הגבלה" if searches == -1 else f"{searches} חיפושים"
+            lines.append(f"{pid}\\. {_escape_md(label)} — {desc} ב\\-₪{price}")
+        lines += [
+            "",
+            "עריכה: `pkg 1 50 15`",
+            "הוספה: `pkg add 50 15 תווית חדשה`",
+            "מחיקה: `pkg del 1`",
+        ]
+        await update.message.reply_text(
+            "\n".join(lines),
+            parse_mode=ParseMode.MARKDOWN_V2,
+        )
+        context.user_data["admin_setting"] = "packages"
+
     dispatch = {
         "📊 סטטיסטיקות":      send_stats,
         "👥 משתמשים":         send_users,
@@ -1097,6 +1122,7 @@ async def handle_admin_keyboard(update: Update, context: ContextTypes.DEFAULT_TY
         "🚫 חסום/שחרר":       send_block_list,
         "⚙️ הגדרות בוט":      send_settings,
         "📢 שלח הודעה לכולם": send_broadcast_prompt,
+        "💰 מחירי חבילות":    send_packages_editor,
     }
     if text_msg == "🛠 פאנל מנהל":
         await update.message.reply_text(
@@ -1125,7 +1151,7 @@ async def handle_admin_keyboard(update: Update, context: ContextTypes.DEFAULT_TY
 async def cmd_buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Show payment packages."""
     buttons = []
-    for label, searches, price in PAYMENT_PACKAGES:
+    for label, searches, price in _pkgs():
         cb = f"buy|{searches}|{price}"
         buttons.append([InlineKeyboardButton(f"{label} — {searches} בדיקות ב-₪{price}", callback_data=cb)])
     await update.message.reply_text(
@@ -1142,7 +1168,7 @@ async def handle_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     parts = query.data.split("|")
     searches = int(parts[1])
     price    = int(parts[2])
-    label = next((l for l, s, p in PAYMENT_PACKAGES if s == searches and p == price), f"{searches} בדיקות")
+    label = next((l for l, s, p in _pkgs() if s == searches and p == price), f"{searches} בדיקות")
 
     desc = "ללא הגבלה למשך 30 יום" if searches == -1 else f"{searches} בדיקות רכב"
     await query.message.reply_text(
@@ -1169,7 +1195,7 @@ async def handle_paid_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     user_id  = user.id
     uname    = f"@{user.username}" if user.username else f"id:{user_id}"
     fullname = user.full_name or ""
-    label    = next((l for l, s, p in PAYMENT_PACKAGES if s == searches and p == price), f"{searches} בדיקות")
+    label    = next((l for l, s, p in _pkgs() if s == searches and p == price), f"{searches} בדיקות")
 
     # Notify admin with approve button
     if ADMIN_ID:
@@ -1385,6 +1411,64 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             context.user_data.pop("admin_setting", None)
             await update.message.reply_text("✅ הודעת תשלום עודכנה\\!\n\n" + raw, parse_mode=ParseMode.MARKDOWN_V2)
             return
+        if setting == "packages":
+            from src.packages import get_packages, update_package, add_package, delete_package
+            parts_cmd = raw.strip().split(None, 4)
+            try:
+                if len(parts_cmd) >= 4 and parts_cmd[0].lower() == "pkg" and parts_cmd[1].lower() not in ("add", "del"):
+                    pkg_id   = int(parts_cmd[1])
+                    searches = int(parts_cmd[2])
+                    price    = int(parts_cmd[3])
+                    pkgs = await get_packages()
+                    pkg_row = next((p for p in pkgs if p[0] == pkg_id), None)
+                    if pkg_row is None:
+                        await update.message.reply_text(f"❌ חבילה {pkg_id} לא קיימת\\.", parse_mode=ParseMode.MARKDOWN_V2)
+                        return
+                    await update_package(pkg_id, pkg_row[1], searches, price)
+                    pkgs = await get_packages()
+                    lines = ["✅ *חבילה עודכנה\\!*\n"]
+                    for pid, lbl, srch, prc in pkgs:
+                        desc = "ללא הגבלה" if srch == -1 else f"{srch} חיפושים"
+                        lines.append(f"{pid}\\. {_escape_md(lbl)} — {desc} ב\\-₪{prc}")
+                    await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.MARKDOWN_V2)
+                elif len(parts_cmd) >= 5 and parts_cmd[0].lower() == "pkg" and parts_cmd[1].lower() == "add":
+                    searches = int(parts_cmd[2])
+                    price    = int(parts_cmd[3])
+                    label    = parts_cmd[4]
+                    await add_package(label, searches, price)
+                    pkgs = await get_packages()
+                    lines = ["✅ *חבילה נוספה\\!*\n"]
+                    for pid, lbl, srch, prc in pkgs:
+                        desc = "ללא הגבלה" if srch == -1 else f"{srch} חיפושים"
+                        lines.append(f"{pid}\\. {_escape_md(lbl)} — {desc} ב\\-₪{prc}")
+                    await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.MARKDOWN_V2)
+                elif len(parts_cmd) >= 3 and parts_cmd[0].lower() == "pkg" and parts_cmd[1].lower() == "del":
+                    pkg_id = int(parts_cmd[2])
+                    pkgs = await get_packages()
+                    if not any(p[0] == pkg_id for p in pkgs):
+                        await update.message.reply_text(f"❌ חבילה {pkg_id} לא קיימת\\.", parse_mode=ParseMode.MARKDOWN_V2)
+                        return
+                    await delete_package(pkg_id)
+                    pkgs = await get_packages()
+                    lines = ["✅ *חבילה נמחקה\\!*\n"]
+                    for pid, lbl, srch, prc in pkgs:
+                        desc = "ללא הגבלה" if srch == -1 else f"{srch} חיפושים"
+                        lines.append(f"{pid}\\. {_escape_md(lbl)} — {desc} ב\\-₪{prc}")
+                    await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.MARKDOWN_V2)
+                else:
+                    await update.message.reply_text(
+                        "❌ פורמט שגוי\\.\n\n"
+                        "עריכה: `pkg 1 50 15`\n"
+                        "הוספה: `pkg add 50 15 תווית החבילה`\n"
+                        "מחיקה: `pkg del 1`",
+                        parse_mode=ParseMode.MARKDOWN_V2,
+                    )
+                    return
+            except (ValueError, StopIteration):
+                await update.message.reply_text("❌ פורמט שגוי\\.", parse_mode=ParseMode.MARKDOWN_V2)
+                return
+            context.user_data.pop("admin_setting", None)
+            return
         if setting == "broadcast":
             all_users = await get_all_users()
             # Only send to Telegram users (not WhatsApp-only users)
@@ -1473,23 +1557,29 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             parse_mode=ParseMode.MARKDOWN_V2,
         )
 
-    searching_msg = await update.message.reply_text(
-        "🔍 מחפש נתונים\\.\\.\\.", parse_mode=ParseMode.MARKDOWN_V2
-    )
-
-    try:
-        record = await fetch_vehicle_data(plate)
-    except Exception as exc:
-        logger.error("Error fetching data for plate %s: %s", plate, exc)
-        await searching_msg.delete()
-        await update.message.reply_text(
-            format_error(), parse_mode=ParseMode.MARKDOWN_V2,
-            reply_markup=_persistent_keyboard(is_admin),
+    # cache hit — skip API call
+    record = cache.get(plate)
+    if record is None:
+        searching_msg = await update.message.reply_text(
+            "🔍 מחפש נתונים\\.\\.\\.", parse_mode=ParseMode.MARKDOWN_V2
         )
-        return
+        try:
+            record = await fetch_vehicle_data(plate)
+        except Exception as exc:
+            logger.error("Error fetching data for plate %s: %s", plate, exc)
+            await searching_msg.delete()
+            await update.message.reply_text(
+                format_error(), parse_mode=ParseMode.MARKDOWN_V2,
+                reply_markup=_persistent_keyboard(is_admin),
+            )
+            return
+        if record is not None:
+            cache.set(plate, record)
+        await searching_msg.delete()
+    else:
+        searching_msg = None
 
     if record is None:
-        await searching_msg.delete()
         await update.message.reply_text(
             format_not_found(plate), parse_mode=ParseMode.MARKDOWN_V2,
             reply_markup=_persistent_keyboard(is_admin),
@@ -1713,17 +1803,20 @@ def run_health_server():
     HTTPServer(("0.0.0.0", port), HealthHandler).serve_forever()
 
 
-def run_self_ping():
-    import time, urllib.request as _req
+async def run_self_ping():
+    import asyncio as _asyncio, urllib.request as _req
     url = os.environ.get("RENDER_EXTERNAL_URL", "")
     if not url:
         logger.info("RENDER_EXTERNAL_URL not set — self-ping disabled")
         return
     url = url.rstrip("/") + "/health"
     while True:
-        time.sleep(600)
+        await _asyncio.sleep(600)
+        cache.clear_expired()
         try:
-            _req.urlopen(url, timeout=10)
+            await _asyncio.get_event_loop().run_in_executor(
+                None, lambda: _req.urlopen(url, timeout=10)
+            )
             logger.debug("Self-ping OK: %s", url)
         except Exception as e:
             logger.warning("Self-ping failed: %s", e)
@@ -1740,7 +1833,7 @@ def main() -> None:
         raise RuntimeError("TELEGRAM_BOT_TOKEN environment variable is not set")
 
     Thread(target=run_health_server, daemon=True).start()
-    Thread(target=run_self_ping,     daemon=True).start()
+    Thread(target=lambda: asyncio.run(run_self_ping()), daemon=True).start()
     logger.info("Health server started")
 
     app = Application.builder().token(token).post_init(_post_init).build()
