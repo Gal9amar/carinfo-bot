@@ -1347,6 +1347,8 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 f"📤 שולח ל\\-*{len(users)}* משתמשים\\.\\.\\.".replace("-", "\\-"),
                 parse_mode=ParseMode.MARKDOWN_V2,
             )
+            from telegram.helpers import escape_markdown
+            escaped_msg = escape_markdown(raw, version=2)
             for u in users:
                 uid = u["user_id"]
                 if uid == ADMIN_ID:
@@ -1354,7 +1356,7 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 try:
                     await context.bot.send_message(
                         uid,
-                        f"📢 *הודעה מהמנהל:*\n\n{raw}",
+                        f"📢 *הודעה מהמנהל:*\n\n{escaped_msg}",
                         parse_mode=ParseMode.MARKDOWN_V2,
                     )
                     sent_ok += 1
