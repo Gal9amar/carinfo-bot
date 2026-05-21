@@ -367,11 +367,16 @@ def cat_ownership(record: dict, w: dict) -> str:
     return "".join(lines)
 
 
-def _check_km_fraud(record: dict) -> str:
-    """
-    Basic km fraud detection using last reported km vs ownership timeline.
-    Returns a warning string or empty string if ok.
-    """
+def _safe_ym(dt) -> int:
+    """Parse YYYYMM ownership date field to int, returns 0 on failure."""
+    try:
+        return int(str(dt)[:6])
+    except Exception:
+        return 0
+
+
+def _km_fraud_check(record: dict) -> str:
+    """Returns plain-text km fraud warning or ''."""
     km = record.get("kilometer_test_aharon")
     if not km:
         return ""
@@ -379,22 +384,48 @@ def _check_km_fraud(record: dict) -> str:
         km_val = int(float(str(km)))
     except Exception:
         return ""
-
     ownership = record.get("_ownership") or []
     first_dt = ownership[0].get("baalut_dt", "") if ownership else ""
     try:
         year_start = int(str(first_dt)[:4])
-        from datetime import date
         years = date.today().year - year_start
         if years > 0:
-            avg_km_per_year = km_val / years
-            if avg_km_per_year < 3000:
-                return f"⚠️ ק\"מ נמוך מאוד \\({_escape(str(km_val))} ב\\-{_escape(str(years))} שנים\\) — בדוק זיוף"
-            if avg_km_per_year > 50000:
-                return f"⚠️ ק\"מ גבוה מאוד \\({_escape(str(km_val))} ב\\-{_escape(str(years))} שנים\\)"
+            avg = km_val / years
+            if avg < 3000:
+                return f'⚠️ ק"מ נמוך מאוד ({km_val:,} ב-{years} שנים) — בדוק זיוף'
+            if avg > 50000:
+                return f'⚠️ ק"מ גבוה מאוד ({km_val:,} ב-{years} שנים)'
     except Exception:
         pass
     return ""
+
+
+def _check_km_fraud(record: dict) -> str:
+    """Returns MarkdownV2-escaped km fraud warning or ''."""
+    msg = _km_fraud_check(record)
+    return _escape(msg) if msg else ""
+
+
+def _flip_check(record: dict) -> str:
+    """Returns plain-text flipping warning or ''."""
+    ownership = record.get("_ownership") or []
+    if len(ownership) < 3:
+        return ""
+    today = date.today()
+    cutoff_ym = (today.year - 2) * 100 + today.month
+    recent_private = sum(
+        1 for o in ownership
+        if o.get("baalut") == "פרטי" and _safe_ym(o.get("baalut_dt")) >= cutoff_ym
+    )
+    if recent_private >= 3:
+        return f"⚠️ פליפינג חשוד — {recent_private} בעלויות פרטיות ב-24 חודשים האחרונים"
+    return ""
+
+
+def _check_flipping(record: dict) -> str:
+    """Returns MarkdownV2-escaped flipping warning or ''."""
+    msg = _flip_check(record)
+    return _escape(msg) if msg else ""
 
 
 def cat_recalls(record: dict) -> str:
@@ -437,6 +468,159 @@ def cat_recalls(record: dict) -> str:
     return "".join(lines)
 
 
+def quick_summary(record: dict) -> str:
+    """Short traffic-light summary block for the top of every result (MarkdownV2)."""
+    manufacturer = _val(record, "tozeret_nm")
+    model        = _val(record, "kinuy_mishari", "degem_nm")
+    year         = _val(record, "shnat_yitzur")
+    color        = _val(record, "tzeva_rechev")
+    km           = _val(record, "kilometer_test_aharon")
+    baalut       = _val(record, "baalut")
+    ownership    = record.get("_ownership") or []
+    was_rental   = record.get("_was_rental", False)
+    scrapped     = record.get("_scrapped_dt", "")
+    test_str     = _test_status(record.get("tokef_dt"))
+
+    km_str = ""
+    if km:
+        try:
+            km_str = f'{int(float(km)):,} ק"מ'
+        except Exception:
+            km_str = f'{km} ק"מ'
+
+    owner_count     = len(ownership)
+    km_warn_plain   = _km_fraud_check(record)
+    flip_warn_plain = _flip_check(record)
+    has_body_change = str(record.get("shinui_mivne_ind", "")).strip() == "1"
+
+    flags_plain: list[str] = []
+    if scrapped:
+        flags_plain.append("🚨 רכב גרוטאה — אינו רשאי לנסוע על הכביש")
+    if km_warn_plain:
+        flags_plain.append(km_warn_plain)
+    if flip_warn_plain:
+        flags_plain.append(flip_warn_plain)
+    if has_body_change:
+        flags_plain.append("⚠️ שינוי מבנה רשום")
+
+    is_red = (
+        bool(scrapped)
+        or bool(flip_warn_plain)
+        or ("זיוף" in km_warn_plain if km_warn_plain else False)
+    )
+    is_yellow = (
+        was_rental
+        or "🟡" in test_str
+        or "🔴" in test_str
+        or has_body_change
+        or ("גבוה" in km_warn_plain if km_warn_plain else False)
+    )
+
+    if is_red:
+        overall = "🔴 דורש בדיקה\\!"
+    elif is_yellow:
+        overall = "🟡 שים לב"
+    else:
+        overall = "🟢 תקין"
+
+    lines = [
+        "━━━━━━━━━━━━━━━━━━\n",
+        "*🔍 סיכום מהיר*\n",
+        "━━━━━━━━━━━━━━━━━━\n",
+        f"🚗 *{_escape(manufacturer)} {_escape(model)}* {_escape(year)}\n",
+    ]
+    if color:
+        lines.append(f"• *{_escape('צבע')}:* {_escape(color)}\n")
+    lines += [
+        f"• *{_escape('מצב כללי')}:* {overall}\n",
+        f"• *{_escape('ק\"מ')}:* {_escape(km_str) if km_str else '✖ לא קיים'}\n",
+        f"• *{_escape('בעלויות')}:* {_escape(str(owner_count))} \\| *{_escape('נוכחית')}:* {_escape(baalut)}\n",
+        f"• *{_escape('טסט')}:* {_escape(test_str)}\n",
+        f"• *{_escape('רכב שכור בעבר')}:* {'✅ כן' if was_rental else '❌ לא'}\n",
+    ]
+
+    if flags_plain:
+        lines.append("━━━━━━━━━━━━━━━━━━\n")
+        for flag in flags_plain:
+            lines.append(f"{_escape(flag)}\n")
+
+    lines.append("━━━━━━━━━━━━━━━━━━\n\n")
+    return "".join(lines)
+
+
+def get_share_text(record: dict) -> str:
+    """Plain-text shareable bullet-point report (no MarkdownV2)."""
+    plate        = _val(record, "mispar_rechev")
+    manufacturer = _val(record, "tozeret_nm")
+    model        = _val(record, "kinuy_mishari", "degem_nm")
+    year         = _val(record, "shnat_yitzur")
+    color        = _val(record, "tzeva_rechev")
+    km           = _val(record, "kilometer_test_aharon")
+    baalut       = _val(record, "baalut")
+    ownership    = record.get("_ownership") or []
+    was_rental   = record.get("_was_rental", False)
+    scrapped     = record.get("_scrapped_dt", "")
+
+    tokef = record.get("tokef_dt")
+    try:
+        tokef_date = date.fromisoformat(str(tokef)[:10])
+        delta = (tokef_date - date.today()).days
+        if delta < 0:
+            test_str = f"❌ פג תוקף לפני {abs(delta)} ימים"
+        elif delta <= 30:
+            test_str = f"⚠️ פג תוקף בעוד {delta} ימים"
+        else:
+            test_str = f"✅ בתוקף עד {tokef_date.strftime('%d/%m/%Y')}"
+    except Exception:
+        test_str = "לא ידוע"
+
+    km_str = ""
+    if km:
+        try:
+            km_str = f'{int(float(km)):,}'
+        except Exception:
+            km_str = str(km)
+
+    flags: list[str] = []
+    if scrapped:
+        flags.append("🚨 רכב גרוטאה — אינו רשאי לנסוע על הכביש")
+    km_warn = _km_fraud_check(record)
+    if km_warn:
+        flags.append(km_warn)
+    flip_warn = _flip_check(record)
+    if flip_warn:
+        flags.append(flip_warn)
+    if str(record.get("shinui_mivne_ind", "")).strip() == "1":
+        flags.append("⚠️ שינוי מבנה רשום")
+
+    lines = [
+        f'🚗 דוח רכב — {plate}\n',
+        "─────────────────────\n",
+        f"🏭 {manufacturer} {model} ({year})\n",
+    ]
+    if color:
+        lines.append(f"🎨 צבע: {color}\n")
+    lines += [
+        f"👥 בעלויות: {len(ownership)} | נוכחית: {baalut}\n",
+        f'🔑 ק"מ: {km_str if km_str else "לא ידוע"}\n',
+        f"🔧 טסט: {test_str}\n",
+        f"🏢 רכב שכור בעבר: {'כן ✅' if was_rental else 'לא'}\n",
+    ]
+
+    if flags:
+        lines.append("\n⚠️ דגלים:\n")
+        for flag in flags:
+            lines.append(f"• {flag}\n")
+    else:
+        lines.append("\n✅ לא נמצאו דגלים\n")
+
+    lines += [
+        "\n─────────────────────\n",
+        "מופק על ידי @israelcarinfobot",
+    ]
+    return "".join(lines)
+
+
 # ─────────────────────────────────────────────
 # Public API
 # ─────────────────────────────────────────────
@@ -455,13 +639,12 @@ CATEGORIES = {
 
 
 def get_summary(record: dict) -> str:
-    """Returns full vehicle report – all categories combined."""
+    """Returns full vehicle report – quick summary + all categories combined."""
     w = record.get("_wltp") or {}
 
     plate        = _val(record, "mispar_rechev")
     manufacturer = _val(record, "tozeret_nm")
     model        = _val(record, "kinuy_mishari", "degem_nm")
-    km_fraud_warning = _check_km_fraud(record)
 
     scrapped_dt  = record.get("_scrapped_dt", "")
     scrapped_warning = ""
@@ -475,6 +658,7 @@ def get_summary(record: dict) -> str:
         )
 
     sections = [
+        quick_summary(record),
         f"🚗 *{_escape(manufacturer)} {_escape(model)}*\n",
         "━━━━━━━━━━━━━━━━━━\n",
         f"• *{_escape('מספר רכב')}:* {_escape(plate)}\n\n",
@@ -489,9 +673,6 @@ def get_summary(record: dict) -> str:
         cat_ownership(record, w) + "\n",
         cat_recalls(record),
     ]
-
-    if km_fraud_warning:
-        sections.append(f"\n{km_fraud_warning}\n")
 
     return "".join(s for s in sections if s)
 
