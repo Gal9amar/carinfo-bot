@@ -90,6 +90,9 @@ async def init_db() -> None:
     ]
     migrations = [
         "ALTER TABLE users ADD COLUMN quota_expires TEXT DEFAULT NULL",
+        "ALTER TABLE users ADD COLUMN whatsapp_phone TEXT DEFAULT NULL",
+        "ALTER TABLE users ADD COLUMN channel TEXT DEFAULT 'telegram'",
+        "ALTER TABLE users ADD COLUMN wa_state TEXT DEFAULT NULL",
     ]
     for sql in statements:
         conn.execute(sql)

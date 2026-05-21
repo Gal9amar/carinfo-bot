@@ -316,6 +316,100 @@ async def get_quota_expires(user_id: int) -> str | None:
     u = _row(r)
     return u["quota_expires"] if u else None
 
+def _phone_to_id(phone: str) -> int:
+    """Deterministic int ID from a WhatsApp phone number (always positive)."""
+    import hashlib
+    return int(hashlib.sha256(phone.encode()).hexdigest()[:15], 16)
+
+
+async def _ensure_wa_user(phone: str, name: str = "") -> int:
+    """Ensure a WhatsApp user row exists. Returns the user_id."""
+    user_id = _phone_to_id(phone)
+    await execute(
+        """
+        INSERT INTO users (user_id, username, full_name, searches_quota, whatsapp_phone, channel)
+        VALUES (?, ?, ?, ?, ?, 'whatsapp')
+        ON CONFLICT(user_id) DO UPDATE SET
+            full_name      = CASE WHEN excluded.full_name != '' THEN excluded.full_name ELSE users.full_name END,
+            whatsapp_phone = excluded.whatsapp_phone,
+            last_seen      = datetime('now')
+        """,
+        [user_id, phone, name, FREE_SEARCHES, phone],
+    )
+    return user_id
+
+
+async def get_user_by_phone(phone: str) -> Optional[dict]:
+    r = await execute(
+        "SELECT * FROM users WHERE whatsapp_phone = ?", [phone]
+    )
+    u = _row(r)
+    if u is None:
+        return None
+    quota = u["searches_quota"]
+    done  = u["searches_done"]
+    u["searches_left"] = -1 if quota == -1 else max(0, quota - done)
+    return u
+
+
+async def get_wa_state(phone: str) -> Optional[str]:
+    r = await execute(
+        "SELECT wa_state FROM users WHERE whatsapp_phone = ?", [phone]
+    )
+    u = _row(r)
+    return u["wa_state"] if u else None
+
+
+async def set_wa_state(phone: str, state: Optional[str]) -> None:
+    user_id = _phone_to_id(phone)
+    await execute(
+        "UPDATE users SET wa_state = ? WHERE user_id = ?",
+        [state, user_id],
+    )
+
+
+async def link_wa_to_telegram(telegram_id: int, phone: str) -> bool:
+    """Link a WhatsApp phone to an existing Telegram user_id.
+    Merges searches_done/quota from the WA row into the Telegram row, then deletes the WA row.
+    Returns True on success."""
+    wa_id = _phone_to_id(phone)
+    if wa_id == telegram_id:
+        return False
+
+    wa_r = await execute("SELECT * FROM users WHERE user_id = ?", [wa_id])
+    wa   = _row(wa_r)
+    if not wa:
+        # No WA row yet — just stamp the phone on the TG row
+        await execute(
+            "UPDATE users SET whatsapp_phone = ? WHERE user_id = ?",
+            [phone, telegram_id],
+        )
+        return True
+
+    tg_r = await execute("SELECT * FROM users WHERE user_id = ?", [telegram_id])
+    tg   = _row(tg_r)
+    if not tg:
+        return False
+
+    # Merge: take the higher quota, sum up searches_done, keep TG row
+    merged_quota = max(wa["searches_quota"], tg["searches_quota"])
+    merged_done  = tg["searches_done"]  # keep TG counter; WA was independent
+    await execute(
+        """UPDATE users
+           SET whatsapp_phone = ?, searches_quota = ?, searches_done = ?
+           WHERE user_id = ?""",
+        [phone, merged_quota, merged_done, telegram_id],
+    )
+    # Move search history
+    await execute(
+        "UPDATE search_history SET user_id = ? WHERE user_id = ?",
+        [telegram_id, wa_id],
+    )
+    # Remove the WA shadow row
+    await execute("DELETE FROM users WHERE user_id = ?", [wa_id])
+    return True
+
+
 async def block_user(user_id: int) -> None:
     await _ensure_user(user_id)
     await execute("UPDATE users SET blocked = 1 WHERE user_id = ?", [user_id])
