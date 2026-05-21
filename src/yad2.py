@@ -2,69 +2,91 @@
 Yad2 URL builder for vehicle market-price links.
 
 Yad2's API is geo-blocked for non-Israeli servers, so this module uses
-a static manufacturer mapping (IDs confirmed from real Yad2 URLs) and
-always returns at least a year-filtered URL so the button is never hidden.
-
-To add more manufacturer IDs: search for the car on yad2.co.il and copy
-the manufacturer= value from the URL, then add it to _MAKES below.
+static mappings (IDs from yad2_models.json, confirmed from real Yad2 URLs)
+and always returns at least a year-filtered URL so the button is never hidden.
 """
 
 from __future__ import annotations
+import json
+import os
+import re
 
-# Confirmed Yad2 manufacturer IDs (extracted from real yad2.co.il /vehicles/cars?manufacturer= URLs)
-# Each entry verified by checking the Hebrew page title returned for that manufacturer= value.
+# ── Manufacturer mapping ─────────────────────────────────────────────────────
+# Confirmed Yad2 manufacturer IDs (from yoelzeitoun/car-scrapper yad2_mapping.json)
 _MAKES: dict[str, int] = {
-    "אאודי": 1,       # Audi
-    "אופל": 2,        # Opel
-    "ב מ וו": 7,      # BMW (also written ב.מ.וו)
-    "ג'יפ": 10,       # Jeep
-    "דאצ'יה": 12,     # Dacia
-    "הונדה": 17,      # Honda
-    "וולוו": 18,      # Volvo
-    "טויוטה": 19,     # Toyota
-    "יונדאי": 21,     # Hyundai
-    "לנד רובר": 24,   # Land Rover
-    "לקסוס": 26,      # Lexus
-    "מאזדה": 27,      # Mazda
-    "מיני": 29,       # Mini
-    "מיצובישי": 30,   # Mitsubishi
-    "מרצדס-בנץ": 31,  # Mercedes-Benz
-    "ניסאן": 32,      # Nissan
-    "סאנגיונג": 34,   # SsangYong
-    "סובארו": 35,     # Subaru
-    "סוזוקי": 36,     # Suzuki
-    "סיאט": 37,       # SEAT
-    "סיטרואן": 38,    # Citroën
-    "סקודה": 40,      # Škoda
-    "פולקסווגן": 41,  # Volkswagen
-    "פורד": 43,       # Ford
-    "פיאט": 45,       # Fiat
-    "פיג'ו": 46,      # Peugeot
-    "קיה": 48,        # Kia
-    "רנו": 51,        # Renault
-    "שברולט": 52,     # Chevrolet
-    "טסלה": 62,       # Tesla
+    "אאודי": 1,           # Audi
+    "אופל": 2,            # Opel
+    "אינפיניטי": 3,       # Infiniti
+    "איסוזו": 4,          # Isuzu
+    "אלפא רומיאו": 5,     # Alfa Romeo
+    "אם ג'י": 6,          # MG
+    "ב מ וו": 7,          # BMW
+    "ג'יפ": 10,           # Jeep
+    "גרייט וול": 11,      # Great Wall
+    "דאצ'יה": 12,         # Dacia
+    "הונדה": 17,          # Honda
+    "וולוו": 18,          # Volvo
+    "טויוטה": 19,         # Toyota
+    "יגואר": 20,          # Jaguar
+    "יונדאי": 21,         # Hyundai
+    "לנד רובר": 24,       # Land Rover
+    "לקסוס": 26,          # Lexus
+    "מאזדה": 27,          # Mazda
+    "מיני": 29,           # Mini
+    "מיצובישי": 30,       # Mitsubishi
+    "מרצדס-בנץ": 31,      # Mercedes-Benz
+    "ניסאן": 32,          # Nissan
+    "סאנגיונג": 34,       # SsangYong
+    "סובארו": 35,         # Subaru
+    "סוזוקי": 36,         # Suzuki
+    "סיאט": 37,           # SEAT
+    "סיטרואן": 38,        # Citroën
+    "סמארט": 39,          # Smart
+    "סקודה": 40,          # Škoda
+    "פולקסווגן": 41,      # Volkswagen
+    "פורד": 43,           # Ford
+    "פורשה": 44,          # Porsche
+    "פיאט": 45,           # Fiat
+    "פיג'ו": 46,          # Peugeot
+    "קיה": 48,            # Kia
+    "רנו": 51,            # Renault
+    "שברולט": 52,         # Chevrolet
+    "טסלה": 62,           # Tesla
+    "לאדה": 80,           # Lada
+    "דונגפנג": 88,        # Dongfeng
+    "מקסוס": 89,          # Maxus
+    "ראם": 91,            # Ram
+    "קופרה": 92,          # Cupra
+    "ג'נסיס": 93,         # Genesis
+    "בי.ווי.די": 141,     # BYD
+    "ניאו": 289,          # NIO
+}
+
+_ALIASES: dict[str, int] = {
+    "מזדה":        27,   # govt: מזדה, Yad2: מאזדה
+    "מרצדס בנץ":   31,   # govt: space, Yad2: hyphen
+    "יונדאי":      21,   # alt spelling
+    "סיט":         37,   # alt for סיאט
+    "מג":           6,   # alt for MG
+    "ב י ד":       141,  # alt for BYD
 }
 
 
 def _normalize(name: str) -> str:
-    """Collapse dots/hyphens to spaces and normalise apostrophes so govt-API
-    spellings (e.g. 'ב.מ.וו', 'מרצדס בנץ') match Yad2 keys."""
-    import re
-    s = name.strip()
+    s = str(name).strip()
     for src, dst in [("'", "'"), ("׳", "'"), ("-", " "), (".", " ")]:
         s = s.replace(src, dst)
     return re.sub(r"\s+", " ", s).strip()
 
 
-# Normalised lookup built once at import time
-_NORM: dict[str, int] = {_normalize(k): v for k, v in _MAKES.items()}
+def _norm_model(name: str) -> str:
+    """Aggressively normalize model name: remove apostrophes + collapse spaces."""
+    s = _normalize(name)
+    s = re.sub(r"['׳]", "", s)   # strip apostrophes / Hebrew geresh
+    return re.sub(r"\s+", " ", s).strip()
 
-# Extra aliases: govt-API spellings that differ from Yad2's Hebrew names
-_ALIASES: dict[str, int] = {
-    "מזדה":       27,   # govt returns מזדה, Yad2 page says מאזדה
-    "מרצדס בנץ":  31,   # govt uses space; Yad2 key normalises hyphen → same
-}
+
+_NORM: dict[str, int] = {_normalize(k): v for k, v in _MAKES.items()}
 _NORM.update({_normalize(k): v for k, v in _ALIASES.items()})
 
 
@@ -80,6 +102,62 @@ def _manufacturer_id(make: str) -> int | None:
     return None
 
 
+# ── Model mapping ────────────────────────────────────────────────────────────
+# Loaded once from yad2_models.json: {manufacturer_id: {normalized_model: model_id}}
+_MODEL_LOOKUP: dict[int, dict[str, int]] = {}
+
+def _load_models() -> None:
+    path = os.path.join(os.path.dirname(__file__), "yad2_models.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        for mfr_id_str, mfr in data.get("manufacturers", {}).items():
+            mfr_id = int(mfr_id_str)
+            _MODEL_LOOKUP[mfr_id] = {}
+            for model in mfr.get("models", {}).values():
+                model_id = int(model["id"])
+                for field in ("name_he", "name_en"):
+                    n = model.get(field, "")
+                    if n:
+                        _MODEL_LOOKUP[mfr_id][_normalize(n)]    = model_id
+                        _MODEL_LOOKUP[mfr_id][_norm_model(n)]   = model_id
+    except Exception:
+        pass
+
+_load_models()
+
+
+def _model_id(manufacturer_id: int, model_name: str) -> int | None:
+    models = _MODEL_LOOKUP.get(manufacturer_id, {})
+    if not models or not model_name:
+        return None
+    # Pass 1: exact / substring on both normalisation variants
+    for norm_fn in (_normalize, _norm_model):
+        n = norm_fn(model_name)
+        if not n:
+            continue
+        if n in models:
+            return models[n]
+        for key, mid in models.items():
+            if n in key or key in n:
+                return mid
+    # Pass 2: prefix match — first 5 chars (handles ספורטאז' vs ספורטז' etc.)
+    n5 = _norm_model(model_name)
+    if len(n5) >= 4:
+        prefix = n5[:5]
+        best: tuple[int, int] | None = None  # (len_diff, model_id)
+        for key, mid in models.items():
+            if key.startswith(prefix) or n5.startswith(key[:5] if len(key) >= 5 else key):
+                diff = abs(len(key) - len(n5))
+                if diff <= 3 and (best is None or diff < best[0]):
+                    best = (diff, mid)
+        if best:
+            return best[1]
+    return None
+
+
+# ── URL builder ──────────────────────────────────────────────────────────────
+
 def _year_param(year_str: str) -> str:
     try:
         y = int(year_str)
@@ -89,14 +167,10 @@ def _year_param(year_str: str) -> str:
 
 
 def build_url(record: dict) -> str:
-    """
-    Return a Yad2 search URL.
-    Includes manufacturer filter when the make is in the known mapping.
-    Always includes year filter when available.
-    Never returns an empty string.
-    """
-    make = str(record.get("tozeret_nm") or "").strip()
-    year = str(record.get("shnat_yitzur") or "").strip()
+    """Return a Yad2 search URL with manufacturer, model, and year when available."""
+    make  = str(record.get("tozeret_nm")    or "").strip()
+    model = str(record.get("kinuy_mishari") or record.get("degem_nm") or "").strip()
+    year  = str(record.get("shnat_yitzur")  or "").strip()
 
     base   = "https://www.yad2.co.il/vehicles/cars"
     params: list[str] = []
@@ -104,6 +178,9 @@ def build_url(record: dict) -> str:
     mid = _manufacturer_id(make)
     if mid:
         params.append(f"manufacturer={mid}")
+        mod_id = _model_id(mid, model)
+        if mod_id:
+            params.append(f"model={mod_id}")
 
     yr = _year_param(year)
     if yr:
