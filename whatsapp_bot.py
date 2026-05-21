@@ -41,6 +41,7 @@ from src.users import (
     get_quota_expires,
     is_blocked,
     link_wa_to_telegram,
+    consume_link_code,
 )
 from src import wa_menu as menu
 
@@ -84,6 +85,25 @@ async def send_message(chat_id: str, text: str) -> None:
             logger.debug("sendMessage → %s", resp.status)
     except urllib.error.URLError as exc:
         logger.warning("sendMessage failed: %s", exc)
+
+
+async def notify_telegram_admin_or_user(user_id: int, text: str) -> None:
+    """Send a Telegram message to a specific user_id via the bot token."""
+    tg_token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    if not tg_token or not user_id:
+        return
+    import urllib.request, urllib.parse
+    url  = f"https://api.telegram.org/bot{tg_token}/sendMessage"
+    data = urllib.parse.urlencode({
+        "chat_id":    user_id,
+        "text":       text,
+        "parse_mode": "MarkdownV2",
+    }).encode()
+    req = urllib.request.Request(url, data=data, method="POST")
+    try:
+        urllib.request.urlopen(req, timeout=8)
+    except Exception as exc:
+        logger.warning("notify_telegram_user(%s) failed: %s", user_id, exc)
 
 
 async def notify_telegram_admin(text: str) -> None:
@@ -208,6 +228,32 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
             await send_message(chat_id, f"✅ {msg_plain}\n\nהחשבונות קושרו בהצלחה!")
         else:
             await send_message(chat_id, f"❌ {msg_plain}\n\nנסה שוב או שלח 'תפריט' לחזרה.")
+        return
+
+    # ── Link code: "קשר XXXXXX" ──────────────────────────────────────────────
+    if lower.startswith("קשר ") or lower.startswith("link "):
+        parts = text.strip().split()
+        code  = parts[1].upper() if len(parts) > 1 else ""
+        if not code:
+            await send_message(chat_id, "שלח: קשר XXXXXX (הקוד שקיבלת בטלגרם)")
+            return
+        success, result = await consume_link_code(code, phone)
+        if success:
+            await send_message(
+                chat_id,
+                "✅ *החשבונות קושרו בהצלחה!*\n"
+                "─────────────────\n"
+                "המכסה והחבילה שלך מטלגרם עכשיו פעילות כאן.\n\n"
+                "🔍 שלח מספר רכב לחיפוש"
+            )
+            # Notify Telegram user
+            await notify_telegram_admin_or_user(int(result),
+                "💚 *ווטסאפ קושר בהצלחה\\!*\n\n"
+                "החשבון שלך מחובר עכשיו גם לווטסאפ\\.\n"
+                "כל הבדיקות והחבילות משותפות בין הערוצים\\."
+            )
+        else:
+            await send_message(chat_id, f"❌ {result}\n\nלקוד חדש — לחץ 'חבר לוואטסאפ' בטלגרם")
         return
 
     # ── Stateless commands ───────────────────────────────────────────────────

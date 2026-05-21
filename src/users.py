@@ -316,6 +316,40 @@ async def get_quota_expires(user_id: int) -> str | None:
     u = _row(r)
     return u["quota_expires"] if u else None
 
+async def generate_link_code(telegram_id: int) -> str:
+    """Generate a one-time 6-char code for linking Telegram ↔ WhatsApp."""
+    import secrets
+    from datetime import timedelta
+    code = secrets.token_hex(3).upper()  # e.g. "A1B2C3"
+    expires = (datetime.now() + timedelta(minutes=10)).isoformat()
+    await execute("DELETE FROM link_codes WHERE telegram_id = ?", [telegram_id])
+    await execute(
+        "INSERT INTO link_codes (code, telegram_id, expires_at) VALUES (?, ?, ?)",
+        [code, telegram_id, expires],
+    )
+    return code
+
+
+async def consume_link_code(code: str, phone: str) -> tuple[bool, str]:
+    """Validate link code and merge WA → Telegram account. Returns (success, msg)."""
+    r = await execute("SELECT * FROM link_codes WHERE code = ?", [code.upper()])
+    row = _row(r)
+    if not row:
+        return False, "קוד לא תקין"
+    try:
+        if datetime.now() > datetime.fromisoformat(row["expires_at"]):
+            await execute("DELETE FROM link_codes WHERE code = ?", [code.upper()])
+            return False, "הקוד פג תוקף (10 דקות). צור קוד חדש בטלגרם"
+    except Exception:
+        pass
+    telegram_id = row["telegram_id"]
+    await execute("DELETE FROM link_codes WHERE code = ?", [code.upper()])
+    ok = await link_wa_to_telegram(telegram_id, phone)
+    if not ok:
+        return False, "שגיאה בקישור החשבונות"
+    return True, str(telegram_id)
+
+
 def _phone_to_id(phone: str) -> int:
     """Deterministic int ID from a WhatsApp phone number (always positive)."""
     import hashlib
