@@ -323,16 +323,13 @@ def generate_pdf(
     # ── Hero header ────────────────────────────────────────────────────────────
     def _hero_header():
         """Full-width branded hero with centered plate card."""
-        # Build vehicle line: keep Latin text in logical order, BiDi only on Hebrew parts
-        vehicle_parts = []
-        if make:
-            vehicle_parts.append(make)
-        if model:
-            vehicle_parts.append(model)
-        if year:
-            vehicle_parts.append(year)
-        # Render as plain centered — no BiDi reorder needed for mixed Latin/Hebrew display
-        vehicle_line = " · ".join(vehicle_parts)
+        # Build vehicle line for RTL display.
+        # BiDi logical order for a right-to-left line is: rightmost token first.
+        # Desired visual: "טויוטה · COROLLA CROSS · 2025"  (right→left)
+        # Logical RTL input to get_display: [make, model, year] — Hebrew anchor on right.
+        vehicle_parts = [p for p in [make, model, year] if p]
+        # Join in logical RTL order and let get_display produce the correct visual string.
+        vehicle_line = _b(" · ".join(vehicle_parts))
 
         # "CARINFO" — pure Latin, no BiDi
         brand_p = Paragraph("CARINFO", s_hero_brand)
@@ -354,49 +351,16 @@ def generate_pdf(
         return [header_band, gold_bar, _sp(14), plate_card]
 
     def _build_hero_band(brand_p, title_p, date_p):
-        """
-        Hero band: logo anchored to the left (physical), text block centered.
-        Uses a 3-column layout: [logo_col | center_col | spacer_col] so the
-        text is truly centered relative to the page, not offset by the logo.
-        """
-        if logo_path:
-            try:
-                from reportlab.platypus import Image as RLImage
-                logo_h  = 16 * _MM
-                logo_w  = logo_h  # square slot; image scaled proportionally
-                logo_img = RLImage(logo_path, height=logo_h, width=logo_w, kind="proportional")
-                text_w  = _USABLE_W - 2 * logo_w  # symmetric side columns
-                return _tbl(
-                    [[logo_img, brand_p,  ""],
-                     ["",       title_p,  ""],
-                     ["",       date_p,   ""]],
-                    [logo_w, text_w, logo_w],
-                    [
-                        ("BACKGROUND", (0, 0), (-1, -1), navy),
-                        ("VALIGN",     (0, 0), (-1, -1), "MIDDLE"),
-                        ("ALIGN",      (1, 0), (1, -1),  "CENTER"),
-                        ("ALIGN",      (0, 0), (0, -1),  "LEFT"),
-                        ("ALIGN",      (2, 0), (2, -1),  "RIGHT"),
-                        ("SPAN",       (0, 1), (0, 2)),   # logo cell spans rows 0-2
-                        ("TOPPADDING", (0, 0), (-1, 0),  16),
-                        ("TOPPADDING", (0, 1), (-1, -1), 3),
-                        ("BOTTOMPADDING", (0, -1), (-1, -1), 16),
-                        ("LEFTPADDING",  (0, 0), (0, -1), 6),
-                        ("RIGHTPADDING", (2, 0), (2, -1), 6),
-                    ],
-                )
-            except Exception:
-                pass
-        # No logo — simple full-width centered block
+        """Full-width centered hero band — no logo."""
         return _tbl(
             [[brand_p], [title_p], [date_p]],
             [_USABLE_W],
             [
-                ("BACKGROUND", (0, 0), (-1, -1), navy),
-                ("ALIGN",      (0, 0), (-1, -1), "CENTER"),
-                ("TOPPADDING", (0, 0), (0, 0),   16),
-                ("TOPPADDING", (0, 1), (-1, -1), 3),
-                ("BOTTOMPADDING", (0, -1), (-1, -1), 16),
+                ("BACKGROUND",    (0, 0), (-1, -1), navy),
+                ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
+                ("TOPPADDING",    (0, 0), (0, 0),   18),
+                ("TOPPADDING",    (0, 1), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, -1), (-1, -1), 18),
             ],
         )
 
@@ -412,7 +376,7 @@ def generate_pdf(
         label_p   = Paragraph(_b("מספר רכב"), s_plate_label)
         # Plate number is digits only — no BiDi needed
         plate_p   = Paragraph(str(plate_num), s_plate_num)
-        # vehicle_line is already in correct display order (make · model · year)
+        # vehicle_line already passed through _b() — use Paragraph directly
         vehicle_p = Paragraph(vehicle_line, s_plate_sub) if vehicle_line else None
 
         inner_rows = [[label_p], [plate_p]]
@@ -705,21 +669,22 @@ def generate_pdf(
 
     # ── Social CTA footer ──────────────────────────────────────────────────────
     class _SocialLink(Flowable):
-        def __init__(self, kind: str, label_he: str, url: str, primary: bool):
+        def __init__(self, kind: str, label_he: str, url: str, primary: bool, width: float = 0):
             super().__init__()
             self.kind = kind
             self.label_he = label_he
             self.url = url
             self.primary = primary
+            self._fixed_width = width  # 0 = use availWidth
             self.h = 13 * _MM
 
         def wrap(self, availWidth, availHeight):
-            self.width = min(availWidth, _USABLE_W)
+            self.width = self._fixed_width if self._fixed_width else min(availWidth, _USABLE_W)
             return self.width, self.h
 
         def draw(self):
             canv  = self.canv
-            w     = getattr(self, "width", _USABLE_W)
+            w     = self.width
             h     = self.h
             bg    = navy if self.primary else colors.white
             bd    = gold if self.primary else border
@@ -793,20 +758,31 @@ def generate_pdf(
         if not buttons:
             return flow
 
-        kind, label, url, primary = buttons[0]
-        flow.append(_sp(4))
-        flow.append(_SocialLink(kind, label, url, primary))
-        if len(buttons) > 1:
-            kind, label, url, primary = buttons[1]
-            flow.append(_sp(4))
-            flow.append(_SocialLink(kind, label, url, primary))
+        flow.append(_sp(6))
 
-        urls = "  |  ".join(
-            f'<a href="{u}" color="{_LINK_BLUE}"><font size="6.5">{u}</font></a>'
-            for _, _, u, _ in buttons
-        )
-        flow.append(_sp(4))
-        flow.append(Paragraph(urls, s_cta_sub))
+        if len(buttons) == 1:
+            kind, label, url, primary = buttons[0]
+            flow.append(_SocialLink(kind, label, url, primary, width=_USABLE_W))
+        else:
+            # Two buttons side-by-side with a small gap
+            gap   = 4 * _MM
+            btn_w = (_USABLE_W - gap) / 2
+            k0, l0, u0, p0 = buttons[0]
+            k1, l1, u1, p1 = buttons[1]
+            btn0 = _SocialLink(k0, l0, u0, p0, width=btn_w)
+            btn1 = _SocialLink(k1, l1, u1, p1, width=btn_w)
+            flow.append(_tbl(
+                [[btn0, "", btn1]],
+                [btn_w, gap, btn_w],
+                [
+                    ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+                    ("TOPPADDING",    (0, 0), (-1, -1), 0),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                    ("LEFTPADDING",   (0, 0), (-1, -1), 0),
+                    ("RIGHTPADDING",  (0, 0), (-1, -1), 0),
+                ],
+            ))
+
         return flow
 
     # ── Section wrapper ────────────────────────────────────────────────────────
