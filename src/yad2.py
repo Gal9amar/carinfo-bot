@@ -1,171 +1,179 @@
 """
-Yad2 URL builder for vehicle market-price links.
-
-Tries to resolve the manufacturer ID from Yad2's own API (cached 24h).
-Falls back to a hardcoded mapping of the most common Israeli-market makes.
+Yad2 URL builder — resolves manufacturer + model IDs from Yad2's API (cached 24h).
+Year format: year=YYYY-YYYY  (not yearFrom/yearTo).
 """
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import Optional
 
-# ── Static fallback mapping ───────────────────────────────────────────────────
-# Hebrew names as returned by the Israeli transport-ministry API → Yad2 mfr ID
-_STATIC_MAKES: dict[str, int] = {
-    "טויוטה":          2,
-    "שברולט":          3,
-    "סיטרואן":         4,
-    "פיאט":            6,
-    "פורד":            7,
-    "הונדה":          11,
-    "יונדאי":         12,
-    "אאודי":          13,
-    "ג'יפ":           14,
-    "ב.מ.וו":         15,
-    "לנד רובר":       17,
-    "קיה":            18,
-    "מרצדס בנץ":      19,
-    "מזדה":           20,
-    "מיצובישי":       21,
-    "ניסאן":          22,
-    "מיני":           23,
-    "אופל":           25,
-    "פיג'ו":          26,
-    "פיג׳ו":          26,
-    "רנו":            28,
-    "סיאט":           33,
-    "סקודה":          34,
-    "סובארו":         36,
-    "סוזוקי":         37,
-    "פולקסווגן":      38,
-    "וולוו":          41,
-    "טסלה":           45,
-    "לקסוס":          47,
-    "דאצ'יה":         48,
-    "דאציה":          48,
-    "אלפא רומיאו":     1,
+logger = logging.getLogger(__name__)
+
+_CACHE_TTL = 86_400  # 24 h
+
+_mfr_cache: dict[str, int] = {}
+_mfr_ts: float = 0.0
+
+_model_cache: dict[int, dict[str, int]] = {}
+_model_ts: dict[int, float] = {}
+
+_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "he-IL,he;q=0.9,en-US;q=0.8",
+    "Referer": "https://www.yad2.co.il/vehicles/cars",
+    "Origin": "https://www.yad2.co.il",
 }
 
-# ── Dynamic cache ─────────────────────────────────────────────────────────────
-_CACHE_TTL = 86_400  # 24 hours
-_cache: dict[str, int] = {}
-_cache_ts: float = 0.0
+_MFR_URLS = [
+    "https://gw.yad2.co.il/feed-search-legacy/vehicles/cars/getManufacturers",
+    "https://gw.yad2.co.il/feed-search-legacy/vehicles/cars/manufacturer",
+    "https://gw.yad2.co.il/feed-search-legacy/vehicles/cars/getFeedFilters",
+]
+
+_MODEL_URLS = [
+    "https://gw.yad2.co.il/feed-search-legacy/vehicles/cars/getModels?manufacturer={mid}",
+    "https://gw.yad2.co.il/feed-search-legacy/vehicles/cars/model?manufacturer={mid}",
+]
+
+
+async def _get(url: str) -> dict:
+    import httpx
+    async with httpx.AsyncClient(timeout=6, headers=_HEADERS, follow_redirects=True) as c:
+        r = await c.get(url)
+        r.raise_for_status()
+        return r.json()
+
+
+def _extract_list(data: dict) -> list:
+    """Try common shapes Yad2 uses for list responses."""
+    d = data.get("data") or data
+    if isinstance(d, dict):
+        for key in ("manufacturer", "manufacturers", "model", "models", "items"):
+            if isinstance(d.get(key), list):
+                return d[key]
+    if isinstance(d, list):
+        return d
+    return []
+
+
+def _parse_pairs(items: list) -> dict[str, int]:
+    result: dict[str, int] = {}
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        name = (
+            item.get("text") or item.get("name") or
+            item.get("label") or item.get("manufacturerName") or ""
+        ).strip()
+        val = (
+            item.get("value") or item.get("id") or
+            item.get("manufacturerId") or item.get("modelId") or 0
+        )
+        if name and val:
+            try:
+                result[name] = int(val)
+            except (TypeError, ValueError):
+                pass
+    return result
 
 
 async def _fetch_manufacturers() -> dict[str, int]:
-    """Fetch manufacturer list from Yad2 API. Returns {} on any failure."""
-    endpoints = [
-        "https://gw.yad2.co.il/feed-search-legacy/vehicles/cars/getManufacturers",
-        "https://gw.yad2.co.il/feed-search-legacy/vehicles/cars/getFeedFilters",
-    ]
-    try:
-        import httpx
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Accept": "application/json",
-            "Referer": "https://www.yad2.co.il/",
-        }
-        async with httpx.AsyncClient(timeout=5, headers=headers) as client:
-            for url in endpoints:
-                try:
-                    r = await client.get(url)
-                    if r.status_code != 200:
-                        continue
-                    data = r.json()
-                    # Try common response shapes
-                    items = (
-                        data.get("data", {}).get("manufacturer")
-                        or data.get("data", {}).get("manufacturers")
-                        or data.get("manufacturers")
-                        or []
-                    )
-                    if items:
-                        return {
-                            item.get("text", item.get("name", "")): int(item.get("value", item.get("id", 0)))
-                            for item in items
-                            if item.get("text") or item.get("name")
-                        }
-                except Exception:
-                    continue
-    except Exception:
-        pass
+    for url in _MFR_URLS:
+        try:
+            data = await _get(url)
+            pairs = _parse_pairs(_extract_list(data))
+            if pairs:
+                logger.info("Yad2: loaded %d manufacturers from %s", len(pairs), url)
+                return pairs
+        except Exception as exc:
+            logger.debug("Yad2 mfr fetch failed (%s): %s", url, exc)
     return {}
 
 
-async def _get_makes() -> dict[str, int]:
-    """Return manufacturer map: dynamic (cached) merged over static fallback."""
-    global _cache, _cache_ts
-    if time.monotonic() - _cache_ts > _CACHE_TTL:
+async def _fetch_models(mid: int) -> dict[str, int]:
+    for tmpl in _MODEL_URLS:
+        url = tmpl.format(mid=mid)
+        try:
+            data = await _get(url)
+            pairs = _parse_pairs(_extract_list(data))
+            if pairs:
+                logger.info("Yad2: loaded %d models for mfr %d", len(pairs), mid)
+                return pairs
+        except Exception as exc:
+            logger.debug("Yad2 model fetch failed (%s): %s", url, exc)
+    return {}
+
+
+async def manufacturers() -> dict[str, int]:
+    global _mfr_cache, _mfr_ts
+    if time.monotonic() - _mfr_ts > _CACHE_TTL:
         fresh = await _fetch_manufacturers()
         if fresh:
-            _cache = fresh
-            _cache_ts = time.monotonic()
-    return {**_STATIC_MAKES, **_cache}
+            _mfr_cache = fresh
+            _mfr_ts = time.monotonic()
+    return _mfr_cache
 
 
-def _normalize(name: str) -> str:
-    return name.strip().replace("'", "'").replace('"', '"')
+async def models(mid: int) -> dict[str, int]:
+    if time.monotonic() - _model_ts.get(mid, 0) > _CACHE_TTL:
+        fresh = await _fetch_models(mid)
+        if fresh:
+            _model_cache[mid] = fresh
+            _model_ts[mid] = time.monotonic()
+    return _model_cache.get(mid, {})
 
 
-async def resolve_manufacturer_id(make: str) -> Optional[int]:
-    makes = await _get_makes()
-    n = _normalize(make)
-    if n in makes:
-        return makes[n]
-    # Partial match for names like "מרצדס בנץ ישראל"
-    for key, mid in makes.items():
+def _best(name: str, mapping: dict[str, int]) -> Optional[int]:
+    n = name.strip()
+    if n in mapping:
+        return mapping[n]
+    for key, val in mapping.items():
         if key in n or n in key:
-            return mid
+            return val
     return None
 
 
+def _year_param(year_str: str) -> str:
+    """Return 'year=YYYY-YYYY' or empty string."""
+    try:
+        y = int(year_str)
+        return f"year={y}-{y}"
+    except (TypeError, ValueError):
+        return ""
+
+
 async def build_url(record: dict) -> str:
-    """Return a Yad2 search URL with manufacturer + year filters."""
+    """
+    Build a Yad2 search URL with manufacturer + model + year filters.
+    Falls back gracefully: year-only if manufacturer lookup fails.
+    """
     make  = (record.get("tozeret_nm") or "").strip()
-    year  = (record.get("shnat_yitzur") or "")
-
-    base  = "https://www.yad2.co.il/vehicles/cars"
-    params: list[str] = []
-
-    if make:
-        mid = await resolve_manufacturer_id(make)
-        if mid:
-            params.append(f"manufacturer={mid}")
-
-    if year:
-        try:
-            y = int(year)
-            params.append(f"yearFrom={y}&yearTo={y}")
-        except ValueError:
-            pass
-
-    return f"{base}?{'&'.join(params)}" if params else base
-
-
-def build_url_sync(record: dict) -> str:
-    """Synchronous fallback using static mapping only (no API call)."""
-    make  = (record.get("tozeret_nm") or "").strip()
-    year  = (record.get("shnat_yitzur") or "")
+    model_name = (record.get("kinuy_mishari") or record.get("degem_nm") or "").strip()
+    year  = (record.get("shnat_yitzur") or "").strip()
 
     base   = "https://www.yad2.co.il/vehicles/cars"
     params: list[str] = []
 
-    n = _normalize(make)
-    mid = _STATIC_MAKES.get(n)
-    if mid is None:
-        for key, val in _STATIC_MAKES.items():
-            if key in n or n in key:
-                mid = val
-                break
-    if mid:
-        params.append(f"manufacturer={mid}")
+    if make:
+        mfrs = await manufacturers()
+        mid  = _best(make, mfrs)
+        if mid:
+            params.append(f"manufacturer={mid}")
+            if model_name:
+                mdls   = await models(mid)
+                mod_id = _best(model_name, mdls)
+                if mod_id:
+                    params.append(f"model={mod_id}")
 
-    if year:
-        try:
-            y = int(year)
-            params.append(f"yearFrom={y}&yearTo={y}")
-        except ValueError:
-            pass
+    yr = _year_param(year)
+    if yr:
+        params.append(yr)
 
     return f"{base}?{'&'.join(params)}" if params else base
