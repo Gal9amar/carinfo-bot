@@ -140,6 +140,9 @@ async def handle_admin(chat_id: str, phone: str, text: str) -> bool:
     if not ADMIN_WA_PHONE or phone != ADMIN_WA_PHONE:
         return False
 
+    # ensure admin has a DB row so get/set_wa_state work correctly
+    await _ensure_wa_user(phone)
+
     lower = text.strip().lower()
     parts = text.strip().split()
 
