@@ -31,6 +31,7 @@ from src.cache import cache
 from src.db import init_db
 from src.users import (
     _ensure_wa_user,
+    _phone_to_id,
     is_allowed,
     increment_search,
     apply_code,
@@ -143,22 +144,82 @@ async def handle_admin(chat_id: str, phone: str, text: str) -> bool:
     parts = text.strip().split()
 
     # סטטיסטיקות
-    if lower in ("סטטיסטיקות", "סטט", "stats", "אדמין", "admin"):
+    ADMIN_MENU = (
+        "🛠 *פאנל ניהול CarInfo*\n"
+        "─────────────────\n"
+        "1️⃣  סטטיסטיקות\n"
+        "2️⃣  רשימת משתמשים\n"
+        "3️⃣  הענק בדיקות\n"
+        "4️⃣  אשר תשלום\n"
+        "5️⃣  חסום משתמש\n"
+        "6️⃣  שחרר משתמש\n"
+        "7️⃣  שלח הודעה לכולם\n"
+        "─────────────────\n"
+        "שלח מספר לבחירה"
+    )
+
+    if lower in ("אדמין", "admin", "תפריט אדמין"):
+        await send_message(chat_id, ADMIN_MENU)
+        await set_wa_state(phone, "ADMIN_MENU")
+        return True
+
+    state = await get_wa_state(phone)
+    if state == "ADMIN_MENU":
+        await set_wa_state(phone, None)
+
+        if text == "1":
+            stats = await admin_stats()
+            await send_message(chat_id,
+                f"📊 *סטטיסטיקות*\n"
+                f"─────────────────\n"
+                f"👤 משתמשים: {stats['total_users']} | פעילים: {stats['active_users']}\n"
+                f"🔍 בדיקות: {stats['total_searches']}\n"
+                f"🔑 קודים: {stats['used_codes']}/{stats['total_codes']} נוצלו"
+            )
+            return True
+        if text == "2":
+            users = await get_all_users()
+            lines = [f"👥 *משתמשים ({len(users)})*\n─────────────────"]
+            for u in users[:20]:
+                p     = u.get("whatsapp_phone") or u.get("username") or f"id:{u['user_id']}"
+                quota = u.get("searches_quota", 0)
+                done  = u.get("searches_done", 0)
+                left  = u.get("searches_left", 0)
+                bl    = "🔴" if u.get("blocked") else "🟢"
+                qs    = "∞" if quota == -1 else str(quota)
+                ls    = "∞" if left  == -1 else str(left)
+                lines.append(f"{bl} {p}  {done}/{qs} (נותרו:{ls})")
+            await send_message(chat_id, "\n".join(lines))
+            return True
+        if text == "3":
+            await send_message(chat_id, "שלח:\ngrant 972501234567 50\n\nאו -1 למנוי חודשי, -2 לצמיתות")
+            return True
+        if text == "4":
+            await send_message(chat_id, "שלח:\napprove 972501234567 50")
+            return True
+        if text == "5":
+            await send_message(chat_id, "שלח:\nblock 972501234567")
+            return True
+        if text == "6":
+            await send_message(chat_id, "שלח:\nunblock 972501234567")
+            return True
+        if text == "7":
+            await send_message(chat_id, "שלח:\nשלח לכולם טקסט ההודעה שלך")
+            return True
+        # לא בחר מספר תקין — הצג תפריט שוב
+        await send_message(chat_id, ADMIN_MENU)
+        await set_wa_state(phone, "ADMIN_MENU")
+        return True
+
+    if lower in ("סטטיסטיקות", "סטט", "stats"):
         stats = await admin_stats()
         await send_message(chat_id,
-            f"📊 *סטטיסטיקות CarInfo*\n"
+            f"📊 *סטטיסטיקות*\n"
             f"─────────────────\n"
             f"👤 משתמשים: {stats['total_users']} | פעילים: {stats['active_users']}\n"
             f"🔍 בדיקות: {stats['total_searches']}\n"
             f"🔑 קודים: {stats['used_codes']}/{stats['total_codes']} נוצלו\n\n"
-            f"─────────────────\n"
-            f"*פקודות אדמין:*\n"
-            f"• משתמשים — רשימת משתמשים\n"
-            f"• משתמש 972501234567 — פרטי משתמש\n"
-            f"• grant 972501234567 50 — הענק בדיקות\n"
-            f"• approve 972501234567 50 — אשר תשלום\n"
-            f"• block / unblock 972501234567\n"
-            f"• שלח לכולם טקסט — broadcast"
+            f"שלח *אדמין* לתפריט ניהול"
         )
         return True
 
@@ -237,7 +298,6 @@ async def handle_admin(chat_id: str, phone: str, text: str) -> bool:
         except ValueError:
             await send_message(chat_id, "❌ כמות חייבת להיות מספר\nשימוש: grant 972501234567 50")
             return True
-        from src.users import _phone_to_id, _ensure_wa_user
         target_id = _phone_to_id(target_phone)
         await _ensure_wa_user(target_phone)
         msg = await admin_grant(target_id, target_id, amount, "granted via WA admin")
@@ -258,7 +318,6 @@ async def handle_admin(chat_id: str, phone: str, text: str) -> bool:
         except ValueError:
             await send_message(chat_id, "❌ שימוש: approve 972501234567 50")
             return True
-        from src.users import _phone_to_id, _ensure_wa_user
         target_id = _phone_to_id(target_phone)
         await _ensure_wa_user(target_phone)
         msg = await admin_grant(target_id, target_id, amount, "payment approved via WA admin")
@@ -273,7 +332,6 @@ async def handle_admin(chat_id: str, phone: str, text: str) -> bool:
     # block <phone>
     if parts[0].lower() == "block" and len(parts) >= 2:
         target_phone = parts[1]
-        from src.users import _phone_to_id
         target_id = _phone_to_id(target_phone)
         await block_user(target_id)
         await send_message(chat_id, f"🚫 {target_phone} נחסם")
@@ -284,7 +342,6 @@ async def handle_admin(chat_id: str, phone: str, text: str) -> bool:
     # unblock <phone>
     if parts[0].lower() in ("unblock", "שחרר") and len(parts) >= 2:
         target_phone = parts[1]
-        from src.users import _phone_to_id
         target_id = _phone_to_id(target_phone)
         await unblock_user(target_id)
         await send_message(chat_id, f"✅ {target_phone} שוחרר")
