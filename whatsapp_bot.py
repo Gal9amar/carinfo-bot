@@ -780,8 +780,12 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
 
         expires   = await get_quota_expires(user_id) if left == -1 else None
         new_left  = left if (left == -1 or is_repeat) else max(0, left - 1)
-        yad2_link = _yad2.build_url(record)
-        result_text = menu.format_result(record, new_left, expires, plate=plate, yad2_link=yad2_link)
+        try:
+            yad2_link   = _yad2.build_url(record)
+            result_text = menu.format_result(record, new_left, expires, plate=plate, yad2_link=yad2_link)
+        except Exception as exc:
+            logger.error("WA format error plate=%s: %s", plate, exc)
+            result_text = menu.ERROR
         await send_message(chat_id, result_text)
         return
 
