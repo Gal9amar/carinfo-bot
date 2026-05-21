@@ -701,3 +701,25 @@ def format_error() -> str:
         "⚠️ אירעה שגיאה בעת שליפת הנתונים\\.\n"
         "נסה שוב עוד כמה שניות\\."
     )
+
+
+def yad2_url(record: dict) -> str:
+    """Return a Yad2 cars search URL filtered by the vehicle's year."""
+    year = _val(record, "shnat_yitzur")
+    base = "https://www.yad2.co.il/vehicles/cars"
+    if year:
+        try:
+            y = int(year)
+            return f"{base}?yearFrom={y}&yearTo={y}"
+        except ValueError:
+            pass
+    return base
+
+
+def yad2_label(record: dict) -> str:
+    """Return a human-readable search label, e.g. 'טויוטה קורולה 2020'."""
+    make  = _val(record, "tozeret_nm")
+    model = _val(record, "kinuy_mishari", "degem_nm")
+    year  = _val(record, "shnat_yitzur")
+    parts = [p for p in [make, model, year] if p]
+    return " ".join(parts) if parts else "רכב זה"
