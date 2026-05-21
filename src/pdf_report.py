@@ -171,6 +171,7 @@ def generate_pdf(
     logo_path: str = "",
     cover_path: str = "",
     channel: str = "",
+    car_image_url: str = "",
 ) -> bytes:
     """Generate a premium Hebrew vehicle-report PDF."""
     from reportlab.lib import colors
@@ -322,40 +323,25 @@ def generate_pdf(
     # ── Hero header ────────────────────────────────────────────────────────────
     def _hero_header():
         """Full-width branded hero with centered plate card."""
-        vehicle_line = _hebrew_join(
-            f"שנת {year}" if year else "",
-            model,
-            make,
-        ) if (make or model or year) else ""
+        # Build vehicle line: keep Latin text in logical order, BiDi only on Hebrew parts
+        vehicle_parts = []
+        if make:
+            vehicle_parts.append(make)
+        if model:
+            vehicle_parts.append(model)
+        if year:
+            vehicle_parts.append(year)
+        # Render as plain centered — no BiDi reorder needed for mixed Latin/Hebrew display
+        vehicle_line = " · ".join(vehicle_parts)
 
-        brand_p  = Paragraph("CARINFO", s_hero_brand)
-        title_p  = _p("דוח בדיקת רכב מקיף", s_hero_sub)
-        date_p   = _p(f"הופק: {now_str}", s_hero_date)
+        # "CARINFO" — pure Latin, no BiDi
+        brand_p = Paragraph("CARINFO", s_hero_brand)
+        # Hebrew-only strings — safe with _b()
+        title_p = Paragraph(_b("דוח בדיקת רכב מקיף"), s_hero_sub)
+        # Mixed "הופק: DD/MM/YYYY HH:MM" — draw the Hebrew label separately to avoid reorder
+        date_p  = Paragraph(_b(f"הופק: {now_str}"), s_hero_date)
 
-        # Logo row
-        if logo_path:
-            try:
-                from reportlab.platypus import Image as RLImage
-                logo_h = 14 * _MM
-                logo_img = RLImage(logo_path, height=logo_h, width=logo_h, kind="proportional")
-                text_w = _USABLE_W - logo_h - 8 * _MM
-                header_band = _tbl(
-                    [[brand_p, logo_img], [title_p, ""], [date_p, ""]],
-                    [text_w, logo_h + 6 * _MM],
-                    [
-                        ("BACKGROUND", (0, 0), (-1, -1), navy),
-                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                        ("TOPPADDING", (0, 0), (-1, 0), 18),
-                        ("TOPPADDING", (0, 1), (-1, -1), 2),
-                        ("BOTTOMPADDING", (0, -1), (-1, -1), 16),
-                        ("SPAN", (1, 1), (1, 2)),
-                    ],
-                )
-            except Exception:
-                header_band = _hero_band_simple(brand_p, title_p, date_p)
-        else:
-            header_band = _hero_band_simple(brand_p, title_p, date_p)
+        header_band = _build_hero_band(brand_p, title_p, date_p)
 
         # Gold divider
         gold_bar = _tbl([[""]], [_USABLE_W], [
@@ -364,68 +350,103 @@ def generate_pdf(
             ("BOTTOMPADDING", (0, 0), (-1, -1), 1.5),
         ])
 
-        # License plate card — styled like Israeli vehicle registration
         plate_card = _license_plate_card(plate, vehicle_line)
-
         return [header_band, gold_bar, _sp(14), plate_card]
 
-    def _hero_band_simple(brand_p, title_p, date_p):
+    def _build_hero_band(brand_p, title_p, date_p):
+        """
+        Hero band: logo anchored to the left (physical), text block centered.
+        Uses a 3-column layout: [logo_col | center_col | spacer_col] so the
+        text is truly centered relative to the page, not offset by the logo.
+        """
+        if logo_path:
+            try:
+                from reportlab.platypus import Image as RLImage
+                logo_h  = 16 * _MM
+                logo_w  = logo_h  # square slot; image scaled proportionally
+                logo_img = RLImage(logo_path, height=logo_h, width=logo_w, kind="proportional")
+                text_w  = _USABLE_W - 2 * logo_w  # symmetric side columns
+                return _tbl(
+                    [[logo_img, brand_p,  ""],
+                     ["",       title_p,  ""],
+                     ["",       date_p,   ""]],
+                    [logo_w, text_w, logo_w],
+                    [
+                        ("BACKGROUND", (0, 0), (-1, -1), navy),
+                        ("VALIGN",     (0, 0), (-1, -1), "MIDDLE"),
+                        ("ALIGN",      (1, 0), (1, -1),  "CENTER"),
+                        ("ALIGN",      (0, 0), (0, -1),  "LEFT"),
+                        ("ALIGN",      (2, 0), (2, -1),  "RIGHT"),
+                        ("SPAN",       (0, 1), (0, 2)),   # logo cell spans rows 0-2
+                        ("TOPPADDING", (0, 0), (-1, 0),  16),
+                        ("TOPPADDING", (0, 1), (-1, -1), 3),
+                        ("BOTTOMPADDING", (0, -1), (-1, -1), 16),
+                        ("LEFTPADDING",  (0, 0), (0, -1), 6),
+                        ("RIGHTPADDING", (2, 0), (2, -1), 6),
+                    ],
+                )
+            except Exception:
+                pass
+        # No logo — simple full-width centered block
         return _tbl(
             [[brand_p], [title_p], [date_p]],
             [_USABLE_W],
             [
                 ("BACKGROUND", (0, 0), (-1, -1), navy),
-                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                ("TOPPADDING", (0, 0), (0, 0), 18),
-                ("TOPPADDING", (0, 1), (-1, -1), 2),
+                ("ALIGN",      (0, 0), (-1, -1), "CENTER"),
+                ("TOPPADDING", (0, 0), (0, 0),   16),
+                ("TOPPADDING", (0, 1), (-1, -1), 3),
                 ("BOTTOMPADDING", (0, -1), (-1, -1), 16),
             ],
         )
 
     def _license_plate_card(plate_num: str, vehicle_line: str):
         """
-        Centered card resembling an Israeli vehicle registration document plate.
-        White background, navy text, gold border, rounded corners via custom Flowable.
+        Centered card styled like an Israeli license plate document.
+        White bg, navy text, gold border. Vehicle line is plain text (no BiDi
+        reorder) so mixed Latin/Hebrew stays in natural reading order.
         """
-        card_w = 110 * _MM
-        card_h = 50 * _MM
+        card_w   = 110 * _MM
         side_pad = (_USABLE_W - card_w) / 2
 
-        plate_p  = _p(plate_num, s_plate_num)
-        label_p  = _p("מספר רכב", s_plate_label)
-        vehicle_p = _p(vehicle_line, s_plate_sub) if vehicle_line else None
+        label_p   = Paragraph(_b("מספר רכב"), s_plate_label)
+        # Plate number is digits only — no BiDi needed
+        plate_p   = Paragraph(str(plate_num), s_plate_num)
+        # vehicle_line is already in correct display order (make · model · year)
+        vehicle_p = Paragraph(vehicle_line, s_plate_sub) if vehicle_line else None
 
         inner_rows = [[label_p], [plate_p]]
         if vehicle_p:
             inner_rows.append([vehicle_p])
 
-        inner = _tbl(inner_rows, [card_w - 12 * _MM], [
-            ("BACKGROUND", (0, 0), (-1, -1), colors.white),
-            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-            ("TOPPADDING", (0, 0), (0, 0), 8),
-            ("TOPPADDING", (0, 1), (0, 1), 4),
-            ("TOPPADDING", (0, 2), (-1, -1), 4),
+        inner_cmds = [
+            ("BACKGROUND",    (0, 0), (-1, -1), colors.white),
+            ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
+            ("TOPPADDING",    (0, 0), (0, 0),   8),
+            ("TOPPADDING",    (0, 1), (-1, -1), 4),
             ("BOTTOMPADDING", (0, -1), (-1, -1), 10),
-        ])
+            ("LEFTPADDING",   (0, 0), (-1, -1), 8),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 8),
+        ]
+        inner = _tbl(inner_rows, [card_w], inner_cmds)
 
-        # Wrap in gold-bordered outer cell
         plate_card = _tbl(
             [["", inner, ""]],
             [side_pad, card_w, side_pad],
             [
-                ("BACKGROUND", (1, 0), (1, 0), colors.white),
-                ("BOX", (1, 0), (1, 0), 2.5, gold),
-                ("LINEBELOW", (1, 0), (1, 0), 4, gold),
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("TOPPADDING", (1, 0), (1, 0), 0),
+                ("BACKGROUND",    (1, 0), (1, 0), colors.white),
+                ("BOX",           (1, 0), (1, 0), 2.5, gold),
+                ("LINEBELOW",     (1, 0), (1, 0), 4,   gold),
+                ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING",    (1, 0), (1, 0), 0),
                 ("BOTTOMPADDING", (1, 0), (1, 0), 0),
-                ("LEFTPADDING", (1, 0), (1, 0), 0),
-                ("RIGHTPADDING", (1, 0), (1, 0), 0),
+                ("LEFTPADDING",   (1, 0), (1, 0), 0),
+                ("RIGHTPADDING",  (1, 0), (1, 0), 0),
             ],
         )
         return plate_card
 
-    # ── Cover image ────────────────────────────────────────────────────────────
+    # ── Cover image (static) ───────────────────────────────────────────────────
     def _cover_image():
         if not cover_path:
             return None
@@ -442,6 +463,39 @@ def generate_pdf(
         except Exception:
             return None
 
+    # ── Car model image (fetched by URL) ──────────────────────────────────────
+    def _car_image_flowable():
+        """Download car_image_url and embed as an inline image below the plate card."""
+        if not car_image_url:
+            return None
+        try:
+            import io as _io
+            import httpx as _httpx
+            from reportlab.platypus import Image as RLImage
+            resp = _httpx.get(car_image_url, timeout=12, follow_redirects=True)
+            resp.raise_for_status()
+            img_data = _io.BytesIO(resp.content)
+            try:
+                from PIL import Image as PILImage
+                with PILImage.open(_io.BytesIO(resp.content)) as im:
+                    iw, ih = im.size
+                max_h = 55 * _MM
+                scale = min(_USABLE_W / iw, max_h / ih)
+                disp_w = iw * scale
+                disp_h = ih * scale
+            except ImportError:
+                disp_w, disp_h = _USABLE_W, 44 * _MM
+            img = RLImage(img_data, width=disp_w, height=disp_h)
+            # Center the image using a single-cell table
+            return _tbl([[img]], [_USABLE_W], [
+                ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
+                ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING",    (0, 0), (-1, -1), 0),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+            ])
+        except Exception:
+            return None
+
     # ── Stat cards ─────────────────────────────────────────────────────────────
     def _stat_cards():
         test_txt, test_hex, badge = _test_status(record.get("tokef_dt"))
@@ -451,11 +505,15 @@ def generate_pdf(
         test_color = {"#059669": green, "#D97706": amber, "#DC2626": red}.get(test_hex, text_muted)
         test_bg    = {"#059669": green_bg, "#D97706": amber_bg, "#DC2626": red_bg}.get(test_hex, surface)
 
+        _card_counter = [0]
+
         def _card(label: str, value: Any, value_color=None, bg_color=None, sub: str = ""):
+            _card_counter[0] += 1
+            uid = _card_counter[0]
             vc = value_color or navy
             bc = bg_color or surface
             val_sty = ParagraphStyle(
-                "dyn_v", fontName=font_bold, fontSize=12, textColor=vc,
+                f"card_v_{uid}", fontName=font_bold, fontSize=12, textColor=vc,
                 alignment=TA_RTL, leading=15, wordWrap="CJK",
             )
             val_p = Paragraph(_b(str(value)), val_sty)
@@ -463,20 +521,21 @@ def generate_pdf(
             rows = [[lbl_p], [val_p]]
             if sub:
                 sub_sty = ParagraphStyle(
-                    "dyn_s", fontName=font, fontSize=7, textColor=text_light,
+                    f"card_s_{uid}", fontName=font, fontSize=7, textColor=text_light,
                     alignment=TA_RTL, leading=10, wordWrap="CJK",
                 )
                 rows.append([Paragraph(_b(sub), sub_sty)])
             cw = _USABLE_W / 2 - 2 * _MM
             return _tbl(rows, [cw], [
-                ("BACKGROUND", (0, 0), (-1, -1), bc),
-                ("BOX", (0, 0), (-1, -1), 0.6, border),
-                ("LINEBEFORE", (0, 0), (0, -1), 2.5, gold),
-                ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 10),
-                ("LEFTPADDING", (0, 0), (-1, -1), 8),
-                ("TOPPADDING", (0, 0), (0, 0), 10),
-                ("TOPPADDING", (0, 1), (-1, -1), 4),
+                ("BACKGROUND",    (0, 0), (-1, -1), bc),
+                ("BOX",           (0, 0), (-1, -1), 0.6, border),
+                # LINEAFTER = right physical edge (correct for RTL accent bar)
+                ("LINEAFTER",     (0, 0), (0, -1), 3, gold),
+                ("ALIGN",         (0, 0), (-1, -1), "RIGHT"),
+                ("RIGHTPADDING",  (0, 0), (-1, -1), 12),
+                ("LEFTPADDING",   (0, 0), (-1, -1), 8),
+                ("TOPPADDING",    (0, 0), (0, 0),  10),
+                ("TOPPADDING",    (0, 1), (-1, -1), 4),
                 ("BOTTOMPADDING", (0, -1), (-1, -1), 10),
             ])
 
@@ -500,17 +559,18 @@ def generate_pdf(
 
     # ── Section title ──────────────────────────────────────────────────────────
     def _section_title(title: str):
-        """Clean section title with left gold bar accent."""
+        """Section title with right-side gold accent bar (RTL: LINEAFTER = physical right)."""
         p = _p(title, s_sec_title)
         return _tbl([[p]], [_USABLE_W], [
-            ("BACKGROUND", (0, 0), (-1, -1), off_white),
-            ("LINEBEFORE", (0, 0), (0, -1), 3.5, gold),
-            ("LINEBELOW", (0, 0), (-1, -1), 0.5, border_soft),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 12),
-            ("LEFTPADDING", (0, 0), (-1, -1), 10),
-            ("TOPPADDING", (0, 0), (-1, -1), 9),
+            ("BACKGROUND",    (0, 0), (-1, -1), off_white),
+            # LINEAFTER = right physical edge — correct accent side for RTL reading
+            ("LINEAFTER",     (0, 0), (0, -1), 4, gold),
+            ("LINEBELOW",     (0, 0), (-1, -1), 0.5, border_soft),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 14),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 10),
+            ("TOPPADDING",    (0, 0), (-1, -1), 9),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 9),
-            ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
+            ("ALIGN",         (0, 0), (-1, -1), "RIGHT"),
         ])
 
     # ── KV table ───────────────────────────────────────────────────────────────
@@ -594,7 +654,7 @@ def generate_pdf(
             ("BACKGROUND", (0, 0), (-1, -1), gold_bg),
             ("BACKGROUND", (1, 0), (1, -1), surface),
             ("BOX", (0, 0), (-1, -1), 1.5, gold),
-            ("LINEBEFORE", (0, 0), (0, -1), 4, gold),
+            ("LINEAFTER", (0, 0), (0, -1), 4, gold),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
             ("RIGHTPADDING", (0, 0), (0, -1), 14),
@@ -765,6 +825,13 @@ def generate_pdf(
         story.append(_sp(6))
 
     story.extend(_hero_header())
+
+    # Car model photo (embedded from URL if provided)
+    car_img = _car_image_flowable()
+    if car_img:
+        story.append(_sp(12))
+        story.append(car_img)
+
     story.append(_sp(16))
     story.append(_stat_cards())
     story.append(_sp(6))

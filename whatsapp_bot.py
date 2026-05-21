@@ -101,6 +101,26 @@ async def send_message(chat_id: str, text: str) -> None:
         logger.warning("sendMessage failed: %s", exc)
 
 
+async def send_wa_image(chat_id: str, image_url: str, caption: str = "") -> bool:
+    """Send an image by URL via Green API sendFileByUrl. Returns True on success."""
+    import httpx
+    url = _green_url("sendFileByUrl")
+    payload = {
+        "chatId": chat_id,
+        "urlFile": image_url,
+        "fileName": "car.jpg",
+        "caption": caption,
+    }
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(url, json=payload)
+            logger.debug("sendFileByUrl → %s %s", resp.status_code, resp.text[:120])
+            return resp.status_code == 200
+    except Exception as exc:
+        logger.warning("send_wa_image failed: %s", exc)
+        return False
+
+
 async def send_wa_pdf(chat_id: str, pdf_bytes: bytes, filename: str, caption: str = "") -> None:
     """Send a PDF file via Green API sendFileByUpload (multipart/form-data)."""
     import httpx
@@ -729,6 +749,18 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
         await send_message(chat_id, menu.PDF_PREPARING)
         try:
             from src.pdf_report import generate_pdf
+            # Fetch car image URL before entering the sync PDF thread
+            _pdf_img_url = ""
+            try:
+                from src.api.image_api import fetch_car_image as _fci
+                _pdf_img_url = await _fci(
+                    record.get("tozeret_nm", ""),
+                    record.get("kinuy_mishari") or record.get("degem_nm", ""),
+                    str(record.get("shnat_yitzur", "")),
+                    record.get("tzeva_rechev", ""),
+                ) or ""
+            except Exception:
+                pass
             pdf_bytes = await asyncio.to_thread(
                 generate_pdf,
                 record,
@@ -737,6 +769,7 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
                 logo_path=os.environ.get("LOGO_PATH", ""),
                 cover_path=os.environ.get("COVER_PATH", ""),
                 channel="whatsapp",
+                car_image_url=_pdf_img_url,
             )
         except Exception as exc:
             logger.error("WA PDF generation failed plate=%s: %s", last_plate, exc)
@@ -790,6 +823,22 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
             logger.error("WA format error plate=%s: %s", plate, exc)
             result_text = menu.ERROR
         await send_message(chat_id, result_text)
+
+        # Try to send a car photo after the text result
+        try:
+            from src.api.image_api import fetch_car_image
+            make  = record.get("tozeret_nm", "")
+            model = record.get("kinuy_mishari") or record.get("degem_nm", "")
+            year  = str(record.get("shnat_yitzur", ""))
+            color = record.get("tzeva_rechev", "")
+            if make or model:
+                img_url = await fetch_car_image(make, model, year, color)
+                if img_url:
+                    caption = " · ".join(p for p in [make, model, year] if p)
+                    await send_wa_image(chat_id, img_url, caption)
+        except Exception as exc:
+            logger.debug("WA car image fetch skipped: %s", exc)
+
         return
 
     # ── Fallback ──────────────────────────────────────────────────────────────

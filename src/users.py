@@ -9,7 +9,7 @@ from typing import Optional
 
 from src.db import execute
 
-FREE_SEARCHES = 20
+FREE_SEARCHES = 10
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
