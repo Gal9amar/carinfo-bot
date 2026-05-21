@@ -99,6 +99,15 @@ async def init_db() -> None:
             created_at  TEXT DEFAULT (datetime('now')),
             expires_at  TEXT NOT NULL
         )""",
+        """CREATE TABLE IF NOT EXISTS pending_payments (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            ref         TEXT NOT NULL UNIQUE,
+            phone       TEXT NOT NULL,
+            searches    INTEGER NOT NULL,
+            price       INTEGER NOT NULL,
+            label       TEXT NOT NULL,
+            created_at  TEXT DEFAULT (datetime('now'))
+        )""",
     ]
     for sql in statements:
         conn.execute(sql)

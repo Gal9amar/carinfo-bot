@@ -365,6 +365,59 @@ async def handle_admin(chat_id: str, phone: str, text: str) -> bool:
         await send_message(chat_id, f"✅ נשלח: {sent_ok} | ❌ נכשל: {sent_fail}")
         return True
 
+    # אשר REF — אישור תשלום לפי קוד
+    if parts[0] in ("אשר", "approve") and len(parts) == 2:
+        ref = parts[1].upper()
+        from src.db import execute as _exec
+        r = await _exec("SELECT * FROM pending_payments WHERE ref = ?", [ref])
+        cols = [c.name for c in r.columns]
+        row  = dict(zip(cols, r.rows[0])) if r.rows else None
+        if not row:
+            await send_message(chat_id, f"❌ קוד {ref} לא נמצא או כבר טופל")
+            return True
+        target_phone = row["phone"]
+        amount       = row["searches"]
+        label        = row["label"]
+        price        = row["price"]
+        target_id = _phone_to_id(target_phone)
+        await _ensure_wa_user(target_phone)
+        msg = await admin_grant(target_id, target_id, amount, f"payment approved ref={ref}")
+        msg_plain = re.sub(r"\\([_\*\[\]()~`>#+=|{}.!\-])", r"\1", msg)
+        msg_plain = re.sub(r"[*_`]", "", msg_plain)
+        await _exec("DELETE FROM pending_payments WHERE ref = ?", [ref])
+        await send_message(chat_id, f"✅ אושר! {target_phone}: {msg_plain}")
+        target_chat = f"{target_phone}@c.us"
+        desc = "מנוי חודשי ללא הגבלה" if amount == -1 else f"{amount} בדיקות"
+        await send_message(target_chat,
+            f"✅ *התשלום אושר!*\n"
+            f"─────────────────\n"
+            f"📦 {label}\n"
+            f"נוספו לך {desc} — תוכל לחפש מיד!\n\n"
+            f"🔍 שלח מספר רכב לחיפוש"
+        )
+        return True
+
+    # דחה REF — דחיית תשלום
+    if parts[0] == "דחה" and len(parts) == 2:
+        ref = parts[1].upper()
+        from src.db import execute as _exec
+        r = await _exec("SELECT * FROM pending_payments WHERE ref = ?", [ref])
+        cols = [c.name for c in r.columns]
+        row  = dict(zip(cols, r.rows[0])) if r.rows else None
+        if not row:
+            await send_message(chat_id, f"❌ קוד {ref} לא נמצא")
+            return True
+        target_phone = row["phone"]
+        await _exec("DELETE FROM pending_payments WHERE ref = ?", [ref])
+        await send_message(chat_id, f"🚫 בקשת {target_phone} נדחתה")
+        target_chat = f"{target_phone}@c.us"
+        await send_message(target_chat,
+            "❌ *התשלום לא אומת*\n\n"
+            "לא הצלחנו לאמת את התשלום.\n"
+            "לסיוע — פנה למנהל."
+        )
+        return True
+
     # grant <phone> <amount>
     if parts[0].lower() == "grant" and len(parts) >= 3:
         target_phone = parts[1]
@@ -508,31 +561,43 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
             await send_message(chat_id, menu.WELCOME)
             return
         if "שילמתי" in text:
-            parts  = state.split("|")
-            searches = parts[1] if len(parts) > 1 else "?"
-            price    = parts[2] if len(parts) > 2 else "?"
-            label    = parts[3] if len(parts) > 3 else "?"
+            parts_s  = state.split("|")
+            searches = parts_s[1] if len(parts_s) > 1 else "?"
+            price    = parts_s[2] if len(parts_s) > 2 else "?"
+            label    = parts_s[3] if len(parts_s) > 3 else "?"
             await set_wa_state(phone, None)
+
+            # Save pending payment and generate short ref code
+            import secrets as _sec
+            from src.db import execute as _exec
+            ref = _sec.token_hex(2).upper()  # e.g. "A1B2"
+            await _exec(
+                "INSERT OR REPLACE INTO pending_payments (ref, phone, searches, price, label) VALUES (?,?,?,?,?)",
+                [ref, phone, int(searches) if str(searches).lstrip("-").isdigit() else -1, int(price) if str(price).isdigit() else 0, label],
+            )
+
             # Notify Telegram admin
             await notify_telegram_admin(
                 f"💰 בקשת תשלום ווטסאפ!\n\n"
                 f"📱 טלפון: {phone}\n"
-                f"📦 {label}\n"
-                f"💵 ₪{price}\n\n"
-                f"לאחר אימות ב-PayPal:\n"
-                f"• בטלגרם: /admin grant {phone} {searches}\n"
-                f"• בווטסאפ: approve {phone} {searches}"
+                f"📦 {label} — ₪{price}\n"
+                f"🔑 קוד: {ref}\n\n"
+                f"לאישור מהיר בוואטסאפ:\n"
+                f"אשר {ref}"
             )
-            # Also notify WA admin directly
+            # Notify WA admin with one-tap approve
             if ADMIN_WA_PHONE:
                 admin_chat = f"{ADMIN_WA_PHONE}@c.us"
                 await send_message(admin_chat,
                     f"💰 *בקשת תשלום חדשה!*\n"
-                    f"─────────────────\n"
+                    f"━━━━━━━━━━━━━━━━━━\n"
                     f"📱 {phone}\n"
-                    f"📦 {label} — ₪{price}\n\n"
-                    f"לאישור שלח:\n"
-                    f"approve {phone} {searches}"
+                    f"📦 {label} — ₪{price}\n"
+                    f"━━━━━━━━━━━━━━━━━━\n"
+                    f"לאישור — שלח:\n"
+                    f"*אשר {ref}*\n\n"
+                    f"לדחייה — שלח:\n"
+                    f"*דחה {ref}*"
                 )
             await send_message(
                 chat_id,
