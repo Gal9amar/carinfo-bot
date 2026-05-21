@@ -303,14 +303,6 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     dict(self.headers),
                     raw[:300])
 
-        # Optional webhook token check
-        if WEBHOOK_TOKEN:
-            token = self.headers.get("X-Green-Api-Token", "")
-            if token != WEBHOOK_TOKEN:
-                logger.warning("Webhook token mismatch: got '%s', expected '%s'", token, WEBHOOK_TOKEN)
-                self._send(403, b"Forbidden")
-                return
-
         self._send(200)
 
         try:
