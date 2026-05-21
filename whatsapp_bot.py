@@ -252,6 +252,7 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
         return
 
     state = await get_wa_state(phone)
+    logger.info("handle_message: phone=%s state=%s text=%s", phone, state, text[:30])
 
     # ── State: waiting for discount code ────────────────────────────────────
     if state == "WAITING_CODE":
@@ -268,7 +269,14 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
             await set_wa_state(phone, None)
             await send_message(chat_id, f"✅ {msg_plain}\n\nתוכל לחפש רכבים עכשיו.")
         else:
-            await send_message(chat_id, f"❌ {msg_plain}\n\nנסה שוב או שלח 'תפריט' לחזרה.")
+            await send_message(
+                chat_id,
+                f"❌ *הקוד שגוי או לא תקין*\n"
+                f"─────────────────\n"
+                f"{msg_plain}\n\n"
+                f"נסה שוב — שלח את הקוד\n"
+                f"⬅️ לביטול: שלח *תפריט*"
+            )
         return
 
     # ── State: waiting for package selection ────────────────────────────────
