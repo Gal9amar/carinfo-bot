@@ -749,18 +749,6 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
         await send_message(chat_id, menu.PDF_PREPARING)
         try:
             from src.pdf_report import generate_pdf
-            # Fetch car image URL before entering the sync PDF thread
-            _pdf_img_url = ""
-            try:
-                from src.api.image_api import fetch_car_image as _fci
-                _pdf_img_url = await _fci(
-                    record.get("tozeret_nm", ""),
-                    record.get("kinuy_mishari") or record.get("degem_nm", ""),
-                    str(record.get("shnat_yitzur", "")),
-                    record.get("tzeva_rechev", ""),
-                ) or ""
-            except Exception:
-                pass
             pdf_bytes = await asyncio.to_thread(
                 generate_pdf,
                 record,
@@ -769,7 +757,6 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
                 logo_path=os.environ.get("LOGO_PATH", ""),
                 cover_path=os.environ.get("COVER_PATH", ""),
                 channel="whatsapp",
-                car_image_url=_pdf_img_url,
             )
         except Exception as exc:
             logger.error("WA PDF generation failed plate=%s: %s", last_plate, exc)
@@ -823,27 +810,6 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
             logger.error("WA format error plate=%s: %s", plate, exc)
             result_text = menu.ERROR
         await send_message(chat_id, result_text)
-
-        # Try to send a car photo after the text result
-        try:
-            import httpx as _httpx
-            from src.api.image_api import fetch_car_image
-            make  = record.get("tozeret_nm", "")
-            model = record.get("kinuy_mishari") or record.get("degem_nm", "")
-            year  = str(record.get("shnat_yitzur", ""))
-            color = record.get("tzeva_rechev", "")
-            if make or model:
-                img_url = await fetch_car_image(make, model, year, color)
-                if img_url:
-                    # Resolve any redirects so Green API gets a direct image URL
-                    _ua = {"User-Agent": "CarInfoBot/1.0 (contact: gal9amar@gmail.com)"}
-                    async with _httpx.AsyncClient(timeout=15, follow_redirects=True, headers=_ua) as _cl:
-                        _hr = await _cl.head(img_url)
-                    resolved_url = str(_hr.url)
-                    caption = " · ".join(p for p in [make, model, year] if p)
-                    await send_wa_image(chat_id, resolved_url, caption)
-        except Exception as exc:
-            logger.debug("WA car image fetch skipped: %s", exc)
 
         return
 

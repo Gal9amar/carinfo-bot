@@ -751,7 +751,6 @@ async def handle_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             parse_mode=ParseMode.MARKDOWN_V2,
             reply_markup=_persistent_keyboard(is_admin),
         )
-        await _send_car_photo(query.message, record)
         return
 
     # Show history list
@@ -1565,8 +1564,6 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         except Exception as exc2:
             logger.error("plain fallback also failed for plate %s: %s", plate, exc2)
 
-    # Send car photo after the text report
-    await _send_car_photo(update.message, record)
 
 
 WA_PHONE = os.environ.get("WA_BOT_PHONE", "972526777070")
@@ -1672,19 +1669,6 @@ async def handle_pdf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     plate = record.get("mispar_rechev", "vehicle")
     status_msg = await query.message.reply_text(_PDF_PREPARING)
 
-    # Fetch car image URL before entering the sync thread
-    _pdf_car_image_url = ""
-    try:
-        from src.api.image_api import fetch_car_image as _fci
-        _pdf_car_image_url = await _fci(
-            record.get("tozeret_nm", ""),
-            record.get("kinuy_mishari") or record.get("degem_nm", ""),
-            str(record.get("shnat_yitzur", "")),
-            record.get("tzeva_rechev", ""),
-        ) or ""
-    except Exception:
-        pass
-
     try:
         pdf_bytes = await asyncio.to_thread(
             generate_pdf,
@@ -1694,7 +1678,6 @@ async def handle_pdf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             logo_path=os.environ.get("LOGO_PATH", ""),
             cover_path=os.environ.get("COVER_PATH", ""),
             channel="telegram",
-            car_image_url=_pdf_car_image_url,
         )
     except Exception as e:
         logger.error("PDF generation failed for plate %s: %s", plate, e)

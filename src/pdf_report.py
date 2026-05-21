@@ -810,13 +810,6 @@ def generate_pdf(
         story.append(_sp(6))
 
     story.extend(_hero_header())
-
-    # Car model photo (embedded from URL if provided)
-    car_img = _car_image_flowable()
-    if car_img:
-        story.append(_sp(12))
-        story.append(car_img)
-
     story.append(_sp(16))
     story.append(_stat_cards())
     story.append(_sp(6))
