@@ -704,16 +704,9 @@ def format_error() -> str:
 
 
 def yad2_url(record: dict) -> str:
-    """Return a Yad2 cars search URL filtered by the vehicle's year."""
-    year = _val(record, "shnat_yitzur")
-    base = "https://www.yad2.co.il/vehicles/cars"
-    if year:
-        try:
-            y = int(year)
-            return f"{base}?yearFrom={y}&yearTo={y}"
-        except ValueError:
-            pass
-    return base
+    """Return a Yad2 cars search URL with manufacturer + year filters."""
+    from src.yad2 import build_url_sync
+    return build_url_sync(record)
 
 
 def yad2_label(record: dict) -> str:
