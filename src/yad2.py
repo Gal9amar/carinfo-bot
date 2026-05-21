@@ -73,14 +73,14 @@ _ALIASES: dict[str, int] = {
 
 
 def _normalize(name: str) -> str:
-    s = str(name).strip()
+    s = str(name).strip().lower()   # lowercase for case-insensitive Latin matching
     for src, dst in [("'", "'"), ("׳", "'"), ("-", " "), (".", " ")]:
         s = s.replace(src, dst)
     return re.sub(r"\s+", " ", s).strip()
 
 
 def _norm_model(name: str) -> str:
-    """Aggressively normalize model name: remove apostrophes + collapse spaces."""
+    """Aggressively normalize model name: lowercase + remove apostrophes."""
     s = _normalize(name)
     s = re.sub(r"['׳]", "", s)   # strip apostrophes / Hebrew geresh
     return re.sub(r"\s+", " ", s).strip()
@@ -168,9 +168,13 @@ def _year_param(year_str: str) -> str:
 
 def build_url(record: dict) -> str:
     """Return a Yad2 search URL with manufacturer, model, and year when available."""
-    make  = str(record.get("tozeret_nm")    or "").strip()
-    model = str(record.get("kinuy_mishari") or record.get("degem_nm") or "").strip()
-    year  = str(record.get("shnat_yitzur")  or "").strip()
+    wltp  = record.get("_wltp") or {}
+    make  = str(record.get("tozeret_nm") or "").strip()
+    model = str(
+        record.get("kinuy_mishari") or wltp.get("kinuy_mishari") or
+        record.get("degem_nm")      or wltp.get("degem_nm")      or ""
+    ).strip()
+    year  = str(record.get("shnat_yitzur") or "").strip()
 
     base   = "https://www.yad2.co.il/vehicles/cars"
     params: list[str] = []
