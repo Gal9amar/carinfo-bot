@@ -716,10 +716,18 @@ def generate_pdf(
 
             canv.setFillColor(txt_c)
             canv.drawString(x0 + icon_sz + gap, (h - 9) / 2, label_v)
+
+            # linkURL needs absolute page coordinates.
+            # absolutePosition() gives the bottom-left corner of this Flowable on the page.
             try:
-                canv.linkURL(self.url, (0, 0, w, h), relative=0)
+                ax, ay = canv.absolutePosition(0, 0)
+                canv.linkURL(self.url, (ax, ay, ax + w, ay + h), relative=0)
             except Exception:
-                pass
+                # Fallback: use relative rect (works in simple layouts)
+                try:
+                    canv.linkURL(self.url, (0, 0, w, h), relative=1)
+                except Exception:
+                    pass
 
     def _promo_footer() -> list:
         flow: list = [_sp(10)]
