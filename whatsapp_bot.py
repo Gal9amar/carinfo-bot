@@ -726,9 +726,11 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
                 await send_message(chat_id, menu.NOT_FOUND.format(plate=last_plate))
                 return
             cache.set(last_plate, record)
+        await send_message(chat_id, menu.PDF_PREPARING)
         try:
             from src.pdf_report import generate_pdf
-            pdf_bytes = generate_pdf(
+            pdf_bytes = await asyncio.to_thread(
+                generate_pdf,
                 record,
                 tg_link=f"t.me/{TG_BOT_USERNAME}",
                 wa_link=f"wa.me/{WA_BOT_PHONE}",

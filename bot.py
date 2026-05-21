@@ -1626,6 +1626,9 @@ async def handle_result_callback(update: Update, context: ContextTypes.DEFAULT_T
         return
 
 
+_PDF_PREPARING = "📄 מכין את קובץ הדוח... אנא המתן."
+
+
 async def handle_pdf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
@@ -1634,8 +1637,10 @@ async def handle_pdf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         await query.message.reply_text("❌ לא נמצא רכב לדוח. בצע חיפוש חדש.")
         return
     plate = record.get("mispar_rechev", "vehicle")
+    status_msg = await query.message.reply_text(_PDF_PREPARING)
     try:
-        pdf_bytes = generate_pdf(
+        pdf_bytes = await asyncio.to_thread(
+            generate_pdf,
             record,
             tg_link=f"t.me/{BOT_USERNAME}",
             wa_link=f"wa.me/{WA_PHONE}",
@@ -1645,8 +1650,16 @@ async def handle_pdf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
     except Exception as e:
         logger.error("PDF generation failed for plate %s: %s", plate, e)
+        try:
+            await status_msg.delete()
+        except Exception:
+            pass
         await query.message.reply_text("❌ שגיאה ביצירת הדוח.")
         return
+    try:
+        await status_msg.delete()
+    except Exception:
+        pass
     await query.message.reply_document(
         document=io.BytesIO(pdf_bytes),
         filename=f"car_{plate}.pdf",
