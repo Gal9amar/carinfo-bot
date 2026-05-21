@@ -1,22 +1,17 @@
 """
-Hebrew PDF — Israeli vehicle license (רישיון רכב) layout.
-ReportLab: python-bidi get_display() + TA_LEFT/CENTER (never TA_RIGHT on Hebrew).
+Hebrew PDF report generator for vehicle data.
+Premium layout: reportlab + python-bidi (RTL).
 """
 
 from __future__ import annotations
 
 import io
 import os
-import re
 from datetime import date, datetime
 from typing import Any
 
-from reportlab.lib.pagesizes import landscape, A4
-
-_PAGE = landscape(A4)
-_PW, _PH = _PAGE
-
-_FONT_REGISTERED = False
+# ── Fonts ─────────────────────────────────────────────────────────────────────
+_font_registered = False
 _FONT = "DejaVuSans"
 _FONT_BOLD = "DejaVuSans-Bold"
 _FONT_PATHS = [
@@ -24,41 +19,21 @@ _FONT_PATHS = [
      "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
     ("/usr/share/fonts/dejavu/DejaVuSans.ttf",
      "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf"),
+    # Windows — Hebrew-capable system fonts
     (r"C:\Windows\Fonts\arial.ttf", r"C:\Windows\Fonts\arialbd.ttf"),
     (r"C:\Windows\Fonts\segoeui.ttf", r"C:\Windows\Fonts\segoeuib.ttf"),
     (r"C:\Windows\Fonts\david.ttf", r"C:\Windows\Fonts\davidbd.ttf"),
 ]
 
-_MM = 2.8346456692913385
-_MARGIN = 10 * _MM
-_USABLE_W = _PW - 2 * _MARGIN
-_FOOTER_H = 18 * _MM
-
-# License palette (from official slip)
-C_BG = (0.90, 0.94, 0.98)
-C_TITLE = (0.45, 0.05, 0.22)
-C_BAR = (0.04, 0.12, 0.36)
-C_BAR_LT = (0.10, 0.24, 0.48)
-C_LBL_RED = (0.55, 0.05, 0.12)
-C_LBL_BLUE = (0.08, 0.22, 0.48)
-C_VAL = (0.05, 0.05, 0.08)
-C_LINE = (0.72, 0.78, 0.86)
-C_WHITE = (1.0, 1.0, 1.0)
-C_FOOT = (0.88, 0.92, 0.96)
-C_ALERT = (0.75, 0.12, 0.12)
-C_WARN = (0.55, 0.35, 0.05)
-C_TG = (0.16, 0.52, 0.78)
-C_WA = (0.15, 0.68, 0.38)
-
-_HEB_RE = re.compile(r"[\u0590-\u05FF]")
-
 
 def _ensure_fonts() -> tuple[str, str]:
-    global _FONT_REGISTERED
-    if _FONT_REGISTERED:
+    global _font_registered
+    if _font_registered:
         return _FONT, _FONT_BOLD
+
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
+
     regular, bold = "Helvetica", "Helvetica-Bold"
     for reg_path, bold_path in _FONT_PATHS:
         if not os.path.isfile(reg_path):
@@ -71,20 +46,24 @@ def _ensure_fonts() -> tuple[str, str]:
             break
         except Exception:
             continue
-    _FONT_REGISTERED = True
+
+    _font_registered = True
     return regular, bold
 
 
-def _rtl(text: Any) -> str:
-    """Visual-order string for ReportLab (LTR drawing pipeline)."""
+def _b(text: Any) -> str:
+    """BiDi reshape for RTL Hebrew in ReportLab (always pair with TA_RIGHT)."""
     s = str(text) if text is not None else ""
-    if not s or not _HEB_RE.search(s):
-        return s
     try:
         from bidi.algorithm import get_display
-        return get_display(s, base_dir="R")
+        return get_display(s)
     except Exception:
         return s
+
+
+def _hebrew_join(*parts: str, sep: str = " · ") -> str:
+    """Join mixed Hebrew/Latin fragments in logical RTL reading order."""
+    return _b(sep.join(p for p in parts if p))
 
 
 def _v(record: dict, *keys: str) -> str:
@@ -120,17 +99,20 @@ def _fmt_baalut_dt(raw: Any) -> str:
         return str(raw) if raw else ""
 
 
-def _test_status(tokef_raw: Any) -> str:
+def _test_status(tokef_raw: Any) -> tuple[str, str, str]:
+    """(text, hex_color, badge_label)"""
     if not tokef_raw:
-        return "—"
+        return "לא ידוע", "#64748B", "—"
     try:
         tokef = date.fromisoformat(str(tokef_raw)[:10])
         delta = (tokef - date.today()).days
         if delta < 0:
-            return f"{tokef.strftime('%d/%m/%Y')} (פג)"
-        return tokef.strftime("%d/%m/%Y")
+            return f"פג תוקף · {abs(delta)} ימים", "#DC2626", "פג"
+        if delta <= 30:
+            return f"עומד לפוג · {delta} ימים", "#D97706", "דחוף"
+        return f"בתוקף · {tokef.strftime('%d/%m/%Y')}", "#059669", "תקין"
     except Exception:
-        return "—"
+        return "לא ידוע", "#64748B", "—"
 
 
 def _full_url(link: str) -> str:
@@ -142,43 +124,28 @@ def _full_url(link: str) -> str:
     return f"https://{s.lstrip('/')}"
 
 
-def _inactive_txt(record: dict) -> str:
-    if record.get("_inactive_no_degem"):
-        return "לא פעיל (ללא קוד דגם)"
-    if record.get("_inactive_registry") or record.get("_was_rental"):
-        return _v(record, "grira_nm") or "רשום במאגר לא פעיל"
-    return "פעיל"
+# ── Layout constants ───────────────────────────────────────────────────────────
+_MM = 2.8346456692913385
+_MARGIN = 14 * _MM
+_USABLE_W = 182 * _MM
+_COL_VALUE = 118 * _MM
+_COL_LABEL = 64 * _MM
 
-
-def _vehicle_type(record: dict, wltp: dict) -> str:
-    parts = [
-        _v(wltp, "sug_tkina_nm"),
-        _v(record, "baalut"),
-        _v(wltp, "ramat_gimur"),
-    ]
-    return " · ".join(p for p in parts if p) or "—"
-
-
-def _icon_png_bytes(kind: str, size: int = 28) -> bytes:
-    try:
-        from PIL import Image, ImageDraw
-    except ImportError:
-        return b""
-    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    if kind == "telegram":
-        d.ellipse([1, 1, size - 2, size - 2], fill=(42, 171, 238, 255))
-        d.polygon(
-            [(size * 0.28, size * 0.48), (size * 0.72, size * 0.32),
-             (size * 0.48, size * 0.52), (size * 0.62, size * 0.72)],
-            fill=(255, 255, 255, 255),
-        )
-    else:
-        d.ellipse([1, 1, size - 2, size - 2], fill=(37, 211, 102, 255))
-        d.ellipse([size * 0.28, size * 0.26, size * 0.74, size * 0.68], fill=(255, 255, 255, 255))
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    return buf.getvalue()
+# Premium palette (RGB 0–1)
+C_NAVY      = (0.06, 0.11, 0.24)      # #0F1C3D
+C_NAVY_MID  = (0.10, 0.18, 0.38)      # #1A2E61
+C_ACCENT    = (0.85, 0.65, 0.13)      # gold #D9A621
+C_SKY       = (0.91, 0.95, 0.99)
+C_CARD      = (0.97, 0.98, 1.00)
+C_ROW_ALT   = (0.94, 0.96, 0.99)
+C_TEXT_MUTED = (0.42, 0.47, 0.55)
+C_BORDER    = (0.82, 0.86, 0.92)
+C_ALERT_BG  = (1.0, 0.94, 0.94)
+C_ALERT_BD  = (0.86, 0.20, 0.20)
+C_WARN_BG   = (1.0, 0.97, 0.88)
+C_WARN_BD   = (0.85, 0.55, 0.05)
+_LINK_BLUE  = "#1D4ED8"
+_LINK_WHITE = "#FFFFFF"
 
 
 def generate_pdf(
@@ -189,11 +156,13 @@ def generate_pdf(
     cover_path: str = "",
     channel: str = "",
 ) -> bytes:
-    """Generate landscape license-style vehicle report (no cover image)."""
+    """Generate a premium Hebrew vehicle-report PDF."""
     from reportlab.lib import colors
-    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+    from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.platypus import (
+        HRFlowable,
         Paragraph,
         SimpleDocTemplate,
         Spacer,
@@ -201,417 +170,561 @@ def generate_pdf(
         TableStyle,
     )
 
+    TA_RTL = TA_RIGHT  # Hebrew + get_display() → align to physical right
+
+    root = os.path.dirname(os.path.dirname(__file__))
+    if not logo_path:
+        for c in (os.path.join(root, "logo.png"), os.path.join(root, "logo.jpg")):
+            if os.path.exists(c):
+                logo_path = c
+                break
+    if not cover_path:
+        for c in (os.path.join(root, "cover.png"), os.path.join(root, "cover.jpg")):
+            if os.path.exists(c):
+                cover_path = c
+                break
+
     font, font_bold = _ensure_fonts()
     wltp = record.get("_wltp") or {}
     plate = _v(record, "mispar_rechev") or "—"
     make = _v(record, "tozeret_nm")
     model = _v(record, "kinuy_mishari", "degem_nm")
-    degem = _v(record, "degem_nm")
     year = _v(record, "shnat_yitzur")
-    merkav = _v(wltp, "merkav")
-    now_str = datetime.now().strftime("%d/%m/%Y")
+    now_str = datetime.now().strftime("%d/%m/%Y %H:%M")
     tg_url = _full_url(tg_link)
     wa_url = _full_url(wa_link)
-    ch = (channel or "").strip().lower()
 
-    bg = colors.Color(*C_BG)
-    bar = colors.Color(*C_BAR)
-    title_c = colors.Color(*C_TITLE)
-    lbl_red = colors.Color(*C_LBL_RED)
-    lbl_blue = colors.Color(*C_LBL_BLUE)
-    val_c = colors.Color(*C_VAL)
-    line_c = colors.Color(*C_LINE)
-    white = colors.Color(*C_WHITE)
-
-    def sty(name, *, size=9, bold=False, color=colors.black, align=TA_LEFT, leading=None):
+    def sty(name, *, size=10, bold=False, color=colors.black, align=TA_RTL, leading=None):
         return ParagraphStyle(
-            name, fontName=font_bold if bold else font, fontSize=size,
-            textColor=color, alignment=align, leading=leading or size * 1.35,
+            name,
+            fontName=font_bold if bold else font,
+            fontSize=size,
+            textColor=color,
+            alignment=align,
+            leading=leading or size * 1.45,
             wordWrap="CJK",
         )
 
     def _p(text: Any, style: ParagraphStyle) -> Paragraph:
-        return Paragraph(_rtl(text), style)
+        return Paragraph(_b(text), style)
 
-    s_title = sty("title", size=22, bold=True, color=title_c, align=TA_CENTER)
-    s_ministry = sty("min", size=7.5, bold=True, color=bar, align=TA_LEFT)
-    s_sub = sty("sub", size=6.5, color=lbl_blue, align=TA_CENTER)
-    s_bar_lbl = sty("bl", size=7, bold=True, color=white, align=TA_CENTER)
-    s_bar_val = sty("bv", size=11, bold=True, color=white, align=TA_CENTER)
-    s_lbl_r = sty("lr", size=6.5, bold=True, color=lbl_red, align=TA_LEFT)
-    s_lbl_b = sty("lb", size=6.5, bold=True, color=lbl_blue, align=TA_LEFT)
-    s_val = sty("val", size=9, bold=True, color=val_c, align=TA_LEFT)
-    s_val_sm = sty("vs", size=8, color=val_c, align=TA_LEFT)
-    s_note = sty("note", size=6.5, color=lbl_blue, align=TA_CENTER)
-    s_alert = sty("alert", size=8.5, bold=True, color=colors.Color(*C_ALERT), align=TA_LEFT)
+    navy = colors.Color(*C_NAVY)
+    navy_mid = colors.Color(*C_NAVY_MID)
+    accent = colors.Color(*C_ACCENT)
+    sky = colors.Color(*C_SKY)
+    card = colors.Color(*C_CARD)
+    muted = colors.Color(*C_TEXT_MUTED)
+    border_c = colors.Color(*C_BORDER)
 
-    def _tbl(rows, colw, cmds):
-        t = Table(rows, colWidths=colw)
-        t.setStyle(TableStyle(cmds))
-        return t
+    s_brand = sty("brand", size=22, bold=True, color=accent, align=TA_CENTER, leading=26)
+    s_title = sty("title", size=13, bold=True, color=colors.white, align=TA_CENTER, leading=16)
+    s_plate = sty("plate", size=28, bold=True, color=colors.white, align=TA_CENTER, leading=32)
+    s_subhero = sty("subhero", size=11, color=colors.Color(0.75, 0.82, 0.95), align=TA_CENTER)
+    s_meta = sty("meta", size=8, color=muted, align=TA_CENTER)
+    s_sec = sty("sec", size=11, bold=True, color=navy, align=TA_RTL, leading=14)
+    s_lbl = sty("lbl", size=9, bold=True, color=colors.white, align=TA_RTL)
+    s_val = sty("val", size=10, color=colors.Color(*C_NAVY), align=TA_RTL)
+    s_val_big = sty("val_big", size=12, bold=True, color=navy, align=TA_RTL)
+    s_stat_lbl = sty("stat_lbl", size=8, color=muted, align=TA_RTL)
+    s_stat_val = sty("stat_val", size=11, bold=True, color=navy, align=TA_RTL)
+    s_alert = sty("alert", size=10, bold=True, color=colors.Color(*C_ALERT_BD), align=TA_RTL)
+    s_warn = sty("warn", size=9, color=colors.Color(0.45, 0.30, 0.05), align=TA_RTL)
+    s_price = sty("price", size=14, bold=True, color=navy, align=TA_RTL)
+    s_footer = sty("footer", size=7, color=muted, align=TA_CENTER)
+    s_cta_title = sty("cta_t", size=12, bold=True, color=colors.white, align=TA_CENTER)
+    s_cta_hint = sty("cta_h", size=9, color=navy, align=TA_CENTER)
+    s_cta_sub = sty("cta_s", size=7, color=muted, align=TA_CENTER)
 
-    def _dash_below():
-        return ("LINEBELOW", (0, 0), (-1, -1), 0.4, line_c, None, (1, 2))
-
-    def _field(label: str, value: str, *, red_label: bool = False, size: int = 9) -> Table:
-        """License cell: value on top, label below (RTL)."""
-        if not value:
-            value = "—"
-        vs = sty("v", size=size, bold=True, color=val_c, align=TA_LEFT)
-        ls = s_lbl_r if red_label else s_lbl_b
-        return _tbl(
-            [[_p(value, vs)], [_p(label, ls)]],
-            [_USABLE_W],
-            [
-                ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
-                ("TOPPADDING", (0, 0), (0, 0), 3),
-                ("BOTTOMPADDING", (0, 1), (0, 1), 2),
-                ("LEFTPADDING", (0, 0), (-1, -1), 4),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-                _dash_below(),
-            ],
-        )
-
-    def _field_col(label: str, value: str, width: float, *, red_label: bool = False) -> Table:
-        if not value:
-            value = "—"
-        vs = sty("vc", size=9, bold=True, color=val_c, align=TA_LEFT)
-        ls = s_lbl_r if red_label else s_lbl_b
-        return _tbl(
-            [[_p(value, vs)], [_p(label, ls)]],
-            [width],
-            [
-                ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("TOPPADDING", (0, 0), (0, 0), 3),
-                ("BOTTOMPADDING", (0, 1), (0, 1), 2),
-                ("LEFTPADDING", (0, 0), (-1, -1), 5),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 5),
-                ("LINEAFTER", (0, 0), (0, -1), 0.5, line_c),
-                _dash_below(),
-            ],
-        )
-
-    def _bar_cell(label: str, value: str, width: float) -> Table:
-        return _tbl(
-            [
-                [_p("»", s_bar_lbl)],
-                [_p(label, s_bar_lbl)],
-                [_p(value, s_bar_val)],
-            ],
-            [width],
-            [
-                ("BACKGROUND", (0, 0), (-1, -1), bar),
-                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                ("TOPPADDING", (0, 0), (0, 0), 2),
-                ("TOPPADDING", (0, 1), (0, 1), 1),
-                ("BOTTOMPADDING", (0, 2), (0, 2), 6),
-                ("LINEAFTER", (0, 0), (0, -1), 0.8, white),
-            ],
-        )
-
-    def _license_row(cells: list[tuple[str, str, bool]], widths: list[float] | None = None) -> Table:
-        """Multi-column row; cells = (label, value, red_label?)."""
-        n = len(cells)
-        if widths is None:
-            widths = [_USABLE_W / n] * n
-        parts = [
-            _field_col(lbl, val, widths[i], red_label=red)
-            for i, (lbl, val, red) in enumerate(cells)
-        ]
-        return _tbl(
-            [parts],
-            widths,
-            [("VALIGN", (0, 0), (-1, -1), "TOP")],
-        )
-
-    def _page_decor(canv, doc):
+    # ── Page chrome (header strip + footer on every page) ─────────────────────
+    def _page_bg(canv, doc):
         canv.saveState()
-        canv.setFillColor(bg)
-        canv.rect(0, _FOOTER_H, _PW, _PH - _FOOTER_H, fill=1, stroke=0)
-        canv.setStrokeColor(colors.Color(*C_BAR))
-        canv.setLineWidth(1)
-        canv.rect(_MARGIN - 3, _FOOTER_H + 3, _USABLE_W + 6, _PH - _FOOTER_H - 6, fill=0, stroke=1)
-
-        canv.setFillColor(colors.Color(*C_BAR_LT))
-        canv.setFont(font, 5.5)
-        canv.drawCentredString(
-            _PW / 2, _FOOTER_H + 1.2 * _MM,
-            _rtl(f"CarInfo · {plate} · עמוד {canv.getPageNumber()}"),
-        )
-
-        y_center = 5.5 * _MM
-        btn_w, btn_h = 40 * _MM, 8 * _MM
-        gap = 5 * _MM
-        items: list[tuple[str, str, str, tuple]] = []
-        if wa_url:
-            items.append(("whatsapp", "וואטסאפ", wa_url, C_WA))
-        if tg_url:
-            items.append(("telegram", "טלגרם", tg_url, C_TG))
-        if ch in ("telegram", "tg") and len(items) == 2:
-            items.reverse()
-
-        total_w = len(items) * btn_w + max(0, len(items) - 1) * gap
-        x0 = (_PW - total_w) / 2
-        for i, (kind, label, url, bgc) in enumerate(items):
-            x = x0 + i * (btn_w + gap)
-            canv.setFillColor(colors.Color(*bgc))
-            canv.roundRect(x, y_center, btn_w, btn_h, 3, fill=1, stroke=0)
-            canv.linkURL(url, (x, y_center, x + btn_w, y_center + btn_h), relative=0)
-            r = 3 * _MM
-            cx = x + 6 * _MM
-            cy = y_center + btn_h / 2
-            if kind == "telegram":
-                canv.setFillColor(colors.Color(*C_TG))
-                canv.circle(cx, cy, r, fill=1, stroke=0)
-                canv.setFillColor(white)
-                canv.circle(cx - 0.7 * _MM, cy, 0.8 * _MM, fill=1, stroke=0)
-            else:
-                canv.setFillColor(colors.Color(*C_WA))
-                canv.circle(cx, cy, r, fill=1, stroke=0)
-                canv.setFillColor(white)
-                canv.circle(cx, cy, r * 0.5, fill=1, stroke=0)
-            canv.setFillColor(white)
-            canv.setFont(font_bold, 7.5)
-            canv.drawString(x + 13 * _MM, y_center + 2.5 * _MM, _rtl(label))
-
+        pw, ph = A4
+        # Top brand strip
+        canv.setFillColor(navy)
+        canv.rect(0, ph - 6 * _MM, pw, 6 * _MM, fill=1, stroke=0)
+        canv.setFillColor(accent)
+        canv.rect(0, ph - 6.8 * _MM, pw, 0.8 * _MM, fill=1, stroke=0)
+        # Bottom footer band
+        canv.setFillColor(sky)
+        canv.rect(0, 0, pw, 11 * _MM, fill=1, stroke=0)
+        canv.setStrokeColor(border_c)
+        canv.setLineWidth(0.4)
+        canv.line(_MARGIN, 11 * _MM, pw - _MARGIN, 11 * _MM)
+        canv.setFillColor(muted)
+        canv.setFont(font, 7)
+        footer_txt = _b(f"CarInfo · דוח רכב {plate} · {now_str} · עמוד {canv.getPageNumber()}")
+        canv.drawCentredString(pw / 2, 4 * _MM, footer_txt)
         canv.restoreState()
 
-    # ── Data ──────────────────────────────────────────────────────────────────
-    test_txt = _test_status(record.get("tokef_dt"))
-    vtype = _vehicle_type(record, wltp)
-    km_val = _v(record, "kilometer_test_aharon")
-    km_date = _fd(record.get("mivchan_acharon_dt"))
-    auto_ind = wltp.get("automatic_ind")
-    gearbox = "אוטומטית" if str(auto_ind) == "1" else ("ידנית" if str(auto_ind) == "0" else "")
-    nefah = _v(wltp, "nefah_manoa")
-    pi = record.get("_personal_import")
-    import_txt = (_v(pi, "sug_yevu") or "יבוא אישי") if pi else ""
-    tozeret_full = _hebrew_join_parts(
-        make, _v(wltp, "tozeret_eretz_nm"),
-    )
+    # ── Building blocks ───────────────────────────────────────────────────────
+    def _tbl(rows, colw, style_cmds):
+        t = Table(rows, colWidths=colw)
+        t.setStyle(TableStyle(style_cmds))
+        return t
 
-    third = _USABLE_W / 3
-    half = _USABLE_W / 2
+    def _hero_header():
+        """Branded hero: logo + title + giant plate + vehicle line."""
+        title_para = _p("דוח בדיקת רכב מקיף", s_title)
+        vehicle_line = _hebrew_join(
+            f"שנת {year}" if year else "",
+            model,
+            make,
+        ) if (make or model or year) else _b("—")
+        plate_para = _p(plate, s_plate)
+        brand_para = Paragraph("CARINFO", s_brand)  # Latin — no BiDi
+        sub_para = Paragraph(vehicle_line, s_subhero)
+        date_para = _p(f"הופק: {now_str}", s_meta)
 
-    story: list = []
+        if logo_path:
+            try:
+                from reportlab.platypus import Image as RLImage
+                logo_h = 16 * _MM
+                logo_img = RLImage(logo_path, height=logo_h, width=logo_h, kind="proportional")
+                text_w = _USABLE_W - logo_h - 6 * _MM
+                # RTL: טקסט מימין, לוגו משמאל
+                top = _tbl(
+                    [[brand_para, logo_img], [title_para, ""]],
+                    [text_w, logo_h + 4 * _MM],
+                    [
+                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                        ("SPAN", (0, 1), (0, 1)),
+                        ("BACKGROUND", (0, 0), (-1, -1), navy),
+                        ("TOPPADDING", (0, 0), (-1, -1), 14),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                        ("RIGHTPADDING", (0, 0), (0, -1), 10),
+                        ("ALIGN", (0, 0), (0, -1), "RIGHT"),
+                    ],
+                )
+            except Exception:
+                top = _tbl([[brand_para], [title_para]], [_USABLE_W], [
+                    ("BACKGROUND", (0, 0), (-1, -1), navy),
+                    ("TOPPADDING", (0, 0), (-1, -1), 14),
+                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ])
+        else:
+            top = _tbl([[brand_para], [title_para]], [_USABLE_W], [
+                ("BACKGROUND", (0, 0), (-1, -1), navy),
+                ("TOPPADDING", (0, 0), (-1, -1), 16),
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ])
 
-    # Header: ministry (right) | title (center) | note (left)
-    story.append(_tbl(
-        [
-            [
-                _p("CarInfo\nעותק מידע", sty("ci", size=6.5, color=lbl_blue, align=TA_LEFT)),
-                _p("רישיון רכב", s_title),
-                _p("משרד התחבורה והבטיחות בדרכים\nמדינת ישראל", s_ministry),
-            ],
-        ],
-        [55 * _MM, _USABLE_W - 110 * _MM, 55 * _MM],
-        [
+        plate_band = _tbl([[plate_para]], [_USABLE_W], [
+            ("BACKGROUND", (0, 0), (-1, -1), navy_mid),
+            ("TOPPADDING", (0, 0), (-1, -1), 10),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ])
+        sub_band = _tbl([[sub_para], [date_para]], [_USABLE_W], [
+            ("BACKGROUND", (0, 0), (-1, -1), navy),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ])
+        gold = HRFlowable(width=_USABLE_W, thickness=3, color=accent, spaceBefore=0, spaceAfter=0)
+        return [top, plate_band, sub_band, gold]
+
+    def _cover_image():
+        if not cover_path:
+            return None
+        try:
+            from reportlab.platypus import Image as RLImage
+            try:
+                from PIL import Image as PILImage
+                with PILImage.open(cover_path) as im:
+                    pw, ph = im.size
+                h = min(_USABLE_W * ph / pw, 55 * _MM)
+            except ImportError:
+                h = 45 * _MM
+            return RLImage(cover_path, width=_USABLE_W, height=h)
+        except Exception:
+            return None
+
+    def _stat_cards():
+        test_txt, test_hex, badge = _test_status(record.get("tokef_dt"))
+        n_own = len(record.get("_ownership") or [])
+        fuel = _v(record, "sug_delek_nm") or "—"
+        cw = _USABLE_W / 4
+        # RTL: מימין לשמאל — רכב, טסט, בעלויות, דלק
+        row_data: list[tuple[Any, str]] = [
+            (_b(fuel), "דלק"),
+            (_b(str(n_own)), "בעלויות"),
+            (Paragraph(
+                f'<font color="{test_hex}"><b>{_b(badge)}</b></font><br/>{_b(test_txt)}',
+                s_stat_val,
+            ), "תוקף טסט"),
+            (_b(plate), "מספר רכב"),
+        ]
+        row_cells = []
+        for val, lbl in row_data:
+            val_p = val if not isinstance(val, str) else Paragraph(val, s_stat_val)
+            row_cells.append(_tbl(
+                [[_p(lbl, s_stat_lbl)], [val_p]],
+                [cw - 6],
+                [
+                    ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                    ("TOPPADDING", (0, 0), (-1, -1), 6),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ],
+            ))
+        return _tbl([row_cells], [cw] * 4, [
+            ("BACKGROUND", (0, 0), (-1, -1), card),
+            ("BOX", (0, 0), (-1, -1), 0.5, border_c),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("ALIGN", (0, 0), (0, 0), "LEFT"),
-            ("ALIGN", (0, 1), (0, 1), "CENTER"),
-            ("ALIGN", (0, 2), (0, 2), "RIGHT"),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ],
-    ))
-    story.append(_p("תעודת נתוני רכב ממוחשבת — אינה מחליפה רישיון רכב רשמי", s_sub))
-    story.append(Spacer(1, 4))
+            ("TOPPADDING", (0, 0), (-1, -1), 8),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ("LEFTPADDING", (0, 0), (-1, -1), 2),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+        ])
 
-    # Blue bar: בתוקף עד | סוג | מספר רכב  (LTR columns → plate on right)
-    story.append(_tbl(
-        [
-            [
-                _bar_cell("בתוקף עד", test_txt, third),
-                _bar_cell("סוג", vtype[:40], third),
-                _bar_cell("מספר רכב", plate, third),
-            ],
-        ],
-        [third, third, third],
-        [("VALIGN", (0, 0), (-1, -1), "TOP")],
-    ))
+    def _section_title(title: str, icon: str = "◆"):
+        p = _p(f"{title}  {icon}", s_sec)
+        return _tbl([[p]], [_USABLE_W], [
+            ("BACKGROUND", (0, 0), (-1, -1), sky),
+            ("LINEBEFORE", (0, 0), (0, -1), 4, accent),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 12),
+            ("LEFTPADDING", (0, 0), (-1, -1), 8),
+            ("TOPPADDING", (0, 0), (-1, -1), 8),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
+            ("LINEBELOW", (0, 0), (-1, -1), 0.5, border_c),
+        ])
 
-    if record.get("_scrapped_dt"):
-        story.append(Spacer(1, 3))
-        story.append(_tbl(
-            [[_p(f"אזהרה: רכב בוטל · {_fd(record.get('_scrapped_dt'))}", s_alert)]],
+    def _kv_table(rows: list[tuple[str, str]], *, highlight: set[str] | None = None) -> Table | None:
+        """RTL table: עמודת תווית מימין (col 1), ערך משמאל (col 0)."""
+        highlight = highlight or set()
+        data = []
+        for label, value in rows:
+            if not value:
+                continue
+            val_style = s_val_big if label in highlight else s_val
+            data.append([
+                _p(value, val_style),
+                _p(label, s_lbl),
+            ])
+        if not data:
+            return None
+        style = [
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN", (0, 0), (0, -1), "RIGHT"),
+            ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+            ("RIGHTPADDING", (0, 0), (0, -1), 12),
+            ("LEFTPADDING", (0, 0), (0, -1), 6),
+            ("RIGHTPADDING", (1, 0), (1, -1), 10),
+            ("LEFTPADDING", (1, 0), (1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 7),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+            ("BACKGROUND", (1, 0), (1, -1), navy_mid),
+            ("LINEBELOW", (0, 0), (-1, -1), 0.25, border_c),
+            ("BOX", (0, 0), (-1, -1), 0.6, border_c),
+        ]
+        for i in range(len(data)):
+            style.append(("BACKGROUND", (0, i), (0, i), card if i % 2 == 0 else colors.Color(*C_ROW_ALT)))
+        return _tbl(data, [_COL_VALUE, _COL_LABEL], style)
+
+    def _alert_box(text: str) -> Table:
+        p = _p(f"⚠  {text}", s_alert)
+        return _tbl([[p]], [_USABLE_W], [
+            ("BACKGROUND", (0, 0), (-1, -1), colors.Color(*C_ALERT_BG)),
+            ("BOX", (0, 0), (-1, -1), 1.5, colors.Color(*C_ALERT_BD)),
+            ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 12),
+            ("LEFTPADDING", (0, 0), (-1, -1), 12),
+            ("TOPPADDING", (0, 0), (-1, -1), 10),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+        ])
+
+    def _warn_box(text: str) -> Table:
+        p = _p(f"⚡  {text}", s_warn)
+        return _tbl([[p]], [_USABLE_W], [
+            ("BACKGROUND", (0, 0), (-1, -1), colors.Color(*C_WARN_BG)),
+            ("BOX", (0, 0), (-1, -1), 1, colors.Color(*C_WARN_BD)),
+            ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+            ("TOPPADDING", (0, 0), (-1, -1), 8),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ])
+
+    def _price_highlight(rows: list[tuple[str, str]]) -> Table | None:
+        data = []
+        for label, value in rows:
+            if not value:
+                continue
+            data.append([_p(value, s_price), _p(label, s_lbl)])
+        if not data:
+            return None
+        return _tbl(data, [_COL_VALUE, _COL_LABEL], [
+            ("BACKGROUND", (0, 0), (-1, -1), colors.Color(1.0, 0.98, 0.92)),
+            ("BACKGROUND", (1, 0), (1, -1), navy),
+            ("BOX", (0, 0), (-1, -1), 1.2, accent),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
+            ("RIGHTPADDING", (0, 0), (0, -1), 12),
+            ("LEFTPADDING", (0, 0), (0, -1), 6),
+            ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+            ("TOPPADDING", (0, 0), (-1, -1), 10),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+            ("LINEBELOW", (0, 0), (-1, -2), 0.4, border_c),
+        ])
+
+    def _ownership_table(ownership: list) -> Table | None:
+        if not ownership:
+            return None
+        data = []
+        for i, o in enumerate(ownership, 1):
+            dt_str = _fmt_baalut_dt(o.get("baalut_dt", ""))
+            baalut_type = o.get("baalut", "לא ידוע")
+            num = _p(str(i), sty("own_n", size=10, bold=True, color=colors.white, align=TA_CENTER))
+            # RTL: מספר מימין → סוג → תאריך
+            data.append([num, _p(baalut_type, s_val), _p(dt_str, s_val)])
+        idx_w = 14 * _MM
+        mid_w = (_USABLE_W - idx_w) * 0.42
+        date_w = (_USABLE_W - idx_w) - mid_w
+        style = [
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("BACKGROUND", (0, 0), (0, -1), accent),
+            ("ALIGN", (0, 0), (0, -1), "CENTER"),
+            ("ALIGN", (1, 0), (2, -1), "RIGHT"),
+            ("RIGHTPADDING", (1, 0), (2, -1), 10),
+            ("BOX", (0, 0), (-1, -1), 0.6, border_c),
+            ("LINEBELOW", (0, 0), (-1, -1), 0.25, border_c),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ]
+        for i in range(len(data)):
+            style.append(("BACKGROUND", (1, i), (2, i), card if i % 2 == 0 else colors.Color(*C_ROW_ALT)))
+        return _tbl(data, [idx_w, mid_w, date_w], style)
+
+    def _link_btn(label_he: str, url: str, primary: bool) -> Paragraph:
+        label = _b(label_he)
+        if primary:
+            inner = f'<a href="{url}" color="{_LINK_WHITE}"><b><font size="12">{label}</font></b></a>'
+            return Paragraph(inner, sty("lb", size=12, bold=True, color=colors.white, align=TA_CENTER))
+        inner = f'<a href="{url}" color="{_LINK_BLUE}"><b>{label}</b></a>'
+        return Paragraph(inner, sty("lbs", size=10, bold=True, color=navy, align=TA_CENTER))
+
+    def _cta_cell(label: str, url: str, primary: bool, width: float) -> Table:
+        bg = navy if primary else sky
+        bd = accent if primary else navy_mid
+        return _tbl([[_link_btn(label, url, primary)]], [width], [
+            ("BACKGROUND", (0, 0), (-1, -1), bg),
+            ("BOX", (0, 0), (-1, -1), 1.5 if primary else 0.8, bd),
+            ("TOPPADDING", (0, 0), (-1, -1), 12 if primary else 8),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 12 if primary else 8),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ])
+
+    def _promo_footer() -> list:
+        flow: list = [Spacer(1, 10)]
+        flow.append(_tbl(
+            [[_p("המשך בדיקות רכב — CarInfo", s_cta_title)]],
             [_USABLE_W],
             [
-                ("BACKGROUND", (0, 0), (-1, -1), colors.Color(1, 0.93, 0.93)),
-                ("BOX", (0, 0), (-1, -1), 1, colors.Color(*C_ALERT)),
-                ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-                ("TOPPADDING", (0, 0), (-1, -1), 4),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("BACKGROUND", (0, 0), (-1, -1), navy),
+                ("TOPPADDING", (0, 0), (-1, -1), 12),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
             ],
         ))
+        flow.append(_tbl(
+            [[_p("לחיצה על הכפתור פותחת את הבוט · נדרש אינטרנט", s_cta_hint)]],
+            [_USABLE_W],
+            [("BACKGROUND", (0, 0), (-1, -1), sky), ("BOTTOMPADDING", (0, 0), (-1, -1), 6)],
+        ))
+        ch = (channel or "").strip().lower()
+        tg_btn = ("פתח בטלגרם", tg_url) if tg_url else None
+        wa_btn = ("פתח בוואטסאפ", wa_url) if wa_url else None
+        buttons: list[tuple[str, str, bool]] = []
+        if ch in ("telegram", "tg"):
+            if tg_btn:
+                buttons.append((*tg_btn, True))
+            if wa_btn:
+                buttons.append((*wa_btn, False))
+        elif ch in ("whatsapp", "wa"):
+            if wa_btn:
+                buttons.append((*wa_btn, True))
+            if tg_btn:
+                buttons.append((*tg_btn, False))
+        else:
+            if tg_btn:
+                buttons.append((*tg_btn, True))
+            if wa_btn:
+                buttons.append((*wa_btn, True))
+        if not buttons:
+            return flow
+        if len(buttons) == 1:
+            flow.append(_cta_cell(buttons[0][0], buttons[0][1], buttons[0][2], _USABLE_W))
+        else:
+            half = _USABLE_W / 2 - 2
+            # RTL: כפתור ראשי מימין (עמודה 1)
+            primary, secondary = buttons[0], buttons[1]
+            if not primary[2]:
+                primary, secondary = secondary, primary
+            flow.append(_tbl(
+                [[_cta_cell(secondary[0], secondary[1], secondary[2], half),
+                  _cta_cell(primary[0], primary[1], primary[2], half)]],
+                [half, half],
+                [("VALIGN", (0, 0), (-1, -1), "MIDDLE")],
+            ))
+        urls = "  |  ".join(
+            f'<a href="{u}" color="{_LINK_BLUE}"><font size="7">{u}</font></a>'
+            for _, u, _ in buttons
+        )
+        flow.append(Paragraph(urls, s_cta_sub))
+        return flow
 
-    story.append(Spacer(1, 2))
+    def _section(block: list) -> list:
+        """Wrap section pieces with consistent spacing."""
+        out: list = [Spacer(1, 8)]
+        out.extend(block)
+        out.append(Spacer(1, 4))
+        return out
 
-    # Row: בעלות | מקוריות
-    story.append(_license_row([
-        ("סוג בעלות", _v(record, "baalut"), False),
-        ("מקוריות", _v(record, "mkoriut_nm"), False),
-    ], [half, half]))
+    # ── Assemble story ──────────────────────────────────────────────────────────
+    story: list = []
 
-    # Row: תאריך רישום | הדפסה | תוקף טסט
-    story.append(_license_row([
-        ("תאריך רישום", _fd(record.get("rishum_rishon_dt")), False),
-        ("תאריך הדפסה", now_str, False),
-        ("תוקף טסט", test_txt, False),
-    ], [third, third, third]))
+    cov = _cover_image()
+    if cov:
+        story.append(cov)
+        story.append(Spacer(1, 4))
+    story.extend(_hero_header())
+    story.append(Spacer(1, 8))
+    story.append(_stat_cards())
+    story.append(Spacer(1, 10))
 
-    # Full-width chassis (red label)
-    story.append(_field("מספר שלדה", _v(record, "misgeret"), red_label=True, size=10))
+    scrapped_dt = record.get("_scrapped_dt")
+    if scrapped_dt:
+        story.append(_alert_box(f"רכב בוטל רשמית (גרוטאה) · {_fd(scrapped_dt)}"))
+        story.append(Spacer(1, 8))
 
-    # Row: שנת ייצור | צבע | סוג דלק
-    story.append(_license_row([
-        ("שנת ייצור", year, False),
-        ("צבע", _v(record, "tzeva_rechev"), False),
-        ("סוג דלק", _v(record, "sug_delek_nm"), False),
-    ], [third, third, third]))
+    pi = record.get("_personal_import")
+    import_txt = (_v(pi, "sug_yevu") or "יבוא אישי") if pi else ""
+    if record.get("_inactive_no_degem"):
+        inactive_txt = "לא פעיל (ללא קוד דגם)"
+    elif record.get("_inactive_registry") or record.get("_was_rental"):
+        inactive_txt = _v(record, "grira_nm") or "רשום במאגר לא פעיל"
+    else:
+        inactive_txt = "פעיל"
 
-    # Row: תוצר | דגם מסחרי | דגם יצרן
-    story.append(_license_row([
-        ("תוצר", make, False),
-        ("דגם", model, False),
-        ("דגם יצרן", degem, False),
-    ], [third, third, third]))
+    # ── פרטים כלליים ──
+    general = [
+        ("מספר רכב", plate),
+        ("יצרן", make),
+        ("דגם", model),
+        ("שנת ייצור", year),
+        ("צבע", _v(record, "tzeva_rechev")),
+        ("יבוא אישי", import_txt if pi else ""),
+        ("בעלות נוכחית", _v(record, "baalut")),
+        ("ארץ ייצור", _v(wltp, "tozeret_eretz_nm")),
+        ("מקוריות", _v(record, "mkoriut_nm")),
+        ("מסגרת", _v(record, "misgeret")),
+    ]
+    tbl = _kv_table(general, highlight={"מספר רכב", "יצרן", "דגם"})
+    if tbl:
+        story.extend(_section([_section_title("פרטים כלליים"), tbl]))
 
-    # Row: נפח | תיבה | מושבים
-    story.append(_license_row([
-        ("נפח", f'{nefah} סמ"ק' if nefah else "", False),
-        ("תיבת הילוכים", gearbox, False),
-        ("מקומות ישיבה", _v(wltp, "mispar_moshavim"), False),
-    ], [third, third, third]))
+    # ── מצב ובדיקות ──
+    test_txt, _, _ = _test_status(record.get("tokef_dt"))
+    km_val = _v(record, "kilometer_test_aharon")
+    gapam = record.get("gapam_ind")
+    status_rows = [
+        ("תוקף טסט", test_txt),
+        ("ק\"מ בטסט אחרון", f"{km_val} ק\"מ" if km_val else ""),
+        ("טסט אחרון", _fd(record.get("mivchan_acharon_dt"))),
+        ("רישום ראשון", _fd(record.get("rishum_rishon_dt"))),
+        ("סטטוס רישום", inactive_txt),
+        ("GAPAM", "כן" if str(gapam) == "1" else ("לא" if gapam is not None else "")),
+        ("שינוי מבנה", "כן" if str(record.get("shinui_mivne_ind")) == "1" else (
+            "לא" if record.get("shinui_mivne_ind") is not None else "")),
+        ("שינוי צבע", "כן" if str(record.get("shnui_zeva_ind")) == "1" else (
+            "לא" if record.get("shnui_zeva_ind") is not None else "")),
+    ]
+    tbl = _kv_table(status_rows, highlight={"תוקף טסט"})
+    if tbl:
+        story.extend(_section([_section_title("מצב ובדיקות"), tbl]))
 
-    # Row: צמיגים | גרירה | הנעה
-    heina = _v(wltp, "hanaa_nm") or _v(wltp, "hanaa_cd")
-    story.append(_license_row([
-        ("צמיג קדמי", _v(record, "zmig_kidmi"), False),
-        ("צמיג אחורי", _v(record, "zmig_ahori"), False),
-        ("הנעה", heina, False),
-    ], [third, third, third]))
-
-    # Row: משקל | כוח | ניקוד
-    story.append(_license_row([
-        ("משקל כולל", _v(wltp, "mishkal_kolel"), False),
-        ("כוח סוס", _v(wltp, "koah_sus"), False),
-        ("ניקוד בטיחות", _v(wltp, "nikud_betihut"), False),
-    ], [third, third, third]))
-
-    # Row: טסט | ק"מ | סטטוס
-    km_line = f'{km_val} ק"מ' if km_val else ""
-    if km_date and km_line:
-        km_line = f"ב- {km_date}  {km_line}"
-    story.append(_license_row([
-        ("טסט אחרון", _fd(record.get("mivchan_acharon_dt")), False),
-        ("קילומטראז' בטסט", km_line, False),
-        ("סטטוס רישום", _inactive_txt(record), False),
-    ], [third, third, third]))
-
-    if import_txt:
-        story.append(_license_row([
-            ("יבוא", import_txt, False),
-            ("עלייה לכביש", _v(record, "moed_aliya_lakvish"), False),
-            ("שינוי מבנה", "כן" if str(record.get("shinui_mivne_ind")) == "1" else "לא", False),
-        ], [third, third, third]))
-
-    # Bottom strip (like license footer): תוצר | דגם | מרכב
-    story.append(Spacer(1, 4))
-    story.append(_tbl(
-        [
-            [
-                _field_col("תוצר", tozeret_full or make, third, red_label=False),
-                _field_col("דגם", degem or model, third),
-                _field_col("מרכב", merkav, third),
-            ],
-        ],
-        [third, third, third],
-        [
-            ("BACKGROUND", (0, 0), (-1, -1), colors.Color(*C_FOOT)),
-            ("BOX", (0, 0), (-1, -1), 0.8, line_c),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ],
-    ))
-
+    # ── בעלויות ──
     ownership = record.get("_ownership") or []
-    if ownership:
-        own_lines = []
-        for i, o in enumerate(ownership[:6], 1):
-            dt_str = _fmt_baalut_dt(o.get("baalut_dt", ""))
-            own_lines.append(f"{i}. {o.get('baalut', '—')} — {dt_str}")
-        story.append(Spacer(1, 3))
-        story.append(_field(f"בעלים קודמים ({len(ownership)})", "\n".join(own_lines), red_label=False, size=8))
+    own_block = [_section_title(f"היסטוריית בעלויות · {len(ownership)} רשומות")]
+    own_tbl = _ownership_table(ownership)
+    if own_tbl:
+        own_block.append(own_tbl)
+    else:
+        own_block.append(_p("לא נמצאו נתוני בעלות", s_val))
+    story.extend(_section(own_block))
 
-    recalls = record.get("_recalls") or []
-    if recalls:
-        scope = "ללוחית" if record.get("_recalls_by_plate") else "לדגם"
-        lines = []
-        for r in recalls[:5]:
-            teur = (r.get("TEUR_TAKALA") or "")[:85]
-            if not teur:
-                continue
-            if record.get("_recalls_by_plate"):
-                lines.append(f"• {_fd(r.get('TAARICH_PTICHA'))}: {teur}")
-            else:
-                lines.append(f"• {r.get('SHNAT_RECALL', '')}: {teur}")
-        if lines:
-            story.append(Spacer(1, 3))
-            story.append(_field(f"ריקולים ({scope})", "\n".join(lines), size=8))
+    # ── מפרט טכני ──
+    auto_ind = wltp.get("automatic_ind")
+    gearbox = "אוטומטית" if str(auto_ind) == "1" else ("ידנית" if str(auto_ind) == "0" else "")
+    engine_cc = _v(wltp, "nefah_manoa")
+    specs = [
+        ("סוג דלק", _v(record, "sug_delek_nm")),
+        ("נפח מנוע", f"{engine_cc} סמ\"ק" if engine_cc else ""),
+        ("כוח סוס", _v(wltp, "koah_sus")),
+        ("תיבת הילוכים", gearbox),
+        ("מושבים", _v(wltp, "mispar_moshavim")),
+        ("ניקוד בטיחות", _v(wltp, "nikud_betihut")),
+        ("צמיג קדמי", _v(record, "zmig_kidmi")),
+        ("צמיג אחורי", _v(record, "zmig_ahori")),
+        ("וו גרירה", _v(record, "grira_nm")),
+    ]
+    tbl = _kv_table(specs)
+    if tbl:
+        story.extend(_section([_section_title("מפרט טכני"), tbl]))
 
+    # ── דגלים ──
+    flags: list[str] = []
     try:
-        from src.formatter import _km_fraud_check
-        km_warn = _km_fraud_check(record)
+        from src.formatter import _check_km_fraud
+        import re as _re
+        km_warn = _check_km_fraud(record)
         if km_warn:
-            story.append(Spacer(1, 3))
-            story.append(_tbl(
-                [[_p(km_warn, s_alert)]],
-                [_USABLE_W],
-                [
-                    ("BACKGROUND", (0, 0), (-1, -1), colors.Color(1, 0.97, 0.90)),
-                    ("BOX", (0, 0), (-1, -1), 0.8, colors.Color(*C_WARN)),
-                    ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
-                    ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-                    ("TOPPADDING", (0, 0), (-1, -1), 4),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-                ],
+            flags.append(_re.sub(
+                r"\\([\\!\"#$%&'()*+,\-./:;<=>?@\[\]^_`{|}~])", r"\1", km_warn,
             ))
     except Exception:
         pass
+    if flags:
+        warn_block = [_section_title("דגלים ואזהרות", "⚡")]
+        for flag in flags:
+            if flag:
+                warn_block.append(_warn_box(flag))
+        story.extend(_section(warn_block))
 
+    # ── שווי ──
     importer_price = record.get("_importer_price")
     if importer_price:
         try:
             price_int = int(float(importer_price))
             age = date.today().year - int(year) if year else 0
-            dep = min(age * 8, 70) if age > 0 else 0
-            est = int(price_int * (1 - dep / 100))
-            story.append(Spacer(1, 3))
-            story.append(_license_row([
-                ("מחיר יבואן", f"₪{price_int:,}", False),
-                ("הערכה משוערת", f"₪{est:,}", False),
-            ], [half, half]))
+            dep_pct = min(age * 8, 70) if age > 0 else 0
+            est_val = int(price_int * (1 - dep_pct / 100))
+            ptbl = _price_highlight([
+                ("מחיר יבואן (חדש)", f"₪{price_int:,}"),
+                ("הערכת שווי משוערת", f"₪{est_val:,}  ·  ירידת ערך ~{dep_pct}%"),
+            ])
+            if ptbl:
+                story.extend(_section([_section_title("שווי ומחיר", "₪"), ptbl]))
         except Exception:
             pass
 
-    story.append(Spacer(1, 4))
+    # Disclaimer
+    story.append(Spacer(1, 6))
     story.append(_p(
-        "נתונים ממקורות ממשלתיים פתוחים · CarInfo",
-        s_note,
+        "הדוח מבוסס על נתונים ציבוריים · אין להסתמך עליו כייעוץ משפטי או מסחרי בלבד",
+        sty("disc", size=8, color=muted, align=TA_RTL),
     ))
+
+    story.extend(_promo_footer())
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
         buf,
-        pagesize=_PAGE,
+        pagesize=A4,
         leftMargin=_MARGIN,
         rightMargin=_MARGIN,
-        topMargin=_MARGIN,
-        bottomMargin=_MARGIN + _FOOTER_H,
+        topMargin=_MARGIN + 4 * _MM,
+        bottomMargin=_MARGIN + 12 * _MM,
     )
-    doc.build(story, onFirstPage=_page_decor, onLaterPages=_page_decor)
+    doc.build(story, onFirstPage=_page_bg, onLaterPages=_page_bg)
     return buf.getvalue()
-
-
-def _hebrew_join_parts(*parts: str, sep: str = " ") -> str:
-    return sep.join(p for p in parts if p)
