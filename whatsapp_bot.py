@@ -42,6 +42,12 @@ from src.users import (
     is_blocked,
     link_wa_to_telegram,
     consume_link_code,
+    admin_stats,
+    admin_grant,
+    get_all_users,
+    block_user,
+    unblock_user,
+    get_user_by_phone,
 )
 from src import wa_menu as menu
 
@@ -55,6 +61,7 @@ ID_INSTANCE    = os.environ.get("GREEN_API_ID_INSTANCE", "")
 TOKEN_INSTANCE = os.environ.get("GREEN_API_TOKEN_INSTANCE", "")
 WEBHOOK_TOKEN  = os.environ.get("GREEN_API_WEBHOOK_TOKEN", "")
 ADMIN_TG_ID    = os.environ.get("TELEGRAM_ADMIN_ID", "")
+ADMIN_WA_PHONE = os.environ.get("ADMIN_WA_PHONE", "")
 PAYPAL_ME      = os.environ.get("PAYPAL_ME", "https://www.paypal.me/G9ST")
 PORT           = int(os.environ.get("PORT", 8081))
 
@@ -122,6 +129,100 @@ async def notify_telegram_admin(text: str) -> None:
         logger.warning("notify_telegram_admin failed: %s", exc)
 
 
+# ── Admin handler ───────────────────────────────────────────────────────────
+
+async def handle_admin(chat_id: str, phone: str, text: str) -> bool:
+    """Handle admin commands. Returns True if handled."""
+    if not ADMIN_WA_PHONE or phone != ADMIN_WA_PHONE:
+        return False
+
+    lower = text.strip().lower()
+    parts = text.strip().split()
+
+    # סטטיסטיקות
+    if lower in ("סטטיסטיקות", "סטט", "stats", "אדמין", "admin"):
+        stats = await admin_stats()
+        await send_message(chat_id,
+            f"📊 *סטטיסטיקות CarInfo*\n"
+            f"─────────────────\n"
+            f"👤 משתמשים: {stats['total_users']} | פעילים: {stats['active_users']}\n"
+            f"🔍 בדיקות: {stats['total_searches']}\n"
+            f"🔑 קודים: {stats['used_codes']}/{stats['total_codes']} נוצלו\n\n"
+            f"─────────────────\n"
+            f"*פקודות אדמין:*\n"
+            f"grant 972501234567 50 — הענק בדיקות\n"
+            f"block 972501234567 — חסום\n"
+            f"unblock 972501234567 — שחרר\n"
+            f"approve 972501234567 50 — אשר תשלום"
+        )
+        return True
+
+    # grant <phone> <amount>
+    if parts[0].lower() == "grant" and len(parts) >= 3:
+        target_phone = parts[1]
+        try:
+            amount = int(parts[2])
+        except ValueError:
+            await send_message(chat_id, "❌ כמות חייבת להיות מספר\nשימוש: grant 972501234567 50")
+            return True
+        from src.users import _phone_to_id, _ensure_wa_user
+        target_id = _phone_to_id(target_phone)
+        await _ensure_wa_user(target_phone)
+        msg = await admin_grant(target_id, target_id, amount, "granted via WA admin")
+        msg_plain = re.sub(r"\\([_\*\[\]()~`>#+=|{}.!\-])", r"\1", msg)
+        msg_plain = re.sub(r"[*_`]", "", msg_plain)
+        await send_message(chat_id, f"✅ {target_phone}: {msg_plain}")
+        # notify user
+        target_chat = f"{target_phone}@c.us"
+        desc = "מנוי חודשי" if amount == -1 else ("גישה חופשית" if amount == -2 else f"{amount} בדיקות")
+        await send_message(target_chat, f"🎉 נוספו לך {desc}! תוכל לחפש רכבים עכשיו.")
+        return True
+
+    # approve <phone> <amount>  — אישור תשלום
+    if parts[0].lower() == "approve" and len(parts) >= 3:
+        target_phone = parts[1]
+        try:
+            amount = int(parts[2])
+        except ValueError:
+            await send_message(chat_id, "❌ שימוש: approve 972501234567 50")
+            return True
+        from src.users import _phone_to_id, _ensure_wa_user
+        target_id = _phone_to_id(target_phone)
+        await _ensure_wa_user(target_phone)
+        msg = await admin_grant(target_id, target_id, amount, "payment approved via WA admin")
+        msg_plain = re.sub(r"\\([_\*\[\]()~`>#+=|{}.!\-])", r"\1", msg)
+        msg_plain = re.sub(r"[*_`]", "", msg_plain)
+        await send_message(chat_id, f"✅ אושר! {target_phone}: {msg_plain}")
+        target_chat = f"{target_phone}@c.us"
+        desc = "מנוי חודשי ללא הגבלה" if amount == -1 else f"{amount} בדיקות"
+        await send_message(target_chat, f"✅ התשלום אושר! נוספו לך {desc}. תוכל לחפש מיד.")
+        return True
+
+    # block <phone>
+    if parts[0].lower() == "block" and len(parts) >= 2:
+        target_phone = parts[1]
+        from src.users import _phone_to_id
+        target_id = _phone_to_id(target_phone)
+        await block_user(target_id)
+        await send_message(chat_id, f"🚫 {target_phone} נחסם")
+        target_chat = f"{target_phone}@c.us"
+        await send_message(target_chat, "🚫 הגישה שלך חסומה. לפרטים פנה למנהל.")
+        return True
+
+    # unblock <phone>
+    if parts[0].lower() in ("unblock", "שחרר") and len(parts) >= 2:
+        target_phone = parts[1]
+        from src.users import _phone_to_id
+        target_id = _phone_to_id(target_phone)
+        await unblock_user(target_id)
+        await send_message(chat_id, f"✅ {target_phone} שוחרר")
+        target_chat = f"{target_phone}@c.us"
+        await send_message(target_chat, "✅ החסימה הוסרה. תוכל להמשיך להשתמש בבוט.")
+        return True
+
+    return False
+
+
 # ── Message dispatcher ──────────────────────────────────────────────────────
 
 def _normalize_phone(raw: str) -> str:
@@ -136,6 +237,10 @@ def _normalize_plate(text: str) -> str:
 async def handle_message(chat_id: str, phone: str, body: str) -> None:
     text  = body.strip()
     lower = text.lower()
+
+    # Admin commands (checked before anything else)
+    if await handle_admin(chat_id, phone, text):
+        return
 
     # Ensure user row exists
     user_id = await _ensure_wa_user(phone)
@@ -202,9 +307,21 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
                 f"📱 טלפון: {phone}\n"
                 f"📦 {label}\n"
                 f"💵 ₪{price}\n\n"
-                f"לאחר אימות ב-PayPal הענק גישה דרך פאנל הניהול בטלגרם:\n"
-                f"/admin grant {phone} {searches}"
+                f"לאחר אימות ב-PayPal:\n"
+                f"• בטלגרם: /admin grant {phone} {searches}\n"
+                f"• בווטסאפ: approve {phone} {searches}"
             )
+            # Also notify WA admin directly
+            if ADMIN_WA_PHONE:
+                admin_chat = f"{ADMIN_WA_PHONE}@c.us"
+                await send_message(admin_chat,
+                    f"💰 *בקשת תשלום חדשה!*\n"
+                    f"─────────────────\n"
+                    f"📱 {phone}\n"
+                    f"📦 {label} — ₪{price}\n\n"
+                    f"לאישור שלח:\n"
+                    f"approve {phone} {searches}"
+                )
             await send_message(
                 chat_id,
                 "✅ קיבלנו את בקשתך!\n\nהגישה תיפתח לאחר אימות התשלום. בדרך כלל תוך מספר דקות.",
