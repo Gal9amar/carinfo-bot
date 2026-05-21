@@ -38,6 +38,8 @@ from src.formatter import (
     format_not_found,
     get_summary,
     get_share_text,
+    yad2_url,
+    yad2_label,
 )
 from src.pdf_report import generate_pdf
 
@@ -140,11 +142,14 @@ def normalize_plate(text: str) -> str:
     return text.strip().replace("-", "").replace(" ", "")
 
 
-def build_result_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
+def build_result_keyboard(is_admin: bool = False, record: dict | None = None) -> InlineKeyboardMarkup:
     rows = [[
         InlineKeyboardButton("📄 הורד PDF", callback_data="pdf_report"),
         InlineKeyboardButton("📤 שתף דוח", callback_data="share_report"),
     ]]
+    if record:
+        label = yad2_label(record)
+        rows.append([InlineKeyboardButton(f"🔍 {label} ב-Yad2", url=yad2_url(record))])
     rows.extend(_persistent_rows(is_admin))
     return InlineKeyboardMarkup(rows)
 
@@ -1497,7 +1502,7 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await update.message.reply_text(
         summary,
         parse_mode=ParseMode.MARKDOWN_V2,
-        reply_markup=build_result_keyboard(is_admin=(user_id == ADMIN_ID)),
+        reply_markup=build_result_keyboard(is_admin=(user_id == ADMIN_ID), record=record),
     )
 
 
