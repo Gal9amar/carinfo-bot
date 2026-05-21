@@ -720,6 +720,7 @@ def get_summary(record: dict) -> str:
         cat_history(record, w) + "\n",
         cat_ownership(record, w) + "\n",
         cat_recalls(record),
+        "\n\n_⚠️ המידע נאסף ממאגרים ממשלתיים וציבוריים\\. CarInfo ומפעיל הבוט אינם אחראים לנכונות הנתונים\\. אין להסתמך על דוח זה כתחליף לבדיקה מקצועית\\._",
     ]
 
     return "".join(s for s in sections if s)
