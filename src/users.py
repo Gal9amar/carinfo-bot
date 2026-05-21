@@ -425,14 +425,28 @@ async def link_wa_to_telegram(telegram_id: int, phone: str) -> bool:
     if not tg:
         return False
 
-    # Merge: take the higher quota, sum up searches_done, keep TG row
-    merged_quota = max(wa["searches_quota"], tg["searches_quota"])
-    merged_done  = tg["searches_done"]  # keep TG counter; WA was independent
+    # Merge: -1 = unlimited, always wins; otherwise take the higher quota
+    wa_q  = wa["searches_quota"]
+    tg_q  = tg["searches_quota"]
+    if wa_q == -1 or tg_q == -1:
+        merged_quota = -1
+        # Keep the later expiry date (or None if one side is permanent)
+        wa_exp = wa.get("quota_expires")
+        tg_exp = tg.get("quota_expires")
+        if wa_exp and tg_exp:
+            merged_expires = max(wa_exp, tg_exp)
+        else:
+            merged_expires = None  # permanent unlimited
+    else:
+        merged_quota   = max(wa_q, tg_q)
+        merged_expires = tg.get("quota_expires")
+
+    merged_done = tg["searches_done"]
     await execute(
         """UPDATE users
-           SET whatsapp_phone = ?, searches_quota = ?, searches_done = ?
+           SET whatsapp_phone = ?, searches_quota = ?, searches_done = ?, quota_expires = ?
            WHERE user_id = ?""",
-        [phone, merged_quota, merged_done, telegram_id],
+        [phone, merged_quota, merged_done, merged_expires, telegram_id],
     )
     # Move search history
     await execute(
