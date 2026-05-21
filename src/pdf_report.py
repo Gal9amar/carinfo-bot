@@ -436,7 +436,8 @@ def generate_pdf(
             import io as _io
             import httpx as _httpx
             from reportlab.platypus import Image as RLImage
-            resp = _httpx.get(car_image_url, timeout=12, follow_redirects=True)
+            _dl_headers = {"User-Agent": "CarInfoBot/1.0 (contact: gal9amar@gmail.com)"}
+            resp = _httpx.get(car_image_url, timeout=15, follow_redirects=True, headers=_dl_headers)
             resp.raise_for_status()
             img_data = _io.BytesIO(resp.content)
             try:

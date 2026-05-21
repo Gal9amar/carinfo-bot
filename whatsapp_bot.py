@@ -826,6 +826,7 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
 
         # Try to send a car photo after the text result
         try:
+            import httpx as _httpx
             from src.api.image_api import fetch_car_image
             make  = record.get("tozeret_nm", "")
             model = record.get("kinuy_mishari") or record.get("degem_nm", "")
@@ -834,8 +835,13 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
             if make or model:
                 img_url = await fetch_car_image(make, model, year, color)
                 if img_url:
+                    # Resolve any redirects so Green API gets a direct image URL
+                    _ua = {"User-Agent": "CarInfoBot/1.0 (contact: gal9amar@gmail.com)"}
+                    async with _httpx.AsyncClient(timeout=15, follow_redirects=True, headers=_ua) as _cl:
+                        _hr = await _cl.head(img_url)
+                    resolved_url = str(_hr.url)
                     caption = " · ".join(p for p in [make, model, year] if p)
-                    await send_wa_image(chat_id, img_url, caption)
+                    await send_wa_image(chat_id, resolved_url, caption)
         except Exception as exc:
             logger.debug("WA car image fetch skipped: %s", exc)
 

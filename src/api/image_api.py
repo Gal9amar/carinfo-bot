@@ -68,7 +68,15 @@ _WIKI_TITLE_MAP = {
 
 
 def _translate(text: str, mapping: dict) -> str:
-    return mapping.get(text.strip(), text.strip())
+    t = text.strip()
+    # Exact match first
+    if t in mapping:
+        return mapping[t]
+    # Partial match — Hebrew manufacturer name may have suffix like "יפן", "קוריאה"
+    for heb, eng in mapping.items():
+        if t.startswith(heb):
+            return eng
+    return t
 
 
 def _build_query(manufacturer: str, model: str, year: str) -> str:
@@ -87,7 +95,10 @@ def _wiki_title(mfr_en: str, model: str) -> str:
 
 
 async def _wikimedia_commons(query: str) -> Optional[str]:
-    """Wikimedia Commons search — requires User-Agent to avoid 403."""
+    """
+    Wikimedia Commons search.
+    Returns a Special:FilePath URL which is directly downloadable (no 400/403).
+    """
     params = {
         "action": "query",
         "generator": "search",
@@ -95,8 +106,7 @@ async def _wikimedia_commons(query: str) -> Optional[str]:
         "gsrsearch": f"{query} car",
         "gsrlimit": "8",
         "prop": "imageinfo",
-        "iiprop": "url|mime",
-        "iiurlwidth": "960",
+        "iiprop": "url|mime|canonicaltitle",
         "format": "json",
     }
     try:
@@ -105,11 +115,15 @@ async def _wikimedia_commons(query: str) -> Optional[str]:
             resp.raise_for_status()
             pages = resp.json().get("query", {}).get("pages", {})
         for page in pages.values():
-            info = page.get("imageinfo", [{}])[0]
-            mime = info.get("mime", "")
-            img_url = info.get("thumburl") or info.get("url", "")
-            if mime == "image/jpeg" and img_url:
-                return img_url
+            info  = page.get("imageinfo", [{}])[0]
+            mime  = info.get("mime", "")
+            if mime != "image/jpeg":
+                continue
+            # Use canonical title to build a Special:FilePath URL — always downloadable
+            title = info.get("canonicaltitle", "") or page.get("title", "")
+            if title.startswith("File:"):
+                filename = title[len("File:"):]
+                return f"https://commons.wikimedia.org/wiki/Special:FilePath/{httpx.URL(filename)}"
     except Exception:
         pass
     return None

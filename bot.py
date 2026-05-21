@@ -1537,6 +1537,7 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     # Send car photo after the text report
     try:
+        import httpx as _httpx, io as _io
         from src.api.image_api import fetch_car_image
         make  = record.get("tozeret_nm", "")
         model = record.get("kinuy_mishari") or record.get("degem_nm", "")
@@ -1545,12 +1546,17 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         if make or model:
             img_url = await fetch_car_image(make, model, year, color)
             if img_url:
-                caption_parts = [p for p in [make, model, year] if p]
-                caption = " · ".join(caption_parts)
-                await update.message.reply_photo(
-                    photo=img_url,
-                    caption=caption,
-                )
+                # Download with User-Agent (Wikimedia requires it), send as bytes
+                _ua = {"User-Agent": "CarInfoBot/1.0 (contact: gal9amar@gmail.com)"}
+                async with _httpx.AsyncClient(timeout=15, follow_redirects=True, headers=_ua) as _cl:
+                    _r = await _cl.get(img_url)
+                if _r.status_code == 200:
+                    caption_parts = [p for p in [make, model, year] if p]
+                    caption = " · ".join(caption_parts)
+                    await update.message.reply_photo(
+                        photo=_io.BytesIO(_r.content),
+                        caption=caption,
+                    )
     except Exception as exc:
         logger.debug("Telegram car image fetch skipped: %s", exc)
 
