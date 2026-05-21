@@ -298,10 +298,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", 0))
         raw    = self.rfile.read(length)
 
-        logger.info("POST /webhook from %s | headers: %s | body: %s",
-                    self.client_address,
-                    dict(self.headers),
-                    raw[:300])
+        logger.debug("POST /webhook from %s | body: %s", self.client_address, raw[:200])
 
         self._send(200)
 
