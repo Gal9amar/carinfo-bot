@@ -734,6 +734,7 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
                 wa_link=f"wa.me/{WA_BOT_PHONE}",
                 logo_path=os.environ.get("LOGO_PATH", ""),
                 cover_path=os.environ.get("COVER_PATH", ""),
+                channel="whatsapp",
             )
         except Exception as exc:
             logger.error("WA PDF generation failed plate=%s: %s", last_plate, exc)

@@ -1641,6 +1641,7 @@ async def handle_pdf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             wa_link=f"wa.me/{WA_PHONE}",
             logo_path=os.environ.get("LOGO_PATH", ""),
             cover_path=os.environ.get("COVER_PATH", ""),
+            channel="telegram",
         )
     except Exception as e:
         logger.error("PDF generation failed for plate %s: %s", plate, e)
