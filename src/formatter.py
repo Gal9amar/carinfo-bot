@@ -352,8 +352,9 @@ def cat_ownership(record: dict, w: dict) -> str:
         except Exception:
             return str(dt)
 
+    _lbl_total = 'סה"כ רשומות'
     lines = [f"*👥 היסטוריית בעלויות*\n"]
-    lines.append(f"• *{_escape('סה\"כ רשומות')}:* {_escape(str(total))}\n")
+    lines.append(f"• *{_escape(_lbl_total)}:* {_escape(str(total))}\n")
     lines.append(f"• *{_escape('בעלויות פרטיות')}:* {_escape(str(private_count))}\n")
     lines.append(f"• *{_escape('עברו דרך סוחר')}:* {_escape(str(dealer_count))}\n")
     lines.append("━━━━━━━━━━━━━━━━━━\n")
@@ -531,9 +532,11 @@ def quick_summary(record: dict) -> str:
     ]
     if color:
         lines.append(f"• *{_escape('צבע')}:* {_escape(color)}\n")
+    _km_lbl  = 'ק"מ'
+    _no_data = '✖ לא קיים'
     lines += [
         f"• *{_escape('מצב כללי')}:* {overall}\n",
-        f"• *{_escape('ק\"מ')}:* {_escape(km_str) if km_str else '✖ לא קיים'}\n",
+        f"• *{_escape(_km_lbl)}:* {_escape(km_str) if km_str else _no_data}\n",
         f"• *{_escape('בעלויות')}:* {_escape(str(owner_count))} \\| *{_escape('נוכחית')}:* {_escape(baalut)}\n",
         f"• *{_escape('טסט')}:* {_escape(test_str)}\n",
         f"• *{_escape('רכב שכור בעבר')}:* {'✅ כן' if was_rental else '❌ לא'}\n",
