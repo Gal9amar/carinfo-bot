@@ -126,10 +126,11 @@ def _full_url(link: str) -> str:
 
 # ── Layout constants ───────────────────────────────────────────────────────────
 _MM = 2.8346456692913385
-_MARGIN = 14 * _MM
-_USABLE_W = 182 * _MM
-_COL_VALUE = 118 * _MM
-_COL_LABEL = 64 * _MM
+# More whitespace + narrower content for a calmer, professional look
+_MARGIN = 18 * _MM
+_USABLE_W = 160 * _MM
+_COL_VALUE = 104 * _MM
+_COL_LABEL = 56 * _MM
 
 # Premium palette (RGB 0–1)
 C_NAVY      = (0.06, 0.11, 0.24)      # #0F1C3D
@@ -162,6 +163,7 @@ def generate_pdf(
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.platypus import (
+        Flowable,
         HRFlowable,
         Paragraph,
         SimpleDocTemplate,
@@ -216,24 +218,25 @@ def generate_pdf(
     muted = colors.Color(*C_TEXT_MUTED)
     border_c = colors.Color(*C_BORDER)
 
-    s_brand = sty("brand", size=22, bold=True, color=accent, align=TA_CENTER, leading=26)
-    s_title = sty("title", size=13, bold=True, color=colors.white, align=TA_CENTER, leading=16)
-    s_plate = sty("plate", size=28, bold=True, color=colors.white, align=TA_CENTER, leading=32)
-    s_subhero = sty("subhero", size=11, color=colors.Color(0.75, 0.82, 0.95), align=TA_CENTER)
-    s_meta = sty("meta", size=8, color=muted, align=TA_CENTER)
-    s_sec = sty("sec", size=11, bold=True, color=navy, align=TA_RTL, leading=14)
-    s_lbl = sty("lbl", size=9, bold=True, color=colors.white, align=TA_RTL)
-    s_val = sty("val", size=10, color=colors.Color(*C_NAVY), align=TA_RTL)
-    s_val_big = sty("val_big", size=12, bold=True, color=navy, align=TA_RTL)
-    s_stat_lbl = sty("stat_lbl", size=8, color=muted, align=TA_RTL)
-    s_stat_val = sty("stat_val", size=11, bold=True, color=navy, align=TA_RTL)
-    s_alert = sty("alert", size=10, bold=True, color=colors.Color(*C_ALERT_BD), align=TA_RTL)
-    s_warn = sty("warn", size=9, color=colors.Color(0.45, 0.30, 0.05), align=TA_RTL)
-    s_price = sty("price", size=14, bold=True, color=navy, align=TA_RTL)
-    s_footer = sty("footer", size=7, color=muted, align=TA_CENTER)
-    s_cta_title = sty("cta_t", size=12, bold=True, color=colors.white, align=TA_CENTER)
-    s_cta_hint = sty("cta_h", size=9, color=navy, align=TA_CENTER)
-    s_cta_sub = sty("cta_s", size=7, color=muted, align=TA_CENTER)
+    # Slightly smaller typography overall
+    s_brand = sty("brand", size=18, bold=True, color=accent, align=TA_CENTER, leading=22)
+    s_title = sty("title", size=11, bold=True, color=colors.white, align=TA_CENTER, leading=14)
+    s_plate = sty("plate", size=22, bold=True, color=colors.white, align=TA_CENTER, leading=26)
+    s_subhero = sty("subhero", size=9, color=colors.Color(0.75, 0.82, 0.95), align=TA_CENTER)
+    s_meta = sty("meta", size=7, color=muted, align=TA_CENTER)
+    s_sec = sty("sec", size=10, bold=True, color=navy, align=TA_RTL, leading=12)
+    s_lbl = sty("lbl", size=8, bold=True, color=colors.white, align=TA_RTL)
+    s_val = sty("val", size=9, color=colors.Color(*C_NAVY), align=TA_RTL)
+    s_val_big = sty("val_big", size=10.5, bold=True, color=navy, align=TA_RTL)
+    s_stat_lbl = sty("stat_lbl", size=7, color=muted, align=TA_RTL)
+    s_stat_val = sty("stat_val", size=9.5, bold=True, color=navy, align=TA_RTL)
+    s_alert = sty("alert", size=9, bold=True, color=colors.Color(*C_ALERT_BD), align=TA_RTL)
+    s_warn = sty("warn", size=8, color=colors.Color(0.45, 0.30, 0.05), align=TA_RTL)
+    s_price = sty("price", size=12, bold=True, color=navy, align=TA_RTL)
+    s_footer = sty("footer", size=6.5, color=muted, align=TA_CENTER)
+    s_cta_title = sty("cta_t", size=10.5, bold=True, color=colors.white, align=TA_CENTER)
+    s_cta_hint = sty("cta_h", size=8, color=navy, align=TA_CENTER)
+    s_cta_sub = sty("cta_s", size=6.5, color=muted, align=TA_CENTER)
 
     # ── Page chrome (header strip + footer on every page) ─────────────────────
     def _page_bg(canv, doc):
@@ -496,80 +499,116 @@ def generate_pdf(
             style.append(("BACKGROUND", (1, i), (2, i), card if i % 2 == 0 else colors.Color(*C_ROW_ALT)))
         return _tbl(data, [idx_w, mid_w, date_w], style)
 
-    def _link_btn(label_he: str, url: str, primary: bool) -> Paragraph:
-        label = _b(label_he)
-        if primary:
-            inner = f'<a href="{url}" color="{_LINK_WHITE}"><b><font size="12">{label}</font></b></a>'
-            return Paragraph(inner, sty("lb", size=12, bold=True, color=colors.white, align=TA_CENTER))
-        inner = f'<a href="{url}" color="{_LINK_BLUE}"><b>{label}</b></a>'
-        return Paragraph(inner, sty("lbs", size=10, bold=True, color=navy, align=TA_CENTER))
+    class _SocialLink(Flowable):
+        """Clickable row: platform icon + label text."""
 
-    def _cta_cell(label: str, url: str, primary: bool, width: float) -> Table:
-        bg = navy if primary else sky
-        bd = accent if primary else navy_mid
-        return _tbl([[_link_btn(label, url, primary)]], [width], [
-            ("BACKGROUND", (0, 0), (-1, -1), bg),
-            ("BOX", (0, 0), (-1, -1), 1.5 if primary else 0.8, bd),
-            ("TOPPADDING", (0, 0), (-1, -1), 12 if primary else 8),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 12 if primary else 8),
-            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ])
+        def __init__(self, kind: str, label_he: str, url: str, primary: bool):
+            super().__init__()
+            self.kind = kind
+            self.label_he = label_he
+            self.url = url
+            self.primary = primary
+            self.h = 12 * _MM
+
+        def wrap(self, availWidth, availHeight):
+            self.width = min(availWidth, _USABLE_W)
+            return self.width, self.h
+
+        def draw(self):
+            canv = self.canv
+            w = getattr(self, "width", _USABLE_W)
+            h = self.h
+
+            bg = navy if self.primary else colors.Color(1, 1, 1)
+            bd = accent if self.primary else border_c
+            txt = colors.white if self.primary else navy
+
+            # Subtle card
+            canv.setFillColor(bg)
+            canv.setStrokeColor(bd)
+            canv.setLineWidth(0.8 if self.primary else 0.5)
+            canv.roundRect(0, 0, w, h, 5, fill=1, stroke=1)
+
+            # Icon (simple vector)
+            icon_sz = 7.5 * _MM
+            r = icon_sz / 2
+            gap = 6
+            label_vis = _b(self.label_he)
+            canv.setFont(font_bold, 9)
+            label_w = canv.stringWidth(label_vis, font_bold, 9)
+            group_w = icon_sz + gap + label_w
+            x0 = (w - group_w) / 2
+            y0 = (h - icon_sz) / 2
+
+            if self.kind == "telegram":
+                canv.setFillColor(colors.Color(0.16, 0.52, 0.78))
+                canv.circle(x0 + r, y0 + r, r, fill=1, stroke=0)
+                canv.setFillColor(colors.white)
+                canv.circle(x0 + r - 0.6 * _MM, y0 + r, 0.7 * _MM, fill=1, stroke=0)
+            else:
+                canv.setFillColor(colors.Color(0.15, 0.68, 0.38))
+                canv.circle(x0 + r, y0 + r, r, fill=1, stroke=0)
+                canv.setFillColor(colors.white)
+                canv.circle(x0 + r, y0 + r, r * 0.52, fill=1, stroke=0)
+
+            canv.setFillColor(txt)
+            canv.drawString(x0 + icon_sz + gap, (h - 9) / 2, label_vis)
+
+            # Clickable area over icon + text (actually entire row)
+            try:
+                canv.linkURL(self.url, (0, 0, w, h), relative=0)
+            except Exception:
+                pass
 
     def _promo_footer() -> list:
-        flow: list = [Spacer(1, 10)]
+        flow: list = [Spacer(1, 8)]
         flow.append(_tbl(
-            [[_p("המשך בדיקות רכב — CarInfo", s_cta_title)]],
+            [[_p("להמשך בדיקה / קבלת עדכונים", s_cta_title)]],
             [_USABLE_W],
             [
                 ("BACKGROUND", (0, 0), (-1, -1), navy),
-                ("TOPPADDING", (0, 0), (-1, -1), 12),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+                ("TOPPADDING", (0, 0), (-1, -1), 10),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
             ],
         ))
         flow.append(_tbl(
-            [[_p("לחיצה על הכפתור פותחת את הבוט · נדרש אינטרנט", s_cta_hint)]],
+            [[_p("לחיצה על האייקון או הטקסט פותחת את הבוט", s_cta_hint)]],
             [_USABLE_W],
-            [("BACKGROUND", (0, 0), (-1, -1), sky), ("BOTTOMPADDING", (0, 0), (-1, -1), 6)],
+            [("BACKGROUND", (0, 0), (-1, -1), sky), ("BOTTOMPADDING", (0, 0), (-1, -1), 4)],
         ))
         ch = (channel or "").strip().lower()
-        tg_btn = ("פתח בטלגרם", tg_url) if tg_url else None
-        wa_btn = ("פתח בוואטסאפ", wa_url) if wa_url else None
-        buttons: list[tuple[str, str, bool]] = []
+        tg = ("telegram", "פתח בטלגרם", tg_url) if tg_url else None
+        wa = ("whatsapp", "פתח בוואטסאפ", wa_url) if wa_url else None
+        buttons: list[tuple[str, str, str, bool]] = []
         if ch in ("telegram", "tg"):
-            if tg_btn:
-                buttons.append((*tg_btn, True))
-            if wa_btn:
-                buttons.append((*wa_btn, False))
+            if tg:
+                buttons.append((*tg, True))
+            if wa:
+                buttons.append((*wa, False))
         elif ch in ("whatsapp", "wa"):
-            if wa_btn:
-                buttons.append((*wa_btn, True))
-            if tg_btn:
-                buttons.append((*tg_btn, False))
+            if wa:
+                buttons.append((*wa, True))
+            if tg:
+                buttons.append((*tg, False))
         else:
-            if tg_btn:
-                buttons.append((*tg_btn, True))
-            if wa_btn:
-                buttons.append((*wa_btn, True))
+            if tg:
+                buttons.append((*tg, True))
+            if wa:
+                buttons.append((*wa, True))
         if not buttons:
             return flow
-        if len(buttons) == 1:
-            flow.append(_cta_cell(buttons[0][0], buttons[0][1], buttons[0][2], _USABLE_W))
-        else:
-            half = _USABLE_W / 2 - 2
-            # RTL: כפתור ראשי מימין (עמודה 1)
-            primary, secondary = buttons[0], buttons[1]
-            if not primary[2]:
-                primary, secondary = secondary, primary
-            flow.append(_tbl(
-                [[_cta_cell(secondary[0], secondary[1], secondary[2], half),
-                  _cta_cell(primary[0], primary[1], primary[2], half)]],
-                [half, half],
-                [("VALIGN", (0, 0), (-1, -1), "MIDDLE")],
-            ))
+        # Primary first, secondary second — stacked and subtle
+        kind, label, url, primary = buttons[0]
+        flow.append(_SocialLink(kind, label, url, primary))
+        if len(buttons) > 1:
+            kind, label, url, primary = buttons[1]
+            flow.append(Spacer(1, 4))
+            flow.append(_SocialLink(kind, label, url, primary))
         urls = "  |  ".join(
-            f'<a href="{u}" color="{_LINK_BLUE}"><font size="7">{u}</font></a>'
-            for _, u, _ in buttons
+            f'<a href="{u}" color="{_LINK_BLUE}"><font size="6.5">{u}</font></a>'
+            for _, _, u, _ in buttons
         )
+        flow.append(Spacer(1, 4))
         flow.append(Paragraph(urls, s_cta_sub))
         return flow
 
