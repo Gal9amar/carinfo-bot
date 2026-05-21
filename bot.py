@@ -1476,22 +1476,28 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await increment_search(user_id, plate)
         await set_last_plate(user_id, plate)
 
-    summary = get_summary(record)
-    context.user_data["last_share_text"] = get_share_text(record)
+    try:
+        summary = get_summary(record)
+        context.user_data["last_share_text"] = get_share_text(record)
+    except Exception as exc:
+        logger.error("get_summary failed for plate %s: %s", plate, exc)
+        await searching_msg.delete()
+        await update.message.reply_text(
+            format_error(), parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=_persistent_keyboard(is_admin),
+        )
+        return
 
     if not is_repeat:
         if left == -1:
-            # Check expiry date for monthly subscription
             from src.users import get_quota_expires
             expires = await get_quota_expires(user_id)
             if expires:
-                expires_str = expires[:10]  # YYYY-MM-DD
-                # Convert to DD/MM/YYYY
                 try:
                     from datetime import datetime as _dt
                     expires_str = _dt.fromisoformat(expires[:10]).strftime("%d/%m/%Y")
                 except Exception:
-                    pass
+                    expires_str = expires[:10].replace("-", "\\-")
                 summary += f"\n\n_♾️ מנוי חודשי פעיל — תוקף עד {expires_str}_"
             else:
                 summary += "\n\n_✅ גישה בלתי מוגבלת_"
@@ -1504,15 +1510,30 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await searching_msg.delete()
 
     yad2_link = _yad2.build_url(record)
-    await update.message.reply_text(
-        summary,
-        parse_mode=ParseMode.MARKDOWN_V2,
-        reply_markup=build_result_keyboard(
-            is_admin=(user_id == ADMIN_ID),
-            record=record,
-            yad2_link=yad2_link,
-        ),
-    )
+    try:
+        await update.message.reply_text(
+            summary,
+            parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=build_result_keyboard(
+                is_admin=(user_id == ADMIN_ID),
+                record=record,
+                yad2_link=yad2_link,
+            ),
+        )
+    except Exception as exc:
+        logger.error("reply_text MarkdownV2 failed for plate %s: %s", plate, exc)
+        try:
+            plain = summary.replace("\\", "")
+            await update.message.reply_text(
+                plain,
+                reply_markup=build_result_keyboard(
+                    is_admin=(user_id == ADMIN_ID),
+                    record=record,
+                    yad2_link=yad2_link,
+                ),
+            )
+        except Exception as exc2:
+            logger.error("plain fallback also failed for plate %s: %s", plate, exc2)
 
 
 WA_PHONE = os.environ.get("WA_BOT_PHONE", "972526777070")
