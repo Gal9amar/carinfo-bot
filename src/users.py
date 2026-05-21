@@ -395,10 +395,9 @@ async def get_wa_state(phone: str) -> Optional[str]:
 
 
 async def set_wa_state(phone: str, state: Optional[str]) -> None:
-    user_id = _phone_to_id(phone)
     await execute(
-        "UPDATE users SET wa_state = ? WHERE user_id = ?",
-        [state, user_id],
+        "UPDATE users SET wa_state = ? WHERE whatsapp_phone = ?",
+        [state, phone],
     )
 
 
