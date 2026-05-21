@@ -1,4 +1,4 @@
-"""
+""" 
 Yad2 URL builder for vehicle market-price links.
 
 Yad2's API is geo-blocked for non-Israeli servers, so this module uses
@@ -62,6 +62,10 @@ _MAKES: dict[str, int] = {
     "ניאו": 289,          # NIO
 }
 
+# Sanity check: Ensure Kia != Renault
+assert _MAKES["קיה"] == 48, f"Expected Kia (קיה)=48, got {_MAKES.get('קיה')}"
+assert _MAKES["רנו"] == 51, f"Expected Renault (רנו)=51, got {_MAKES.get('רנו')}"
+
 _ALIASES: dict[str, int] = {
     "מזדה":        27,   # govt: מזדה, Yad2: מאזדה
     "מרצדס בנץ":   31,   # govt: space, Yad2: hyphen
@@ -69,6 +73,10 @@ _ALIASES: dict[str, int] = {
     "סיט":         37,   # alt for סיאט
     "מג":           6,   # alt for MG
     "ב י ד":       141,  # alt for BYD
+    # Renault variants - handle govt API quirks
+    "רנו ": 51,         # trailing space
+    "רנו.": 51,         # trailing period  
+    "ריניה": 51,        # typo/OCR variant
 }
 
 
@@ -89,16 +97,47 @@ def _norm_model(name: str) -> str:
 _NORM: dict[str, int] = {_normalize(k): v for k, v in _MAKES.items()}
 _NORM.update({_normalize(k): v for k, v in _ALIASES.items()})
 
+# Debug: log the normalized mapping
+import logging as _logging
+_logger = _logging.getLogger(__name__)
+_logger.debug(f"Yad2 _NORM mapping ({len(_NORM)} entries): {list(_NORM.items())[:5]}...")
+
 
 def _manufacturer_id(make: str) -> int | None:
+    """
+    Lookup manufacturer ID. Handles:
+    - Exact matches (e.g., "קיה" -> 48)
+    - Normalized matches (handles spaces, periods, hyphens)
+    - Substring fallback (but prefer exact over substring)
+    - Returns None if no match found
+    """
     n = _normalize(make)
+    _logger.debug(f"_manufacturer_id: input='{make}' (repr={repr(make)}) normalized='{n}'")
+    
     if not n:
+        _logger.debug(f"_manufacturer_id: empty normalized name")
         return None
+    
+    # Exact match: "קיה" -> 48
     if n in _NORM:
-        return _NORM[n]
+        result = _NORM[n]
+        _logger.debug(f"_manufacturer_id: exact match found '{n}' -> {result}")
+        return result
+    
+    # Substring match as fallback (be careful of ambiguity)
+    # Sort by length desc to prefer longer/more specific matches
+    best_matches = []
     for key, mid in _NORM.items():
         if n in key or key in n:
-            return mid
+            best_matches.append((len(key), key, mid))
+    
+    if best_matches:
+        best_matches.sort(reverse=True)  # Longest key first
+        len_key, key, mid = best_matches[0]
+        _logger.info(f"_manufacturer_id: substring match for '{n}' found '{key}' -> {mid} (len={len_key})")
+        return mid
+    
+    _logger.debug(f"_manufacturer_id: no match found for '{n}' (input: '{make}')")
     return None
 
 
@@ -185,9 +224,12 @@ def build_url(record: dict) -> str:
         mod_id = _model_id(mid, model)
         if mod_id:
             params.append(f"model={mod_id}")
+        _logger.info(f"Yad2 URL: make='{make}' (id={mid}), model='{model}' (id={mod_id}), year={year}")
 
     yr = _year_param(year)
     if yr:
         params.append(yr)
 
-    return f"{base}?{'&'.join(params)}" if params else base
+    url = f"{base}?{'&'.join(params)}" if params else base
+    _logger.debug(f"build_url returning: {url}")
+    return url
