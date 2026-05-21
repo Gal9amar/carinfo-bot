@@ -146,6 +146,7 @@ async def handle_admin(chat_id: str, phone: str, text: str) -> bool:
 
     lower = text.strip().lower()
     parts = text.strip().split()
+    state = await get_wa_state(phone)
 
     # סטטיסטיקות
     ADMIN_MENU = (
@@ -198,7 +199,6 @@ async def handle_admin(chat_id: str, phone: str, text: str) -> bool:
         await set_wa_state(phone, "ADMIN_MENU")
         return True
 
-    state = await get_wa_state(phone)
     if state == "ADMIN_MENU":
         if lower in ("תפריט", "menu", "יציאה"):
             await set_wa_state(phone, None)
@@ -826,6 +826,7 @@ def _run_renewal_reminders():
 
 async def _send_renewal_reminders():
     from src.db import execute as _exec
+    from datetime import datetime as _dt, timedelta
     tomorrow = (_dt.now() + timedelta(days=1)).strftime("%Y-%m-%d")
     r = await _exec(
         "SELECT user_id, whatsapp_phone FROM users "
