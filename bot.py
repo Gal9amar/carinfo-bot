@@ -36,6 +36,7 @@ from src.formatter import (
     format_error,
     format_not_found,
     get_summary,
+    get_share_text,
 )
 
 logging.basicConfig(
@@ -138,7 +139,9 @@ def normalize_plate(text: str) -> str:
 
 
 def build_result_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
-    return _persistent_keyboard(is_admin)
+    rows = [[InlineKeyboardButton("📤 שתף דוח", callback_data="share_report")]]
+    rows.extend(_persistent_rows(is_admin))
+    return InlineKeyboardMarkup(rows)
 
 
 def _packages_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
@@ -1458,6 +1461,7 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await set_last_plate(user_id, plate)
 
     summary = get_summary(record)
+    context.user_data["last_share_text"] = get_share_text(record)
 
     if not is_repeat:
         if left == -1:
@@ -1530,6 +1534,16 @@ async def cmd_linkwa(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             [InlineKeyboardButton("💚 פתח ווטסאפ לקישור", url=wa_url)],
         ]),
     )
+
+
+async def handle_share_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    share_text = context.user_data.get("last_share_text")
+    if not share_text:
+        await query.message.reply_text("❌ לא נמצא דוח לשיתוף. בצע חיפוש חדש.")
+        return
+    await query.message.reply_text(share_text)
 
 
 async def handle_result_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1635,6 +1649,7 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(handle_how_it_works,    pattern=r"^how_it_works$"))
     app.add_handler(CallbackQueryHandler(handle_back_to_start,   pattern=r"^back_to_start$"))
     app.add_handler(CallbackQueryHandler(handle_history,         pattern=r"^(history|hist_plate\|.*)$"))
+    app.add_handler(CallbackQueryHandler(handle_share_callback,   pattern=r"^share_report$"))
     app.add_handler(CallbackQueryHandler(handle_result_callback,  pattern=r"^(new_search|chat_admin|admin_panel)$"))
     app.add_handler(CallbackQueryHandler(handle_link_whatsapp,    pattern=r"^link_whatsapp$"))
     app.add_handler(CommandHandler("linkwa", cmd_linkwa))
