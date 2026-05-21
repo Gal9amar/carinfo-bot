@@ -134,7 +134,12 @@ _GRAY_TEXT = (0.50, 0.50, 0.50)
 
 # ── PDF builder ───────────────────────────────────────────────────────────────
 
-def generate_pdf(record: dict) -> bytes:
+def generate_pdf(
+    record: dict,
+    tg_link: str = "",
+    wa_link: str = "",
+    logo_path: str = "",
+) -> bytes:
     """Generate a full Hebrew vehicle-report PDF and return raw bytes."""
     from reportlab.lib.pagesizes import A4
     from reportlab.platypus import (
@@ -179,14 +184,32 @@ def generate_pdf(record: dict) -> bytes:
     year = _v(record, "shnat_yitzur")
 
     def _header_bar(text: str, bg: tuple) -> Table:
+        import os as _os
         p = Paragraph(_b(text), s_header)
-        tbl = Table([[p]], colWidths=[_USABLE_W])
+        if logo_path and _os.path.exists(logo_path):
+            from reportlab.platypus import Image as _Image
+            logo_h = 28 * _MM
+            try:
+                logo_img = _Image(logo_path, height=logo_h, kind="proportional")
+                data = [[p, logo_img]]
+                col_widths = [_USABLE_W - logo_h * 1.8, logo_h * 1.8]
+                style_extra = [("ALIGN", (1, 0), (1, 0), "RIGHT"), ("VALIGN", (0, 0), (-1, -1), "MIDDLE")]
+            except Exception:
+                data = [[p]]
+                col_widths = [_USABLE_W]
+                style_extra = []
+        else:
+            data = [[p]]
+            col_widths = [_USABLE_W]
+            style_extra = []
+        tbl = Table(data, colWidths=col_widths)
         tbl.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, -1), colors.Color(*bg)),
             ("LEFTPADDING",   (0, 0), (-1, -1), 8),
             ("RIGHTPADDING",  (0, 0), (-1, -1), 8),
             ("TOPPADDING",    (0, 0), (-1, -1), 10),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+            *style_extra,
         ]))
         return tbl
 
@@ -425,9 +448,15 @@ def generate_pdf(record: dict) -> bytes:
 
     # 10. Footer
     now_str = datetime.now().strftime("%d/%m/%Y %H:%M")
+    footer_parts = ["מופק על ידי @israelcarinfobot"]
+    if tg_link:
+        footer_parts.append(f"טלגרם: {tg_link}")
+    if wa_link:
+        footer_parts.append(f"וואטסאפ: {wa_link}")
+    footer_parts.append(now_str)
     story.append(HRFlowable(width=_USABLE_W, thickness=0.5, color=colors.Color(*_GRAY_TEXT)))
     story.append(Spacer(1, 2))
-    story.append(Paragraph(_b(f"מופק על ידי @israelcarinfobot | {now_str}"), s_footer))
+    story.append(Paragraph(_b(" | ".join(footer_parts)), s_footer))
 
     # ── Build PDF ─────────────────────────────────────────────────────────────
     buf = io.BytesIO()

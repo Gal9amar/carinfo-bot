@@ -68,6 +68,8 @@ ADMIN_TG_ID    = os.environ.get("TELEGRAM_ADMIN_ID", "")
 ADMIN_WA_PHONE = os.environ.get("ADMIN_WA_PHONE", "")
 PAYPAL_ME      = os.environ.get("PAYPAL_ME", "https://www.paypal.me/G9ST")
 PORT           = int(os.environ.get("PORT", 8081))
+TG_BOT_USERNAME = "israelcarinfobot"
+WA_BOT_PHONE   = os.environ.get("WA_BOT_PHONE", "972526777070")
 
 PLATE_RE = re.compile(r"^[\d\-]{5,10}$")
 
@@ -96,6 +98,22 @@ async def send_message(chat_id: str, text: str) -> None:
             logger.debug("sendMessage → %s", resp.status)
     except urllib.error.URLError as exc:
         logger.warning("sendMessage failed: %s", exc)
+
+
+async def send_wa_pdf(chat_id: str, pdf_bytes: bytes, filename: str, caption: str = "") -> None:
+    """Send a PDF file via Green API sendFileByUpload (multipart/form-data)."""
+    import httpx
+    url = _green_url("sendFileByUpload")
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(
+                url,
+                files={"file": (filename, pdf_bytes, "application/pdf")},
+                data={"chatId": chat_id, "caption": caption},
+            )
+            logger.debug("sendFileByUpload → %s %s", resp.status_code, resp.text[:120])
+    except Exception as exc:
+        logger.warning("sendFileByUpload failed: %s", exc)
 
 
 async def notify_telegram_admin_or_user(user_id: int, text: str) -> None:
@@ -687,6 +705,39 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
             lines.append("\n─────────────────")
             lines.append("לחיפוש חוזר — שלח את מספר הרכב")
             await send_message(chat_id, "\n".join(lines))
+        return
+
+    if text == "6" or lower == "pdf":
+        last_plate = await get_last_plate(user_id)
+        if not last_plate:
+            await send_message(chat_id, "❌ לא נמצא חיפוש אחרון.\n\nשלח מספר רכב תחילה.")
+            return
+        record = cache.get(last_plate)
+        if record is None:
+            await send_message(chat_id, menu.SEARCHING)
+            try:
+                record = await fetch_vehicle_data(last_plate)
+            except Exception as exc:
+                logger.error("WA PDF fetch error plate=%s: %s", last_plate, exc)
+                await send_message(chat_id, menu.ERROR)
+                return
+            if record is None:
+                await send_message(chat_id, menu.NOT_FOUND.format(plate=last_plate))
+                return
+            cache.set(last_plate, record)
+        try:
+            from src.pdf_report import generate_pdf
+            pdf_bytes = generate_pdf(
+                record,
+                tg_link=f"t.me/{TG_BOT_USERNAME}",
+                wa_link=f"wa.me/{WA_BOT_PHONE}",
+                logo_path=os.environ.get("LOGO_PATH", ""),
+            )
+        except Exception as exc:
+            logger.error("WA PDF generation failed plate=%s: %s", last_plate, exc)
+            await send_message(chat_id, "❌ שגיאה ביצירת הדוח.")
+            return
+        await send_wa_pdf(chat_id, pdf_bytes, f"car_{last_plate}.pdf", f"📄 דוח רכב {last_plate}")
         return
 
     # ── Plate search ─────────────────────────────────────────────────────────
