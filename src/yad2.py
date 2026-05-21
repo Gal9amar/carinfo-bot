@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 _CACHE_TTL = 86_400  # 24 h
 
 _mfr_cache: dict[str, int] = {}
-_mfr_ts: float = 0.0
+_mfr_ts: float = -_CACHE_TTL   # force fetch on first use
 
 _model_cache: dict[int, dict[str, int]] = {}
 _model_ts: dict[int, float] = {}
@@ -45,7 +45,7 @@ _MODEL_URLS = [
 
 async def _get(url: str) -> dict:
     import httpx
-    async with httpx.AsyncClient(timeout=6, headers=_HEADERS, follow_redirects=True) as c:
+    async with httpx.AsyncClient(timeout=2, headers=_HEADERS, follow_redirects=True) as c:
         r = await c.get(url)
         r.raise_for_status()
         return r.json()

@@ -780,7 +780,10 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
 
         expires   = await get_quota_expires(user_id) if left == -1 else None
         new_left  = left if (left == -1 or is_repeat) else max(0, left - 1)
-        yad2_link = await _yad2.build_url(record)
+        try:
+            yad2_link = await asyncio.wait_for(_yad2.build_url(record), timeout=5.0)
+        except Exception:
+            yad2_link = ""
         result_text = menu.format_result(record, new_left, expires, plate=plate, yad2_link=yad2_link)
         await send_message(chat_id, result_text)
         return

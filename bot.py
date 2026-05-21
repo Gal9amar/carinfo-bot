@@ -1503,7 +1503,10 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     await searching_msg.delete()
 
-    yad2_link = await _yad2.build_url(record)
+    try:
+        yad2_link = await asyncio.wait_for(_yad2.build_url(record), timeout=5.0)
+    except Exception:
+        yad2_link = ""
     await update.message.reply_text(
         summary,
         parse_mode=ParseMode.MARKDOWN_V2,
