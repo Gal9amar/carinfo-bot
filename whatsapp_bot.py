@@ -282,8 +282,8 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
 # ── Webhook HTTP server ─────────────────────────────────────────────────────
 
 class WebhookHandler(BaseHTTPRequestHandler):
-    def log_message(self, *args):
-        pass
+    def log_message(self, format, *args):
+        logger.info("HTTP %s", format % args)
 
     def _send(self, code: int, body: bytes = b"OK") -> None:
         self.send_response(code)
@@ -295,20 +295,28 @@ class WebhookHandler(BaseHTTPRequestHandler):
         self._send(200, b"CarInfo WA Bot running")
 
     def do_POST(self):
+        length = int(self.headers.get("Content-Length", 0))
+        raw    = self.rfile.read(length)
+
+        logger.info("POST /webhook from %s | headers: %s | body: %s",
+                    self.client_address,
+                    dict(self.headers),
+                    raw[:300])
+
         # Optional webhook token check
         if WEBHOOK_TOKEN:
             token = self.headers.get("X-Green-Api-Token", "")
             if token != WEBHOOK_TOKEN:
+                logger.warning("Webhook token mismatch: got '%s', expected '%s'", token, WEBHOOK_TOKEN)
                 self._send(403, b"Forbidden")
                 return
 
-        length = int(self.headers.get("Content-Length", 0))
-        raw    = self.rfile.read(length)
         self._send(200)
 
         try:
             data = json.loads(raw)
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
+            logger.error("JSON decode error: %s | raw: %s", e, raw[:200])
             return
 
         asyncio.run(_dispatch(data))
