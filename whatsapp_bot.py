@@ -150,15 +150,15 @@ async def handle_admin(chat_id: str, phone: str, text: str) -> bool:
     ADMIN_MENU = (
         "🛠 *פאנל ניהול CarInfo*\n"
         "─────────────────\n"
-        "1️⃣  סטטיסטיקות\n"
-        "2️⃣  רשימת משתמשים\n"
-        "3️⃣  הענק בדיקות\n"
-        "4️⃣  אשר תשלום\n"
-        "5️⃣  חסום משתמש\n"
-        "6️⃣  שחרר משתמש\n"
-        "7️⃣  שלח הודעה לכולם\n"
+        "א  סטטיסטיקות\n"
+        "ב  רשימת משתמשים\n"
+        "ג  הענק בדיקות\n"
+        "ד  אשר תשלום\n"
+        "ה  חסום משתמש\n"
+        "ו  שחרר משתמש\n"
+        "ז  שלח הודעה לכולם\n"
         "─────────────────\n"
-        "שלח מספר לבחירה"
+        "שלח אות לבחירה"
     )
 
     if lower in ("אדמין", "admin", "תפריט אדמין"):
@@ -170,7 +170,7 @@ async def handle_admin(chat_id: str, phone: str, text: str) -> bool:
     if state == "ADMIN_MENU":
         await set_wa_state(phone, None)
 
-        if text == "1":
+        if text == "א":
             stats = await admin_stats()
             await send_message(chat_id,
                 f"📊 *סטטיסטיקות*\n"
@@ -180,7 +180,7 @@ async def handle_admin(chat_id: str, phone: str, text: str) -> bool:
                 f"🔑 קודים: {stats['used_codes']}/{stats['total_codes']} נוצלו"
             )
             return True
-        if text == "2":
+        if text == "ב":
             users = await get_all_users()
             lines = [f"👥 *משתמשים ({len(users)})*\n─────────────────"]
             for u in users[:20]:
@@ -194,19 +194,19 @@ async def handle_admin(chat_id: str, phone: str, text: str) -> bool:
                 lines.append(f"{bl} {p}  {done}/{qs} (נותרו:{ls})")
             await send_message(chat_id, "\n".join(lines))
             return True
-        if text == "3":
+        if text == "ג":
             await send_message(chat_id, "שלח:\ngrant 972501234567 50\n\nאו -1 למנוי חודשי, -2 לצמיתות")
             return True
-        if text == "4":
+        if text == "ד":
             await send_message(chat_id, "שלח:\napprove 972501234567 50")
             return True
-        if text == "5":
+        if text == "ה":
             await send_message(chat_id, "שלח:\nblock 972501234567")
             return True
-        if text == "6":
+        if text == "ו":
             await send_message(chat_id, "שלח:\nunblock 972501234567")
             return True
-        if text == "7":
+        if text == "ז":
             await send_message(chat_id, "שלח:\nשלח לכולם טקסט ההודעה שלך")
             return True
         # לא בחר מספר תקין — הצג תפריט שוב
