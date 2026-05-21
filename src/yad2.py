@@ -48,22 +48,22 @@ _MAKES: dict[str, int] = {
 
 
 def _normalize(name: str) -> str:
-    “””Collapse dots/hyphens to spaces and normalise apostrophes so govt-API
-    spellings (e.g. ‘ב.מ.וו’, ‘מרצדס בנץ’) match Yad2 keys.”””
+    """Collapse dots/hyphens to spaces and normalise apostrophes so govt-API
+    spellings (e.g. 'ב.מ.וו', 'מרצדס בנץ') match Yad2 keys."""
     import re
     s = name.strip()
-    for src, dst in [(“’”, “’”), (“׳”, “’”), (“-”, “ “), (“.”, “ “)]:
+    for src, dst in [("'", "'"), ("׳", "'"), ("-", " "), (".", " ")]:
         s = s.replace(src, dst)
-    return re.sub(r”\s+”, “ “, s).strip()
+    return re.sub(r"\s+", " ", s).strip()
 
 
 # Normalised lookup built once at import time
 _NORM: dict[str, int] = {_normalize(k): v for k, v in _MAKES.items()}
 
-# Extra aliases: govt-API spellings that differ from Yad2’s Hebrew names
+# Extra aliases: govt-API spellings that differ from Yad2's Hebrew names
 _ALIASES: dict[str, int] = {
-    “מזדה”:       27,   # govt returns מזדה, Yad2 page says מאזדה
-    “מרצדס בנץ”:  31,   # govt uses space; Yad2 key normalises hyphen → same
+    "מזדה":       27,   # govt returns מזדה, Yad2 page says מאזדה
+    "מרצדס בנץ":  31,   # govt uses space; Yad2 key normalises hyphen → same
 }
 _NORM.update({_normalize(k): v for k, v in _ALIASES.items()})
 
