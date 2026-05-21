@@ -944,18 +944,24 @@ def generate_pdf(
     story.append(_hr(color=border_soft, thickness=0.4, space=0))
     story.append(_sp(6))
 
-    disclaimer_text = (
-        "כתב ויתור ומגבלת אחריות\n"
-        "המידע המוצג בדוח זה נאסף אוטומטית ממאגרי מידע ממשלתיים וציבוריים בלבד "
-        "(רשות הרישוי, משרד התחבורה ומקורות ציבוריים נוספים). "
-        "CarInfo ומפעיל הבוט אינם צד ליצירת המידע, אינם מאמתים אותו ואינם אחראים "
-        "לנכונותו, שלמותו, עדכניותו או התאמתו למציאות בכל עת. "
-        "הנתונים מוצגים כפי שהם (AS IS) ועשויים להכיל שגיאות, פערים או מידע שאינו מעודכן. "
-        "אין לראות בדוח זה תחליף לבדיקה מקצועית, ייעוץ משפטי, הנדסי או מסחרי. "
-        "כל החלטה המבוססת על מידע זה היא באחריות המשתמש בלבד."
-    )
-    story.append(_p(disclaimer_text, sty("disc_full", size=7, color=text_light, align=TA_RTL, leading=11)))
-    story.append(_sp(4))
+    disc_title_sty = sty("disc_h", size=7.5, bold=True,  color=text_muted, align=TA_RTL, leading=11)
+    disc_body_sty  = sty("disc_b", size=7,   bold=False, color=text_light, align=TA_RTL, leading=11)
+
+    # Title line — pure Hebrew, safe with _b()
+    story.append(Paragraph(_b("כתב ויתור ומגבלת אחריות"), disc_title_sty))
+    story.append(_sp(3))
+
+    # Body lines — each sentence on its own Paragraph to avoid BiDi overflow
+    disc_lines = [
+        "המידע המוצג בדוח זה נאסף אוטומטית ממאגרי מידע ממשלתיים וציבוריים בלבד (רשות הרישוי, משרד התחבורה ומקורות ציבוריים נוספים).",
+        "CarInfo ומפעיל הבוט אינם צד ליצירת המידע, אינם מאמתים אותו ואינם אחראים לנכונותו, שלמותו, עדכניותו או התאמתו למציאות.",
+        "הנתונים מוצגים כפי שהם ועשויים להכיל שגיאות, פערים או מידע שאינו מעודכן.",
+        "אין לראות בדוח זה תחליף לבדיקה מקצועית, ייעוץ משפטי, הנדסי או מסחרי.",
+        "כל החלטה המבוססת על מידע זה היא באחריות המשתמש בלבד.",
+    ]
+    for line in disc_lines:
+        story.append(Paragraph(_b(line), disc_body_sty))
+    story.append(_sp(6))
 
     story.extend(_promo_footer())
 
