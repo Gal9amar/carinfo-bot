@@ -744,12 +744,14 @@ async def handle_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         if not record:
             await query.message.reply_text(format_not_found(plate), parse_mode=ParseMode.MARKDOWN_V2)
             return
+        context.user_data["last_record"] = record
         summary = get_summary(record)
         await query.message.reply_text(
             summary,
             parse_mode=ParseMode.MARKDOWN_V2,
             reply_markup=_persistent_keyboard(is_admin),
         )
+        await _send_car_photo(query.message, record)
         return
 
     # Show history list
@@ -1324,6 +1326,34 @@ async def handle_admin_message(update: Update, context: ContextTypes.DEFAULT_TYP
         await msg.reply_text(f"❌ שגיאה בשליחה: `{e}`", parse_mode=ParseMode.MARKDOWN_V2)
 
 
+async def _send_car_photo(message, record: dict) -> None:
+    """Download a car image and send it as a photo reply. Logs errors at WARNING level."""
+    import httpx as _httpx, io as _io
+    from src.api.image_api import fetch_car_image
+    make  = record.get("tozeret_nm", "")
+    model = record.get("kinuy_mishari") or record.get("degem_nm", "")
+    year  = str(record.get("shnat_yitzur", ""))
+    color = record.get("tzeva_rechev", "")
+    if not (make or model):
+        return
+    try:
+        img_url = await fetch_car_image(make, model, year, color)
+        logger.info("car_photo: make=%r model=%r img_url=%s", make, model, img_url)
+        if not img_url:
+            return
+        _ua = {"User-Agent": "CarInfoBot/1.0 (contact: gal9amar@gmail.com)"}
+        async with _httpx.AsyncClient(timeout=15, follow_redirects=True, headers=_ua) as _cl:
+            _r = await _cl.get(img_url)
+        logger.info("car_photo download: status=%s bytes=%d", _r.status_code, len(_r.content))
+        if _r.status_code != 200:
+            return
+        caption = " · ".join(p for p in [make, model, year] if p)
+        await message.reply_photo(photo=_io.BytesIO(_r.content), caption=caption)
+        logger.info("car_photo sent ok")
+    except Exception as exc:
+        logger.warning("car_photo failed: %s", exc)
+
+
 async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
     raw     = update.message.text.strip()
@@ -1536,29 +1566,7 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             logger.error("plain fallback also failed for plate %s: %s", plate, exc2)
 
     # Send car photo after the text report
-    try:
-        import httpx as _httpx, io as _io
-        from src.api.image_api import fetch_car_image
-        make  = record.get("tozeret_nm", "")
-        model = record.get("kinuy_mishari") or record.get("degem_nm", "")
-        year  = str(record.get("shnat_yitzur", ""))
-        color = record.get("tzeva_rechev", "")
-        if make or model:
-            img_url = await fetch_car_image(make, model, year, color)
-            if img_url:
-                # Download with User-Agent (Wikimedia requires it), send as bytes
-                _ua = {"User-Agent": "CarInfoBot/1.0 (contact: gal9amar@gmail.com)"}
-                async with _httpx.AsyncClient(timeout=15, follow_redirects=True, headers=_ua) as _cl:
-                    _r = await _cl.get(img_url)
-                if _r.status_code == 200:
-                    caption_parts = [p for p in [make, model, year] if p]
-                    caption = " · ".join(caption_parts)
-                    await update.message.reply_photo(
-                        photo=_io.BytesIO(_r.content),
-                        caption=caption,
-                    )
-    except Exception as exc:
-        logger.debug("Telegram car image fetch skipped: %s", exc)
+    await _send_car_photo(update.message, record)
 
 
 WA_PHONE = os.environ.get("WA_BOT_PHONE", "972526777070")
