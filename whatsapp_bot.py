@@ -168,7 +168,10 @@ async def handle_admin(chat_id: str, phone: str, text: str) -> bool:
 
     state = await get_wa_state(phone)
     if state == "ADMIN_MENU":
-        await set_wa_state(phone, None)
+        if lower in ("תפריט", "menu", "יציאה"):
+            await set_wa_state(phone, None)
+            await send_message(chat_id, menu.WELCOME)
+            return True
 
         if text == "א":
             stats = await admin_stats()
@@ -177,7 +180,9 @@ async def handle_admin(chat_id: str, phone: str, text: str) -> bool:
                 f"─────────────────\n"
                 f"👤 משתמשים: {stats['total_users']} | פעילים: {stats['active_users']}\n"
                 f"🔍 בדיקות: {stats['total_searches']}\n"
-                f"🔑 קודים: {stats['used_codes']}/{stats['total_codes']} נוצלו"
+                f"🔑 קודים: {stats['used_codes']}/{stats['total_codes']} נוצלו\n\n"
+                f"─────────────────\n"
+                f"{ADMIN_MENU}"
             )
             return True
         if text == "ב":
@@ -186,8 +191,7 @@ async def handle_admin(chat_id: str, phone: str, text: str) -> bool:
             for u in users[:20]:
                 wa    = u.get("whatsapp_phone") or ""
                 tg    = u.get("username") or ""
-                ch    = u.get("channel", "telegram")
-                if wa and tg:
+                if wa and tg and wa != tg:
                     name = f"📱{wa} / ✈️{tg}"
                 elif wa:
                     name = f"📱{wa}"
@@ -202,26 +206,31 @@ async def handle_admin(chat_id: str, phone: str, text: str) -> bool:
                 qs    = "∞" if quota == -1 else str(quota)
                 ls    = "∞" if left  == -1 else str(left)
                 lines.append(f"{bl} {name}  {done}/{qs} (נותרו:{ls})")
+            lines.append(f"\n─────────────────\n{ADMIN_MENU}")
             await send_message(chat_id, "\n".join(lines))
             return True
         if text == "ג":
-            await send_message(chat_id, "שלח:\ngrant 972501234567 50\n\nאו -1 למנוי חודשי, -2 לצמיתות")
+            await set_wa_state(phone, None)
+            await send_message(chat_id, "שלח:\ngrant 972501234567 50\n\nאו -1 למנוי חודשי, -2 לצמיתות\n\nלחזרה: שלח *אדמין*")
             return True
         if text == "ד":
-            await send_message(chat_id, "שלח:\napprove 972501234567 50")
+            await set_wa_state(phone, None)
+            await send_message(chat_id, "שלח:\napprove 972501234567 50\n\nלחזרה: שלח *אדמין*")
             return True
         if text == "ה":
-            await send_message(chat_id, "שלח:\nblock 972501234567")
+            await set_wa_state(phone, None)
+            await send_message(chat_id, "שלח:\nblock 972501234567\n\nלחזרה: שלח *אדמין*")
             return True
         if text == "ו":
-            await send_message(chat_id, "שלח:\nunblock 972501234567")
+            await set_wa_state(phone, None)
+            await send_message(chat_id, "שלח:\nunblock 972501234567\n\nלחזרה: שלח *אדמין*")
             return True
         if text == "ז":
-            await send_message(chat_id, "שלח:\nשלח לכולם טקסט ההודעה שלך")
+            await set_wa_state(phone, None)
+            await send_message(chat_id, "שלח:\nשלח לכולם טקסט ההודעה שלך\n\nלחזרה: שלח *אדמין*")
             return True
-        # לא בחר מספר תקין — הצג תפריט שוב
+        # אות לא מוכרת — הצג תפריט שוב
         await send_message(chat_id, ADMIN_MENU)
-        await set_wa_state(phone, "ADMIN_MENU")
         return True
 
     if lower in ("סטטיסטיקות", "סטט", "stats"):
