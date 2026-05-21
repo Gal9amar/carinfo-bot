@@ -703,12 +703,6 @@ def format_error() -> str:
     )
 
 
-def yad2_url(record: dict) -> str:
-    """Return a Yad2 cars search URL with manufacturer + year filters."""
-    from src.yad2 import build_url_sync
-    return build_url_sync(record)
-
-
 def yad2_label(record: dict) -> str:
     """Return a human-readable search label, e.g. 'טויוטה קורולה 2020'."""
     make  = _val(record, "tozeret_nm")

@@ -3,7 +3,7 @@ WhatsApp text menus and response formatters.
 All output is plain text — no Markdown, no inline keyboards.
 """
 
-from src.formatter import get_summary as _tg_summary, yad2_url, yad2_label
+from src.formatter import get_summary as _tg_summary, yad2_label
 
 WELCOME = (
     "👋 *ברוך הבא ל-CarInfo!*\n"
@@ -153,20 +153,28 @@ def _strip_md(text: str) -> str:
     return text
 
 
-def format_result(record: dict, left: int, expires: str | None = None, plate: str = "") -> str:
+def format_result(
+    record: dict,
+    left: int,
+    expires: str | None = None,
+    plate: str = "",
+    yad2_link: str = "",
+) -> str:
     """Plain-text WhatsApp vehicle report."""
-    raw   = _tg_summary(record)
-    plain = _strip_md(raw)
+    raw    = _tg_summary(record)
+    plain  = _strip_md(raw)
     status = format_status(left, expires)
 
-    label = yad2_label(record)
-    url   = yad2_url(record)
+    yad2_block = ""
+    if yad2_link:
+        label = yad2_label(record)
+        yad2_block = f"🔍 *מחירים ב-Yad2* ({label}):\n{yad2_link}\n\n"
 
     return (
         f"{plain}\n"
         f"━━━━━━━━━━━━━━━━━━\n"
         f"{status}\n\n"
-        f"🔍 *מחירים ב-Yad2* ({label}):\n{url}\n\n"
+        f"{yad2_block}"
         f"📄 לדוח PDF — שלח *6*\n"
         f"🔁 לחיפוש נוסף — שלח מספר רכב\n"
         f"📋 לתפריט — שלח *תפריט*"

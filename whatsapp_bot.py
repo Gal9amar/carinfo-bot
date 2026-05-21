@@ -54,6 +54,7 @@ from src.users import (
     generate_code,
 )
 from src import wa_menu as menu
+from src import yad2 as _yad2
 
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -777,9 +778,10 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
             await increment_search(user_id, plate)
             await set_last_plate(user_id, plate)
 
-        expires  = await get_quota_expires(user_id) if left == -1 else None
-        new_left = left if (left == -1 or is_repeat) else max(0, left - 1)
-        result_text = menu.format_result(record, new_left, expires, plate=plate)
+        expires   = await get_quota_expires(user_id) if left == -1 else None
+        new_left  = left if (left == -1 or is_repeat) else max(0, left - 1)
+        yad2_link = await _yad2.build_url(record)
+        result_text = menu.format_result(record, new_left, expires, plate=plate, yad2_link=yad2_link)
         await send_message(chat_id, result_text)
         return
 
