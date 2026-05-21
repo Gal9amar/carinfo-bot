@@ -141,6 +141,18 @@ def generate_pdf(
     logo_path: str = "",
 ) -> bytes:
     """Generate a full Hebrew vehicle-report PDF and return raw bytes."""
+    import os as _os
+    if not logo_path:
+        # auto-detect logo.png next to this package or in project root
+        _candidates = [
+            _os.path.join(_os.path.dirname(_os.path.dirname(__file__)), "logo.png"),
+            _os.path.join(_os.path.dirname(_os.path.dirname(__file__)), "logo.jpg"),
+        ]
+        for _c in _candidates:
+            if _os.path.exists(_c):
+                logo_path = _c
+                break
+
     from reportlab.lib.pagesizes import A4
     from reportlab.platypus import (
         SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable,
@@ -446,17 +458,18 @@ def generate_pdf(
         except Exception:
             pass
 
-    # 10. Footer
+    # 10. Footer — Hebrew line with BiDi; links/date as plain Latin (no BiDi)
     now_str = datetime.now().strftime("%d/%m/%Y %H:%M")
-    footer_parts = ["מופק על ידי @israelcarinfobot"]
-    if tg_link:
-        footer_parts.append(f"טלגרם: {tg_link}")
-    if wa_link:
-        footer_parts.append(f"וואטסאפ: {wa_link}")
-    footer_parts.append(now_str)
     story.append(HRFlowable(width=_USABLE_W, thickness=0.5, color=colors.Color(*_GRAY_TEXT)))
     story.append(Spacer(1, 2))
-    story.append(Paragraph(_b(" | ".join(footer_parts)), s_footer))
+    story.append(Paragraph(_b("מופק על ידי CarInfo Bot"), s_footer))
+    latin_parts = []
+    if tg_link:
+        latin_parts.append(tg_link)
+    if wa_link:
+        latin_parts.append(wa_link)
+    latin_parts.append(now_str)
+    story.append(Paragraph(" | ".join(latin_parts), s_footer))
 
     # ── Build PDF ─────────────────────────────────────────────────────────────
     buf = io.BytesIO()
