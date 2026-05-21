@@ -1340,16 +1340,19 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             await update.message.reply_text("✅ הודעת תשלום עודכנה\\!\n\n" + raw, parse_mode=ParseMode.MARKDOWN_V2)
             return
         if setting == "broadcast":
-            users = await get_all_users()
+            all_users = await get_all_users()
+            # Only send to Telegram users (not WhatsApp-only users)
+            tg_users = [u for u in all_users if u.get("channel") != "whatsapp"]
             context.user_data.pop("admin_setting", None)
+            logger.info("Broadcast: total_users=%d tg_users=%d msg=%r", len(all_users), len(tg_users), raw[:50])
             sent_ok = sent_fail = 0
             await update.message.reply_text(
-                f"📤 שולח ל\\-*{len(users)}* משתמשים\\.\\.\\.".replace("-", "\\-"),
+                f"📤 שולח ל\\-*{len(tg_users)}* משתמשי טלגרם\\.\\.\\.",
                 parse_mode=ParseMode.MARKDOWN_V2,
             )
             from telegram.helpers import escape_markdown
             escaped_msg = escape_markdown(raw, version=2)
-            for u in users:
+            for u in tg_users:
                 uid = u["user_id"]
                 if uid == ADMIN_ID:
                     continue
@@ -1360,7 +1363,8 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                         parse_mode=ParseMode.MARKDOWN_V2,
                     )
                     sent_ok += 1
-                except Exception:
+                except Exception as e:
+                    logger.warning("Broadcast failed for uid=%s: %s", uid, e)
                     sent_fail += 1
                 await asyncio.sleep(0.05)
             await update.message.reply_text(
