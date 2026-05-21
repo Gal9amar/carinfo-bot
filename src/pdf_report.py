@@ -52,12 +52,18 @@ def _ensure_fonts() -> tuple[str, str]:
 
 
 def _b(text: Any) -> str:
+    """BiDi reshape for RTL Hebrew in ReportLab (always pair with TA_RIGHT)."""
     s = str(text) if text is not None else ""
     try:
         from bidi.algorithm import get_display
         return get_display(s)
     except Exception:
         return s
+
+
+def _hebrew_join(*parts: str, sep: str = " · ") -> str:
+    """Join mixed Hebrew/Latin fragments in logical RTL reading order."""
+    return _b(sep.join(p for p in parts if p))
 
 
 def _v(record: dict, *keys: str) -> str:
@@ -152,18 +158,19 @@ def generate_pdf(
 ) -> bytes:
     """Generate a premium Hebrew vehicle-report PDF."""
     from reportlab.lib import colors
-    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.platypus import (
         HRFlowable,
-        KeepTogether,
         Paragraph,
         SimpleDocTemplate,
         Spacer,
         Table,
         TableStyle,
     )
+
+    TA_RTL = TA_RIGHT  # Hebrew + get_display() → align to physical right
 
     root = os.path.dirname(os.path.dirname(__file__))
     if not logo_path:
@@ -187,7 +194,7 @@ def generate_pdf(
     tg_url = _full_url(tg_link)
     wa_url = _full_url(wa_link)
 
-    def sty(name, *, size=10, bold=False, color=colors.black, align=TA_LEFT, leading=None):
+    def sty(name, *, size=10, bold=False, color=colors.black, align=TA_RTL, leading=None):
         return ParagraphStyle(
             name,
             fontName=font_bold if bold else font,
@@ -197,6 +204,9 @@ def generate_pdf(
             leading=leading or size * 1.45,
             wordWrap="CJK",
         )
+
+    def _p(text: Any, style: ParagraphStyle) -> Paragraph:
+        return Paragraph(_b(text), style)
 
     navy = colors.Color(*C_NAVY)
     navy_mid = colors.Color(*C_NAVY_MID)
@@ -211,15 +221,15 @@ def generate_pdf(
     s_plate = sty("plate", size=28, bold=True, color=colors.white, align=TA_CENTER, leading=32)
     s_subhero = sty("subhero", size=11, color=colors.Color(0.75, 0.82, 0.95), align=TA_CENTER)
     s_meta = sty("meta", size=8, color=muted, align=TA_CENTER)
-    s_sec = sty("sec", size=11, bold=True, color=navy, align=TA_LEFT, leading=14)
-    s_lbl = sty("lbl", size=9, bold=True, color=colors.white, align=TA_LEFT)
-    s_val = sty("val", size=10, color=colors.Color(*C_NAVY), align=TA_LEFT)
-    s_val_big = sty("val_big", size=12, bold=True, color=navy, align=TA_LEFT)
-    s_stat_lbl = sty("stat_lbl", size=8, color=muted, align=TA_CENTER)
-    s_stat_val = sty("stat_val", size=11, bold=True, color=navy, align=TA_CENTER)
-    s_alert = sty("alert", size=10, bold=True, color=colors.Color(*C_ALERT_BD), align=TA_LEFT)
-    s_warn = sty("warn", size=9, color=colors.Color(0.45, 0.30, 0.05), align=TA_LEFT)
-    s_price = sty("price", size=14, bold=True, color=navy, align=TA_LEFT)
+    s_sec = sty("sec", size=11, bold=True, color=navy, align=TA_RTL, leading=14)
+    s_lbl = sty("lbl", size=9, bold=True, color=colors.white, align=TA_RTL)
+    s_val = sty("val", size=10, color=colors.Color(*C_NAVY), align=TA_RTL)
+    s_val_big = sty("val_big", size=12, bold=True, color=navy, align=TA_RTL)
+    s_stat_lbl = sty("stat_lbl", size=8, color=muted, align=TA_RTL)
+    s_stat_val = sty("stat_val", size=11, bold=True, color=navy, align=TA_RTL)
+    s_alert = sty("alert", size=10, bold=True, color=colors.Color(*C_ALERT_BD), align=TA_RTL)
+    s_warn = sty("warn", size=9, color=colors.Color(0.45, 0.30, 0.05), align=TA_RTL)
+    s_price = sty("price", size=14, bold=True, color=navy, align=TA_RTL)
     s_footer = sty("footer", size=7, color=muted, align=TA_CENTER)
     s_cta_title = sty("cta_t", size=12, bold=True, color=colors.white, align=TA_CENTER)
     s_cta_hint = sty("cta_h", size=9, color=navy, align=TA_CENTER)
@@ -242,7 +252,8 @@ def generate_pdf(
         canv.line(_MARGIN, 11 * _MM, pw - _MARGIN, 11 * _MM)
         canv.setFillColor(muted)
         canv.setFont(font, 7)
-        canv.drawCentredString(pw / 2, 4 * _MM, f"CarInfo · דוח רכב {plate} · {now_str} · עמוד {canv.getPageNumber()}")
+        footer_txt = _b(f"CarInfo · דוח רכב {plate} · {now_str} · עמוד {canv.getPageNumber()}")
+        canv.drawCentredString(pw / 2, 4 * _MM, footer_txt)
         canv.restoreState()
 
     # ── Building blocks ───────────────────────────────────────────────────────
@@ -253,13 +264,16 @@ def generate_pdf(
 
     def _hero_header():
         """Branded hero: logo + title + giant plate + vehicle line."""
-        title_line = _b("דוח בדיקת רכב מקיף")
-        vehicle_line = "  ·  ".join(x for x in [make, model, f"שנת {year}" if year else ""] if x)
-        plate_para = Paragraph(_b(plate), s_plate)
-        brand_para = Paragraph(_b("CARINFO"), s_brand)
-        title_para = Paragraph(title_line, s_title)
-        sub_para = Paragraph(_b(vehicle_line or "—"), s_subhero) if vehicle_line else Spacer(1, 1)
-        date_para = Paragraph(_b(f"הופק: {now_str}"), s_meta)
+        title_para = _p("דוח בדיקת רכב מקיף", s_title)
+        vehicle_line = _hebrew_join(
+            f"שנת {year}" if year else "",
+            model,
+            make,
+        ) if (make or model or year) else _b("—")
+        plate_para = _p(plate, s_plate)
+        brand_para = Paragraph("CARINFO", s_brand)  # Latin — no BiDi
+        sub_para = Paragraph(vehicle_line, s_subhero)
+        date_para = _p(f"הופק: {now_str}", s_meta)
 
         if logo_path:
             try:
@@ -267,16 +281,18 @@ def generate_pdf(
                 logo_h = 16 * _MM
                 logo_img = RLImage(logo_path, height=logo_h, width=logo_h, kind="proportional")
                 text_w = _USABLE_W - logo_h - 6 * _MM
+                # RTL: טקסט מימין, לוגו משמאל
                 top = _tbl(
-                    [[logo_img, brand_para], ["", title_para]],
-                    [logo_h + 4 * _MM, text_w],
+                    [[brand_para, logo_img], [title_para, ""]],
+                    [text_w, logo_h + 4 * _MM],
                     [
                         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                        ("SPAN", (1, 0), (1, 0)),
+                        ("SPAN", (0, 1), (0, 1)),
                         ("BACKGROUND", (0, 0), (-1, -1), navy),
                         ("TOPPADDING", (0, 0), (-1, -1), 14),
                         ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-                        ("LEFTPADDING", (1, 0), (1, -1), 8),
+                        ("RIGHTPADDING", (0, 0), (0, -1), 10),
+                        ("ALIGN", (0, 0), (0, -1), "RIGHT"),
                     ],
                 )
             except Exception:
@@ -328,26 +344,28 @@ def generate_pdf(
         n_own = len(record.get("_ownership") or [])
         fuel = _v(record, "sug_delek_nm") or "—"
         cw = _USABLE_W / 4
+        # RTL: מימין לשמאל — רכב, טסט, בעלויות, דלק
         row_data: list[tuple[Any, str]] = [
-            (_b(plate), "מספר רכב"),
+            (_b(fuel), "דלק"),
+            (_b(str(n_own)), "בעלויות"),
             (Paragraph(
                 f'<font color="{test_hex}"><b>{_b(badge)}</b></font><br/>{_b(test_txt)}',
                 s_stat_val,
             ), "תוקף טסט"),
-            (_b(str(n_own)), "בעלויות"),
-            (_b(fuel), "דלק"),
+            (_b(plate), "מספר רכב"),
         ]
         row_cells = []
         for val, lbl in row_data:
             val_p = val if not isinstance(val, str) else Paragraph(val, s_stat_val)
             row_cells.append(_tbl(
-                [[val_p], [Paragraph(_b(lbl), s_stat_lbl)]],
+                [[_p(lbl, s_stat_lbl)], [val_p]],
                 [cw - 6],
                 [
-                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                    ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
                     ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ("TOPPADDING", (0, 0), (-1, -1), 4),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                    ("TOPPADDING", (0, 0), (-1, -1), 6),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
                 ],
             ))
         return _tbl([row_cells], [cw] * 4, [
@@ -361,18 +379,20 @@ def generate_pdf(
         ])
 
     def _section_title(title: str, icon: str = "◆"):
-        p = Paragraph(_b(f"{icon}  {title}"), s_sec)
+        p = _p(f"{title}  {icon}", s_sec)
         return _tbl([[p]], [_USABLE_W], [
             ("BACKGROUND", (0, 0), (-1, -1), sky),
-            ("LINEAFTER", (0, 0), (0, -1), 4, accent),
-            ("LEFTPADDING", (0, 0), (-1, -1), 10),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+            ("LINEBEFORE", (0, 0), (0, -1), 4, accent),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 12),
+            ("LEFTPADDING", (0, 0), (-1, -1), 8),
             ("TOPPADDING", (0, 0), (-1, -1), 8),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
             ("LINEBELOW", (0, 0), (-1, -1), 0.5, border_c),
         ])
 
     def _kv_table(rows: list[tuple[str, str]], *, highlight: set[str] | None = None) -> Table | None:
+        """RTL table: עמודת תווית מימין (col 1), ערך משמאל (col 0)."""
         highlight = highlight or set()
         data = []
         for label, value in rows:
@@ -380,19 +400,21 @@ def generate_pdf(
                 continue
             val_style = s_val_big if label in highlight else s_val
             data.append([
-                Paragraph(_b(value), val_style),
-                Paragraph(_b(label), s_lbl),
+                _p(value, val_style),
+                _p(label, s_lbl),
             ])
         if not data:
             return None
         style = [
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("LEFTPADDING", (0, 0), (0, -1), 10),
-            ("RIGHTPADDING", (0, 0), (0, -1), 8),
-            ("LEFTPADDING", (1, 0), (1, -1), 8),
+            ("ALIGN", (0, 0), (0, -1), "RIGHT"),
+            ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+            ("RIGHTPADDING", (0, 0), (0, -1), 12),
+            ("LEFTPADDING", (0, 0), (0, -1), 6),
             ("RIGHTPADDING", (1, 0), (1, -1), 10),
-            ("TOPPADDING", (0, 0), (-1, -1), 6),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ("LEFTPADDING", (1, 0), (1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 7),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
             ("BACKGROUND", (1, 0), (1, -1), navy_mid),
             ("LINEBELOW", (0, 0), (-1, -1), 0.25, border_c),
             ("BOX", (0, 0), (-1, -1), 0.6, border_c),
@@ -402,22 +424,24 @@ def generate_pdf(
         return _tbl(data, [_COL_VALUE, _COL_LABEL], style)
 
     def _alert_box(text: str) -> Table:
-        p = Paragraph(_b(f"⚠  {text}"), s_alert)
+        p = _p(f"⚠  {text}", s_alert)
         return _tbl([[p]], [_USABLE_W], [
             ("BACKGROUND", (0, 0), (-1, -1), colors.Color(*C_ALERT_BG)),
             ("BOX", (0, 0), (-1, -1), 1.5, colors.Color(*C_ALERT_BD)),
-            ("LEFTPADDING", (0, 0), (-1, -1), 12),
+            ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
             ("RIGHTPADDING", (0, 0), (-1, -1), 12),
+            ("LEFTPADDING", (0, 0), (-1, -1), 12),
             ("TOPPADDING", (0, 0), (-1, -1), 10),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
         ])
 
     def _warn_box(text: str) -> Table:
-        p = Paragraph(_b(f"⚡  {text}"), s_warn)
+        p = _p(f"⚡  {text}", s_warn)
         return _tbl([[p]], [_USABLE_W], [
             ("BACKGROUND", (0, 0), (-1, -1), colors.Color(*C_WARN_BG)),
             ("BOX", (0, 0), (-1, -1), 1, colors.Color(*C_WARN_BD)),
-            ("LEFTPADDING", (0, 0), (-1, -1), 10),
+            ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 10),
             ("TOPPADDING", (0, 0), (-1, -1), 8),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
         ])
@@ -427,10 +451,7 @@ def generate_pdf(
         for label, value in rows:
             if not value:
                 continue
-            data.append([
-                Paragraph(_b(value), s_price),
-                Paragraph(_b(label), s_lbl),
-            ])
+            data.append([_p(value, s_price), _p(label, s_lbl)])
         if not data:
             return None
         return _tbl(data, [_COL_VALUE, _COL_LABEL], [
@@ -438,7 +459,10 @@ def generate_pdf(
             ("BACKGROUND", (1, 0), (1, -1), navy),
             ("BOX", (0, 0), (-1, -1), 1.2, accent),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("LEFTPADDING", (0, 0), (0, -1), 12),
+            ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
+            ("RIGHTPADDING", (0, 0), (0, -1), 12),
+            ("LEFTPADDING", (0, 0), (0, -1), 6),
+            ("ALIGN", (1, 0), (1, -1), "RIGHT"),
             ("TOPPADDING", (0, 0), (-1, -1), 10),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
             ("LINEBELOW", (0, 0), (-1, -2), 0.4, border_c),
@@ -451,24 +475,26 @@ def generate_pdf(
         for i, o in enumerate(ownership, 1):
             dt_str = _fmt_baalut_dt(o.get("baalut_dt", ""))
             baalut_type = o.get("baalut", "לא ידוע")
-            num = Paragraph(_b(str(i)), sty("own_n", size=10, bold=True, color=colors.white, align=TA_CENTER))
-            data.append([
-                Paragraph(_b(f"{dt_str}"), s_val),
-                Paragraph(_b(baalut_type), s_val),
-                num,
-            ])
+            num = _p(str(i), sty("own_n", size=10, bold=True, color=colors.white, align=TA_CENTER))
+            # RTL: מספר מימין → סוג → תאריך
+            data.append([num, _p(baalut_type, s_val), _p(dt_str, s_val)])
+        idx_w = 14 * _MM
+        mid_w = (_USABLE_W - idx_w) * 0.42
+        date_w = (_USABLE_W - idx_w) - mid_w
         style = [
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("BACKGROUND", (2, 0), (2, -1), accent),
+            ("BACKGROUND", (0, 0), (0, -1), accent),
+            ("ALIGN", (0, 0), (0, -1), "CENTER"),
+            ("ALIGN", (1, 0), (2, -1), "RIGHT"),
+            ("RIGHTPADDING", (1, 0), (2, -1), 10),
             ("BOX", (0, 0), (-1, -1), 0.6, border_c),
             ("LINEBELOW", (0, 0), (-1, -1), 0.25, border_c),
             ("TOPPADDING", (0, 0), (-1, -1), 6),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-            ("ALIGN", (2, 0), (2, -1), "CENTER"),
         ]
         for i in range(len(data)):
-            style.append(("BACKGROUND", (0, i), (0, i), card if i % 2 == 0 else colors.Color(*C_ROW_ALT)))
-        return _tbl(data, [_COL_VALUE - 8 * _MM, _COL_LABEL - 8 * _MM, 16 * _MM], style)
+            style.append(("BACKGROUND", (1, i), (2, i), card if i % 2 == 0 else colors.Color(*C_ROW_ALT)))
+        return _tbl(data, [idx_w, mid_w, date_w], style)
 
     def _link_btn(label_he: str, url: str, primary: bool) -> Paragraph:
         label = _b(label_he)
@@ -492,7 +518,7 @@ def generate_pdf(
     def _promo_footer() -> list:
         flow: list = [Spacer(1, 10)]
         flow.append(_tbl(
-            [[Paragraph(_b("המשך בדיקות רכב — CarInfo"), s_cta_title)]],
+            [[_p("המשך בדיקות רכב — CarInfo", s_cta_title)]],
             [_USABLE_W],
             [
                 ("BACKGROUND", (0, 0), (-1, -1), navy),
@@ -501,7 +527,7 @@ def generate_pdf(
             ],
         ))
         flow.append(_tbl(
-            [[Paragraph(_b("לחיצה על הכפתור פותחת את הבוט · נדרש אינטרנט"), s_cta_hint)]],
+            [[_p("לחיצה על הכפתור פותחת את הבוט · נדרש אינטרנט", s_cta_hint)]],
             [_USABLE_W],
             [("BACKGROUND", (0, 0), (-1, -1), sky), ("BOTTOMPADDING", (0, 0), (-1, -1), 6)],
         ))
@@ -530,9 +556,13 @@ def generate_pdf(
             flow.append(_cta_cell(buttons[0][0], buttons[0][1], buttons[0][2], _USABLE_W))
         else:
             half = _USABLE_W / 2 - 2
+            # RTL: כפתור ראשי מימין (עמודה 1)
+            primary, secondary = buttons[0], buttons[1]
+            if not primary[2]:
+                primary, secondary = secondary, primary
             flow.append(_tbl(
-                [[_cta_cell(buttons[0][0], buttons[0][1], buttons[0][2], half),
-                  _cta_cell(buttons[1][0], buttons[1][1], buttons[1][2], half)]],
+                [[_cta_cell(secondary[0], secondary[1], secondary[2], half),
+                  _cta_cell(primary[0], primary[1], primary[2], half)]],
                 [half, half],
                 [("VALIGN", (0, 0), (-1, -1), "MIDDLE")],
             ))
@@ -611,7 +641,7 @@ def generate_pdf(
     if own_tbl:
         own_block.append(own_tbl)
     else:
-        own_block.append(Paragraph(_b("לא נמצאו נתוני בעלות"), s_val))
+        own_block.append(_p("לא נמצאו נתוני בעלות", s_val))
     story.extend(_section(own_block))
 
     # ── מפרט טכני ──
@@ -668,9 +698,9 @@ def generate_pdf(
 
     # Disclaimer
     story.append(Spacer(1, 6))
-    story.append(Paragraph(
-        _b("הדוח מבוסס על נתונים ציבוריים · אין להסתמך עליו כייעוץ משפטי או מסחרי בלבד"),
-        s_meta,
+    story.append(_p(
+        "הדוח מבוסס על נתונים ציבוריים · אין להסתמך עליו כייעוץ משפטי או מסחרי בלבד",
+        sty("disc", size=8, color=muted, align=TA_RTL),
     ))
 
     story.extend(_promo_footer())
