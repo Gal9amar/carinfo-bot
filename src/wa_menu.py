@@ -15,7 +15,8 @@ WELCOME = (
     "2️⃣  רכישת חבילה\n"
     "3️⃣  קוד הטבה\n"
     "4️⃣  איך זה עובד?\n"
-    "5️⃣  היסטוריית חיפושים"
+    "5️⃣  היסטוריית חיפושים\n"
+    "6️⃣  הורדת דוח PDF"
 )
 
 NO_HISTORY = (
@@ -170,6 +171,7 @@ def format_result(record: dict, left: int, expires: str | None = None, plate: st
         f"{plain}\n"
         f"━━━━━━━━━━━━━━━━━━\n"
         f"{status}\n\n"
+        f"📄 לדוח PDF — שלח *6*\n"
         f"🔁 לחיפוש נוסף — שלח מספר רכב\n"
         f"📋 לתפריט — שלח *תפריט*"
         f"{share_text}"
