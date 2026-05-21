@@ -3,6 +3,7 @@ CarInfo Bot – Israel vehicle lookup Telegram bot.
 """
 
 import asyncio
+import io
 import logging
 import os
 import re
@@ -38,6 +39,7 @@ from src.formatter import (
     get_summary,
     get_share_text,
 )
+from src.pdf_report import generate_pdf
 
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -139,7 +141,10 @@ def normalize_plate(text: str) -> str:
 
 
 def build_result_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
-    rows = [[InlineKeyboardButton("📤 שתף דוח", callback_data="share_report")]]
+    rows = [[
+        InlineKeyboardButton("📄 הורד PDF", callback_data="pdf_report"),
+        InlineKeyboardButton("📤 שתף דוח", callback_data="share_report"),
+    ]]
     rows.extend(_persistent_rows(is_admin))
     return InlineKeyboardMarkup(rows)
 
@@ -1453,6 +1458,8 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         )
         return
 
+    context.user_data["last_record"] = record
+
     # Only count if this is a NEW plate (not a repeat search for same plate)
     last_plate = await get_last_plate(user_id)
     is_repeat  = (last_plate == plate)
@@ -1584,6 +1591,27 @@ async def handle_result_callback(update: Update, context: ContextTypes.DEFAULT_T
         return
 
 
+async def handle_pdf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    record = context.user_data.get("last_record")
+    if not record:
+        await query.message.reply_text("❌ לא נמצא רכב לדוח. בצע חיפוש חדש.")
+        return
+    plate = record.get("mispar_rechev", "vehicle")
+    try:
+        pdf_bytes = generate_pdf(record)
+    except Exception as e:
+        logger.error("PDF generation failed for plate %s: %s", plate, e)
+        await query.message.reply_text("❌ שגיאה ביצירת הדוח.")
+        return
+    await query.message.reply_document(
+        document=io.BytesIO(pdf_bytes),
+        filename=f"car_{plate}.pdf",
+        caption=f"📄 דוח רכב {plate}",
+    )
+
+
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -1649,6 +1677,7 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(handle_how_it_works,    pattern=r"^how_it_works$"))
     app.add_handler(CallbackQueryHandler(handle_back_to_start,   pattern=r"^back_to_start$"))
     app.add_handler(CallbackQueryHandler(handle_history,         pattern=r"^(history|hist_plate\|.*)$"))
+    app.add_handler(CallbackQueryHandler(handle_pdf_callback,      pattern=r"^pdf_report$"))
     app.add_handler(CallbackQueryHandler(handle_share_callback,   pattern=r"^share_report$"))
     app.add_handler(CallbackQueryHandler(handle_result_callback,  pattern=r"^(new_search|chat_admin|admin_panel)$"))
     app.add_handler(CallbackQueryHandler(handle_link_whatsapp,    pattern=r"^link_whatsapp$"))
