@@ -95,8 +95,8 @@ def build_url(record: dict) -> str:
     Always includes year filter when available.
     Never returns an empty string.
     """
-    make = (record.get("tozeret_nm") or "").strip()
-    year = (record.get("shnat_yitzur") or "").strip()
+    make = str(record.get("tozeret_nm") or "").strip()
+    year = str(record.get("shnat_yitzur") or "").strip()
 
     base   = "https://www.yad2.co.il/vehicles/cars"
     params: list[str] = []
