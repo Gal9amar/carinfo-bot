@@ -43,6 +43,12 @@ carinfo/
 2. `gov_api.fetch_vehicle_data` — שדות עברית: `tozeret_nm`, `kinuy_mishari` / `degem_nm`, `shnat_yitzur`, וכו'.
 3. `stolen_api` — סטטוס גנבה.
 4. `yad2.build_url(record)` — קישור חיפוש ב-Yad2 (תמיד מחזיר URL, לפחות עם שנה).
+
+**משאבי gov נוספים (מושכים ב-`fetch_vehicle_data`):**
+- `RES_MAIN_EXT` — גרירה, קודי עומס/מהירות צמיג
+- `RES_RECALL` — ריקול לפי דגם (fallback אם אין לפי לוחית)
+- `RES_PERSONAL_IMPORT` — יבוא אישי
+- `RES_INACTIVE` / `RES_INACTIVE_NODEG` — רישום לא פעיל (לא «רכב שכור»)
 5. `formatter` / `pdf_report` — פלט למשתמש.
 
 **חשוב — Yad2:** API של Yad2 חסום מחוץ לישראל. אין קריאות live ל-Yad2 מהשרת; רק מיפויים סטטיים ב-`yad2.py` + `yad2_models.json`.

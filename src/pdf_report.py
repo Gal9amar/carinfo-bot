@@ -597,6 +597,15 @@ def generate_pdf(
         story.append(_alert_box(f"רכב בוטל רשמית (גרוטאה) · {_fd(scrapped_dt)}"))
         story.append(Spacer(1, 8))
 
+    pi = record.get("_personal_import")
+    import_txt = (_v(pi, "sug_yevu") or "יבוא אישי") if pi else ""
+    if record.get("_inactive_no_degem"):
+        inactive_txt = "לא פעיל (ללא קוד דגם)"
+    elif record.get("_inactive_registry") or record.get("_was_rental"):
+        inactive_txt = _v(record, "grira_nm") or "רשום במאגר לא פעיל"
+    else:
+        inactive_txt = "פעיל"
+
     # ── פרטים כלליים ──
     general = [
         ("מספר רכב", plate),
@@ -604,6 +613,7 @@ def generate_pdf(
         ("דגם", model),
         ("שנת ייצור", year),
         ("צבע", _v(record, "tzeva_rechev")),
+        ("יבוא אישי", import_txt if pi else ""),
         ("בעלות נוכחית", _v(record, "baalut")),
         ("ארץ ייצור", _v(wltp, "tozeret_eretz_nm")),
         ("מקוריות", _v(record, "mkoriut_nm")),
@@ -616,14 +626,13 @@ def generate_pdf(
     # ── מצב ובדיקות ──
     test_txt, _, _ = _test_status(record.get("tokef_dt"))
     km_val = _v(record, "kilometer_test_aharon")
-    was_rental = record.get("_was_rental", False)
     gapam = record.get("gapam_ind")
     status_rows = [
         ("תוקף טסט", test_txt),
         ("ק\"מ בטסט אחרון", f"{km_val} ק\"מ" if km_val else ""),
         ("טסט אחרון", _fd(record.get("mivchan_acharon_dt"))),
         ("רישום ראשון", _fd(record.get("rishum_rishon_dt"))),
-        ("רכב שכור בעבר", "כן" if was_rental else "לא"),
+        ("סטטוס רישום", inactive_txt),
         ("GAPAM", "כן" if str(gapam) == "1" else ("לא" if gapam is not None else "")),
         ("שינוי מבנה", "כן" if str(record.get("shinui_mivne_ind")) == "1" else (
             "לא" if record.get("shinui_mivne_ind") is not None else "")),
@@ -655,6 +664,9 @@ def generate_pdf(
         ("תיבת הילוכים", gearbox),
         ("מושבים", _v(wltp, "mispar_moshavim")),
         ("ניקוד בטיחות", _v(wltp, "nikud_betihut")),
+        ("צמיג קדמי", _v(record, "zmig_kidmi")),
+        ("צמיג אחורי", _v(record, "zmig_ahori")),
+        ("וו גרירה", _v(record, "grira_nm")),
     ]
     tbl = _kv_table(specs)
     if tbl:

@@ -144,8 +144,21 @@ def _agra_from_group(code, shnat_yitzur=None, sug_delek_nm=None) -> str:
         return ""
 
 
+def _inactive_label(record: dict) -> str:
+    if record.get("_inactive_no_degem"):
+        return "⚠️ רישום לא פעיל (ללא קוד דגם)"
+    if record.get("_inactive_registry") or record.get("_was_rental"):
+        grira = _val(record, "grira_nm")
+        return f"⚠️ רישום לא פעיל — {grira}" if grira else "⚠️ רישום במאגר רכב לא פעיל"
+    return "❌ לא"
+
+
 def cat_general(record: dict, w: dict) -> str:
     lines = ["*📋 פרטים כלליים*\n"]
+    pi = record.get("_personal_import")
+    if pi:
+        lines.append(_row_always("יבוא", _val(pi, "sug_yevu") or "יבוא אישי"))
+        lines.append(_row_always("שילדה (יבוא)", _val(pi, "shilda")))
     lines.append(_row_always("יצרן", _val(record, "tozeret_nm")))
     lines.append(_row_always("דגם", _val(record, "kinuy_mishari", "degem_nm")))
     lines.append(_row_always("רמת גימור", _val(w, "ramat_gimur")))
@@ -221,6 +234,11 @@ def cat_tires(record: dict, w: dict) -> str:
     lines = ["*🔧 גלגלים וצמיגים*\n"]
     lines.append(_row_always("צמיג קדמי", front))
     lines.append(_row_always("צמיג אחורי", rear))
+    lines.append(_row_always("עומס צמיג קדמי", _val(record, "kod_omes_tzmig_kidmi")))
+    lines.append(_row_always("עומס צמיג אחורי", _val(record, "kod_omes_tzmig_ahori")))
+    lines.append(_row_always("מהירות צמיג קדמי", _val(record, "kod_mehirut_tzmig_kidmi")))
+    lines.append(_row_always("מהירות צמיג אחורי", _val(record, "kod_mehirut_tzmig_ahori")))
+    lines.append(_row_always("וו גרירה (רישום)", _val(record, "grira_nm")))
     return "".join(lines)
 
 
@@ -309,7 +327,6 @@ def cat_history(record: dict, w: dict) -> str:
     changed_tire  = record.get("shinui_zmig_ind")
     gapam         = record.get("gapam_ind")
     tag_nache     = record.get("_tag_nache")
-    was_rental    = record.get("_was_rental", False)
 
     lines = ["*📅 היסטוריה ורישום*\n"]
     lines.append(_row_always("תאריך רישום ראשון", _format_date(record.get("rishum_rishon_dt"))))
@@ -328,7 +345,7 @@ def cat_history(record: dict, w: dict) -> str:
     else:
         lines.append(f"• *{_escape('תו נכה')}:* ❌ לא\n")
 
-    lines.append(_row_always("רכב שכור בעבר", "✅ כן" if was_rental else "❌ לא"))
+    lines.append(_row_always("סטטוס רישום", _inactive_label(record)))
     return "".join(lines)
 
 
@@ -437,7 +454,8 @@ def cat_recalls(record: dict) -> str:
         label = "לרכב זה" if by_plate else "לדגם זה"
         return f"*🔔 ריקולים*\n• לא נמצאו ריקולים {_escape(label)}\n"
 
-    lines = [f"*🔔 ריקולים \\({_escape(str(len(recalls)))}\\)*\n"]
+    scope = "ללוחית זו" if by_plate else "לדגם \\(לא ספציפי ללוחית\\)"
+    lines = [f"*🔔 ריקולים \\({_escape(str(len(recalls)))}\\)* — {_escape(scope)}\n"]
 
     if by_plate:
         # hagbalat_recall fields: SUG_RECALL, SUG_TAKALA, TEUR_TAKALA, TAARICH_PTICHA
@@ -455,16 +473,21 @@ def cat_recalls(record: dict) -> str:
                     line += f"\n  _סוג: {_escape(sug)}_"
                 lines.append(line + "\n")
     else:
-        # legacy RES_RECALL fields: SHNAT_RECALL, TEUR_TAKALA, OFEN_TIKUN
         for r in recalls:
             teur  = r.get("TEUR_TAKALA", "")
             ofen  = r.get("OFEN_TIKUN", "")
             shnat = r.get("SHNAT_RECALL", "")
+            yevuan = r.get("YEVUAN_TEUR", "")
+            phone  = r.get("TELEPHONE", "")
             if teur:
-                line = f"• *{_escape(str(shnat))}:* {_escape(str(teur))}"
+                line = f"• *{_escape(str(shnat))}:* {_escape(str(teur)[:120])}"
                 if ofen:
                     line += f" _\\({_escape(str(ofen))}\\)_"
                 lines.append(line + "\n")
+                if yevuan:
+                    lines.append(f"  _{_escape(str(yevuan))}_\n")
+                if phone:
+                    lines.append(f"  📞 {_escape(str(phone))}\n")
 
     return "".join(lines)
 
@@ -478,7 +501,9 @@ def quick_summary(record: dict) -> str:
     km           = _val(record, "kilometer_test_aharon")
     baalut       = _val(record, "baalut")
     ownership    = record.get("_ownership") or []
-    was_rental   = record.get("_was_rental", False)
+    inactive     = record.get("_inactive_registry") or record.get("_was_rental", False)
+    inactive_nd  = record.get("_inactive_no_degem", False)
+    personal_imp = bool(record.get("_personal_import"))
     scrapped     = record.get("_scrapped_dt", "")
     test_str     = _test_status(record.get("tokef_dt"))
 
@@ -503,6 +528,12 @@ def quick_summary(record: dict) -> str:
         flags_plain.append(flip_warn_plain)
     if has_body_change:
         flags_plain.append("⚠️ שינוי מבנה רשום")
+    if inactive_nd:
+        flags_plain.append("⚠️ רישום לא פעיל ללא קוד דגם")
+    elif inactive:
+        flags_plain.append("⚠️ רשום במאגר רכב לא פעיל")
+    if personal_imp:
+        flags_plain.append("📦 רכב יבוא אישי")
 
     is_red = (
         bool(scrapped)
@@ -510,7 +541,9 @@ def quick_summary(record: dict) -> str:
         or ("זיוף" in km_warn_plain if km_warn_plain else False)
     )
     is_yellow = (
-        was_rental
+        inactive
+        or inactive_nd
+        or personal_imp
         or "🟡" in test_str
         or "🔴" in test_str
         or has_body_change
@@ -539,8 +572,10 @@ def quick_summary(record: dict) -> str:
         f"• *{_escape(_km_lbl)}:* {_escape(km_str) if km_str else _no_data}\n",
         f"• *{_escape('בעלויות')}:* {_escape(str(owner_count))} \\| *{_escape('נוכחית')}:* {_escape(baalut)}\n",
         f"• *{_escape('טסט')}:* {_escape(test_str)}\n",
-        f"• *{_escape('רכב שכור בעבר')}:* {'✅ כן' if was_rental else '❌ לא'}\n",
+        f"• *{_escape('סטטוס רישום')}:* {_escape(_inactive_label(record))}\n",
     ]
+    if personal_imp:
+        lines.append(f"• *{_escape('יבוא')}:* {_escape('אישי ✅')}\n")
 
     if flags_plain:
         lines.append("━━━━━━━━━━━━━━━━━━\n")
@@ -561,7 +596,9 @@ def get_share_text(record: dict) -> str:
     km           = _val(record, "kilometer_test_aharon")
     baalut       = _val(record, "baalut")
     ownership    = record.get("_ownership") or []
-    was_rental   = record.get("_was_rental", False)
+    inactive     = record.get("_inactive_registry") or record.get("_was_rental", False)
+    inactive_nd  = record.get("_inactive_no_degem", False)
+    personal_imp = bool(record.get("_personal_import"))
     scrapped     = record.get("_scrapped_dt", "")
 
     tokef = record.get("tokef_dt")
@@ -595,6 +632,12 @@ def get_share_text(record: dict) -> str:
         flags.append(flip_warn)
     if str(record.get("shinui_mivne_ind", "")).strip() == "1":
         flags.append("⚠️ שינוי מבנה רשום")
+    if inactive_nd:
+        flags.append("⚠️ רישום לא פעיל ללא קוד דגם")
+    elif inactive:
+        flags.append("⚠️ רשום במאגר רכב לא פעיל")
+    if personal_imp:
+        flags.append("📦 רכב יבוא אישי")
 
     lines = [
         f'🚗 דוח רכב — {plate}\n',
@@ -607,8 +650,10 @@ def get_share_text(record: dict) -> str:
         f"👥 בעלויות: {len(ownership)} | נוכחית: {baalut}\n",
         f'🔑 ק"מ: {km_str if km_str else "לא ידוע"}\n',
         f"🔧 טסט: {test_str}\n",
-        f"🏢 רכב שכור בעבר: {'כן ✅' if was_rental else 'לא'}\n",
+        f"📋 סטטוס רישום: {_inactive_label(record)}\n",
     ]
+    if personal_imp:
+        lines.append("📦 יבוא אישי: כן\n")
 
     if flags:
         lines.append("\n⚠️ דגלים:\n")
