@@ -159,14 +159,6 @@ def format_result(record: dict, left: int, expires: str | None = None, plate: st
     plain = _strip_md(raw)
     status = format_status(left, expires)
 
-    share_text = ""
-    if plate:
-        share_text = (
-            f"\n💬 *שתף עם חבר:*\n"
-            f"שלח את המספר *{plate}* לבוט CarInfo\n"
-            f"wa.me/972526777070\n"
-        )
-
     return (
         f"{plain}\n"
         f"━━━━━━━━━━━━━━━━━━\n"
@@ -174,5 +166,4 @@ def format_result(record: dict, left: int, expires: str | None = None, plate: st
         f"📄 לדוח PDF — שלח *6*\n"
         f"🔁 לחיפוש נוסף — שלח מספר רכב\n"
         f"📋 לתפריט — שלח *תפריט*"
-        f"{share_text}"
     )

@@ -139,8 +139,25 @@ def generate_pdf(
     tg_link: str = "",
     wa_link: str = "",
     logo_path: str = "",
+    cover_path: str = "",
 ) -> bytes:
     """Generate a full Hebrew vehicle-report PDF and return raw bytes."""
+    import os as _os
+
+    _root = _os.path.dirname(_os.path.dirname(__file__))
+
+    if not logo_path:
+        for _c in [_os.path.join(_root, "logo.png"), _os.path.join(_root, "logo.jpg")]:
+            if _os.path.exists(_c):
+                logo_path = _c
+                break
+
+    if not cover_path:
+        for _c in [_os.path.join(_root, "cover.png"), _os.path.join(_root, "cover.jpg")]:
+            if _os.path.exists(_c):
+                cover_path = _c
+                break
+
     from reportlab.lib.pagesizes import A4
     from reportlab.platypus import (
         SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable,
@@ -183,33 +200,39 @@ def generate_pdf(
     model = _v(record, "kinuy_mishari", "degem_nm")
     year = _v(record, "shnat_yitzur")
 
-    def _header_bar(text: str, bg: tuple) -> Table:
-        import os as _os
-        p = Paragraph(_b(text), s_header)
-        if logo_path and _os.path.exists(logo_path):
-            from reportlab.platypus import Image as _Image
-            logo_h = 28 * _MM
+    def _cover_image() -> object | None:
+        """Return a full-width Image flowable for cover.png, or None."""
+        if not cover_path:
+            return None
+        try:
+            from reportlab.platypus import Image as _RLImage
             try:
-                logo_img = _Image(logo_path, height=logo_h, kind="proportional")
-                data = [[p, logo_img]]
-                col_widths = [_USABLE_W - logo_h * 1.8, logo_h * 1.8]
-                style_extra = [("ALIGN", (1, 0), (1, 0), "RIGHT"), ("VALIGN", (0, 0), (-1, -1), "MIDDLE")]
-            except Exception:
-                data = [[p]]
-                col_widths = [_USABLE_W]
-                style_extra = []
-        else:
-            data = [[p]]
-            col_widths = [_USABLE_W]
-            style_extra = []
-        tbl = Table(data, colWidths=col_widths)
+                from PIL import Image as _PIL
+                with _PIL.open(cover_path) as _p:
+                    _pw, _ph = _p.size
+                cover_h = _USABLE_W * _ph / _pw
+            except ImportError:
+                import struct as _struct
+                with open(cover_path, "rb") as _f:
+                    _hdr = _f.read(24)
+                if _hdr[:8] == b"\x89PNG\r\n\x1a\n":
+                    _pw, _ph = _struct.unpack(">II", _hdr[16:24])
+                    cover_h = _USABLE_W * _ph / _pw
+                else:
+                    cover_h = _USABLE_W * 0.47  # fallback ~2.1:1 aspect
+            return _RLImage(cover_path, width=_USABLE_W, height=cover_h)
+        except Exception:
+            return None
+
+    def _header_bar(text: str, bg: tuple) -> Table:
+        p = Paragraph(_b(text), s_header)
+        tbl = Table([[p]], colWidths=[_USABLE_W])
         tbl.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, -1), colors.Color(*bg)),
             ("LEFTPADDING",   (0, 0), (-1, -1), 8),
             ("RIGHTPADDING",  (0, 0), (-1, -1), 8),
             ("TOPPADDING",    (0, 0), (-1, -1), 10),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
-            *style_extra,
         ]))
         return tbl
 
@@ -293,12 +316,16 @@ def generate_pdf(
     # ── Story ─────────────────────────────────────────────────────────────────
     story = []
 
-    # 1. Dark-blue header
-    story.append(_header_bar(f"דוח בדיקת רכב — {plate}", _DARK_BLUE))
+    # 1. Header — cover image if available, else dark-blue text bar
+    _cov = _cover_image()
+    if _cov:
+        story.append(_cov)
+    else:
+        story.append(_header_bar(f"דוח בדיקת רכב — {plate}", _DARK_BLUE))
 
-    # 2. Sub-bar with make/model/year
-    sub_parts = " ".join(x for x in [make, model, year] if x)
-    story.append(_sub_bar(sub_parts or plate))
+    # 2. Sub-bar with plate + make/model/year
+    sub_parts = " | ".join(x for x in [f"רכב {plate}", make, model, year] if x)
+    story.append(_sub_bar(sub_parts))
     story.append(Spacer(1, 4))
 
     # 3. Red alert if scrapped
@@ -446,17 +473,40 @@ def generate_pdf(
         except Exception:
             pass
 
-    # 10. Footer
+    # 10. Footer — logo (if available) left + links/date right, no BiDi on URLs
     now_str = datetime.now().strftime("%d/%m/%Y %H:%M")
-    footer_parts = ["מופק על ידי @israelcarinfobot"]
+    latin_parts = []
     if tg_link:
-        footer_parts.append(f"טלגרם: {tg_link}")
+        latin_parts.append(tg_link)
     if wa_link:
-        footer_parts.append(f"וואטסאפ: {wa_link}")
-    footer_parts.append(now_str)
+        latin_parts.append(wa_link)
+    latin_parts.append(now_str)
+    links_text = " | ".join(latin_parts)
+
     story.append(HRFlowable(width=_USABLE_W, thickness=0.5, color=colors.Color(*_GRAY_TEXT)))
     story.append(Spacer(1, 2))
-    story.append(Paragraph(_b(" | ".join(footer_parts)), s_footer))
+
+    if logo_path:
+        try:
+            from reportlab.platypus import Image as _RLLogo
+            _logo_h = 14 * _MM
+            _logo_img = _RLLogo(logo_path, height=_logo_h, width=_logo_h, kind="proportional")
+            _footer_tbl = Table(
+                [[_logo_img, Paragraph(links_text, s_footer)]],
+                colWidths=[_logo_h * 1.2, _USABLE_W - _logo_h * 1.2],
+            )
+            _footer_tbl.setStyle(TableStyle([
+                ("VALIGN",       (0, 0), (-1, -1), "MIDDLE"),
+                ("LEFTPADDING",  (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                ("TOPPADDING",   (0, 0), (-1, -1), 0),
+                ("BOTTOMPADDING",(0, 0), (-1, -1), 0),
+            ]))
+            story.append(_footer_tbl)
+        except Exception:
+            story.append(Paragraph(links_text, s_footer))
+    else:
+        story.append(Paragraph(links_text, s_footer))
 
     # ── Build PDF ─────────────────────────────────────────────────────────────
     buf = io.BytesIO()
