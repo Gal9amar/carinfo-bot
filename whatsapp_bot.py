@@ -51,6 +51,7 @@ from src.users import (
     get_user_by_phone,
     get_search_history,
     get_user_by_id,
+    generate_code,
 )
 from src import wa_menu as menu
 
@@ -157,9 +158,40 @@ async def handle_admin(chat_id: str, phone: str, text: str) -> bool:
         "ה  חסום משתמש\n"
         "ו  שחרר משתמש\n"
         "ז  שלח הודעה לכולם\n"
+        "ח  נקה שורות זבל\n"
+        "ט  צור קוד הטבה\n"
         "─────────────────\n"
-        "שלח אות לבחירה"
+        "שלח אות לבחירה\n"
+        "יציאה: שלח *תפריט*"
     )
+
+    if state == "ADMIN_CREATE_CODE":
+        if lower in ("אדמין", "admin", "ביטול", "תפריט"):
+            await set_wa_state(phone, "ADMIN_MENU")
+            await send_message(chat_id, ADMIN_MENU)
+            return True
+        try:
+            if lower == "חודש":
+                code = await generate_code(searches=30, unlimited=True, monthly=True)
+                label = "מנוי חודשי"
+            elif lower == "חינם":
+                code = await generate_code(searches=0, unlimited=True, monthly=False)
+                label = "ללא הגבלה"
+            else:
+                amount = int(text.strip())
+                code = await generate_code(searches=amount)
+                label = f"{amount} חיפושים"
+            await set_wa_state(phone, "ADMIN_MENU")
+            await send_message(chat_id,
+                f"✅ *קוד נוצר!*\n"
+                f"─────────────────\n"
+                f"🎟️ קוד: *{code}*\n"
+                f"📦 סוג: {label}\n\n"
+                f"─────────────────\n{ADMIN_MENU}"
+            )
+        except ValueError:
+            await send_message(chat_id, "❌ שלח מספר, 'חודש', או 'חינם'")
+        return True
 
     if lower in ("אדמין", "admin", "תפריט אדמין"):
         await send_message(chat_id, ADMIN_MENU)
@@ -228,6 +260,27 @@ async def handle_admin(chat_id: str, phone: str, text: str) -> bool:
         if text == "ז":
             await set_wa_state(phone, None)
             await send_message(chat_id, "שלח:\nשלח לכולם טקסט ההודעה שלך\n\nלחזרה: שלח *אדמין*")
+            return True
+        if text == "ח":
+            from src.db import execute as _exec
+            r = await _exec(
+                "DELETE FROM users WHERE username = whatsapp_phone AND searches_quota = 20 AND searches_done = 0"
+            )
+            await send_message(chat_id,
+                f"🧹 *ניקוי הושלם*\n─────────────────\n{ADMIN_MENU}"
+            )
+            return True
+        if text == "ט":
+            await set_wa_state(phone, "ADMIN_CREATE_CODE")
+            await send_message(chat_id,
+                "🎟️ *צור קוד הטבה*\n"
+                "─────────────────\n"
+                "שלח בפורמט:\n"
+                "*כמות* — לדוגמה: 50\n"
+                "*חודש* — מנוי חודשי\n"
+                "*חינם* — ללא הגבלה\n\n"
+                "לביטול: שלח *אדמין*"
+            )
             return True
         # אות לא מוכרת — הצג תפריט שוב
         await send_message(chat_id, ADMIN_MENU)
@@ -586,14 +639,18 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
         if not is_repeat and left == 1:
             await send_message(chat_id, menu.LAST_FREE)
 
-        await send_message(chat_id, menu.SEARCHING)
-
-        try:
-            record = await fetch_vehicle_data(plate)
-        except Exception as exc:
-            logger.error("WA fetch error plate=%s: %s", plate, exc)
-            await send_message(chat_id, menu.ERROR)
-            return
+        # cache hit — no API call needed
+        record = cache.get(plate)
+        if record is None:
+            await send_message(chat_id, menu.SEARCHING)
+            try:
+                record = await fetch_vehicle_data(plate)
+            except Exception as exc:
+                logger.error("WA fetch error plate=%s: %s", plate, exc)
+                await send_message(chat_id, menu.ERROR)
+                return
+            if record is not None:
+                cache.set(plate, record)
 
         if record is None:
             await send_message(chat_id, menu.NOT_FOUND.format(plate=plate))
@@ -605,7 +662,7 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
 
         expires  = await get_quota_expires(user_id) if left == -1 else None
         new_left = left if (left == -1 or is_repeat) else max(0, left - 1)
-        result_text = menu.format_result(record, new_left, expires)
+        result_text = menu.format_result(record, new_left, expires, plate=plate)
         await send_message(chat_id, result_text)
         return
 

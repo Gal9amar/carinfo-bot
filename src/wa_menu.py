@@ -145,16 +145,32 @@ def format_status_full(left: int, expires: str | None = None) -> str:
     )
 
 
-def format_result(record: dict, left: int, expires: str | None = None) -> str:
-    """Plain-text version of the vehicle summary (strips MarkdownV2 escaping)."""
+def _strip_md(text: str) -> str:
     import re
-    raw = _tg_summary(record)
-    plain = re.sub(r"\\([_\*\[\]()~`>#+=|{}.!\-])", r"\1", raw)
-    plain = re.sub(r"[*_`]", "", plain)
+    text = re.sub(r"\\([_\*\[\]()~`>#+=|{}.!\-])", r"\1", text)
+    text = re.sub(r"[*_`]", "", text)
+    return text
+
+
+def format_result(record: dict, left: int, expires: str | None = None, plate: str = "") -> str:
+    """Plain-text WhatsApp vehicle report."""
+    raw   = _tg_summary(record)
+    plain = _strip_md(raw)
     status = format_status(left, expires)
+
+    share_text = ""
+    if plate:
+        share_text = (
+            f"\n💬 *שתף עם חבר:*\n"
+            f"שלח את המספר *{plate}* לבוט CarInfo\n"
+            f"wa.me/972526777070\n"
+        )
+
     return (
         f"{plain}\n"
-        f"─────────────────\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
         f"{status}\n\n"
-        f"🔍 לחיפוש נוסף — שלח מספר רכב"
+        f"🔁 לחיפוש נוסף — שלח מספר רכב\n"
+        f"📋 לתפריט — שלח *תפריט*"
+        f"{share_text}"
     )
