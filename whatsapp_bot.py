@@ -48,6 +48,8 @@ from src.users import (
     block_user,
     unblock_user,
     get_user_by_phone,
+    get_search_history,
+    get_user_by_id,
 )
 from src import wa_menu as menu
 
@@ -151,11 +153,80 @@ async def handle_admin(chat_id: str, phone: str, text: str) -> bool:
             f"🔑 קודים: {stats['used_codes']}/{stats['total_codes']} נוצלו\n\n"
             f"─────────────────\n"
             f"*פקודות אדמין:*\n"
-            f"grant 972501234567 50 — הענק בדיקות\n"
-            f"block 972501234567 — חסום\n"
-            f"unblock 972501234567 — שחרר\n"
-            f"approve 972501234567 50 — אשר תשלום"
+            f"• משתמשים — רשימת משתמשים\n"
+            f"• משתמש 972501234567 — פרטי משתמש\n"
+            f"• grant 972501234567 50 — הענק בדיקות\n"
+            f"• approve 972501234567 50 — אשר תשלום\n"
+            f"• block / unblock 972501234567\n"
+            f"• שלח לכולם טקסט — broadcast"
         )
+        return True
+
+    # רשימת משתמשים
+    if lower == "משתמשים":
+        users = await get_all_users()
+        if not users:
+            await send_message(chat_id, "אין משתמשים עדיין.")
+            return True
+        lines = [f"👥 *משתמשים ({len(users)})*\n─────────────────"]
+        for u in users[:20]:
+            phone_u  = u.get("whatsapp_phone") or u.get("username") or f"id:{u['user_id']}"
+            quota    = u.get("searches_quota", 0)
+            done     = u.get("searches_done", 0)
+            left     = u.get("searches_left", 0)
+            blocked  = "🔴" if u.get("blocked") else "🟢"
+            quota_s  = "∞" if quota == -1 else str(quota)
+            left_s   = "∞" if left  == -1 else str(left)
+            lines.append(f"{blocked} {phone_u}\n   {done}/{quota_s} | נותרו: {left_s}")
+        await send_message(chat_id, "\n".join(lines))
+        return True
+
+    # חיפוש משתמש לפי טלפון
+    if parts[0] == "משתמש" and len(parts) >= 2:
+        target_phone = parts[1]
+        u = await get_user_by_phone(target_phone)
+        if not u:
+            await send_message(chat_id, f"❌ משתמש {target_phone} לא נמצא")
+            return True
+        quota   = u.get("searches_quota", 0)
+        done    = u.get("searches_done", 0)
+        left    = u.get("searches_left", 0)
+        blocked = "🔴 חסום" if u.get("blocked") else "🟢 פעיל"
+        expires = u.get("quota_expires", "")
+        exp_str = f"\nתוקף: {expires[:10]}" if expires else ""
+        quota_s = "∞" if quota == -1 else str(quota)
+        left_s  = "∞" if left  == -1 else str(left)
+        await send_message(chat_id,
+            f"👤 *{target_phone}*\n"
+            f"─────────────────\n"
+            f"סטטוס: {blocked}\n"
+            f"בדיקות: {done}/{quota_s} | נותרו: {left_s}{exp_str}\n\n"
+            f"grant {target_phone} 50 — הענק בדיקות\n"
+            f"block {target_phone} — חסום"
+        )
+        return True
+
+    # broadcast
+    if lower.startswith("שלח לכולם "):
+        broadcast_text = text[len("שלח לכולם "):].strip()
+        if not broadcast_text:
+            await send_message(chat_id, "שימוש: שלח לכולם טקסט ההודעה")
+            return True
+        users = await get_all_users()
+        sent_ok = sent_fail = 0
+        await send_message(chat_id, f"📤 שולח ל-{len(users)} משתמשים...")
+        for u in users:
+            wa_phone = u.get("whatsapp_phone")
+            if not wa_phone or wa_phone == ADMIN_WA_PHONE:
+                continue
+            target_chat = f"{wa_phone}@c.us"
+            try:
+                await send_message(target_chat, f"📢 *הודעה מהמנהל:*\n\n{broadcast_text}")
+                sent_ok += 1
+            except Exception:
+                sent_fail += 1
+            await asyncio.sleep(0.3)
+        await send_message(chat_id, f"✅ נשלח: {sent_ok} | ❌ נכשל: {sent_fail}")
         return True
 
     # grant <phone> <amount>
@@ -408,15 +479,32 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
         await send_message(chat_id, menu.HELP)
         return
 
+    if text == "5" or lower in ("היסטוריה", "history"):
+        history = await get_search_history(user_id, limit=10)
+        if not history:
+            await send_message(chat_id, menu.NO_HISTORY)
+        else:
+            lines = ["📜 *היסטוריית החיפושים שלך:*\n─────────────────"]
+            for i, plate in enumerate(history, 1):
+                lines.append(f"{i}. 🚗 {plate}")
+            lines.append("\n─────────────────")
+            lines.append("לחיפוש חוזר — שלח את מספר הרכב")
+            await send_message(chat_id, "\n".join(lines))
+        return
+
     # ── Plate search ─────────────────────────────────────────────────────────
     plate = _normalize_plate(text)
     if PLATE_RE.match(plate) and len(plate) >= 5:
         allowed, left = await is_allowed(user_id)
         if not allowed:
-            await send_message(chat_id, menu.NO_QUOTA)
+            await send_message(chat_id, menu.EXPIRY_WARNING)
             return
 
-        if left == 1:
+        # Check repeat search (no deduction)
+        last       = await get_last_plate(user_id)
+        is_repeat  = (last == plate)
+
+        if not is_repeat and left == 1:
             await send_message(chat_id, menu.LAST_FREE)
 
         await send_message(chat_id, menu.SEARCHING)
@@ -432,13 +520,12 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
             await send_message(chat_id, menu.NOT_FOUND.format(plate=plate))
             return
 
-        last = await get_last_plate(user_id)
-        if last != plate:
+        if not is_repeat:
             await increment_search(user_id, plate)
             await set_last_plate(user_id, plate)
 
-        expires = await get_quota_expires(user_id) if left == -1 else None
-        new_left = left if left == -1 else max(0, left - 1)
+        expires  = await get_quota_expires(user_id) if left == -1 else None
+        new_left = left if (left == -1 or is_repeat) else max(0, left - 1)
         result_text = menu.format_result(record, new_left, expires)
         await send_message(chat_id, result_text)
         return
@@ -446,7 +533,9 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
     # ── Fallback ──────────────────────────────────────────────────────────────
     await send_message(
         chat_id,
-        "לא הבנתי 🤔\n\nשלח מספר רכב לחיפוש, או 'תפריט' לאפשרויות.",
+        "לא הבנתי 🤔\n\n"
+        "שלח מספר רכב לחיפוש\n"
+        "או שלח *תפריט* לאפשרויות.",
     )
 
 
@@ -520,6 +609,47 @@ async def _dispatch(data: dict) -> None:
         logger.error("_dispatch error: %s", exc)
 
 
+# ── Renewal reminder background thread ──────────────────────────────────────
+
+def _run_renewal_reminders():
+    """Check daily for subscriptions expiring tomorrow and send WA reminder."""
+    import time
+    from datetime import datetime as _dt, timedelta
+    while True:
+        try:
+            asyncio.run(_send_renewal_reminders())
+        except Exception as exc:
+            logger.warning("renewal reminder error: %s", exc)
+        time.sleep(86400)  # run once per day
+
+
+async def _send_renewal_reminders():
+    from src.db import execute as _exec
+    tomorrow = (_dt.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+    r = await _exec(
+        "SELECT user_id, whatsapp_phone FROM users "
+        "WHERE searches_quota = -1 AND quota_expires IS NOT NULL "
+        "AND quota_expires LIKE ? AND whatsapp_phone IS NOT NULL",
+        [f"{tomorrow}%"],
+    )
+    from src.db import _Result
+    cols  = [c.name for c in r.columns]
+    rows  = [dict(zip(cols, row)) for row in r.rows]
+    for u in rows:
+        wa_phone = u.get("whatsapp_phone")
+        if not wa_phone:
+            continue
+        chat_id = f"{wa_phone}@c.us"
+        await send_message(
+            chat_id,
+            "⏰ *תזכורת — המנוי שלך פג מחר!*\n"
+            "─────────────────\n"
+            "כדי להמשיך לחפש רכבים ללא הגבלה:\n\n"
+            "2️⃣  שלח *2* לחידוש מנוי"
+        )
+        logger.info("Renewal reminder sent to %s", wa_phone)
+
+
 # ── Entry point ──────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -530,6 +660,10 @@ def main() -> None:
 
     asyncio.run(init_db())
     logger.info("Turso DB initialized (WA bot)")
+
+    from threading import Thread
+    Thread(target=_run_renewal_reminders, daemon=True).start()
+    logger.info("Renewal reminder thread started")
 
     server = HTTPServer(("0.0.0.0", PORT), WebhookHandler)
     logger.info("WhatsApp webhook server listening on port %d", PORT)
