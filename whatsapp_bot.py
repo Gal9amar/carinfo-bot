@@ -732,6 +732,7 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
                 tg_link=f"t.me/{TG_BOT_USERNAME}",
                 wa_link=f"wa.me/{WA_BOT_PHONE}",
                 logo_path=os.environ.get("LOGO_PATH", ""),
+                cover_path=os.environ.get("COVER_PATH", ""),
             )
         except Exception as exc:
             logger.error("WA PDF generation failed plate=%s: %s", last_plate, exc)
