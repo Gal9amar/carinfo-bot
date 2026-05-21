@@ -1347,7 +1347,7 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             logger.info("Broadcast: total_users=%d tg_users=%d msg=%r", len(all_users), len(tg_users), raw[:50])
             sent_ok = sent_fail = 0
             await update.message.reply_text(
-                f"📤 שולח ל\\-*{len(tg_users)}* משתמשי טלגרם\\.\\.\\.".replace("-", "\\-"),
+                f"📤 שולח ל\\-*{len(tg_users)}* משתמשי טלגרם\\.\\.\\.",
                 parse_mode=ParseMode.MARKDOWN_V2,
             )
             from telegram.helpers import escape_markdown
