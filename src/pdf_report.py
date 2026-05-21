@@ -1,7 +1,6 @@
 """
 Hebrew PDF — Israeli vehicle license (רישיון רכב) layout.
-ReportLab Paragraphs: logical Hebrew + TA_RIGHT (no python-bidi).
-Canvas strings: get_display via _cb() only.
+ReportLab: python-bidi get_display() + TA_LEFT/CENTER (never TA_RIGHT on Hebrew).
 """
 
 from __future__ import annotations
@@ -76,21 +75,16 @@ def _ensure_fonts() -> tuple[str, str]:
     return regular, bold
 
 
-def _cb(text: Any) -> str:
-    """Visual-order Hebrew for canvas drawString (LTR pipeline)."""
+def _rtl(text: Any) -> str:
+    """Visual-order string for ReportLab (LTR drawing pipeline)."""
     s = str(text) if text is not None else ""
     if not s or not _HEB_RE.search(s):
         return s
     try:
         from bidi.algorithm import get_display
-        return get_display(s)
+        return get_display(s, base_dir="R")
     except Exception:
         return s
-
-
-def _t(text: Any) -> str:
-    """Logical-order text for ReportLab Paragraph + TA_RIGHT."""
-    return str(text) if text is not None else ""
 
 
 def _v(record: dict, *keys: str) -> str:
@@ -197,7 +191,7 @@ def generate_pdf(
 ) -> bytes:
     """Generate landscape license-style vehicle report (no cover image)."""
     from reportlab.lib import colors
-    from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.platypus import (
         Paragraph,
@@ -220,7 +214,6 @@ def generate_pdf(
     wa_url = _full_url(wa_link)
     ch = (channel or "").strip().lower()
 
-    TA_RTL = TA_RIGHT
     bg = colors.Color(*C_BG)
     bar = colors.Color(*C_BAR)
     title_c = colors.Color(*C_TITLE)
@@ -230,7 +223,7 @@ def generate_pdf(
     line_c = colors.Color(*C_LINE)
     white = colors.Color(*C_WHITE)
 
-    def sty(name, *, size=9, bold=False, color=colors.black, align=TA_RTL, leading=None):
+    def sty(name, *, size=9, bold=False, color=colors.black, align=TA_LEFT, leading=None):
         return ParagraphStyle(
             name, fontName=font_bold if bold else font, fontSize=size,
             textColor=color, alignment=align, leading=leading or size * 1.35,
@@ -238,19 +231,19 @@ def generate_pdf(
         )
 
     def _p(text: Any, style: ParagraphStyle) -> Paragraph:
-        return Paragraph(_t(text), style)
+        return Paragraph(_rtl(text), style)
 
     s_title = sty("title", size=22, bold=True, color=title_c, align=TA_CENTER)
-    s_ministry = sty("min", size=7.5, bold=True, color=bar, align=TA_RIGHT)
+    s_ministry = sty("min", size=7.5, bold=True, color=bar, align=TA_LEFT)
     s_sub = sty("sub", size=6.5, color=lbl_blue, align=TA_CENTER)
     s_bar_lbl = sty("bl", size=7, bold=True, color=white, align=TA_CENTER)
     s_bar_val = sty("bv", size=11, bold=True, color=white, align=TA_CENTER)
-    s_lbl_r = sty("lr", size=6.5, bold=True, color=lbl_red, align=TA_RTL)
-    s_lbl_b = sty("lb", size=6.5, bold=True, color=lbl_blue, align=TA_RTL)
-    s_val = sty("val", size=9, bold=True, color=val_c, align=TA_RTL)
-    s_val_sm = sty("vs", size=8, color=val_c, align=TA_RTL)
+    s_lbl_r = sty("lr", size=6.5, bold=True, color=lbl_red, align=TA_LEFT)
+    s_lbl_b = sty("lb", size=6.5, bold=True, color=lbl_blue, align=TA_LEFT)
+    s_val = sty("val", size=9, bold=True, color=val_c, align=TA_LEFT)
+    s_val_sm = sty("vs", size=8, color=val_c, align=TA_LEFT)
     s_note = sty("note", size=6.5, color=lbl_blue, align=TA_CENTER)
-    s_alert = sty("alert", size=8.5, bold=True, color=colors.Color(*C_ALERT), align=TA_RTL)
+    s_alert = sty("alert", size=8.5, bold=True, color=colors.Color(*C_ALERT), align=TA_LEFT)
 
     def _tbl(rows, colw, cmds):
         t = Table(rows, colWidths=colw)
@@ -264,7 +257,7 @@ def generate_pdf(
         """License cell: value on top, label below (RTL)."""
         if not value:
             value = "—"
-        vs = sty("v", size=size, bold=True, color=val_c, align=TA_RTL)
+        vs = sty("v", size=size, bold=True, color=val_c, align=TA_LEFT)
         ls = s_lbl_r if red_label else s_lbl_b
         return _tbl(
             [[_p(value, vs)], [_p(label, ls)]],
@@ -282,7 +275,7 @@ def generate_pdf(
     def _field_col(label: str, value: str, width: float, *, red_label: bool = False) -> Table:
         if not value:
             value = "—"
-        vs = sty("vc", size=9, bold=True, color=val_c, align=TA_RTL)
+        vs = sty("vc", size=9, bold=True, color=val_c, align=TA_LEFT)
         ls = s_lbl_r if red_label else s_lbl_b
         return _tbl(
             [[_p(value, vs)], [_p(label, ls)]],
@@ -342,7 +335,10 @@ def generate_pdf(
 
         canv.setFillColor(colors.Color(*C_BAR_LT))
         canv.setFont(font, 5.5)
-        canv.drawCentredString(_PW / 2, _FOOTER_H + 1.2 * _MM, _cb(f"CarInfo · {plate} · עמוד {canv.getPageNumber()}"))
+        canv.drawCentredString(
+            _PW / 2, _FOOTER_H + 1.2 * _MM,
+            _rtl(f"CarInfo · {plate} · עמוד {canv.getPageNumber()}"),
+        )
 
         y_center = 5.5 * _MM
         btn_w, btn_h = 40 * _MM, 8 * _MM
@@ -377,7 +373,7 @@ def generate_pdf(
                 canv.circle(cx, cy, r * 0.5, fill=1, stroke=0)
             canv.setFillColor(white)
             canv.setFont(font_bold, 7.5)
-            canv.drawString(x + 13 * _MM, y_center + 2.5 * _MM, _cb(label))
+            canv.drawString(x + 13 * _MM, y_center + 2.5 * _MM, _rtl(label))
 
         canv.restoreState()
 
@@ -404,7 +400,7 @@ def generate_pdf(
     story.append(_tbl(
         [
             [
-                _p("CarInfo\nעותק מידע", sty("ci", size=6.5, color=lbl_blue, align=TA_RTL)),
+                _p("CarInfo\nעותק מידע", sty("ci", size=6.5, color=lbl_blue, align=TA_LEFT)),
                 _p("רישיון רכב", s_title),
                 _p("משרד התחבורה והבטיחות בדרכים\nמדינת ישראל", s_ministry),
             ],
