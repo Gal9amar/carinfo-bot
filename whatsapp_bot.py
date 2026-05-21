@@ -184,14 +184,24 @@ async def handle_admin(chat_id: str, phone: str, text: str) -> bool:
             users = await get_all_users()
             lines = [f"👥 *משתמשים ({len(users)})*\n─────────────────"]
             for u in users[:20]:
-                p     = u.get("whatsapp_phone") or u.get("username") or f"id:{u['user_id']}"
+                wa    = u.get("whatsapp_phone") or ""
+                tg    = u.get("username") or ""
+                ch    = u.get("channel", "telegram")
+                if wa and tg:
+                    name = f"📱{wa} / ✈️{tg}"
+                elif wa:
+                    name = f"📱{wa}"
+                elif tg:
+                    name = f"✈️{tg}"
+                else:
+                    name = f"id:{u['user_id']}"
                 quota = u.get("searches_quota", 0)
                 done  = u.get("searches_done", 0)
                 left  = u.get("searches_left", 0)
                 bl    = "🔴" if u.get("blocked") else "🟢"
                 qs    = "∞" if quota == -1 else str(quota)
                 ls    = "∞" if left  == -1 else str(left)
-                lines.append(f"{bl} {p}  {done}/{qs} (נותרו:{ls})")
+                lines.append(f"{bl} {name}  {done}/{qs} (נותרו:{ls})")
             await send_message(chat_id, "\n".join(lines))
             return True
         if text == "ג":

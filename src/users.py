@@ -256,7 +256,7 @@ async def generate_code(
 
 async def get_all_users() -> list[dict]:
     r = await execute(
-        "SELECT user_id, username, full_name, searches_done, searches_quota, first_seen, last_seen, blocked FROM users ORDER BY searches_done DESC"
+        "SELECT user_id, username, full_name, searches_done, searches_quota, first_seen, last_seen, blocked, whatsapp_phone, channel FROM users ORDER BY searches_done DESC"
     )
     users = []
     for u in _rows(r):
