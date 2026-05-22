@@ -1982,6 +1982,49 @@ def main() -> None:
     register_payment_notifier(_notify_admin_payment)
     from src.notifier import register_ticket_notifiers
     register_ticket_notifiers(_notify_admin_ticket, _notify_user_ticket_reply)
+
+    async def _notify_payment_approved(user_id: int, label: str, searches: int):
+        try:
+            desc = "ללא הגבלה" if searches == -1 else f"{searches} חיפושים"
+            await app.bot.send_message(
+                user_id,
+                f"✅ *תשלומך אושר!*\n📦 {label}\n🔍 {desc} נוספו לחשבונך",
+                parse_mode="Markdown"
+            )
+        except Exception:
+            pass
+
+    async def _notify_payment_declined(user_id: int, label: str):
+        try:
+            await app.bot.send_message(
+                user_id,
+                f"❌ *בקשת התשלום נדחתה*\n📦 {label}\nלפרטים פנה לתמיכה.",
+                parse_mode="Markdown"
+            )
+        except Exception:
+            pass
+
+    from src.notifier import register_payment_result_notifiers
+    register_payment_result_notifiers(_notify_payment_approved, _notify_payment_declined)
+
+    async def _do_broadcast(message: str) -> dict:
+        from src.users import get_all_users
+        users = await get_all_users()
+        sent = failed = 0
+        for u in users:
+            uid = u.get("user_id")
+            if not uid or uid == ADMIN_ID:
+                continue
+            try:
+                await app.bot.send_message(uid, message)
+                sent += 1
+            except Exception:
+                failed += 1
+        return {"ok": True, "sent": sent, "failed": failed}
+
+    from src.notifier import register_broadcast_notifier
+    register_broadcast_notifier(_do_broadcast)
+
     app.add_handler(CommandHandler("myid",   cmd_myid))
     app.add_handler(CommandHandler("start",  cmd_start))
     app.add_handler(CommandHandler("help",   cmd_help))

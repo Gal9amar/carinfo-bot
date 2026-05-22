@@ -44,3 +44,40 @@ async def notify_user_ticket_reply(user_id: int, ticket_id: int, subject: str, r
     if _notify_user_ticket_fn is None:
         return
     await _notify_user_ticket_fn(user_id, ticket_id, subject, reply)
+
+
+_notify_user_payment_approved_fn: Optional[Callable[..., Awaitable[None]]] = None
+_notify_user_payment_declined_fn: Optional[Callable[..., Awaitable[None]]] = None
+
+
+def register_payment_result_notifiers(
+    approved_fn: Callable[..., Awaitable[None]],
+    declined_fn: Callable[..., Awaitable[None]],
+) -> None:
+    global _notify_user_payment_approved_fn, _notify_user_payment_declined_fn
+    _notify_user_payment_approved_fn = approved_fn
+    _notify_user_payment_declined_fn = declined_fn
+
+
+async def notify_user_payment_approved(user_id: int, label: str, searches: int) -> None:
+    if _notify_user_payment_approved_fn:
+        await _notify_user_payment_approved_fn(user_id, label, searches)
+
+
+async def notify_user_payment_declined(user_id: int, label: str) -> None:
+    if _notify_user_payment_declined_fn:
+        await _notify_user_payment_declined_fn(user_id, label)
+
+
+_broadcast_fn: Optional[Callable[..., Awaitable[None]]] = None
+
+
+def register_broadcast_notifier(fn: Callable[..., Awaitable[None]]) -> None:
+    global _broadcast_fn
+    _broadcast_fn = fn
+
+
+async def notify_broadcast(message: str) -> dict:
+    if _broadcast_fn is None:
+        return {"ok": False, "sent": 0, "failed": 0}
+    return await _broadcast_fn(message)

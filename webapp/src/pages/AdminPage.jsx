@@ -5,11 +5,17 @@ import {
   adminAddPackage, adminUpdatePackage, adminDeletePackage,
   adminGrantUser,
   adminFetchTickets, adminFetchTicket, adminReplyTicket, adminUpdateTicketStatus,
+  adminFetchPayments, adminApprovePayment, adminDeclinePayment,
+  adminFetchCodes, adminCreateCode, adminDeleteCode,
+  adminBroadcast,
+  adminToggleBlock,
 } from '../api.js'
 
 const TABS = [
   { id: 'stats',    label: '📊 סטטיסטיקות' },
-  { id: 'packages', label: '💰 חבילות' },
+  { id: 'payments', label: '💳 תשלומים' },
+  { id: 'codes',    label: '🔑 קודים' },
+  { id: 'packages', label: '📦 חבילות' },
   { id: 'users',    label: '👥 משתמשים' },
   { id: 'settings', label: '⚙️ הגדרות' },
   { id: 'tickets',  label: '🎫 טיקטים' },
@@ -33,6 +39,8 @@ export default function AdminPage({ user }) {
         ))}
       </div>
       {tab === 'stats'    && <StatsTab />}
+      {tab === 'payments' && <PaymentsTab />}
+      {tab === 'codes'    && <CodesTab />}
       {tab === 'packages' && <PackagesTab />}
       {tab === 'users'    && <UsersTab />}
       {tab === 'settings' && <SettingsTab />}
@@ -275,6 +283,19 @@ function UsersTab() {
               >
                 ✏️
               </button>
+              <button
+                className={`btn ${u.blocked ? 'btn-success' : 'btn-danger'}`}
+                style={{ width: 'auto', padding: '4px 10px', marginTop: 0, fontSize: 12 }}
+                onClick={async () => {
+                  try {
+                    await adminToggleBlock(u.user_id)
+                    const fresh = await adminFetchUsers()
+                    setUsers(fresh)
+                  } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+                }}
+              >
+                {u.blocked ? '🔓' : '🚫'}
+              </button>
             </div>
           </div>
         )
@@ -454,6 +475,45 @@ function SettingsTab() {
           {saving ? '...' : 'שמור'}
         </button>
       </div>
+      <div style={{ marginTop: 24 }}>
+        <div className="toggle-label" style={{ marginBottom: 8 }}>📢 שידור הודעה לכל המשתמשים</div>
+        <BroadcastSection />
+      </div>
+    </div>
+  )
+}
+
+function BroadcastSection() {
+  const [msg, setMsg] = useState('')
+  const [sending, setSending] = useState(false)
+
+  async function send() {
+    if (!msg.trim()) return
+    window.Telegram?.WebApp?.showConfirm(`לשלוח הודעה לכל המשתמשים?\n\n"${msg.slice(0, 80)}"`, async ok => {
+      if (!ok) return
+      setSending(true)
+      try {
+        const res = await adminBroadcast(msg.trim())
+        window.Telegram?.WebApp?.showAlert(`✅ נשלח ל-${res.sent} משתמשים${res.failed ? `, נכשל: ${res.failed}` : ''}`)
+        setMsg('')
+      } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+      setSending(false)
+    })
+  }
+
+  return (
+    <div>
+      <textarea
+        className="input"
+        rows={4}
+        placeholder="כתוב הודעה לכל המשתמשים..."
+        value={msg}
+        onChange={e => setMsg(e.target.value)}
+        style={{ resize: 'vertical' }}
+      />
+      <button className="btn" disabled={sending || !msg.trim()} onClick={send}>
+        {sending ? '⏳ שולח...' : '📢 שלח לכולם'}
+      </button>
     </div>
   )
 }
