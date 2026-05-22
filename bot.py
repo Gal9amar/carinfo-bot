@@ -1103,13 +1103,14 @@ async def handle_admin_keyboard(update: Update, context: ContextTypes.DEFAULT_TY
 
     async def send_settings():
         import src.users as _u
+        maintenance = (await get_bot_setting("maintenance")) == "1"
+        maint_str   = "🔴 פעיל" if maintenance else "🟢 כבוי"
         await update.message.reply_text(
-            f"⚙️ *הגדרות בוט*\n\n• בדיקות חינמיות למשתמש חדש: *{_u.FREE_SEARCHES}*",
+            f"⚙️ *הגדרות בוט*\n\n"
+            f"• בדיקות חינמיות למשתמש חדש: *{_u.FREE_SEARCHES}*\n"
+            f"• מצב תחזוקה: *{maint_str}*",
             parse_mode=ParseMode.MARKDOWN_V2,
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🆓 שנה בדיקות חינמיות", callback_data="adm|set_free")],
-                [InlineKeyboardButton("✏️ שנה הודעת תשלום",    callback_data="adm|set_payment")],
-            ]),
+            reply_markup=_admin_settings_keyboard(maintenance),
         )
 
     async def send_broadcast_prompt():
