@@ -126,12 +126,9 @@ def _blocked_keyboard() -> InlineKeyboardMarkup:
 
 def _admin_reply_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup([
-        [KeyboardButton("📊 סטטיסטיקות"), KeyboardButton("👥 משתמשים")],
-        [KeyboardButton("🔑 צור קוד"),    KeyboardButton("💳 הענק גישה")],
-        [KeyboardButton("🚫 חסום/שחרר"),  KeyboardButton("⚙️ הגדרות בוט")],
-        [KeyboardButton("📢 שלח הודעה לכולם")],
-        [KeyboardButton("💰 מחירי חבילות")],
-        [KeyboardButton("🔍 חזור לחיפוש")],
+        [KeyboardButton("📊 סטטיסטיקות"), KeyboardButton("👥 משתמשים"),          KeyboardButton("🔑 צור קוד")],
+        [KeyboardButton("💳 הענק גישה"),  KeyboardButton("🚫 חסום/שחרר"),        KeyboardButton("⚙️ הגדרות בוט")],
+        [KeyboardButton("📢 שלח הודעה לכולם"), KeyboardButton("💰 מחירי חבילות"), KeyboardButton("🔍 חזור לחיפוש")],
     ], resize_keyboard=True, one_time_keyboard=False)
 
 
