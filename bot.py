@@ -154,15 +154,13 @@ def build_result_keyboard(
     from telegram import WebAppInfo
     webapp_url = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
     plate = record.get("mispar_rechev", "") if record else ""
-    rows = [[
-        InlineKeyboardButton("📄 הורד PDF", callback_data="pdf_report"),
-        InlineKeyboardButton("📤 שתף דוח", callback_data="share_report"),
-    ]]
+    first_row = [InlineKeyboardButton("📄 הורד PDF", callback_data="pdf_report")]
     if plate:
-        rows.append([InlineKeyboardButton(
+        first_row.append(InlineKeyboardButton(
             "📊 צפה בדוח המלא",
             web_app=WebAppInfo(url=f"{webapp_url}/?plate={plate}"),
-        )])
+        ))
+    rows = [first_row]
     if yad2_link and record:
         label = yad2_label(record)
         rows.append([InlineKeyboardButton(f"🔍 {label} ב-Yad2", url=yad2_link)])
