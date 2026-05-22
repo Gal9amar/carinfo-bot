@@ -4,6 +4,7 @@ import PackagesPage from './pages/PackagesPage.jsx'
 import PaymentPage from './pages/PaymentPage.jsx'
 import AdminPage from './pages/AdminPage.jsx'
 import ReportPage from './pages/ReportPage.jsx'
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage.jsx'
 
 export default function App() {
   const [screen, setScreen] = useState('loading')
@@ -15,12 +16,16 @@ export default function App() {
   const [reportPlate, setReportPlate] = useState(null)
 
   useEffect(() => {
-    // Check if we're in vehicle report mode
     const params = new URLSearchParams(window.location.search)
     const plate = params.get('plate')
+    const page = params.get('page')
     if (plate) {
       setReportPlate(plate)
       setScreen('report')
+      return
+    }
+    if (page === 'privacy') {
+      setScreen('privacy')
       return
     }
 
@@ -44,6 +49,10 @@ export default function App() {
 
   if (screen === 'report') {
     return <ReportPage plate={reportPlate} />
+  }
+
+  if (screen === 'privacy') {
+    return <PrivacyPolicyPage onBack={() => setScreen('packages')} />
   }
 
   if (screen === 'loading') {
@@ -97,6 +106,7 @@ export default function App() {
         setPaymentData(pData)
         setScreen('payment')
       }}
+      onPrivacy={() => setScreen('privacy')}
     />
   )
 }
