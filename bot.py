@@ -31,6 +31,7 @@ from src.users import (
     block_user, unblock_user, is_blocked,
     get_last_plate, set_last_plate, get_search_history,
     check_new_user, record_referral, get_referral_count, get_referrals,
+    load_welcome_settings,
 )
 from src.formatter import (
     format_error,
@@ -2031,6 +2032,7 @@ async def run_self_ping():
 
 async def _post_init(app) -> None:
     await init_db()
+    await load_welcome_settings()
     logger.info("Turso DB initialized")
 
 

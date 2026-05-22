@@ -165,6 +165,10 @@ async def init_db() -> None:
         "INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('maintenance', '0')"
     )
     conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('referral_bonus', '10')")
+    conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('free_searches', '10')")
+    conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('promo_searches', '0')")
+    conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('promo_start', '')")
+    conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('promo_end', '')")
     conn.commit()
 
     from src.packages import init_packages

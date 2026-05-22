@@ -935,16 +935,29 @@ function SendMessageModal({ user, onClose }) {
 }
 
 function SettingsTab() {
-  const [settings, setSettings] = useState(null)
-  const [saving, setSaving] = useState(false)
-  const [freeInput, setFreeInput] = useState('')
+  const [settings, setSettings]     = useState(null)
+  const [saving, setSaving]         = useState(false)
+  const [freeInput, setFreeInput]   = useState('')
   const [referralInput, setReferralInput] = useState('')
+
+  // promo state
+  const [promoSearches, setPromoSearches] = useState('0')
+  const [promoUnlimited, setPromoUnlimited] = useState(false)
+  const [promoNoEnd, setPromoNoEnd]         = useState(false)
+  const [promoStart, setPromoStart]         = useState('')
+  const [promoEnd, setPromoEnd]             = useState('')
 
   useEffect(() => {
     adminFetchSettings().then(s => {
       setSettings(s)
-      setFreeInput(String(s.free_searches))
+      setFreeInput(String(s.free_searches ?? 10))
       setReferralInput(String(s.referral_bonus ?? 10))
+      const ps = s.promo_searches ?? 0
+      setPromoUnlimited(ps === -1)
+      setPromoSearches(ps === -1 ? '' : String(ps))
+      setPromoStart(s.promo_start || '')
+      setPromoEnd(s.promo_end || '')
+      setPromoNoEnd(!s.promo_end)
     }).catch(() => {})
   }, [])
 
@@ -960,8 +973,9 @@ function SettingsTab() {
   async function saveFree() {
     setSaving(true)
     try {
-      await adminUpdateSettings({ free_searches: parseInt(freeInput) })
-      setSettings(s => ({ ...s, free_searches: parseInt(freeInput) }))
+      const v = parseInt(freeInput) || 0
+      await adminUpdateSettings({ free_searches: v })
+      setSettings(s => ({ ...s, free_searches: v }))
       window.Telegram?.WebApp?.showAlert('✅ עודכן')
     } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
     setSaving(false)
@@ -977,10 +991,56 @@ function SettingsTab() {
     setSaving(false)
   }
 
+  async function savePromo() {
+    setSaving(true)
+    try {
+      const ps = promoUnlimited ? -1 : (parseInt(promoSearches) || 0)
+      await adminUpdateSettings({
+        promo_searches: ps,
+        promo_start:    promoStart,
+        promo_end:      promoNoEnd ? '' : promoEnd,
+      })
+      setSettings(s => ({ ...s, promo_searches: ps, promo_start: promoStart, promo_end: promoNoEnd ? '' : promoEnd }))
+      window.Telegram?.WebApp?.showAlert('✅ מבצע עודכן')
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    setSaving(false)
+  }
+
+  async function clearPromo() {
+    setSaving(true)
+    try {
+      await adminUpdateSettings({ promo_searches: 0, promo_start: '', promo_end: '' })
+      setSettings(s => ({ ...s, promo_searches: 0, promo_start: '', promo_end: '' }))
+      setPromoSearches('0'); setPromoUnlimited(false); setPromoStart(''); setPromoEnd(''); setPromoNoEnd(false)
+      window.Telegram?.WebApp?.showAlert('✅ המבצע בוטל')
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    setSaving(false)
+  }
+
+  // Is the promo currently active?
+  function promoStatus() {
+    if (!settings) return null
+    const ps = settings.promo_searches ?? 0
+    if (ps === 0) return null
+    const today = new Date().toISOString().slice(0, 10)
+    const start = settings.promo_start || ''
+    const end   = settings.promo_end   || ''
+    const startOk = !start || today >= start
+    const endOk   = !end   || today <= end
+    if (startOk && endOk) return 'active'
+    if (start && today < start) return 'upcoming'
+    return 'expired'
+  }
+
   if (!settings) return <div className="loading">⏳</div>
+
+  const STATUS_COLORS = { active: '#38a169', upcoming: '#d69e2e', expired: '#e53e3e' }
+  const STATUS_LABELS = { active: '🟢 פעיל כעת', upcoming: '🟡 טרם התחיל', expired: '🔴 הסתיים' }
+  const pStatus = promoStatus()
 
   return (
     <div>
+      {/* Maintenance */}
       <div className="toggle-row">
         <span className="toggle-label">🔧 מצב תחזוקה</span>
         <button
@@ -989,16 +1049,110 @@ function SettingsTab() {
           disabled={saving}
         />
       </div>
+
+      {/* Free searches */}
       <div style={{ marginTop: 20 }}>
         <div className="toggle-label" style={{ marginBottom: 8 }}>🆓 חיפושים חינמיים למשתמש חדש</div>
-        <input className="input" type="number" value={freeInput} onChange={e => setFreeInput(e.target.value)} />
+        <input className="input" type="number" min="0" value={freeInput} onChange={e => setFreeInput(e.target.value)} />
         <button className="btn" disabled={saving} onClick={saveFree}>{saving ? '...' : 'שמור'}</button>
       </div>
+
+      {/* Referral bonus */}
       <div style={{ marginTop: 20 }}>
         <div className="toggle-label" style={{ marginBottom: 8 }}>🤝 חיפושים לבונוס הפניה</div>
         <input className="input" type="number" min="1" value={referralInput} onChange={e => setReferralInput(e.target.value)} />
         <button className="btn" disabled={saving} onClick={saveReferral}>{saving ? '...' : 'שמור'}</button>
       </div>
+
+      {/* Join promotion */}
+      <div style={{ marginTop: 24, border: '1.5px solid var(--border, rgba(255,255,255,0.12))', borderRadius: 14, padding: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>🎉 מבצע הצטרפות</div>
+          {pStatus && (
+            <span style={{ fontSize: 12, fontWeight: 600, color: STATUS_COLORS[pStatus] }}>
+              {STATUS_LABELS[pStatus]}
+            </span>
+          )}
+        </div>
+
+        {/* Promo searches */}
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 6 }}>חיפושים שיקבל מצטרף חדש במבצע</div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 14 }}>
+            <input
+              type="checkbox"
+              checked={promoUnlimited}
+              onChange={e => setPromoUnlimited(e.target.checked)}
+              style={{ width: 16, height: 16 }}
+            />
+            ללא הגבלה (גישה מלאה)
+          </label>
+          {!promoUnlimited && (
+            <input
+              className="input"
+              type="number"
+              min="0"
+              placeholder="0 = בטל מבצע"
+              value={promoSearches}
+              onChange={e => setPromoSearches(e.target.value)}
+              style={{ marginBottom: 0 }}
+            />
+          )}
+        </div>
+
+        {/* Date range */}
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 6 }}>תאריך תחילת המבצע</div>
+          <input
+            className="input"
+            type="date"
+            value={promoStart}
+            onChange={e => setPromoStart(e.target.value)}
+            style={{ marginBottom: 0 }}
+          />
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 6 }}>תאריך סיום המבצע</div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 14 }}>
+            <input
+              type="checkbox"
+              checked={promoNoEnd}
+              onChange={e => setPromoNoEnd(e.target.checked)}
+              style={{ width: 16, height: 16 }}
+            />
+            ללא תאריך סיום
+          </label>
+          {!promoNoEnd && (
+            <input
+              className="input"
+              type="date"
+              value={promoEnd}
+              onChange={e => setPromoEnd(e.target.value)}
+              style={{ marginBottom: 0 }}
+            />
+          )}
+        </div>
+
+        {/* Info note */}
+        <div style={{ background: 'var(--bg2)', borderRadius: 10, padding: '10px 12px', fontSize: 12, color: 'var(--hint)', marginBottom: 14, lineHeight: 1.5 }}>
+          כל מי שיצטרף בתקופת המבצע יקבל את כמות חיפושי המבצע במקום {settings.free_searches ?? 10} הרגילים.
+          בסיום התקופה המערכת חוזרת אוטומטית לברירת המחדל.
+        </div>
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-success" style={{ flex: 1, marginTop: 0 }} disabled={saving} onClick={savePromo}>
+            {saving ? '...' : '💾 שמור מבצע'}
+          </button>
+          {(settings.promo_searches ?? 0) !== 0 && (
+            <button className="btn" style={{ flex: 1, marginTop: 0, background: 'var(--btn-danger, #e53e3e)', color: '#fff' }} disabled={saving} onClick={clearPromo}>
+              🗑️ בטל מבצע
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Broadcast */}
       <div style={{ marginTop: 24 }}>
         <div className="toggle-label" style={{ marginBottom: 8 }}>📢 שידור הודעה לכל המשתמשים</div>
         <BroadcastSection />
