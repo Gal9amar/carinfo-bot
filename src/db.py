@@ -108,6 +108,26 @@ async def init_db() -> None:
             label       TEXT NOT NULL,
             created_at  TEXT DEFAULT (datetime('now'))
         )""",
+        """CREATE TABLE IF NOT EXISTS tickets (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL,
+    username    TEXT    DEFAULT '',
+    full_name   TEXT    DEFAULT '',
+    subject     TEXT    NOT NULL,
+    message     TEXT    NOT NULL,
+    status      TEXT    DEFAULT 'open',
+    created_at  TEXT    DEFAULT (datetime('now')),
+    updated_at  TEXT    DEFAULT (datetime('now'))
+)""",
+        """CREATE TABLE IF NOT EXISTS ticket_replies (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticket_id   INTEGER NOT NULL,
+    sender_id   INTEGER NOT NULL,
+    sender_name TEXT    DEFAULT '',
+    is_admin    INTEGER DEFAULT 0,
+    message     TEXT    NOT NULL,
+    created_at  TEXT    DEFAULT (datetime('now'))
+)""",
     ]
     for sql in statements:
         conn.execute(sql)

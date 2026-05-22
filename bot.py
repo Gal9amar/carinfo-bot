@@ -1271,6 +1271,41 @@ async def _notify_admin_payment(user_id: int, name: str, label: str, searches: i
     )
 
 
+async def _notify_admin_ticket(ticket_id: int, user_id: int, name: str, subject: str, message: str):
+    try:
+        text = (
+            f"🎫 *פנייה חדשה #{ticket_id}*\n"
+            f"👤 {name} (`{user_id}`)\n"
+            f"📋 *נושא:* {subject}\n\n"
+            f"{message[:500]}"
+        )
+        webapp_url = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
+        from telegram import WebAppInfo
+        kb = InlineKeyboardMarkup([[
+            InlineKeyboardButton("🎫 פתח טיקט", web_app=WebAppInfo(url=f"{webapp_url}/?page=admin_ticket&id={ticket_id}"))
+        ]])
+        await _bot_instance.send_message(ADMIN_ID, text, parse_mode="Markdown", reply_markup=kb)
+    except Exception:
+        pass
+
+
+async def _notify_user_ticket_reply(user_id: int, ticket_id: int, subject: str, reply: str):
+    try:
+        webapp_url = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
+        from telegram import WebAppInfo
+        text = (
+            f"💬 *תגובה חדשה לפנייה שלך*\n"
+            f"📋 *נושא:* {subject}\n\n"
+            f"{reply[:500]}"
+        )
+        kb = InlineKeyboardMarkup([[
+            InlineKeyboardButton("📂 פתח פנייה", web_app=WebAppInfo(url=f"{webapp_url}/?page=ticket&id={ticket_id}"))
+        ]])
+        await _bot_instance.send_message(user_id, text, parse_mode="Markdown", reply_markup=kb)
+    except Exception:
+        pass
+
+
 async def handle_approve_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Admin approves payment — grant searches."""
     query = update.callback_query
@@ -1945,6 +1980,8 @@ def main() -> None:
     # Register the payment notifier so api.py can notify admin without importing bot
     from src.notifier import register_payment_notifier
     register_payment_notifier(_notify_admin_payment)
+    from src.notifier import register_ticket_notifiers
+    register_ticket_notifiers(_notify_admin_ticket, _notify_user_ticket_reply)
     app.add_handler(CommandHandler("myid",   cmd_myid))
     app.add_handler(CommandHandler("start",  cmd_start))
     app.add_handler(CommandHandler("help",   cmd_help))

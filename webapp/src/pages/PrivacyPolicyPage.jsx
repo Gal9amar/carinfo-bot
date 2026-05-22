@@ -1,4 +1,4 @@
-export default function PrivacyPolicyPage({ onBack }) {
+export default function PrivacyPolicyPage({ onBack, onContact }) {
   return (
     <div className="page" style={{ paddingBottom: 32 }}>
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 20, gap: 10 }}>
@@ -153,6 +153,25 @@ export default function PrivacyPolicyPage({ onBack }) {
           הבוט בטלגרם. נשתדל להגיב תוך 7 ימי עבודה.
         </p>
       </Section>
+
+      <button
+        className="btn"
+        style={{ marginTop: 8 }}
+        onClick={() => {
+          if (onContact) {
+            onContact()
+          } else {
+            const tg = window.Telegram?.WebApp
+            if (tg?.openTelegramLink) {
+              tg.openTelegramLink('https://t.me/israelcarinfobot')
+            } else {
+              window.open('https://t.me/israelcarinfobot', '_blank')
+            }
+          }
+        }}
+      >
+        ✉️ צור קשר עם התמיכה
+      </button>
     </div>
   )
 }
