@@ -95,3 +95,17 @@ async def send_user_message(user_id: int, message: str) -> bool:
     if _send_user_message_fn is None:
         return False
     return await _send_user_message_fn(user_id, message)
+
+
+_broadcast_photo_fn: Optional[Callable[..., Awaitable[None]]] = None
+
+
+def register_broadcast_photo_notifier(fn: Callable[..., Awaitable[None]]) -> None:
+    global _broadcast_photo_fn
+    _broadcast_photo_fn = fn
+
+
+async def notify_broadcast_photo(message: str, image_b64: str) -> dict:
+    if _broadcast_photo_fn is None:
+        return {"ok": False, "sent": 0, "failed": 0}
+    return await _broadcast_photo_fn(message, image_b64)

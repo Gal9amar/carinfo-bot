@@ -262,9 +262,9 @@ export async function adminFetchUserHistory(userId) {
 }
 
 // Gift searches to all users
-export async function adminGiftAll(searches, message) {
+export async function adminGiftAll(searches, message, image_b64 = '') {
   const r = await fetch(`${BASE}/api/admin/gift-all`, {
-    method: 'POST', headers: headers(), body: JSON.stringify({ searches, message }),
+    method: 'POST', headers: headers(), body: JSON.stringify({ searches, message, image_b64 }),
   })
   if (!r.ok) throw new Error('Failed')
   return r.json()

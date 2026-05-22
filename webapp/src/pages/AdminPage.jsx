@@ -512,20 +512,47 @@ function CodesTab() {
 function GiftAllSection({ onDone }) {
   const [searches, setSearches] = useState(10)
   const [message, setMessage] = useState('')
+  const [imageb64, setImageb64] = useState('')
+  const [compressing, setCompressing] = useState(false)
   const [sending, setSending] = useState(false)
+  const fileRef = useRef(null)
+
+  function handleFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setCompressing(true)
+    const reader = new FileReader()
+    reader.onload = ev => {
+      const img = new Image()
+      img.onload = () => {
+        const MAX = 800
+        const ratio = Math.min(MAX / img.width, MAX / img.height, 1)
+        const canvas = document.createElement('canvas')
+        canvas.width  = Math.round(img.width  * ratio)
+        canvas.height = Math.round(img.height * ratio)
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+        setImageb64(canvas.toDataURL('image/jpeg', 0.82))
+        setCompressing(false)
+      }
+      img.src = ev.target.result
+    }
+    reader.readAsDataURL(file)
+    e.target.value = ''
+  }
 
   async function send() {
     if (!searches || searches < 1) return
-    const preview = `להוסיף ${searches} חיפושים לכל המשתמשים${message.trim() ? ` ולשלוח הודעה?` : '?'}`
+    const preview = `להוסיף ${searches} חיפושים לכל המשתמשים${message.trim() ? ' ולשלוח הודעה' : ''}?`
     window.Telegram?.WebApp?.showConfirm(preview, async ok => {
       if (!ok) return
       setSending(true)
       try {
-        const res = await adminGiftAll(searches, message.trim())
+        const res = await adminGiftAll(searches, message.trim(), imageb64)
         window.Telegram?.WebApp?.showAlert(
           `🎁 הושלם!\n✅ ${searches} חיפושים נוספו לכולם${res.notified ? `\n📤 הודעה נשלחה ל-${res.notified} משתמשים` : ''}`
         )
         setMessage('')
+        setImageb64('')
         onDone()
       } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
       setSending(false)
@@ -534,7 +561,7 @@ function GiftAllSection({ onDone }) {
 
   return (
     <div style={{ marginTop: 12 }}>
-      <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8 }}>כמות חיפושים להוסיף לכל משתמש:</div>
+      <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8 }}>כמות חיפושים לכל משתמש:</div>
       <input
         className="input"
         type="number"
@@ -543,7 +570,7 @@ function GiftAllSection({ onDone }) {
         onChange={e => setSearches(parseInt(e.target.value) || 1)}
         style={{ marginBottom: 10 }}
       />
-      <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8 }}>הערה / הודעה למשתמשים (אופציונלי):</div>
+      <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8 }}>הודעה למשתמשים (אופציונלי):</div>
       <textarea
         className="input"
         rows={3}
@@ -552,6 +579,36 @@ function GiftAllSection({ onDone }) {
         onChange={e => setMessage(e.target.value)}
         style={{ resize: 'vertical', fontFamily: 'inherit', marginBottom: 10 }}
       />
+      <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8 }}>תמונה מצורפת (אופציונלי):</div>
+      {imageb64 ? (
+        <div style={{ position: 'relative', marginBottom: 10 }}>
+          <img
+            src={imageb64}
+            alt="תצוגה מקדימה"
+            style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 10, display: 'block' }}
+          />
+          <button
+            onClick={() => setImageb64('')}
+            style={{
+              position: 'absolute', top: 6, left: 6,
+              background: 'rgba(0,0,0,0.6)', color: '#fff',
+              border: 'none', borderRadius: '50%', width: 28, height: 28,
+              fontSize: 14, cursor: 'pointer', lineHeight: 1,
+            }}
+          >✕</button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="btn btn-secondary"
+          style={{ marginTop: 0, marginBottom: 10, fontSize: 13 }}
+          disabled={compressing}
+          onClick={() => fileRef.current?.click()}
+        >
+          {compressing ? '⏳ מכווץ...' : '📷 בחר תמונה מהמכשיר'}
+        </button>
+      )}
+      <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
       <button
         className="btn"
         disabled={sending || !searches || searches < 1}

@@ -2060,6 +2060,38 @@ def main() -> None:
     from src.notifier import register_user_message_notifier
     register_user_message_notifier(_send_message_to_user)
 
+    async def _do_broadcast_photo(message: str, image_b64: str) -> dict:
+        import base64, io as _io
+        from src.users import get_all_users
+        users = await get_all_users()
+        sent = failed = 0
+        try:
+            header, _, data = image_b64.partition(",")
+            photo_bytes = base64.b64decode(data if data else image_b64)
+        except Exception:
+            photo_bytes = None
+        for u in users:
+            uid = u.get("user_id")
+            if not uid or uid == ADMIN_ID or u.get("blocked"):
+                continue
+            try:
+                if photo_bytes:
+                    await app.bot.send_photo(
+                        uid,
+                        photo=_io.BytesIO(photo_bytes),
+                        caption=message,
+                        parse_mode="Markdown",
+                    )
+                else:
+                    await app.bot.send_message(uid, message, parse_mode="Markdown")
+                sent += 1
+            except Exception:
+                failed += 1
+        return {"ok": True, "sent": sent, "failed": failed}
+
+    from src.notifier import register_broadcast_photo_notifier
+    register_broadcast_photo_notifier(_do_broadcast_photo)
+
     app.add_handler(CommandHandler("myid",   cmd_myid))
     app.add_handler(CommandHandler("start",  cmd_start))
     app.add_handler(CommandHandler("help",   cmd_help))

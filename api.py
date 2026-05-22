@@ -558,6 +558,7 @@ async def admin_toggle_block(user_id: int, _: dict = Depends(_require_admin)):
 class GiftAllBody(BaseModel):
     searches: int
     message: str = ""
+    image_b64: str = ""
 
 
 @api.post("/api/admin/gift-all")
@@ -565,20 +566,22 @@ async def admin_gift_all(body: GiftAllBody, _: dict = Depends(_require_admin)):
     if body.searches < 1:
         raise HTTPException(status_code=400, detail="searches must be >= 1")
     msg = body.message.strip()[:500]
-    r = await execute(
+    await execute(
         "UPDATE users SET searches_quota = searches_quota + ? WHERE searches_quota >= 0 AND blocked = 0",
         [body.searches],
     )
-    updated = r.rows[0][0] if r.rows else 0
     notified = 0
-    if msg:
-        try:
+    gift_text = f"🎁 *קיבלת {body.searches} חיפושים במתנה!*" + (f"\n\n{msg}" if msg else "")
+    try:
+        if body.image_b64:
+            from src.notifier import notify_broadcast_photo
+            result = await notify_broadcast_photo(gift_text, body.image_b64)
+        else:
             from src.notifier import notify_broadcast
-            gift_text = f"🎁 *קיבלת {body.searches} חיפושים במתנה!*\n\n{msg}"
             result = await notify_broadcast(gift_text)
-            notified = result.get("sent", 0)
-        except Exception:
-            pass
+        notified = result.get("sent", 0)
+    except Exception:
+        pass
     try:
         from src.activity import log as _log
         await _log("grant", f"מתנה לכולם: +{body.searches} חיפושים. הודעה: {msg[:60]}")
