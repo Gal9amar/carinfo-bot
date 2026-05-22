@@ -192,3 +192,87 @@ export async function adminUpdateTicketStatus(id, status) {
   if (!r.ok) throw new Error('Failed')
   return r.json()
 }
+
+// Payments admin
+export async function adminFetchPayments() {
+  const r = await fetch(`${BASE}/api/admin/payments`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+export async function adminApprovePayment(ref) {
+  const r = await fetch(`${BASE}/api/admin/payments/${ref}/approve`, { method: 'POST', headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+export async function adminDeclinePayment(ref) {
+  const r = await fetch(`${BASE}/api/admin/payments/${ref}/decline`, { method: 'POST', headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+// Codes admin
+export async function adminFetchCodes() {
+  const r = await fetch(`${BASE}/api/admin/codes`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+export async function adminCreateCode(data) {
+  const r = await fetch(`${BASE}/api/admin/codes`, {
+    method: 'POST', headers: headers(), body: JSON.stringify(data),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+export async function adminDeleteCode(code) {
+  const r = await fetch(`${BASE}/api/admin/codes/${code}`, { method: 'DELETE', headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+// Broadcast
+export async function adminBroadcast(message) {
+  const r = await fetch(`${BASE}/api/admin/broadcast`, {
+    method: 'POST', headers: headers(), body: JSON.stringify({ message }),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+// Block/unblock
+export async function adminToggleBlock(userId) {
+  const r = await fetch(`${BASE}/api/admin/users/${userId}/block`, { method: 'POST', headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+// Direct message to user
+export async function adminSendUserMessage(userId, message) {
+  const r = await fetch(`${BASE}/api/admin/users/${userId}/message`, {
+    method: 'POST', headers: headers(), body: JSON.stringify({ message }),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+// User search history (admin view)
+export async function adminFetchUserHistory(userId) {
+  const r = await fetch(`${BASE}/api/admin/users/${userId}/history`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+// Gift searches to all users
+export async function adminGiftAll(searches, message, image_b64 = '') {
+  const r = await fetch(`${BASE}/api/admin/gift-all`, {
+    method: 'POST', headers: headers(), body: JSON.stringify({ searches, message, image_b64 }),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+// Activity log
+export async function adminFetchActivity(limit = 100) {
+  const r = await fetch(`${BASE}/api/admin/activity?limit=${limit}`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}

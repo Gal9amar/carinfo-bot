@@ -164,6 +164,13 @@ async def get_vehicle(plate: str, user: dict = Depends(_get_user)):
             cache.set(plate, record)
     if not record:
         raise HTTPException(status_code=404, detail="Vehicle not found")
+    uid  = int(user["id"])
+    name = user.get("username") or user.get("first_name", str(uid))
+    try:
+        from src.activity import log as _log
+        await _log("search", f"חיפוש לוחית {plate}", uid, name)
+    except Exception:
+        pass
     return record
 
 
@@ -250,6 +257,12 @@ class GrantBody(BaseModel):
 async def admin_grant_user(user_id: int, body: GrantBody, admin: dict = Depends(_require_admin)):
     from src.users import admin_grant
     msg = await admin_grant(int(admin["id"]), user_id, body.searches)
+    try:
+        from src.activity import log as _log
+        desc = "ללא הגבלה" if body.searches == -2 else ("מנוי חודשי" if body.searches == -1 else f"{body.searches} חיפושים")
+        await _log("grant", f"הענקה למשתמש {user_id}: {desc}")
+    except Exception:
+        pass
     return {"ok": True, "msg": msg}
 
 
@@ -277,6 +290,11 @@ async def create_ticket_api(body: TicketCreateBody, user: dict = Depends(_get_us
     try:
         from src.notifier import notify_admin_ticket
         await notify_admin_ticket(ticket_id, uid, name, subject, message)
+    except Exception:
+        pass
+    try:
+        from src.activity import log as _log
+        await _log("ticket_new", f"פנייה חדשה #{ticket_id}: {subject[:60]}", uid, name)
     except Exception:
         pass
     return {"id": ticket_id, "ok": True}
@@ -346,6 +364,11 @@ async def admin_reply_ticket(ticket_id: int, body: TicketReplyBody, admin: dict 
         await notify_user_ticket_reply(ticket["user_id"], ticket_id, ticket["subject"], msg)
     except Exception:
         pass
+    try:
+        from src.activity import log as _log
+        await _log("ticket_reply", f"תגובת מנהל לפנייה #{ticket_id}", int(admin["id"]), "admin")
+    except Exception:
+        pass
     return {"ok": True}
 
 
@@ -359,7 +382,218 @@ async def admin_update_ticket_status(ticket_id: int, body: TicketStatusBody, _: 
     if body.status not in ("open", "in_progress", "closed"):
         raise HTTPException(status_code=400, detail="Invalid status")
     await update_ticket_status(ticket_id, body.status)
+    try:
+        from src.activity import log as _log
+        await _log("ticket_status", f"סטטוס פנייה #{ticket_id} → {body.status}")
+    except Exception:
+        pass
     return {"ok": True}
+
+
+@api.get("/api/admin/payments")
+async def admin_list_payments(_: dict = Depends(_require_admin)):
+    from src.db import execute
+    r = await execute(
+        "SELECT ref, phone, searches, price, label, created_at FROM pending_payments ORDER BY created_at DESC"
+    )
+    return [{"ref": row[0], "user_id": row[1], "searches": row[2], "price": row[3], "label": row[4], "created_at": row[5]} for row in r.rows]
+
+
+@api.post("/api/admin/payments/{ref}/approve")
+async def admin_approve_payment(ref: str, admin: dict = Depends(_require_admin)):
+    from src.db import execute
+    from src.users import admin_grant
+    r = await execute("SELECT phone, searches, label FROM pending_payments WHERE ref=?", [ref])
+    if not r.rows:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    user_id, searches, label = int(r.rows[0][0]), r.rows[0][1], r.rows[0][2]
+    await admin_grant(int(admin["id"]), user_id, searches)
+    await execute("DELETE FROM pending_payments WHERE ref=?", [ref])
+    try:
+        from src.notifier import notify_user_payment_approved
+        await notify_user_payment_approved(user_id, label, searches)
+    except Exception:
+        pass
+    try:
+        from src.activity import log as _log
+        await _log("payment_approved", f"תשלום אושר: {label} ({searches} חיפושים) למשתמש {user_id}")
+    except Exception:
+        pass
+    return {"ok": True}
+
+
+@api.post("/api/admin/payments/{ref}/decline")
+async def admin_decline_payment(ref: str, _: dict = Depends(_require_admin)):
+    from src.db import execute
+    r = await execute("SELECT phone, label FROM pending_payments WHERE ref=?", [ref])
+    if not r.rows:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    user_id, label = int(r.rows[0][0]), r.rows[0][1]
+    await execute("DELETE FROM pending_payments WHERE ref=?", [ref])
+    try:
+        from src.notifier import notify_user_payment_declined
+        await notify_user_payment_declined(user_id, label)
+    except Exception:
+        pass
+    try:
+        from src.activity import log as _log
+        await _log("payment_declined", f"תשלום נדחה: {label} למשתמש {user_id}")
+    except Exception:
+        pass
+    return {"ok": True}
+
+
+@api.get("/api/admin/codes")
+async def admin_list_codes(_: dict = Depends(_require_admin)):
+    from src.db import execute
+    r = await execute(
+        "SELECT code, searches, unlimited, single_use, expires, used_by, used_at, created FROM codes ORDER BY created DESC"
+    )
+    return [{
+        "code": row[0], "searches": row[1], "unlimited": bool(row[2]),
+        "single_use": bool(row[3]), "expires": row[4],
+        "used_by": row[5], "used_at": row[6], "created": row[7]
+    } for row in r.rows]
+
+
+class CodeCreateBody(BaseModel):
+    searches: int = 50
+    unlimited: bool = False
+    single_use: bool = True
+    monthly: bool = False
+
+
+@api.post("/api/admin/codes")
+async def admin_create_code(body: CodeCreateBody, _: dict = Depends(_require_admin)):
+    from src.users import generate_code
+    code = await generate_code(
+        searches=body.searches,
+        unlimited=body.unlimited,
+        single_use=body.single_use,
+        monthly=body.monthly,
+    )
+    try:
+        from src.activity import log as _log
+        desc = "ללא הגבלה" if body.unlimited else f"{body.searches} חיפושים"
+        await _log("code_created", f"קוד גישה נוצר: {code} ({desc})")
+    except Exception:
+        pass
+    return {"code": code}
+
+
+@api.delete("/api/admin/codes/{code}")
+async def admin_delete_code(code: str, _: dict = Depends(_require_admin)):
+    from src.db import execute
+    await execute("DELETE FROM codes WHERE code=?", [code])
+    try:
+        from src.activity import log as _log
+        await _log("code_deleted", f"קוד גישה נמחק: {code}")
+    except Exception:
+        pass
+    return {"ok": True}
+
+
+class BroadcastBody(BaseModel):
+    message: str
+
+
+@api.post("/api/admin/broadcast")
+async def admin_broadcast(body: BroadcastBody, _: dict = Depends(_require_admin)):
+    from src.notifier import notify_broadcast
+    msg = body.message.strip()[:2000]
+    if not msg:
+        raise HTTPException(status_code=400, detail="Empty message")
+    result = await notify_broadcast(msg)
+    try:
+        from src.activity import log as _log
+        await _log("broadcast", f"שידור נשלח: {msg[:80]}{'...' if len(msg) > 80 else ''}")
+    except Exception:
+        pass
+    return result
+
+
+class DirectMessageBody(BaseModel):
+    message: str
+
+
+@api.post("/api/admin/users/{user_id}/message")
+async def admin_send_user_message(user_id: int, body: DirectMessageBody, _: dict = Depends(_require_admin)):
+    from src.notifier import send_user_message
+    msg = body.message.strip()[:2000]
+    if not msg:
+        raise HTTPException(status_code=400, detail="Empty message")
+    ok = await send_user_message(user_id, msg)
+    try:
+        from src.activity import log as _log
+        await _log("message", f"הודעה ישירה נשלחה למשתמש {user_id}: {msg[:60]}{'...' if len(msg) > 60 else ''}")
+    except Exception:
+        pass
+    return {"ok": ok}
+
+
+@api.get("/api/admin/users/{user_id}/history")
+async def admin_user_history(user_id: int, _: dict = Depends(_require_admin)):
+    from src.users import get_search_history
+    return await get_search_history(user_id)
+
+
+@api.post("/api/admin/users/{user_id}/block")
+async def admin_toggle_block(user_id: int, _: dict = Depends(_require_admin)):
+    from src.db import execute
+    r = await execute("SELECT blocked FROM users WHERE user_id=?", [user_id])
+    if not r.rows:
+        raise HTTPException(status_code=404, detail="User not found")
+    current = r.rows[0][0]
+    new_val = 0 if current else 1
+    await execute("UPDATE users SET blocked=? WHERE user_id=?", [new_val, user_id])
+    try:
+        from src.activity import log as _log
+        etype = "block" if new_val else "unblock"
+        await _log(etype, f"משתמש {user_id} {'נחסם' if new_val else 'שוחרר'}")
+    except Exception:
+        pass
+    return {"ok": True, "blocked": bool(new_val)}
+
+
+class GiftAllBody(BaseModel):
+    searches: int
+    message: str = ""
+    image_b64: str = ""
+
+
+@api.post("/api/admin/gift-all")
+async def admin_gift_all(body: GiftAllBody, _: dict = Depends(_require_admin)):
+    if body.searches < 1:
+        raise HTTPException(status_code=400, detail="searches must be >= 1")
+    msg = body.message.strip()[:500]
+    await execute(
+        "UPDATE users SET searches_quota = searches_quota + ? WHERE searches_quota >= 0 AND blocked = 0",
+        [body.searches],
+    )
+    notified = 0
+    gift_text = f"🎁 *קיבלת {body.searches} חיפושים במתנה!*" + (f"\n\n{msg}" if msg else "")
+    try:
+        if body.image_b64:
+            from src.notifier import notify_broadcast_photo
+            result = await notify_broadcast_photo(gift_text, body.image_b64)
+        else:
+            from src.notifier import notify_broadcast
+            result = await notify_broadcast(gift_text)
+        notified = result.get("sent", 0)
+    except Exception:
+        pass
+    try:
+        from src.activity import log as _log
+        await _log("grant", f"מתנה לכולם: +{body.searches} חיפושים. הודעה: {msg[:60]}")
+    except Exception:
+        pass
+    return {"ok": True, "searches": body.searches, "notified": notified}
+
+
+@api.get("/api/admin/activity")
+async def admin_get_activity(limit: int = 100, _: dict = Depends(_require_admin)):
+    from src.activity import get_log
+    return await get_log(min(limit, 200))
 
 
 # ── Serve React SPA (must be last) ──────────────────────────────────────────

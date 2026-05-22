@@ -30,6 +30,7 @@ from src.users import (
     admin_stats, admin_grant, get_all_users, get_user_by_username, get_user_by_id,
     block_user, unblock_user, is_blocked,
     get_last_plate, set_last_plate, get_search_history,
+    check_new_user,
 )
 from src.formatter import (
     format_error,
@@ -261,7 +262,30 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
+    is_new = await check_new_user(user_id)
     allowed, left = await is_allowed(user_id, user.username or "", user.full_name or "")
+
+    if is_new and ADMIN_ID:
+        try:
+            stats = await admin_stats()
+            uname = f"@{user.username}" if user.username else f"id:{user_id}"
+            await context.bot.send_message(
+                ADMIN_ID,
+                f"👋 *משתמש חדש הצטרף!*\n\n"
+                f"👤 {uname}\n"
+                f"📛 {user.full_name or ''}\n"
+                f"🆔 `{user_id}`\n\n"
+                f"👥 סה\"כ משתמשים: *{stats['total_users']}*",
+                parse_mode="Markdown",
+            )
+        except Exception as e:
+            logger.debug("Failed to notify admin of new user: %s", e)
+        try:
+            from src.activity import log as _log
+            uname = f"@{user.username}" if user.username else str(user_id)
+            await _log("new_user", f"משתמש חדש: {uname} ({user.full_name or ''})", user_id, uname)
+        except Exception:
+            pass
 
     if not allowed:
         if await is_blocked(user_id):
@@ -1982,6 +2006,92 @@ def main() -> None:
     register_payment_notifier(_notify_admin_payment)
     from src.notifier import register_ticket_notifiers
     register_ticket_notifiers(_notify_admin_ticket, _notify_user_ticket_reply)
+
+    async def _notify_payment_approved(user_id: int, label: str, searches: int):
+        try:
+            desc = "ללא הגבלה" if searches == -1 else f"{searches} חיפושים"
+            await app.bot.send_message(
+                user_id,
+                f"✅ *תשלומך אושר!*\n📦 {label}\n🔍 {desc} נוספו לחשבונך",
+                parse_mode="Markdown"
+            )
+        except Exception:
+            pass
+
+    async def _notify_payment_declined(user_id: int, label: str):
+        try:
+            await app.bot.send_message(
+                user_id,
+                f"❌ *בקשת התשלום נדחתה*\n📦 {label}\nלפרטים פנה לתמיכה.",
+                parse_mode="Markdown"
+            )
+        except Exception:
+            pass
+
+    from src.notifier import register_payment_result_notifiers
+    register_payment_result_notifiers(_notify_payment_approved, _notify_payment_declined)
+
+    async def _do_broadcast(message: str) -> dict:
+        from src.users import get_all_users
+        users = await get_all_users()
+        sent = failed = 0
+        for u in users:
+            uid = u.get("user_id")
+            if not uid or uid == ADMIN_ID:
+                continue
+            try:
+                await app.bot.send_message(uid, message)
+                sent += 1
+            except Exception:
+                failed += 1
+        return {"ok": True, "sent": sent, "failed": failed}
+
+    from src.notifier import register_broadcast_notifier
+    register_broadcast_notifier(_do_broadcast)
+
+    async def _send_message_to_user(user_id: int, message: str) -> bool:
+        try:
+            await app.bot.send_message(user_id, message)
+            return True
+        except Exception as e:
+            logger.warning("Failed to send message to user %s: %s", user_id, e)
+            return False
+
+    from src.notifier import register_user_message_notifier
+    register_user_message_notifier(_send_message_to_user)
+
+    async def _do_broadcast_photo(message: str, image_b64: str) -> dict:
+        import base64, io as _io
+        from src.users import get_all_users
+        users = await get_all_users()
+        sent = failed = 0
+        try:
+            header, _, data = image_b64.partition(",")
+            photo_bytes = base64.b64decode(data if data else image_b64)
+        except Exception:
+            photo_bytes = None
+        for u in users:
+            uid = u.get("user_id")
+            if not uid or uid == ADMIN_ID or u.get("blocked"):
+                continue
+            try:
+                if photo_bytes:
+                    await app.bot.send_photo(
+                        uid,
+                        photo=_io.BytesIO(photo_bytes),
+                        caption=message,
+                        parse_mode="Markdown",
+                    )
+                else:
+                    await app.bot.send_message(uid, message, parse_mode="Markdown")
+                sent += 1
+            except Exception:
+                failed += 1
+        return {"ok": True, "sent": sent, "failed": failed}
+
+    from src.notifier import register_broadcast_photo_notifier
+    register_broadcast_photo_notifier(_do_broadcast_photo)
+
     app.add_handler(CommandHandler("myid",   cmd_myid))
     app.add_handler(CommandHandler("start",  cmd_start))
     app.add_handler(CommandHandler("help",   cmd_help))

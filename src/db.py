@@ -129,6 +129,14 @@ async def init_db() -> None:
     message     TEXT    NOT NULL,
     created_at  TEXT    DEFAULT (datetime('now'))
 )""",
+        """CREATE TABLE IF NOT EXISTS activity_log (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_type  TEXT    NOT NULL,
+    user_id     INTEGER DEFAULT 0,
+    username    TEXT    DEFAULT '',
+    description TEXT    NOT NULL,
+    created_at  TEXT    DEFAULT (datetime('now'))
+)""",
     ]
     for sql in statements:
         conn.execute(sql)
