@@ -226,6 +226,17 @@ async def admin_delete_package(pkg_id: int, _: dict = Depends(_require_admin)):
     return {"ok": True}
 
 
+class GrantBody(BaseModel):
+    searches: int
+
+
+@api.post("/api/admin/users/{user_id}/grant")
+async def admin_grant_user(user_id: int, body: GrantBody, admin: dict = Depends(_require_admin)):
+    from src.users import admin_grant
+    msg = await admin_grant(int(admin["id"]), user_id, body.searches)
+    return {"ok": True, "msg": msg}
+
+
 # ── Serve React SPA (must be last) ──────────────────────────────────────────
 _DIST = os.path.join(os.path.dirname(__file__), "webapp", "dist")
 
