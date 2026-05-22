@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { initiatePayment } from '../api.js'
 
-export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSupport }) {
+export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSupport, onReferral }) {
   const [quantities, setQuantities] = useState({})
   const [loading, setLoading] = useState(null)
 
@@ -145,9 +145,14 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
       })}
 
       {/* Nav buttons */}
-      <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={onSupport}>
-        🎫 פניות ותמיכה
-      </button>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+        <button className="btn btn-secondary" style={{ marginTop: 0 }} onClick={onSupport}>
+          🎫 תמיכה
+        </button>
+        <button className="btn btn-secondary" style={{ marginTop: 0 }} onClick={onReferral}>
+          🤝 הפנה חבר
+        </button>
+      </div>
 
       <div style={{ textAlign: 'center', marginTop: 16 }}>
         <button

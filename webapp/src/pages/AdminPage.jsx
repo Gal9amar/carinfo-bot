@@ -16,14 +16,14 @@ import {
 } from '../api.js'
 
 const TABS = [
-  { id: 'stats',    label: '📊 סטטיסטיקות' },
-  { id: 'activity', label: '🕐 לוג' },
-  { id: 'payments', label: '💳 תשלומים' },
-  { id: 'codes',    label: '🔑 קודים' },
-  { id: 'packages', label: '📦 חבילות' },
-  { id: 'users',    label: '👥 משתמשים' },
-  { id: 'settings', label: '⚙️ הגדרות' },
-  { id: 'tickets',  label: '🎫 טיקטים' },
+  { id: 'stats',    icon: '📊', label: 'סטטיסטיקות' },
+  { id: 'activity', icon: '🕐', label: 'לוג פעילות' },
+  { id: 'payments', icon: '💳', label: 'תשלומים' },
+  { id: 'codes',    icon: '🔑', label: 'קודים' },
+  { id: 'packages', icon: '📦', label: 'חבילות' },
+  { id: 'users',    icon: '👥', label: 'משתמשים' },
+  { id: 'settings', icon: '⚙️', label: 'הגדרות' },
+  { id: 'tickets',  icon: '🎫', label: 'טיקטים' },
 ]
 
 export default function AdminPage({ user }) {
@@ -32,14 +32,27 @@ export default function AdminPage({ user }) {
   return (
     <div className="page">
       <div className="page-title">🛠 פאנל ניהול</div>
-      <div className="tabs">
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(4, 1fr)',
+        gap: 6,
+        marginBottom: 18,
+      }}>
         {TABS.map(t => (
           <button
             key={t.id}
-            className={`tab ${tab === t.id ? 'active' : ''}`}
             onClick={() => setTab(t.id)}
+            style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+              padding: '9px 4px 7px', border: 'none', borderRadius: 10, cursor: 'pointer',
+              background: tab === t.id ? 'var(--btn)' : 'var(--bg2)',
+              color: tab === t.id ? 'var(--btn-text)' : 'var(--hint)',
+              fontSize: 10, fontWeight: tab === t.id ? 600 : 400,
+              transition: 'background 0.15s',
+            }}
           >
-            {t.label}
+            <span style={{ fontSize: 20, lineHeight: 1 }}>{t.icon}</span>
+            <span>{t.label}</span>
           </button>
         ))}
       </div>
@@ -872,11 +885,13 @@ function SettingsTab() {
   const [settings, setSettings] = useState(null)
   const [saving, setSaving] = useState(false)
   const [freeInput, setFreeInput] = useState('')
+  const [referralInput, setReferralInput] = useState('')
 
   useEffect(() => {
     adminFetchSettings().then(s => {
       setSettings(s)
       setFreeInput(String(s.free_searches))
+      setReferralInput(String(s.referral_bonus ?? 10))
     }).catch(() => {})
   }, [])
 
@@ -899,6 +914,16 @@ function SettingsTab() {
     setSaving(false)
   }
 
+  async function saveReferral() {
+    setSaving(true)
+    try {
+      await adminUpdateSettings({ referral_bonus: parseInt(referralInput) })
+      setSettings(s => ({ ...s, referral_bonus: parseInt(referralInput) }))
+      window.Telegram?.WebApp?.showAlert('✅ עודכן')
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    setSaving(false)
+  }
+
   if (!settings) return <div className="loading">⏳</div>
 
   return (
@@ -913,15 +938,13 @@ function SettingsTab() {
       </div>
       <div style={{ marginTop: 20 }}>
         <div className="toggle-label" style={{ marginBottom: 8 }}>🆓 חיפושים חינמיים למשתמש חדש</div>
-        <input
-          className="input"
-          type="number"
-          value={freeInput}
-          onChange={e => setFreeInput(e.target.value)}
-        />
-        <button className="btn" disabled={saving} onClick={saveFree}>
-          {saving ? '...' : 'שמור'}
-        </button>
+        <input className="input" type="number" value={freeInput} onChange={e => setFreeInput(e.target.value)} />
+        <button className="btn" disabled={saving} onClick={saveFree}>{saving ? '...' : 'שמור'}</button>
+      </div>
+      <div style={{ marginTop: 20 }}>
+        <div className="toggle-label" style={{ marginBottom: 8 }}>🤝 חיפושים לבונוס הפניה</div>
+        <input className="input" type="number" min="1" value={referralInput} onChange={e => setReferralInput(e.target.value)} />
+        <button className="btn" disabled={saving} onClick={saveReferral}>{saving ? '...' : 'שמור'}</button>
       </div>
       <div style={{ marginTop: 24 }}>
         <div className="toggle-label" style={{ marginBottom: 8 }}>📢 שידור הודעה לכל המשתמשים</div>

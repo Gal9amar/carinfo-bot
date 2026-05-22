@@ -261,6 +261,13 @@ export async function adminFetchUserHistory(userId) {
   return r.json()
 }
 
+// Referral info for current user
+export async function fetchReferral() {
+  const r = await fetch(`${BASE}/api/user/referral`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
 // Gift searches to all users
 export async function adminGiftAll(searches, message, image_b64 = '') {
   const r = await fetch(`${BASE}/api/admin/gift-all`, {

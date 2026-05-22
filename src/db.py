@@ -137,6 +137,7 @@ async def init_db() -> None:
     description TEXT    NOT NULL,
     created_at  TEXT    DEFAULT (datetime('now'))
 )""",
+        "ALTER TABLE users ADD COLUMN referred_by INTEGER DEFAULT NULL",
     ]
     for sql in statements:
         conn.execute(sql)
@@ -156,6 +157,7 @@ async def init_db() -> None:
     conn.execute(
         "INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('maintenance', '0')"
     )
+    conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('referral_bonus', '10')")
     conn.commit()
 
     from src.packages import init_packages

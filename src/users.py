@@ -260,6 +260,19 @@ async def check_new_user(user_id: int) -> bool:
     return not bool(r.rows)
 
 
+async def record_referral(new_user_id: int, referrer_id: int) -> None:
+    """Record that new_user_id was referred by referrer_id (only if not already set)."""
+    r = await execute("SELECT referred_by FROM users WHERE user_id=?", [new_user_id])
+    if r.rows and r.rows[0][0] is None:
+        await execute("UPDATE users SET referred_by=? WHERE user_id=?", [referrer_id, new_user_id])
+
+
+async def get_referral_count(user_id: int) -> int:
+    """Count how many users this user has successfully referred."""
+    r = await execute("SELECT COUNT(*) FROM users WHERE referred_by=?", [user_id])
+    return r.rows[0][0] if r.rows else 0
+
+
 async def get_all_users() -> list[dict]:
     r = await execute(
         "SELECT user_id, username, full_name, searches_done, searches_quota, first_seen, last_seen, blocked, whatsapp_phone, channel FROM users ORDER BY searches_done DESC"
