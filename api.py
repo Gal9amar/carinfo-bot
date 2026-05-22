@@ -140,8 +140,13 @@ async def confirm_payment(body: PaymentConfirmRequest, user: dict = Depends(_get
 @api.get("/api/vehicle/{plate}")
 async def get_vehicle(plate: str, user: dict = Depends(_get_user)):
     from src.api.gov_api import fetch_vehicle_data
+    from src.cache import cache
     plate = plate.replace("-", "").replace(" ", "")
-    record = await fetch_vehicle_data(plate)
+    record = cache.get(plate)
+    if record is None:
+        record = await fetch_vehicle_data(plate)
+        if record:
+            cache.set(plate, record)
     if not record:
         raise HTTPException(status_code=404, detail="Vehicle not found")
     return record
