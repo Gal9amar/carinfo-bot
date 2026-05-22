@@ -373,9 +373,18 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         searches_info = "גישה מלאה פעילה ✅"
 
     await update.message.reply_text(
-        "👋 *ברוך הבא ל\\-CarInfo\\!*\n\n"
-        "🔍 שלח מספר לוחית רישוי \\(לדוגמה: 1234567\\)\n"
-        "ותקבל דוח מלא על הרכב תוך שניות\\.\n\n"
+        "🚗 *ברוך הבא ל\\-CarInfo\\!*\n"
+        "_הבוט החכם לבדיקת רכבים בישראל_\n\n"
+        "⚡ שלח מספר לוחית רישוי ותקבל תוך שניות:\n\n"
+        "📋 פרטי הרכב המלאים\n"
+        "👥 היסטוריית בעלויות\n"
+        "⚙️ מפרט טכני מלא\n"
+        "🛡️ בטיחות ו\\-ADAS\n"
+        "🔔 ריקולים פתוחים\n"
+        "💰 הערכת מחיר שוק\n\n"
+        "🔍 *כיצד להתחיל?*\n"
+        "פשוט שלח מספר לוחית רישוי\n"
+        "לדוגמה: _1234567_\n\n"
         f"🆓 {searches_info}",
         parse_mode=ParseMode.MARKDOWN_V2,
         reply_markup=_welcome_keyboard(False),
@@ -883,12 +892,44 @@ async def handle_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query    = update.callback_query
-    is_admin = query.from_user.id == ADMIN_ID
+    user_id  = query.from_user.id
+    is_admin = user_id == ADMIN_ID
     await query.answer()
+
+    from src.users import get_user_by_id, get_quota_expires
+    u    = await get_user_by_id(user_id)
+    left  = u.get("searches_left", 0) if u else 0
+    quota = u.get("searches_quota", 0) if u else 0
+    if quota == -1:
+        try:
+            expires = await get_quota_expires(user_id)
+            if expires:
+                from datetime import datetime as _dt
+                exp_str = _dt.strptime(expires, "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y")
+                _si = f"♾️ מנוי חודשי פעיל עד {_escape(exp_str)}"
+            else:
+                _si = "✅ גישה בלתי מוגבלת"
+        except Exception:
+            _si = "✅ גישה בלתי מוגבלת"
+    elif left > 0:
+        _si = f"נותרו לך *{left}* בדיקות\\."
+    else:
+        _si = "גישה מלאה פעילה ✅"
+
     await query.edit_message_text(
-        "👋 *ברוך הבא ל\\-CarInfo\\!*\n\n"
-        "🔍 שלח מספר לוחית רישוי \\(לדוגמה: 1234567\\)\n"
-        "ותקבל דוח מלא על הרכב תוך שניות\\.",
+        "🚗 *ברוך הבא ל\\-CarInfo\\!*\n"
+        "_הבוט החכם לבדיקת רכבים בישראל_\n\n"
+        "⚡ שלח מספר לוחית רישוי ותקבל תוך שניות:\n\n"
+        "📋 פרטי הרכב המלאים\n"
+        "👥 היסטוריית בעלויות\n"
+        "⚙️ מפרט טכני מלא\n"
+        "🛡️ בטיחות ו\\-ADAS\n"
+        "🔔 ריקולים פתוחים\n"
+        "💰 הערכת מחיר שוק\n\n"
+        "🔍 *כיצד להתחיל?*\n"
+        "פשוט שלח מספר לוחית רישוי\n"
+        "לדוגמה: _1234567_\n\n"
+        f"🆓 {_si}",
         parse_mode=ParseMode.MARKDOWN_V2,
         reply_markup=_welcome_keyboard(is_admin),
     )
