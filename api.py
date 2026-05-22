@@ -164,6 +164,13 @@ async def get_vehicle(plate: str, user: dict = Depends(_get_user)):
             cache.set(plate, record)
     if not record:
         raise HTTPException(status_code=404, detail="Vehicle not found")
+    uid  = int(user["id"])
+    name = user.get("username") or user.get("first_name", str(uid))
+    try:
+        from src.activity import log as _log
+        await _log("search", f"חיפוש לוחית {plate}", uid, name)
+    except Exception:
+        pass
     return record
 
 
@@ -250,6 +257,12 @@ class GrantBody(BaseModel):
 async def admin_grant_user(user_id: int, body: GrantBody, admin: dict = Depends(_require_admin)):
     from src.users import admin_grant
     msg = await admin_grant(int(admin["id"]), user_id, body.searches)
+    try:
+        from src.activity import log as _log
+        desc = "ללא הגבלה" if body.searches == -2 else ("מנוי חודשי" if body.searches == -1 else f"{body.searches} חיפושים")
+        await _log("grant", f"הענקה למשתמש {user_id}: {desc}")
+    except Exception:
+        pass
     return {"ok": True, "msg": msg}
 
 
@@ -277,6 +290,11 @@ async def create_ticket_api(body: TicketCreateBody, user: dict = Depends(_get_us
     try:
         from src.notifier import notify_admin_ticket
         await notify_admin_ticket(ticket_id, uid, name, subject, message)
+    except Exception:
+        pass
+    try:
+        from src.activity import log as _log
+        await _log("ticket_new", f"פנייה חדשה #{ticket_id}: {subject[:60]}", uid, name)
     except Exception:
         pass
     return {"id": ticket_id, "ok": True}
@@ -346,6 +364,11 @@ async def admin_reply_ticket(ticket_id: int, body: TicketReplyBody, admin: dict 
         await notify_user_ticket_reply(ticket["user_id"], ticket_id, ticket["subject"], msg)
     except Exception:
         pass
+    try:
+        from src.activity import log as _log
+        await _log("ticket_reply", f"תגובת מנהל לפנייה #{ticket_id}", int(admin["id"]), "admin")
+    except Exception:
+        pass
     return {"ok": True}
 
 
@@ -359,6 +382,11 @@ async def admin_update_ticket_status(ticket_id: int, body: TicketStatusBody, _: 
     if body.status not in ("open", "in_progress", "closed"):
         raise HTTPException(status_code=400, detail="Invalid status")
     await update_ticket_status(ticket_id, body.status)
+    try:
+        from src.activity import log as _log
+        await _log("ticket_status", f"סטטוס פנייה #{ticket_id} → {body.status}")
+    except Exception:
+        pass
     return {"ok": True}
 
 
@@ -386,6 +414,11 @@ async def admin_approve_payment(ref: str, admin: dict = Depends(_require_admin))
         await notify_user_payment_approved(user_id, label, searches)
     except Exception:
         pass
+    try:
+        from src.activity import log as _log
+        await _log("payment_approved", f"תשלום אושר: {label} ({searches} חיפושים) למשתמש {user_id}")
+    except Exception:
+        pass
     return {"ok": True}
 
 
@@ -400,6 +433,11 @@ async def admin_decline_payment(ref: str, _: dict = Depends(_require_admin)):
     try:
         from src.notifier import notify_user_payment_declined
         await notify_user_payment_declined(user_id, label)
+    except Exception:
+        pass
+    try:
+        from src.activity import log as _log
+        await _log("payment_declined", f"תשלום נדחה: {label} למשתמש {user_id}")
     except Exception:
         pass
     return {"ok": True}
@@ -434,6 +472,12 @@ async def admin_create_code(body: CodeCreateBody, _: dict = Depends(_require_adm
         single_use=body.single_use,
         monthly=body.monthly,
     )
+    try:
+        from src.activity import log as _log
+        desc = "ללא הגבלה" if body.unlimited else f"{body.searches} חיפושים"
+        await _log("code_created", f"קוד גישה נוצר: {code} ({desc})")
+    except Exception:
+        pass
     return {"code": code}
 
 
@@ -441,6 +485,11 @@ async def admin_create_code(body: CodeCreateBody, _: dict = Depends(_require_adm
 async def admin_delete_code(code: str, _: dict = Depends(_require_admin)):
     from src.db import execute
     await execute("DELETE FROM codes WHERE code=?", [code])
+    try:
+        from src.activity import log as _log
+        await _log("code_deleted", f"קוד גישה נמחק: {code}")
+    except Exception:
+        pass
     return {"ok": True}
 
 
@@ -455,6 +504,11 @@ async def admin_broadcast(body: BroadcastBody, _: dict = Depends(_require_admin)
     if not msg:
         raise HTTPException(status_code=400, detail="Empty message")
     result = await notify_broadcast(msg)
+    try:
+        from src.activity import log as _log
+        await _log("broadcast", f"שידור נשלח: {msg[:80]}{'...' if len(msg) > 80 else ''}")
+    except Exception:
+        pass
     return result
 
 
@@ -469,6 +523,11 @@ async def admin_send_user_message(user_id: int, body: DirectMessageBody, _: dict
     if not msg:
         raise HTTPException(status_code=400, detail="Empty message")
     ok = await send_user_message(user_id, msg)
+    try:
+        from src.activity import log as _log
+        await _log("message", f"הודעה ישירה נשלחה למשתמש {user_id}: {msg[:60]}{'...' if len(msg) > 60 else ''}")
+    except Exception:
+        pass
     return {"ok": ok}
 
 
@@ -487,7 +546,19 @@ async def admin_toggle_block(user_id: int, _: dict = Depends(_require_admin)):
     current = r.rows[0][0]
     new_val = 0 if current else 1
     await execute("UPDATE users SET blocked=? WHERE user_id=?", [new_val, user_id])
+    try:
+        from src.activity import log as _log
+        etype = "block" if new_val else "unblock"
+        await _log(etype, f"משתמש {user_id} {'נחסם' if new_val else 'שוחרר'}")
+    except Exception:
+        pass
     return {"ok": True, "blocked": bool(new_val)}
+
+
+@api.get("/api/admin/activity")
+async def admin_get_activity(limit: int = 100, _: dict = Depends(_require_admin)):
+    from src.activity import get_log
+    return await get_log(min(limit, 200))
 
 
 # ── Serve React SPA (must be last) ──────────────────────────────────────────

@@ -280,6 +280,12 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             )
         except Exception as e:
             logger.debug("Failed to notify admin of new user: %s", e)
+        try:
+            from src.activity import log as _log
+            uname = f"@{user.username}" if user.username else str(user_id)
+            await _log("new_user", f"משתמש חדש: {uname} ({user.full_name or ''})", user_id, uname)
+        except Exception:
+            pass
 
     if not allowed:
         if await is_blocked(user_id):

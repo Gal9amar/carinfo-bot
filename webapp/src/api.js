@@ -260,3 +260,10 @@ export async function adminFetchUserHistory(userId) {
   if (!r.ok) throw new Error('Failed')
   return r.json()
 }
+
+// Activity log
+export async function adminFetchActivity(limit = 100) {
+  const r = await fetch(`${BASE}/api/admin/activity?limit=${limit}`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}

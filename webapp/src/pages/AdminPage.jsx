@@ -11,10 +11,12 @@ import {
   adminToggleBlock,
   adminSendUserMessage,
   adminFetchUserHistory,
+  adminFetchActivity,
 } from '../api.js'
 
 const TABS = [
   { id: 'stats',    label: '📊 סטטיסטיקות' },
+  { id: 'activity', label: '🕐 לוג' },
   { id: 'payments', label: '💳 תשלומים' },
   { id: 'codes',    label: '🔑 קודים' },
   { id: 'packages', label: '📦 חבילות' },
@@ -41,6 +43,7 @@ export default function AdminPage({ user }) {
         ))}
       </div>
       {tab === 'stats'    && <StatsTab />}
+      {tab === 'activity' && <ActivityTab />}
       {tab === 'payments' && <PaymentsTab />}
       {tab === 'codes'    && <CodesTab />}
       {tab === 'packages' && <PackagesTab />}
@@ -61,6 +64,78 @@ function StatsTab() {
       <div className="stat-card"><div className="stat-value">{stats.active_users}</div><div className="stat-label">פעילים</div></div>
       <div className="stat-card"><div className="stat-value">{stats.total_searches}</div><div className="stat-label">בדיקות</div></div>
       <div className="stat-card"><div className="stat-value">{stats.used_codes}/{stats.total_codes}</div><div className="stat-label">קודים</div></div>
+    </div>
+  )
+}
+
+function ActivityTab() {
+  const [log, setLog] = useState(null)
+  const [autoRefresh, setAutoRefresh] = useState(false)
+
+  function load() { adminFetchActivity(100).then(setLog).catch(() => {}) }
+  useEffect(() => { load() }, [])
+  useEffect(() => {
+    if (!autoRefresh) return
+    const id = setInterval(load, 15000)
+    return () => clearInterval(id)
+  }, [autoRefresh])
+
+  function fmtTime(ts) {
+    if (!ts) return ''
+    try {
+      const d = new Date(ts.replace(' ', 'T') + (ts.includes('+') ? '' : 'Z'))
+      return d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) +
+             ' ' + d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' })
+    } catch { return ts.slice(0, 16) }
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <div style={{ fontSize: 13, color: 'var(--hint)' }}>{log ? `${log.length} אירועים אחרונים` : ''}</div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <label style={{ fontSize: 12, color: 'var(--hint)', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+            <input type="checkbox" checked={autoRefresh} onChange={e => setAutoRefresh(e.target.checked)} />
+            רענון אוטומטי
+          </label>
+          <button
+            className="btn"
+            style={{ width: 'auto', padding: '4px 12px', marginTop: 0, fontSize: 12 }}
+            onClick={load}
+          >
+            🔄
+          </button>
+        </div>
+      </div>
+      {!log && <div className="loading">⏳</div>}
+      {log && log.length === 0 && (
+        <div style={{ color: 'var(--hint)', textAlign: 'center', padding: 24 }}>אין פעילות עדיין</div>
+      )}
+      {log && log.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {log.map(item => (
+            <div key={item.id} style={{
+              background: 'var(--card-bg, rgba(255,255,255,0.05))',
+              borderRadius: 10,
+              padding: '8px 12px',
+              display: 'flex',
+              gap: 10,
+              alignItems: 'flex-start',
+            }}>
+              <span style={{ fontSize: 18, lineHeight: 1.3, flexShrink: 0 }}>{item.icon}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, wordBreak: 'break-word' }}>{item.description}</div>
+                {item.username && (
+                  <div style={{ fontSize: 11, color: 'var(--hint)', marginTop: 2 }}>{item.username}</div>
+                )}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--hint)', flexShrink: 0, textAlign: 'left', whiteSpace: 'nowrap' }}>
+                {fmtTime(item.created_at)}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
