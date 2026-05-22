@@ -109,3 +109,13 @@ export async function adminDeletePackage(id) {
   if (!r.ok) throw new Error('Failed')
   return r.json()
 }
+
+export async function adminGrantUser(userId, searches) {
+  const r = await fetch(`${BASE}/api/admin/users/${userId}/grant`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ searches }),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}

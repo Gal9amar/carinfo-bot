@@ -3,6 +3,7 @@ import {
   adminFetchStats, adminFetchUsers, adminFetchSettings,
   adminUpdateSettings, adminFetchPackages,
   adminAddPackage, adminUpdatePackage, adminDeletePackage,
+  adminGrantUser,
 } from '../api.js'
 
 const TABS = [
@@ -149,8 +150,11 @@ function PackagesTab() {
 
 function UsersTab() {
   const [users, setUsers] = useState(null)
+  const [editingUser, setEditingUser] = useState(null)
+
   useEffect(() => { adminFetchUsers().then(setUsers).catch(() => {}) }, [])
   if (!users) return <div className="loading">⏳</div>
+
   return (
     <div>
       <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8 }}>{users.length} משתמשים</div>
@@ -160,10 +164,135 @@ function UsersTab() {
         return (
           <div key={u.user_id} className="user-row">
             <span>{u.blocked ? '🔴' : '🟢'} {name}</span>
-            <span style={{ color: 'var(--hint)', fontSize: 13 }}>{left} נותרו</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ color: 'var(--hint)', fontSize: 13 }}>{left} נותרו</span>
+              <button
+                className="btn"
+                style={{ width: 'auto', padding: '4px 10px', marginTop: 0, fontSize: 12 }}
+                onClick={() => setEditingUser(u)}
+              >
+                ✏️
+              </button>
+            </div>
           </div>
         )
       })}
+      {editingUser && (
+        <GrantModal
+          user={editingUser}
+          onClose={() => setEditingUser(null)}
+          onDone={async () => {
+            const fresh = await adminFetchUsers()
+            setUsers(fresh)
+            setEditingUser(null)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function GrantModal({ user, onClose, onDone }) {
+  const [packages, setPackages] = useState(null)
+  const [mode, setMode] = useState('packages') // 'packages' | 'unlimited' | 'custom'
+  const [unlimitedType, setUnlimitedType] = useState('permanent') // 'permanent' | 'monthly'
+  const [customAmount, setCustomAmount] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => { adminFetchPackages().then(setPackages).catch(() => {}) }, [])
+
+  const name = user.username ? `@${user.username}` : user.full_name || `id:${user.user_id}`
+
+  async function grant(searches) {
+    setSaving(true)
+    try {
+      const res = await adminGrantUser(user.user_id, searches)
+      window.Telegram?.WebApp?.showAlert(res.msg || '✅ עודכן')
+      await onDone()
+    } catch {
+      window.Telegram?.WebApp?.showAlert('שגיאה')
+    }
+    setSaving(false)
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-title">✏️ עריכת {name}</div>
+
+        <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+          {[['packages','📦 חבילה'],['unlimited','♾️ ללא הגבלה'],['custom','✍️ התאמה']].map(([id, label]) => (
+            <button
+              key={id}
+              onClick={() => setMode(id)}
+              style={{
+                flex: 1, padding: '7px 4px', fontSize: 12, borderRadius: 8,
+                border: '1.5px solid var(--accent)',
+                background: mode === id ? 'var(--accent)' : 'transparent',
+                color: mode === id ? '#fff' : 'var(--accent)',
+                cursor: 'pointer',
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {mode === 'packages' && (
+          <div>
+            {!packages && <div className="loading" style={{ fontSize: 13 }}>⏳</div>}
+            {packages && packages.map(pkg => (
+              <button
+                key={pkg.id}
+                className="btn"
+                disabled={saving}
+                style={{ marginBottom: 8, textAlign: 'right' }}
+                onClick={() => grant(pkg.searches)}
+              >
+                {pkg.label} — {pkg.searches === -1 ? '∞' : pkg.searches} חיפושים
+              </button>
+            ))}
+          </div>
+        )}
+
+        {mode === 'unlimited' && (
+          <div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+              {[['permanent','♾️ ללא הגבלת זמן'],['monthly','📅 מנוי חודשי (30 יום)']].map(([val, label]) => (
+                <label key={val} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <input type="radio" checked={unlimitedType === val} onChange={() => setUnlimitedType(val)} />
+                  {label}
+                </label>
+              ))}
+            </div>
+            <button className="btn" disabled={saving} onClick={() => grant(unlimitedType === 'permanent' ? -2 : -1)}>
+              {saving ? '...' : 'אשר'}
+            </button>
+          </div>
+        )}
+
+        {mode === 'custom' && (
+          <div>
+            <input
+              className="input"
+              type="number"
+              min="1"
+              placeholder="כמות חיפושים להוסיף"
+              value={customAmount}
+              onChange={e => setCustomAmount(e.target.value)}
+            />
+            <button
+              className="btn"
+              disabled={saving || !customAmount || parseInt(customAmount) < 1}
+              onClick={() => grant(parseInt(customAmount))}
+            >
+              {saving ? '...' : 'הוסף'}
+            </button>
+          </div>
+        )}
+
+        <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={onClose}>ביטול</button>
+      </div>
     </div>
   )
 }
