@@ -167,9 +167,8 @@ def build_result_keyboard(
 def _packages_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
     buttons = []
     for label, searches, price in _pkgs():
-        desc = "ללא הגבלה — 30 יום" if searches == -1 else f"{searches} בדיקות"
         buttons.append([InlineKeyboardButton(
-            f"{label} — {desc} ב-₪{price}",
+            f"{label} — ₪{price}",
             callback_data=f"buy|{searches}|{price}"
         )])
     buttons.append([InlineKeyboardButton("🎟️ יש לי קוד הטבה", callback_data="enter_code")])
