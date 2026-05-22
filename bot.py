@@ -1095,21 +1095,19 @@ async def handle_admin_keyboard(update: Update, context: ContextTypes.DEFAULT_TY
     async def send_packages_editor():
         from src.packages import get_packages
         pkgs = await get_packages()
-        lines = ["💰 *עריכת מחירי חבילות*\n"]
+        buttons = []
         for pid, label, searches, price in pkgs:
             desc = "ללא הגבלה" if searches == -1 else f"{searches} חיפושים"
-            lines.append(f"{pid}\\. {_escape_md(label)} — {desc} ב\\-₪{price}")
-        lines += [
-            "",
-            "עריכה: `pkg 1 50 15`",
-            "הוספה: `pkg add 50 15 תווית חדשה`",
-            "מחיקה: `pkg del 1`",
-        ]
+            buttons.append([InlineKeyboardButton(
+                f"📦 {label} — {desc} · ₪{price}",
+                callback_data=f"admpkg|pick|{pid}",
+            )])
+        buttons.append([InlineKeyboardButton("➕ הוסף חבילה", callback_data="admpkg|add")])
         await update.message.reply_text(
-            "\n".join(lines),
+            "💰 *עריכת מחירי חבילות*\n\nבחר חבילה לעריכה או הוסף חדשה:",
             parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=InlineKeyboardMarkup(buttons),
         )
-        context.user_data["admin_setting"] = "packages"
 
     dispatch = {
         "📊 סטטיסטיקות":      send_stats,
@@ -1319,6 +1317,79 @@ async def handle_successful_payment(update: Update, context: ContextTypes.DEFAUL
 
 
 
+async def handle_admpkg_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query.from_user.id != ADMIN_ID:
+        await query.answer("אין הרשאה.")
+        return
+    await query.answer()
+    from src.packages import get_packages, update_package, add_package, delete_package
+
+    parts  = query.data.split("|")
+    action = parts[1]
+
+    def _pkg_buttons(pkgs):
+        btns = []
+        for pid, lbl, srch, prc in pkgs:
+            desc = "ללא הגבלה" if srch == -1 else f"{srch} חיפושים"
+            btns.append([InlineKeyboardButton(f"📦 {lbl} — {desc} · ₪{prc}", callback_data=f"admpkg|pick|{pid}")])
+        btns.append([InlineKeyboardButton("➕ הוסף חבילה", callback_data="admpkg|add")])
+        return btns
+
+    if action == "list":
+        pkgs = await get_packages()
+        await query.edit_message_text(
+            "💰 *עריכת מחירי חבילות*\n\nבחר חבילה לעריכה או הוסף חדשה:",
+            parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=InlineKeyboardMarkup(_pkg_buttons(pkgs)),
+        )
+
+    elif action == "pick":
+        pkg_id = int(parts[2])
+        pkgs   = await get_packages()
+        pkg    = next((p for p in pkgs if p[0] == pkg_id), None)
+        if not pkg:
+            await query.edit_message_text("❌ חבילה לא נמצאה\\.", parse_mode=ParseMode.MARKDOWN_V2)
+            return
+        pid, label, searches, price = pkg
+        desc = "ללא הגבלה" if searches == -1 else f"{searches} חיפושים"
+        await query.edit_message_text(
+            f"📦 *{_escape_md(label)}*\n\n{_escape_md(desc)} · ₪{price}\n\nמה לעשות?",
+            parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("✏️ ערוך", callback_data=f"admpkg|startedit|{pid}"),
+                 InlineKeyboardButton("🗑 מחק",  callback_data=f"admpkg|del|{pid}")],
+                [InlineKeyboardButton("🔙 חזרה", callback_data="admpkg|list")],
+            ]),
+        )
+
+    elif action == "del":
+        pkg_id = int(parts[2])
+        await delete_package(pkg_id)
+        pkgs = await get_packages()
+        await query.edit_message_text(
+            "✅ *חבילה נמחקה\\!*\n\nבחר חבילה לעריכה או הוסף חדשה:",
+            parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=InlineKeyboardMarkup(_pkg_buttons(pkgs)),
+        )
+
+    elif action == "startedit":
+        pkg_id = int(parts[2])
+        context.user_data["admin_setting"]  = "pkg_edit_searches"
+        context.user_data["admin_pkg_id"]   = pkg_id
+        await query.edit_message_text(
+            "✏️ *עריכת חבילה*\n\nכמה חיפושים? \\(שלח `\\-1` לבלתי מוגבל\\)",
+            parse_mode=ParseMode.MARKDOWN_V2,
+        )
+
+    elif action == "add":
+        context.user_data["admin_setting"] = "pkg_add_label"
+        await query.edit_message_text(
+            "➕ *הוספת חבילה חדשה*\n\nשלח את שם החבילה:",
+            parse_mode=ParseMode.MARKDOWN_V2,
+        )
+
+
 async def handle_admin_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
     if user_id != ADMIN_ID:
@@ -1408,63 +1479,81 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             context.user_data.pop("admin_setting", None)
             await update.message.reply_text("✅ הודעת תשלום עודכנה\\!\n\n" + raw, parse_mode=ParseMode.MARKDOWN_V2)
             return
-        if setting == "packages":
-            from src.packages import get_packages, update_package, add_package, delete_package
-            parts_cmd = raw.strip().split(None, 4)
-            try:
-                if len(parts_cmd) >= 4 and parts_cmd[0].lower() == "pkg" and parts_cmd[1].lower() not in ("add", "del"):
-                    pkg_id   = int(parts_cmd[1])
-                    searches = int(parts_cmd[2])
-                    price    = int(parts_cmd[3])
-                    pkgs = await get_packages()
-                    pkg_row = next((p for p in pkgs if p[0] == pkg_id), None)
-                    if pkg_row is None:
-                        await update.message.reply_text(f"❌ חבילה {pkg_id} לא קיימת\\.", parse_mode=ParseMode.MARKDOWN_V2)
-                        return
-                    await update_package(pkg_id, pkg_row[1], searches, price)
-                    pkgs = await get_packages()
-                    lines = ["✅ *חבילה עודכנה\\!*\n"]
-                    for pid, lbl, srch, prc in pkgs:
-                        desc = "ללא הגבלה" if srch == -1 else f"{srch} חיפושים"
-                        lines.append(f"{pid}\\. {_escape_md(lbl)} — {desc} ב\\-₪{prc}")
-                    await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.MARKDOWN_V2)
-                elif len(parts_cmd) >= 5 and parts_cmd[0].lower() == "pkg" and parts_cmd[1].lower() == "add":
-                    searches = int(parts_cmd[2])
-                    price    = int(parts_cmd[3])
-                    label    = parts_cmd[4]
-                    await add_package(label, searches, price)
-                    pkgs = await get_packages()
-                    lines = ["✅ *חבילה נוספה\\!*\n"]
-                    for pid, lbl, srch, prc in pkgs:
-                        desc = "ללא הגבלה" if srch == -1 else f"{srch} חיפושים"
-                        lines.append(f"{pid}\\. {_escape_md(lbl)} — {desc} ב\\-₪{prc}")
-                    await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.MARKDOWN_V2)
-                elif len(parts_cmd) >= 3 and parts_cmd[0].lower() == "pkg" and parts_cmd[1].lower() == "del":
-                    pkg_id = int(parts_cmd[2])
-                    pkgs = await get_packages()
-                    if not any(p[0] == pkg_id for p in pkgs):
-                        await update.message.reply_text(f"❌ חבילה {pkg_id} לא קיימת\\.", parse_mode=ParseMode.MARKDOWN_V2)
-                        return
-                    await delete_package(pkg_id)
-                    pkgs = await get_packages()
-                    lines = ["✅ *חבילה נמחקה\\!*\n"]
-                    for pid, lbl, srch, prc in pkgs:
-                        desc = "ללא הגבלה" if srch == -1 else f"{srch} חיפושים"
-                        lines.append(f"{pid}\\. {_escape_md(lbl)} — {desc} ב\\-₪{prc}")
-                    await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.MARKDOWN_V2)
-                else:
-                    await update.message.reply_text(
-                        "❌ פורמט שגוי\\.\n\n"
-                        "עריכה: `pkg 1 50 15`\n"
-                        "הוספה: `pkg add 50 15 תווית החבילה`\n"
-                        "מחיקה: `pkg del 1`",
-                        parse_mode=ParseMode.MARKDOWN_V2,
-                    )
-                    return
-            except (ValueError, StopIteration):
-                await update.message.reply_text("❌ פורמט שגוי\\.", parse_mode=ParseMode.MARKDOWN_V2)
+        if setting == "pkg_add_label":
+            context.user_data["admin_pkg_label"] = raw
+            context.user_data["admin_setting"] = "pkg_add_searches"
+            await update.message.reply_text(
+                "כמה חיפושים? \\(שלח `\\-1` לבלתי מוגבל\\)",
+                parse_mode=ParseMode.MARKDOWN_V2,
+            )
+            return
+        if setting == "pkg_add_searches":
+            if not raw.lstrip("-").isdigit():
+                await update.message.reply_text("❌ שלח מספר שלם בלבד\\.", parse_mode=ParseMode.MARKDOWN_V2)
                 return
+            context.user_data["admin_pkg_searches"] = int(raw)
+            context.user_data["admin_setting"] = "pkg_add_price"
+            await update.message.reply_text("מה המחיר ב\\-₪?", parse_mode=ParseMode.MARKDOWN_V2)
+            return
+        if setting == "pkg_add_price":
+            if not raw.isdigit():
+                await update.message.reply_text("❌ שלח מספר שלם חיובי בלבד\\.", parse_mode=ParseMode.MARKDOWN_V2)
+                return
+            from src.packages import get_packages, add_package
+            label    = context.user_data.pop("admin_pkg_label", "חבילה חדשה")
+            searches = context.user_data.pop("admin_pkg_searches", 10)
+            price    = int(raw)
             context.user_data.pop("admin_setting", None)
+            await add_package(label, searches, price)
+            pkgs = await get_packages()
+            buttons = []
+            for pid, lbl, srch, prc in pkgs:
+                desc = "ללא הגבלה" if srch == -1 else f"{srch} חיפושים"
+                buttons.append([InlineKeyboardButton(f"📦 {lbl} — {desc} · ₪{prc}", callback_data=f"admpkg|pick|{pid}")])
+            buttons.append([InlineKeyboardButton("➕ הוסף חבילה", callback_data="admpkg|add")])
+            await update.message.reply_text(
+                "✅ *חבילה נוספה\\!*\n\nבחר חבילה לעריכה או הוסף חדשה:",
+                parse_mode=ParseMode.MARKDOWN_V2,
+                reply_markup=InlineKeyboardMarkup(buttons),
+            )
+            return
+        if setting == "pkg_edit_searches":
+            if not raw.lstrip("-").isdigit():
+                await update.message.reply_text("❌ שלח מספר שלם בלבד\\.", parse_mode=ParseMode.MARKDOWN_V2)
+                return
+            context.user_data["admin_pkg_searches"] = int(raw)
+            context.user_data["admin_setting"] = "pkg_edit_price"
+            await update.message.reply_text("מה המחיר ב\\-₪?", parse_mode=ParseMode.MARKDOWN_V2)
+            return
+        if setting == "pkg_edit_price":
+            if not raw.isdigit():
+                await update.message.reply_text("❌ שלח מספר שלם חיובי בלבד\\.", parse_mode=ParseMode.MARKDOWN_V2)
+                return
+            from src.packages import get_packages, update_package
+            pkg_id   = context.user_data.pop("admin_pkg_id", None)
+            searches = context.user_data.pop("admin_pkg_searches", 10)
+            price    = int(raw)
+            context.user_data.pop("admin_setting", None)
+            if pkg_id is None:
+                await update.message.reply_text("❌ שגיאה פנימית\\.", parse_mode=ParseMode.MARKDOWN_V2)
+                return
+            pkgs    = await get_packages()
+            pkg_row = next((p for p in pkgs if p[0] == pkg_id), None)
+            if pkg_row is None:
+                await update.message.reply_text("❌ חבילה לא נמצאה\\.", parse_mode=ParseMode.MARKDOWN_V2)
+                return
+            await update_package(pkg_id, pkg_row[1], searches, price)
+            pkgs = await get_packages()
+            buttons = []
+            for pid, lbl, srch, prc in pkgs:
+                desc = "ללא הגבלה" if srch == -1 else f"{srch} חיפושים"
+                buttons.append([InlineKeyboardButton(f"📦 {lbl} — {desc} · ₪{prc}", callback_data=f"admpkg|pick|{pid}")])
+            buttons.append([InlineKeyboardButton("➕ הוסף חבילה", callback_data="admpkg|add")])
+            await update.message.reply_text(
+                "✅ *חבילה עודכנה\\!*\n\nבחר חבילה לעריכה או הוסף חדשה:",
+                parse_mode=ParseMode.MARKDOWN_V2,
+                reply_markup=InlineKeyboardMarkup(buttons),
+            )
             return
         if setting == "broadcast":
             all_users = await get_all_users()
@@ -1850,6 +1939,7 @@ def main() -> None:
     app.add_handler(PreCheckoutQueryHandler(handle_pre_checkout))
     app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, handle_successful_payment))
     app.add_handler(CallbackQueryHandler(handle_package_callback, pattern=r"^show_packages$|^pkg\|"))
+    app.add_handler(CallbackQueryHandler(handle_admpkg_callback,  pattern=r"^admpkg\|"))
     app.add_handler(CallbackQueryHandler(handle_how_it_works,    pattern=r"^how_it_works$"))
     app.add_handler(CallbackQueryHandler(handle_back_to_start,   pattern=r"^back_to_start$"))
     app.add_handler(CallbackQueryHandler(handle_history,         pattern=r"^(history|hist_plate\|.*)$"))
