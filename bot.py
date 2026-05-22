@@ -56,6 +56,7 @@ PAYMENT_PROVIDER_TOKEN = os.environ.get("PAYMENT_PROVIDER_TOKEN", "6073714100:TE
 PAYPAL_ME = os.environ.get("PAYPAL_ME", "https://www.paypal.me/G9ST")
 
 from src.packages import get_packages as _get_packages
+from src.db import get_bot_setting, set_bot_setting
 
 def _pkgs() -> list[tuple[str, int, int]]:
     """Returns (label, searches, price) from DB cache. Falls back to defaults."""
@@ -416,10 +417,12 @@ def _admin_gen_keyboard() -> InlineKeyboardMarkup:
     ])
 
 
-def _admin_settings_keyboard() -> InlineKeyboardMarkup:
+def _admin_settings_keyboard(maintenance_on: bool = False) -> InlineKeyboardMarkup:
+    maint_label = "🔴 בטל תחזוקה" if maintenance_on else "🔧 הפעל תחזוקה"
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("✏️ שנה הודעת תשלום",         callback_data="adm|set_payment")],
         [InlineKeyboardButton("🆓 שנה מספר בדיקות חינמיות", callback_data="adm|set_free")],
+        [InlineKeyboardButton(maint_label,                   callback_data="adm|toggle_maintenance")],
         [InlineKeyboardButton("🔙 חזרה",                     callback_data="adm|main")],
     ])
 
@@ -611,12 +614,32 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
     if action == "settings":
         import src.users as _u
+        free        = _u.FREE_SEARCHES
+        maintenance = (await get_bot_setting("maintenance")) == "1"
+        maint_str   = "🔴 פעיל" if maintenance else "🟢 כבוי"
+        await query.edit_message_text(
+            f"⚙️ *הגדרות בוט*\n\n"
+            f"• בדיקות חינמיות למשתמש חדש: *{free}*\n"
+            f"• מצב תחזוקה: *{maint_str}*",
+            parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=_admin_settings_keyboard(maintenance),
+        )
+        return
+
+    if action == "toggle_maintenance":
+        maintenance = (await get_bot_setting("maintenance")) == "1"
+        new_val     = "0" if maintenance else "1"
+        await set_bot_setting("maintenance", new_val)
+        maintenance = new_val == "1"
+        maint_str   = "🔴 פעיל" if maintenance else "🟢 כבוי"
+        import src.users as _u
         free = _u.FREE_SEARCHES
         await query.edit_message_text(
             f"⚙️ *הגדרות בוט*\n\n"
-            f"• בדיקות חינמיות למשתמש חדש: *{free}*",
+            f"• בדיקות חינמיות למשתמש חדש: *{free}*\n"
+            f"• מצב תחזוקה: *{maint_str}*",
             parse_mode=ParseMode.MARKDOWN_V2,
-            reply_markup=_admin_settings_keyboard(),
+            reply_markup=_admin_settings_keyboard(maintenance),
         )
         return
 
@@ -1454,6 +1477,14 @@ async def _send_car_photo(message, record: dict) -> None:
 async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
     raw     = update.message.text.strip()
+
+    # Maintenance mode — block non-admins
+    if user_id != ADMIN_ID and (await get_bot_setting("maintenance")) == "1":
+        await update.message.reply_text(
+            "🔧 *הבוט בתחזוקה כרגע*\n\nנחזור בקרוב\\!",
+            parse_mode=ParseMode.MARKDOWN_V2,
+        )
+        return
 
     # Cancel search
     if raw == "❌ ביטול":
