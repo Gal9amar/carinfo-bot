@@ -128,8 +128,6 @@ export default function App() {
       }}
       onPrivacy={() => setScreen('privacy')}
       onSupport={() => setScreen('ticket')}
-      onHowItWorks={() => setScreen('howItWorks')}
-      onHistory={() => setScreen('history')}
     />
   )
 }

@@ -90,10 +90,10 @@ def _persistent_rows(is_admin: bool = False) -> list:
     webapp_url = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
     from telegram import WebAppInfo
     rows = [
-        [InlineKeyboardButton("🔍 חיפוש רכב חדש",        callback_data="new_search"),
-         InlineKeyboardButton("ℹ️ איך זה עובד?",          callback_data="how_it_works")],
-        [InlineKeyboardButton("📜 היסטוריית חיפושים",     callback_data="history"),
-         InlineKeyboardButton("🛒 רכישת חבילה",           web_app=WebAppInfo(url=webapp_url))],
+        [InlineKeyboardButton("🔍 חיפוש רכב חדש",    callback_data="new_search"),
+         InlineKeyboardButton("🛒 רכישת חבילה",       web_app=WebAppInfo(url=webapp_url))],
+        [InlineKeyboardButton("ℹ️ איך זה עובד?",      web_app=WebAppInfo(url=f"{webapp_url}/?page=howItWorks")),
+         InlineKeyboardButton("📜 היסטוריית חיפושים", web_app=WebAppInfo(url=f"{webapp_url}/?page=history"))],
     ]
     if is_admin:
         rows.append([InlineKeyboardButton("🛠 פאנל מנהל", web_app=WebAppInfo(url=webapp_url))])
