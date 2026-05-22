@@ -125,12 +125,12 @@ async def confirm_payment(body: PaymentConfirmRequest, user: dict = Depends(_get
     if not pkg:
         raise HTTPException(status_code=404, detail="Package not found")
     pid, label, searches, price = pkg
-    # Trigger admin notification via shared bot instance
+    # Trigger admin notification via shared notifier (avoids circular import with bot.py)
     try:
-        from bot import _notify_admin_payment
+        from src.notifier import notify_admin_payment
         uid  = int(user["id"])
         name = user.get("first_name", str(uid))
-        await _notify_admin_payment(uid, name, label, searches, price, body.ref)
+        await notify_admin_payment(uid, name, label, searches, price, body.ref)
     except Exception:
         pass
     return {"ok": True}
