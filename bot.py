@@ -160,7 +160,7 @@ def build_result_keyboard(
     ]]
     if plate:
         rows.append([InlineKeyboardButton(
-            "📊 צפה בדוח גרפי",
+            "📊 צפה בדוח המלא",
             web_app=WebAppInfo(url=f"{webapp_url}/?plate={plate}"),
         )])
     if yad2_link and record:
