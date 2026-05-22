@@ -20,11 +20,11 @@ export async function fetchUser() {
   return r.json()
 }
 
-export async function initiatePayment(packageId) {
+export async function initiatePayment(packageId, quantity = 1) {
   const r = await fetch(`${BASE}/api/payment/initiate`, {
     method: 'POST',
     headers: headers(),
-    body: JSON.stringify({ package_id: packageId }),
+    body: JSON.stringify({ package_id: packageId, quantity }),
   })
   if (!r.ok) throw new Error('Payment init failed')
   return r.json()

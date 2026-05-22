@@ -72,7 +72,7 @@ async def health():
 async def list_packages():
     from src.packages import get_packages
     pkgs = await get_packages()
-    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3]} for p in pkgs]
+    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4]} for p in pkgs]
 
 
 @api.get("/api/user")
@@ -93,6 +93,7 @@ async def get_user_info(user: dict = Depends(_get_user)):
 
 class PaymentInitRequest(BaseModel):
     package_id: int
+    quantity: int = 1
 
 
 @api.post("/api/payment/initiate")
@@ -104,13 +105,17 @@ async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_u
     pkg = next((p for p in pkgs if p[0] == body.package_id), None)
     if not pkg:
         raise HTTPException(status_code=404, detail="Package not found")
-    pid, label, searches, price = pkg
+    pid, label, searches, price, _img = pkg
+    qty = max(1, min(10, body.quantity))
+    total_price = price * qty
+    total_searches = -1 if searches == -1 else searches * qty
+    qty_label = f"{label} ×{qty}" if qty > 1 else label
     ref = _secrets.token_hex(8)
     await execute(
         "INSERT OR IGNORE INTO pending_payments (ref, phone, searches, price, label) VALUES (?,?,?,?,?)",
-        [ref, str(user["id"]), searches, price, label],
+        [ref, str(user["id"]), total_searches, total_price, qty_label],
     )
-    return {"ref": ref, "paypal_url": f"{PAYPAL_ME}/{price}", "label": label, "price": price, "searches": searches}
+    return {"ref": ref, "paypal_url": f"{PAYPAL_ME}/{total_price}", "label": qty_label, "price": total_price, "searches": total_searches}
 
 
 class PaymentConfirmRequest(BaseModel):
@@ -205,27 +210,28 @@ async def admin_update_settings(body: SettingsUpdate, _: dict = Depends(_require
 async def admin_list_packages(_: dict = Depends(_require_admin)):
     from src.packages import get_packages
     pkgs = await get_packages(force_reload=True)
-    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3]} for p in pkgs]
+    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4]} for p in pkgs]
 
 
 class PackageBody(BaseModel):
     label: str
     searches: int
     price: int
+    image_url: str = ""
 
 
 @api.post("/api/admin/packages")
 async def admin_add_package(body: PackageBody, _: dict = Depends(_require_admin)):
     from src.packages import add_package, get_packages
-    await add_package(body.label, body.searches, body.price)
+    await add_package(body.label, body.searches, body.price, body.image_url)
     pkgs = await get_packages(force_reload=True)
-    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3]} for p in pkgs]
+    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4]} for p in pkgs]
 
 
 @api.put("/api/admin/packages/{pkg_id}")
 async def admin_update_package(pkg_id: int, body: PackageBody, _: dict = Depends(_require_admin)):
     from src.packages import update_package
-    await update_package(pkg_id, body.label, body.searches, body.price)
+    await update_package(pkg_id, body.label, body.searches, body.price, body.image_url)
     return {"ok": True}
 
 
