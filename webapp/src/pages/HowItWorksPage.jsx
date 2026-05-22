@@ -48,7 +48,6 @@ export default function HowItWorksPage({ onBack, freeSearches = 10, onPrivacy })
       <Section title="🆓 חיפושים חינמיים">
         <p style={{ fontSize: 14, lineHeight: 1.7, margin: 0 }}>
           כל משתמש חדש מקבל <strong>{freeSearches} חיפושים חינמיים</strong> לניסיון ללא עלות.
-          מעת לעת יתקיימו <strong>מבצעי הצטרפות</strong> שבהם תוכלו לקבל חיפושים נוספים במתנה.
         </p>
       </Section>
 
