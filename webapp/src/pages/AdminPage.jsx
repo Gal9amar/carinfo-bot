@@ -11,6 +11,7 @@ import {
   adminToggleBlock,
   adminSendUserMessage,
   adminFetchUserHistory,
+  adminFetchUserReferrals,
   adminFetchActivity,
   adminGiftAll,
 } from '../api.js'
@@ -707,16 +708,20 @@ function UsersTab() {
 
 function GrantModal({ user, onClose, onDone }) {
   const [packages, setPackages] = useState(null)
-  const [mode, setMode] = useState('packages') // 'packages' | 'unlimited' | 'custom' | 'history'
-  const [unlimitedType, setUnlimitedType] = useState('permanent') // 'permanent' | 'monthly'
+  const [mode, setMode] = useState('packages') // 'packages' | 'unlimited' | 'custom' | 'history' | 'referrals'
+  const [unlimitedType, setUnlimitedType] = useState('permanent')
   const [customAmount, setCustomAmount] = useState('')
   const [saving, setSaving] = useState(false)
   const [history, setHistory] = useState(null)
+  const [referralData, setReferralData] = useState(null)
 
   useEffect(() => { adminFetchPackages().then(setPackages).catch(() => {}) }, [])
   useEffect(() => {
     if (mode === 'history' && history === null) {
       adminFetchUserHistory(user.user_id).then(setHistory).catch(() => setHistory([]))
+    }
+    if (mode === 'referrals' && referralData === null) {
+      adminFetchUserReferrals(user.user_id).then(setReferralData).catch(() => setReferralData({ referrals: [], count: 0, total_bonus: 0 }))
     }
   }, [mode])
 
@@ -740,12 +745,12 @@ function GrantModal({ user, onClose, onDone }) {
         <div className="modal-title">✏️ עריכת {name}</div>
 
         <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
-          {[['packages','📦 חבילה'],['unlimited','♾️ ללא הגבלה'],['custom','✍️ התאמה'],['history','📋 היסטוריה']].map(([id, label]) => (
+          {[['packages','📦 חבילה'],['unlimited','♾️ ללא הגבלה'],['custom','✍️ התאמה'],['history','📋 חיפושים'],['referrals','🤝 הפניות']].map(([id, label]) => (
             <button
               key={id}
               onClick={() => setMode(id)}
               style={{
-                flex: 1, minWidth: '40%', padding: '7px 4px', fontSize: 12, borderRadius: 8,
+                flex: 1, minWidth: '30%', padding: '7px 4px', fontSize: 11, borderRadius: 8,
                 border: '1.5px solid var(--accent)',
                 background: mode === id ? 'var(--accent)' : 'transparent',
                 color: mode === id ? '#fff' : 'var(--accent)',
@@ -832,6 +837,54 @@ function GrantModal({ user, onClose, onDone }) {
                   </span>
                 ))}
               </div>
+            )}
+          </div>
+        )}
+
+        {mode === 'referrals' && (
+          <div>
+            {referralData === null && <div className="loading" style={{ fontSize: 13 }}>⏳ טוען...</div>}
+            {referralData !== null && (
+              <>
+                {/* Summary */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+                  <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '8px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 20, fontWeight: 700 }}>{referralData.count}</div>
+                    <div style={{ fontSize: 11, color: 'var(--hint)' }}>הצטרפו</div>
+                  </div>
+                  <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '8px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 20, fontWeight: 700 }}>{referralData.total_bonus}</div>
+                    <div style={{ fontSize: 11, color: 'var(--hint)' }}>חיפושים הרוויח</div>
+                  </div>
+                </div>
+                {/* Note */}
+                <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 8, padding: '6px 8px', background: 'var(--bg)', borderRadius: 6 }}>
+                  ℹ️ מוצגים רק משתמשים שהצטרפו בפועל דרך הלינק. לא ניתן לדעת מי קיבל את הלינק ולא הצטרף.
+                </div>
+                {referralData.referrals.length === 0 && (
+                  <div style={{ color: 'var(--hint)', fontSize: 13, textAlign: 'center', padding: 12 }}>
+                    אין הפניות עדיין
+                  </div>
+                )}
+                {referralData.referrals.map(ref => (
+                  <div key={ref.id} style={{
+                    display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px',
+                    background: 'var(--bg)', borderRadius: 8, marginBottom: 6,
+                    borderRight: '3px solid #38a169',
+                  }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>{ref.name}</div>
+                      <div style={{ fontSize: 11, color: 'var(--hint)' }}>{ref.joined_at?.slice(0, 10)}</div>
+                    </div>
+                    <span style={{
+                      background: '#38a16920', color: '#38a169',
+                      borderRadius: 20, padding: '3px 9px', fontSize: 11, fontWeight: 700, flexShrink: 0,
+                    }}>
+                      ✅ +{ref.bonus}
+                    </span>
+                  </div>
+                ))}
+              </>
             )}
           </div>
         )}

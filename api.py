@@ -539,6 +539,14 @@ async def admin_send_user_message(user_id: int, body: DirectMessageBody, _: dict
     return {"ok": ok}
 
 
+@api.get("/api/admin/users/{user_id}/referrals")
+async def admin_user_referrals(user_id: int, _: dict = Depends(_require_admin)):
+    from src.users import get_referrals
+    refs = await get_referrals(user_id)
+    total_bonus = sum(r["bonus"] for r in refs)
+    return {"referrals": refs, "count": len(refs), "total_bonus": total_bonus}
+
+
 @api.get("/api/admin/users/{user_id}/history")
 async def admin_user_history(user_id: int, _: dict = Depends(_require_admin)):
     from src.users import get_search_history

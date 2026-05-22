@@ -296,6 +296,19 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         except Exception:
             pass
 
+    if not is_new and referrer_id:
+        try:
+            ref_uname = f"@{user.username}" if user.username else str(user_id)
+            await context.bot.send_message(
+                referrer_id,
+                f"ℹ️ *לא ניתן לקבל בונוס הפניה*\n\n"
+                f"המשתמש {ref_uname} כבר קיים בבוט\\.\n"
+                f"הבונוס ניתן רק עבור משתמשים חדשים שמצטרפים לראשונה\\.",
+                parse_mode=ParseMode.MARKDOWN_V2,
+            )
+        except Exception:
+            pass
+
     if is_new and referrer_id:
         try:
             from src.db import get_bot_setting, execute as _db_execute
