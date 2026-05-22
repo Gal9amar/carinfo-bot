@@ -8,6 +8,8 @@ import json
 import os
 from urllib.parse import parse_qsl
 
+from typing import Optional
+
 from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -235,6 +237,115 @@ async def admin_grant_user(user_id: int, body: GrantBody, admin: dict = Depends(
     from src.users import admin_grant
     msg = await admin_grant(int(admin["id"]), user_id, body.searches)
     return {"ok": True, "msg": msg}
+
+
+# ── Tickets (user) ────────────────────────────────────────────────────────────
+class TicketCreateBody(BaseModel):
+    subject: str
+    message: str
+
+
+class TicketReplyBody(BaseModel):
+    message: str
+
+
+@api.post("/api/tickets")
+async def create_ticket_api(body: TicketCreateBody, user: dict = Depends(_get_user)):
+    from src.tickets import create_ticket
+    subject = body.subject.strip()[:120]
+    message = body.message.strip()[:2000]
+    if not subject or not message:
+        raise HTTPException(status_code=400, detail="Subject and message required")
+    uid      = int(user["id"])
+    username = user.get("username", "")
+    name     = user.get("first_name", str(uid))
+    ticket_id = await create_ticket(uid, username, name, subject, message)
+    try:
+        from src.notifier import notify_admin_ticket
+        await notify_admin_ticket(ticket_id, uid, name, subject, message)
+    except Exception:
+        pass
+    return {"id": ticket_id, "ok": True}
+
+
+@api.get("/api/tickets")
+async def list_tickets_api(user: dict = Depends(_get_user)):
+    from src.tickets import get_user_tickets
+    return await get_user_tickets(int(user["id"]))
+
+
+@api.get("/api/tickets/{ticket_id}")
+async def get_ticket_api(ticket_id: int, user: dict = Depends(_get_user)):
+    from src.tickets import get_ticket, get_ticket_replies
+    ticket = await get_ticket(ticket_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    if ticket["user_id"] != int(user["id"]) and int(user["id"]) != ADMIN_ID:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    replies = await get_ticket_replies(ticket_id)
+    return {**ticket, "replies": replies}
+
+
+@api.post("/api/tickets/{ticket_id}/reply")
+async def user_reply_ticket(ticket_id: int, body: TicketReplyBody, user: dict = Depends(_get_user)):
+    from src.tickets import get_ticket, add_ticket_reply
+    ticket = await get_ticket(ticket_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    if ticket["user_id"] != int(user["id"]):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if ticket["status"] == "closed":
+        raise HTTPException(status_code=400, detail="Ticket is closed")
+    msg  = body.message.strip()[:2000]
+    name = user.get("first_name", str(user["id"]))
+    await add_ticket_reply(ticket_id, int(user["id"]), name, False, msg)
+    return {"ok": True}
+
+
+# ── Tickets (admin) ───────────────────────────────────────────────────────────
+@api.get("/api/admin/tickets")
+async def admin_list_tickets(status: Optional[str] = None, _: dict = Depends(_require_admin)):
+    from src.tickets import admin_get_tickets
+    return await admin_get_tickets(status)
+
+
+@api.get("/api/admin/tickets/{ticket_id}")
+async def admin_get_ticket(ticket_id: int, _: dict = Depends(_require_admin)):
+    from src.tickets import get_ticket, get_ticket_replies
+    ticket = await get_ticket(ticket_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    replies = await get_ticket_replies(ticket_id)
+    return {**ticket, "replies": replies}
+
+
+@api.post("/api/admin/tickets/{ticket_id}/reply")
+async def admin_reply_ticket(ticket_id: int, body: TicketReplyBody, admin: dict = Depends(_require_admin)):
+    from src.tickets import get_ticket, add_ticket_reply
+    ticket = await get_ticket(ticket_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    msg = body.message.strip()[:2000]
+    await add_ticket_reply(ticket_id, int(admin["id"]), "תמיכה", True, msg)
+    try:
+        from src.notifier import notify_user_ticket_reply
+        await notify_user_ticket_reply(ticket["user_id"], ticket_id, ticket["subject"], msg)
+    except Exception:
+        pass
+    return {"ok": True}
+
+
+class TicketStatusBody(BaseModel):
+    status: str
+
+
+@api.patch("/api/admin/tickets/{ticket_id}/status")
+async def admin_update_ticket_status(ticket_id: int, body: TicketStatusBody, _: dict = Depends(_require_admin)):
+    from src.tickets import update_ticket_status
+    if body.status not in ("open", "in_progress", "closed"):
+        raise HTTPException(status_code=400, detail="Invalid status")
+    await update_ticket_status(ticket_id, body.status)
+    return {"ok": True}
 
 
 # ── Serve React SPA (must be last) ──────────────────────────────────────────

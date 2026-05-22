@@ -5,6 +5,7 @@ import PaymentPage from './pages/PaymentPage.jsx'
 import AdminPage from './pages/AdminPage.jsx'
 import ReportPage from './pages/ReportPage.jsx'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage.jsx'
+import TicketPage from './pages/TicketPage.jsx'
 
 export default function App() {
   const [screen, setScreen] = useState('loading')
@@ -52,7 +53,11 @@ export default function App() {
   }
 
   if (screen === 'privacy') {
-    return <PrivacyPolicyPage onBack={() => setScreen('packages')} />
+    return <PrivacyPolicyPage onBack={() => setScreen('packages')} onContact={() => setScreen('ticket')} />
+  }
+
+  if (screen === 'ticket') {
+    return <TicketPage onBack={() => setScreen('packages')} />
   }
 
   if (screen === 'loading') {

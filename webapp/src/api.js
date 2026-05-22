@@ -119,3 +119,70 @@ export async function adminGrantUser(userId, searches) {
   if (!r.ok) throw new Error('Failed')
   return r.json()
 }
+
+// Tickets (user)
+export async function createTicket(subject, message) {
+  const r = await fetch(`${BASE}/api/tickets`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ subject, message }),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+export async function fetchMyTickets() {
+  const r = await fetch(`${BASE}/api/tickets`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+export async function fetchTicket(id) {
+  const r = await fetch(`${BASE}/api/tickets/${id}`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+export async function replyTicket(id, message) {
+  const r = await fetch(`${BASE}/api/tickets/${id}/reply`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ message }),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+// Tickets (admin)
+export async function adminFetchTickets(status) {
+  const url = status ? `${BASE}/api/admin/tickets?status=${status}` : `${BASE}/api/admin/tickets`
+  const r = await fetch(url, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+export async function adminFetchTicket(id) {
+  const r = await fetch(`${BASE}/api/admin/tickets/${id}`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+export async function adminReplyTicket(id, message) {
+  const r = await fetch(`${BASE}/api/admin/tickets/${id}/reply`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ message }),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+export async function adminUpdateTicketStatus(id, status) {
+  const r = await fetch(`${BASE}/api/admin/tickets/${id}/status`, {
+    method: 'PATCH',
+    headers: headers(),
+    body: JSON.stringify({ status }),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
