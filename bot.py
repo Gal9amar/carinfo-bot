@@ -340,6 +340,8 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         except Exception as e:
             logger.warning("Referral processing error: %s", e)
 
+    is_admin = (user_id == ADMIN_ID)
+
     if not allowed:
         if await is_blocked(user_id):
             await update.message.reply_text(
@@ -387,7 +389,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "לדוגמה: _1234567_\n\n"
         f"🆓 {searches_info}",
         parse_mode=ParseMode.MARKDOWN_V2,
-        reply_markup=_welcome_keyboard(False),
+        reply_markup=_welcome_keyboard(is_admin),
     )
 
 
