@@ -389,7 +389,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "לדוגמה: _1234567_\n\n"
         f"🆓 {searches_info}",
         parse_mode=ParseMode.MARKDOWN_V2,
-        reply_markup=_welcome_keyboard(is_admin),
+        reply_markup=_welcome_keyboard(False),
     )
 
 
