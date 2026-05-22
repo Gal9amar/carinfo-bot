@@ -118,8 +118,32 @@ async def init_db() -> None:
             pass
     conn.commit()
 
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS bot_settings (
+            key   TEXT PRIMARY KEY,
+            value TEXT NOT NULL DEFAULT ''
+        )
+    """)
+    conn.execute(
+        "INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('maintenance', '0')"
+    )
+    conn.commit()
+
     from src.packages import init_packages
     await init_packages()
+
+
+async def get_bot_setting(key: str) -> str:
+    r = await execute("SELECT value FROM bot_settings WHERE key=?", [key])
+    return r.rows[0][0] if r.rows else ""
+
+
+async def set_bot_setting(key: str, value: str) -> None:
+    await execute(
+        "INSERT INTO bot_settings (key, value) VALUES (?, ?) "
+        "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        [key, value],
+    )
 
 
 async def execute(sql: str, args: list | None = None) -> _Result:

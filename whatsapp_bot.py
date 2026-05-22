@@ -56,6 +56,7 @@ from src.users import (
 from src import wa_menu as menu
 from src import yad2 as _yad2
 from src.packages import get_packages as _get_packages_fresh
+from src.db import get_bot_setting
 
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -623,6 +624,11 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
 
     # Admin commands (checked before anything else)
     if await handle_admin(chat_id, phone, text):
+        return
+
+    # Maintenance mode — block non-admins
+    if phone != ADMIN_WA_PHONE and (await get_bot_setting("maintenance")) == "1":
+        await send_message(chat_id, "🔧 הבוט בתחזוקה כרגע\n\nנחזור בקרוב!")
         return
 
     # Ensure user row exists
