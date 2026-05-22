@@ -11,19 +11,20 @@ import {
   adminToggleBlock,
   adminSendUserMessage,
   adminFetchUserHistory,
+  adminFetchUserReferrals,
   adminFetchActivity,
   adminGiftAll,
 } from '../api.js'
 
 const TABS = [
-  { id: 'stats',    label: '📊 סטטיסטיקות' },
-  { id: 'activity', label: '🕐 לוג' },
-  { id: 'payments', label: '💳 תשלומים' },
-  { id: 'codes',    label: '🔑 קודים' },
-  { id: 'packages', label: '📦 חבילות' },
-  { id: 'users',    label: '👥 משתמשים' },
-  { id: 'settings', label: '⚙️ הגדרות' },
-  { id: 'tickets',  label: '🎫 טיקטים' },
+  { id: 'stats',    icon: '📊', label: 'סטטיסטיקות' },
+  { id: 'activity', icon: '🕐', label: 'לוג פעילות' },
+  { id: 'payments', icon: '💳', label: 'תשלומים' },
+  { id: 'codes',    icon: '🔑', label: 'קודים' },
+  { id: 'packages', icon: '📦', label: 'חבילות' },
+  { id: 'users',    icon: '👥', label: 'משתמשים' },
+  { id: 'settings', icon: '⚙️', label: 'הגדרות' },
+  { id: 'tickets',  icon: '🎫', label: 'טיקטים' },
 ]
 
 export default function AdminPage({ user }) {
@@ -32,14 +33,27 @@ export default function AdminPage({ user }) {
   return (
     <div className="page">
       <div className="page-title">🛠 פאנל ניהול</div>
-      <div className="tabs">
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(4, 1fr)',
+        gap: 6,
+        marginBottom: 18,
+      }}>
         {TABS.map(t => (
           <button
             key={t.id}
-            className={`tab ${tab === t.id ? 'active' : ''}`}
             onClick={() => setTab(t.id)}
+            style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+              padding: '9px 4px 7px', border: 'none', borderRadius: 10, cursor: 'pointer',
+              background: tab === t.id ? 'var(--btn)' : 'var(--bg2)',
+              color: tab === t.id ? 'var(--btn-text)' : 'var(--hint)',
+              fontSize: 10, fontWeight: tab === t.id ? 600 : 400,
+              transition: 'background 0.15s',
+            }}
           >
-            {t.label}
+            <span style={{ fontSize: 20, lineHeight: 1 }}>{t.icon}</span>
+            <span>{t.label}</span>
           </button>
         ))}
       </div>
@@ -694,16 +708,20 @@ function UsersTab() {
 
 function GrantModal({ user, onClose, onDone }) {
   const [packages, setPackages] = useState(null)
-  const [mode, setMode] = useState('packages') // 'packages' | 'unlimited' | 'custom' | 'history'
-  const [unlimitedType, setUnlimitedType] = useState('permanent') // 'permanent' | 'monthly'
+  const [mode, setMode] = useState('packages') // 'packages' | 'unlimited' | 'custom' | 'history' | 'referrals'
+  const [unlimitedType, setUnlimitedType] = useState('permanent')
   const [customAmount, setCustomAmount] = useState('')
   const [saving, setSaving] = useState(false)
   const [history, setHistory] = useState(null)
+  const [referralData, setReferralData] = useState(null)
 
   useEffect(() => { adminFetchPackages().then(setPackages).catch(() => {}) }, [])
   useEffect(() => {
     if (mode === 'history' && history === null) {
       adminFetchUserHistory(user.user_id).then(setHistory).catch(() => setHistory([]))
+    }
+    if (mode === 'referrals' && referralData === null) {
+      adminFetchUserReferrals(user.user_id).then(setReferralData).catch(() => setReferralData({ referrals: [], count: 0, total_bonus: 0 }))
     }
   }, [mode])
 
@@ -727,12 +745,12 @@ function GrantModal({ user, onClose, onDone }) {
         <div className="modal-title">✏️ עריכת {name}</div>
 
         <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
-          {[['packages','📦 חבילה'],['unlimited','♾️ ללא הגבלה'],['custom','✍️ התאמה'],['history','📋 היסטוריה']].map(([id, label]) => (
+          {[['packages','📦 חבילה'],['unlimited','♾️ ללא הגבלה'],['custom','✍️ התאמה'],['history','📋 חיפושים'],['referrals','🤝 הפניות']].map(([id, label]) => (
             <button
               key={id}
               onClick={() => setMode(id)}
               style={{
-                flex: 1, minWidth: '40%', padding: '7px 4px', fontSize: 12, borderRadius: 8,
+                flex: 1, minWidth: '30%', padding: '7px 4px', fontSize: 11, borderRadius: 8,
                 border: '1.5px solid var(--accent)',
                 background: mode === id ? 'var(--accent)' : 'transparent',
                 color: mode === id ? '#fff' : 'var(--accent)',
@@ -823,6 +841,54 @@ function GrantModal({ user, onClose, onDone }) {
           </div>
         )}
 
+        {mode === 'referrals' && (
+          <div>
+            {referralData === null && <div className="loading" style={{ fontSize: 13 }}>⏳ טוען...</div>}
+            {referralData !== null && (
+              <>
+                {/* Summary */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+                  <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '8px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 20, fontWeight: 700 }}>{referralData.count}</div>
+                    <div style={{ fontSize: 11, color: 'var(--hint)' }}>הצטרפו</div>
+                  </div>
+                  <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '8px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 20, fontWeight: 700 }}>{referralData.total_bonus}</div>
+                    <div style={{ fontSize: 11, color: 'var(--hint)' }}>חיפושים הרוויח</div>
+                  </div>
+                </div>
+                {/* Note */}
+                <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 8, padding: '6px 8px', background: 'var(--bg)', borderRadius: 6 }}>
+                  ℹ️ מוצגים רק משתמשים שהצטרפו בפועל דרך הלינק. לא ניתן לדעת מי קיבל את הלינק ולא הצטרף.
+                </div>
+                {referralData.referrals.length === 0 && (
+                  <div style={{ color: 'var(--hint)', fontSize: 13, textAlign: 'center', padding: 12 }}>
+                    אין הפניות עדיין
+                  </div>
+                )}
+                {referralData.referrals.map(ref => (
+                  <div key={ref.id} style={{
+                    display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px',
+                    background: 'var(--bg)', borderRadius: 8, marginBottom: 6,
+                    borderRight: '3px solid #38a169',
+                  }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>{ref.name}</div>
+                      <div style={{ fontSize: 11, color: 'var(--hint)' }}>{ref.joined_at?.slice(0, 10)}</div>
+                    </div>
+                    <span style={{
+                      background: '#38a16920', color: '#38a169',
+                      borderRadius: 20, padding: '3px 9px', fontSize: 11, fontWeight: 700, flexShrink: 0,
+                    }}>
+                      ✅ +{ref.bonus}
+                    </span>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        )}
+
         <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={onClose}>ביטול</button>
       </div>
     </div>
@@ -872,11 +938,13 @@ function SettingsTab() {
   const [settings, setSettings] = useState(null)
   const [saving, setSaving] = useState(false)
   const [freeInput, setFreeInput] = useState('')
+  const [referralInput, setReferralInput] = useState('')
 
   useEffect(() => {
     adminFetchSettings().then(s => {
       setSettings(s)
       setFreeInput(String(s.free_searches))
+      setReferralInput(String(s.referral_bonus ?? 10))
     }).catch(() => {})
   }, [])
 
@@ -899,6 +967,16 @@ function SettingsTab() {
     setSaving(false)
   }
 
+  async function saveReferral() {
+    setSaving(true)
+    try {
+      await adminUpdateSettings({ referral_bonus: parseInt(referralInput) })
+      setSettings(s => ({ ...s, referral_bonus: parseInt(referralInput) }))
+      window.Telegram?.WebApp?.showAlert('✅ עודכן')
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    setSaving(false)
+  }
+
   if (!settings) return <div className="loading">⏳</div>
 
   return (
@@ -913,15 +991,13 @@ function SettingsTab() {
       </div>
       <div style={{ marginTop: 20 }}>
         <div className="toggle-label" style={{ marginBottom: 8 }}>🆓 חיפושים חינמיים למשתמש חדש</div>
-        <input
-          className="input"
-          type="number"
-          value={freeInput}
-          onChange={e => setFreeInput(e.target.value)}
-        />
-        <button className="btn" disabled={saving} onClick={saveFree}>
-          {saving ? '...' : 'שמור'}
-        </button>
+        <input className="input" type="number" value={freeInput} onChange={e => setFreeInput(e.target.value)} />
+        <button className="btn" disabled={saving} onClick={saveFree}>{saving ? '...' : 'שמור'}</button>
+      </div>
+      <div style={{ marginTop: 20 }}>
+        <div className="toggle-label" style={{ marginBottom: 8 }}>🤝 חיפושים לבונוס הפניה</div>
+        <input className="input" type="number" min="1" value={referralInput} onChange={e => setReferralInput(e.target.value)} />
+        <button className="btn" disabled={saving} onClick={saveReferral}>{saving ? '...' : 'שמור'}</button>
       </div>
       <div style={{ marginTop: 24 }}>
         <div className="toggle-label" style={{ marginBottom: 8 }}>📢 שידור הודעה לכל המשתמשים</div>

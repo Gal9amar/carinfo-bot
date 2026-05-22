@@ -8,6 +8,7 @@ import PrivacyPolicyPage from './pages/PrivacyPolicyPage.jsx'
 import TicketPage from './pages/TicketPage.jsx'
 import HowItWorksPage from './pages/HowItWorksPage.jsx'
 import HistoryPage from './pages/HistoryPage.jsx'
+import ReferralPage from './pages/ReferralPage.jsx'
 
 export default function App() {
   const [screen, setScreen] = useState('loading')
@@ -31,6 +32,7 @@ export default function App() {
     if (page === 'howItWorks') { setScreen('howItWorks'); return }
     if (page === 'history') { setScreen('history'); return }
     if (page === 'ticket') { setScreen('ticket'); return }
+    if (page === 'referral') { setScreen('referral'); return }
 
     async function init() {
       try {
@@ -73,6 +75,10 @@ export default function App() {
         onViewPlate={plate => { setReportPlate(plate); setScreen('report') }}
       />
     )
+  }
+
+  if (screen === 'referral') {
+    return <ReferralPage onBack={() => setScreen('packages')} />
   }
 
   if (screen === 'loading') {
@@ -128,6 +134,7 @@ export default function App() {
       }}
       onPrivacy={() => setScreen('privacy')}
       onSupport={() => setScreen('ticket')}
+      onReferral={() => setScreen('referral')}
     />
   )
 }

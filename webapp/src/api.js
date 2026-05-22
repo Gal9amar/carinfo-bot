@@ -254,9 +254,30 @@ export async function adminSendUserMessage(userId, message) {
   return r.json()
 }
 
+// User referral history (admin view)
+export async function adminFetchUserReferrals(userId) {
+  const r = await fetch(`${BASE}/api/admin/users/${userId}/referrals`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
 // User search history (admin view)
 export async function adminFetchUserHistory(userId) {
   const r = await fetch(`${BASE}/api/admin/users/${userId}/history`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+// Referral info for current user
+export async function fetchReferral() {
+  const r = await fetch(`${BASE}/api/user/referral`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+// List of users referred by current user
+export async function fetchReferrals() {
+  const r = await fetch(`${BASE}/api/user/referrals`, { headers: headers() })
   if (!r.ok) throw new Error('Failed')
   return r.json()
 }

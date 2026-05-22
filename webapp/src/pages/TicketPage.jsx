@@ -3,6 +3,7 @@ import { createTicket, fetchMyTickets, fetchTicket, replyTicket } from '../api.j
 
 const STATUS_LABEL = { open: 'פתוח', in_progress: 'בטיפול', closed: 'סגור' }
 const STATUS_COLOR = { open: '#e07b00', in_progress: '#2481cc', closed: '#38a169' }
+const STATUS_ICON  = { open: '🔴', in_progress: '🟡', closed: '🟢' }
 
 export default function TicketPage({ onBack }) {
   const [view, setView] = useState('list') // 'list' | 'create' | 'thread'
@@ -70,24 +71,24 @@ export default function TicketPage({ onBack }) {
         <div
           key={t.id}
           className="card"
-          style={{ cursor: 'pointer' }}
+          style={{ cursor: 'pointer', borderRight: `3px solid ${STATUS_COLOR[t.status]}`, paddingRight: 12 }}
           onClick={async () => {
             const full = await fetchTicket(t.id)
             setSelected(full)
             setView('thread')
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div className="card-title" style={{ fontSize: 14 }}>{t.subject}</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="card-title" style={{ fontSize: 14, flex: 1 }}>{t.subject}</div>
             <span style={{
-              fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10,
-              background: STATUS_COLOR[t.status] + '22', color: STATUS_COLOR[t.status],
-              whiteSpace: 'nowrap', marginRight: 8,
+              fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
+              background: STATUS_COLOR[t.status], color: '#fff',
+              whiteSpace: 'nowrap', marginRight: 8, flexShrink: 0,
             }}>
-              {STATUS_LABEL[t.status]}
+              {STATUS_ICON[t.status]} {STATUS_LABEL[t.status]}
             </span>
           </div>
-          <div className="card-subtitle">{t.created_at?.slice(0, 10)}</div>
+          <div className="card-subtitle" style={{ marginTop: 4 }}>#{t.id} · {t.created_at?.slice(0, 10)}</div>
         </div>
       ))}
     </div>
@@ -172,17 +173,21 @@ function ThreadView({ ticket, onBack, onRefresh }) {
 
   return (
     <div className="page" style={{ paddingBottom: 80 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
         <button onClick={onBack} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--btn)', padding: '0 4px' }}>›</button>
-        <div style={{ flex: 1 }}>
-          <div className="page-title" style={{ margin: 0, fontSize: 16 }}>{ticket.subject}</div>
-          <span style={{
-            fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10,
-            background: STATUS_COLOR[ticket.status] + '22', color: STATUS_COLOR[ticket.status],
-          }}>
-            {STATUS_LABEL[ticket.status]}
-          </span>
-        </div>
+        <div className="page-title" style={{ margin: 0, fontSize: 16, flex: 1 }}>{ticket.subject}</div>
+      </div>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        background: STATUS_COLOR[ticket.status] + '18',
+        borderRight: `4px solid ${STATUS_COLOR[ticket.status]}`,
+        borderRadius: '0 8px 8px 0',
+        padding: '8px 12px', marginBottom: 16,
+      }}>
+        <span style={{ fontSize: 13, color: STATUS_COLOR[ticket.status], fontWeight: 700 }}>
+          {STATUS_ICON[ticket.status]} סטטוס: {STATUS_LABEL[ticket.status]}
+        </span>
+        <span style={{ fontSize: 11, color: 'var(--hint)' }}>#{ticket.id}</span>
       </div>
 
       {allMessages.map((msg, i) => (

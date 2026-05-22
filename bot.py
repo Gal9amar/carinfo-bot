@@ -30,7 +30,7 @@ from src.users import (
     admin_stats, admin_grant, get_all_users, get_user_by_username, get_user_by_id,
     block_user, unblock_user, is_blocked,
     get_last_plate, set_last_plate, get_search_history,
-    check_new_user,
+    check_new_user, record_referral, get_referral_count, get_referrals,
 )
 from src.formatter import (
     format_error,
@@ -262,6 +262,15 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
+    referrer_id = None
+    if args and args[0].startswith('ref_'):
+        try:
+            rid = int(args[0][4:])
+            if rid != user_id:
+                referrer_id = rid
+        except Exception:
+            pass
+
     is_new = await check_new_user(user_id)
     allowed, left = await is_allowed(user_id, user.username or "", user.full_name or "")
 
@@ -286,6 +295,48 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await _log("new_user", f"משתמש חדש: {uname} ({user.full_name or ''})", user_id, uname)
         except Exception:
             pass
+
+    if not is_new and referrer_id:
+        try:
+            ref_uname = f"@{user.username}" if user.username else str(user_id)
+            await context.bot.send_message(
+                referrer_id,
+                f"ℹ️ *לא ניתן לקבל בונוס הפניה*\n\n"
+                f"המשתמש {ref_uname} כבר קיים בבוט\\.\n"
+                f"הבונוס ניתן רק עבור משתמשים חדשים שמצטרפים לראשונה\\.",
+                parse_mode=ParseMode.MARKDOWN_V2,
+            )
+        except Exception:
+            pass
+
+    if is_new and referrer_id:
+        try:
+            from src.db import get_bot_setting, execute as _db_execute
+            bonus_str = await get_bot_setting("referral_bonus")
+            bonus = int(bonus_str) if bonus_str and bonus_str.isdigit() else 10
+            await record_referral(user_id, referrer_id, bonus)
+            await _db_execute(
+                "UPDATE users SET searches_quota = searches_quota + ? WHERE user_id = ? AND searches_quota >= 0",
+                [bonus, referrer_id],
+            )
+            ref_uname = f"@{user.username}" if user.username else str(user_id)
+            try:
+                await context.bot.send_message(
+                    referrer_id,
+                    f"🎉 *חבר חדש הצטרף דרך הלינק שלך!*\n\n"
+                    f"👤 {ref_uname} הצטרף לבוט\n"
+                    f"🎁 קיבלת *{bonus} חיפושים* בונוס!",
+                    parse_mode="Markdown",
+                )
+            except Exception:
+                pass
+            try:
+                from src.activity import log as _log
+                await _log("grant", f"בונוס הפניה: +{bonus} חיפושים למשתמש {referrer_id}", user_id, ref_uname)
+            except Exception:
+                pass
+        except Exception as e:
+            logger.warning("Referral processing error: %s", e)
 
     if not allowed:
         if await is_blocked(user_id):

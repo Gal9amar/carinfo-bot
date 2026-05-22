@@ -194,12 +194,14 @@ async def admin_get_settings(_: dict = Depends(_require_admin)):
     return {
         "maintenance": (await get_bot_setting("maintenance")) == "1",
         "free_searches": _u.FREE_SEARCHES,
+        "referral_bonus": int((await get_bot_setting("referral_bonus")) or "10"),
     }
 
 
 class SettingsUpdate(BaseModel):
     maintenance: bool | None = None
     free_searches: int | None = None
+    referral_bonus: int | None = None
 
 
 @api.post("/api/admin/settings")
@@ -210,6 +212,12 @@ async def admin_update_settings(body: SettingsUpdate, _: dict = Depends(_require
         await set_bot_setting("maintenance", "1" if body.maintenance else "0")
     if body.free_searches is not None:
         _u.FREE_SEARCHES = body.free_searches
+    if body.referral_bonus is not None:
+        try:
+            rb = max(1, int(body.referral_bonus))
+            await set_bot_setting("referral_bonus", str(rb))
+        except Exception:
+            pass
     return {"ok": True}
 
 
@@ -531,6 +539,14 @@ async def admin_send_user_message(user_id: int, body: DirectMessageBody, _: dict
     return {"ok": ok}
 
 
+@api.get("/api/admin/users/{user_id}/referrals")
+async def admin_user_referrals(user_id: int, _: dict = Depends(_require_admin)):
+    from src.users import get_referrals
+    refs = await get_referrals(user_id)
+    total_bonus = sum(r["bonus"] for r in refs)
+    return {"referrals": refs, "count": len(refs), "total_bonus": total_bonus}
+
+
 @api.get("/api/admin/users/{user_id}/history")
 async def admin_user_history(user_id: int, _: dict = Depends(_require_admin)):
     from src.users import get_search_history
@@ -594,6 +610,25 @@ async def admin_gift_all(body: GiftAllBody, _: dict = Depends(_require_admin)):
 async def admin_get_activity(limit: int = 100, _: dict = Depends(_require_admin)):
     from src.activity import get_log
     return await get_log(min(limit, 200))
+
+
+@api.get("/api/user/referrals")
+async def user_referrals_list(user: dict = Depends(_get_user)):
+    from src.users import get_referrals
+    return await get_referrals(int(user["id"]))
+
+
+@api.get("/api/user/referral")
+async def user_referral_info(user: dict = Depends(_get_user)):
+    from src.users import get_referral_count
+    from src.db import get_bot_setting
+    uid = int(user["id"])
+    count = await get_referral_count(uid)
+    bonus_str = await get_bot_setting("referral_bonus")
+    bonus = int(bonus_str) if bonus_str and bonus_str.isdigit() else 10
+    bot_username = os.environ.get("BOT_USERNAME", "israelcarinfobot")
+    link = f"https://t.me/{bot_username}?start=ref_{uid}"
+    return {"link": link, "count": count, "bonus": bonus, "total_earned": count * bonus}
 
 
 # ── Serve React SPA (must be last) ──────────────────────────────────────────
