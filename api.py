@@ -138,6 +138,14 @@ async def confirm_payment(body: PaymentConfirmRequest, user: dict = Depends(_get
     return {"ok": True}
 
 
+# ── User history ─────────────────────────────────────────────────────────────
+@api.get("/api/user/history")
+async def get_user_history(user: dict = Depends(_get_user)):
+    from src.users import get_search_history
+    plates = await get_search_history(int(user["id"]), limit=20)
+    return plates
+
+
 # ── Vehicle report ───────────────────────────────────────────────────────────
 @api.get("/api/vehicle/{plate}")
 async def get_vehicle(plate: str, user: dict = Depends(_get_user)):

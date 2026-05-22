@@ -120,6 +120,12 @@ export async function adminGrantUser(userId, searches) {
   return r.json()
 }
 
+export async function fetchSearchHistory() {
+  const r = await fetch(`${BASE}/api/user/history`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
 // Tickets (user)
 export async function createTicket(subject, message) {
   const r = await fetch(`${BASE}/api/tickets`, {
