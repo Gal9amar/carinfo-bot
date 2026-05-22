@@ -506,6 +506,8 @@ def quick_summary(record: dict) -> str:
     personal_imp = bool(record.get("_personal_import"))
     scrapped     = record.get("_scrapped_dt", "")
     test_str     = _test_status(record.get("tokef_dt"))
+    w            = record.get("_wltp") or {}
+    tag_nache    = record.get("_tag_nache")
 
     km_str = ""
     if km:
@@ -565,17 +567,42 @@ def quick_summary(record: dict) -> str:
     ]
     if color:
         lines.append(f"• *{_escape('צבע')}:* {_escape(color)}\n")
-    _km_lbl  = 'ק"מ'
     _no_data = '✖ לא קיים'
     lines += [
         f"• *{_escape('מצב כללי')}:* {overall}\n",
-        f"• *{_escape(_km_lbl)}:* {_escape(km_str) if km_str else _no_data}\n",
+        f"• *{_escape('ק\"מ בטסט אחרון')}:* {_escape(km_str) if km_str else _no_data}\n",
         f"• *{_escape('בעלויות')}:* {_escape(str(owner_count))} \\| *{_escape('נוכחית')}:* {_escape(baalut)}\n",
         f"• *{_escape('טסט')}:* {_escape(test_str)}\n",
         f"• *{_escape('סטטוס רישום')}:* {_escape(_inactive_label(record))}\n",
     ]
     if personal_imp:
         lines.append(f"• *{_escape('יבוא')}:* {_escape('אישי ✅')}\n")
+
+    agra_group = _val(w, "kvuzat_agra_cd")
+    shnat      = _val(record, "shnat_yitzur")
+    sug_delek  = _val(record, "sug_delek_nm") or _val(w, "sug_delek_nm")
+    agra_str   = _agra_from_group(agra_group, shnat, sug_delek) if agra_group else ""
+    if agra_str:
+        lines.append(f"• *{_escape('אגרת רישוי שנתית')}:* {agra_str}\n")
+
+    importer_price = record.get("_importer_price")
+    if importer_price:
+        try:
+            price_int = int(float(importer_price))
+            if shnat:
+                from datetime import date as _date
+                age = _date.today().year - int(shnat)
+                if age > 0:
+                    dep_pct = min(age * 8, 70)
+                    est = int(price_int * (1 - dep_pct / 100))
+                    lines.append(f"• *{_escape('הערכת שווי')}:* {_escape(f'~₪{est:,}')}\n")
+        except Exception:
+            pass
+
+    if tag_nache:
+        lines.append(f"• *{_escape('תו נכה')}:* ✅ כן\n")
+    else:
+        lines.append(f"• *{_escape('תו נכה')}:* ❌ לא\n")
 
     if flags_plain:
         lines.append("━━━━━━━━━━━━━━━━━━\n")
