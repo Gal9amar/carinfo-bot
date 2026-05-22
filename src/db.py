@@ -90,15 +90,7 @@ async def init_db() -> None:
     ]
     migrations = [
         "ALTER TABLE users ADD COLUMN quota_expires TEXT DEFAULT NULL",
-        "ALTER TABLE users ADD COLUMN whatsapp_phone TEXT DEFAULT NULL",
         "ALTER TABLE users ADD COLUMN channel TEXT DEFAULT 'telegram'",
-        "ALTER TABLE users ADD COLUMN wa_state TEXT DEFAULT NULL",
-        """CREATE TABLE IF NOT EXISTS link_codes (
-            code        TEXT PRIMARY KEY,
-            telegram_id INTEGER NOT NULL,
-            created_at  TEXT DEFAULT (datetime('now')),
-            expires_at  TEXT NOT NULL
-        )""",
         """CREATE TABLE IF NOT EXISTS pending_payments (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
             ref         TEXT NOT NULL UNIQUE,

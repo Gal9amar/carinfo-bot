@@ -167,7 +167,7 @@ _LINK_BLUE   = "#1D4ED8"
 def generate_pdf(
     record: dict,
     tg_link: str = "",
-    wa_link: str = "",
+    wa_link: str = "",  # kept for backward-compat call sites; ignored
     logo_path: str = "",
     cover_path: str = "",
     channel: str = "",
@@ -211,7 +211,6 @@ def generate_pdf(
     year      = _v(record, "shnat_yitzur")
     now_str   = datetime.now().strftime("%d/%m/%Y %H:%M")
     tg_url    = _full_url(tg_link)
-    wa_url    = _full_url(wa_link)
 
     # ── Color objects ──────────────────────────────────────────────────────────
     def _c(*rgb): return colors.Color(*rgb)
@@ -750,19 +749,10 @@ def generate_pdf(
              ("BOTTOMPADDING", (0, 0), (-1, -1), 5)],
         ))
 
-        ch = (channel or "").strip().lower()
         tg = ("telegram", "פתח בטלגרם", tg_url) if tg_url else None
-        wa = ("whatsapp", "פתח בוואטסאפ", wa_url) if wa_url else None
         buttons: list[tuple[str, str, str, bool]] = []
-        if ch in ("telegram", "tg"):
-            if tg: buttons.append((*tg, True))
-            if wa: buttons.append((*wa, False))
-        elif ch in ("whatsapp", "wa"):
-            if wa: buttons.append((*wa, True))
-            if tg: buttons.append((*tg, False))
-        else:
-            if tg: buttons.append((*tg, True))
-            if wa: buttons.append((*wa, True))
+        if tg:
+            buttons.append((*tg, True))
 
         if not buttons:
             return flow

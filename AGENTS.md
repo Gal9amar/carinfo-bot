@@ -4,7 +4,7 @@
 
 ## מה הפרויקט
 
-בוטים לבדיקת רכב ישראלי לפי מספר רישוי: **טלגרם** (`bot.py`) ו-**וואטסאפ** (`whatsapp_bot.py` via Green API).  
+בוט לבדיקת רכב ישראלי לפי מספר רישוי: **טלגרם** (`bot.py`).  
 מקורות: data.gov.il (פרטי רכב, טסט), מאגר גנבה, קישור **Yad2** למחירי שוק, דוח **PDF**.
 
 Repo ראשי: `Gal9amar/carinfo-bot` (GitHub `origin`). פריסה: **Render** (`render.yaml`), גם **JustRunMy** (`justrunmy/deploy`).
@@ -16,7 +16,6 @@ Repo ראשי: `Gal9amar/carinfo-bot` (GitHub `origin`). פריסה: **Render** 
 ```
 carinfo/
 ├── bot.py                 # בוט טלגרם — נקודת כניסה ראשית (Render startCommand)
-├── whatsapp_bot.py        # webhook Green API, פורט ברירת מחדל 8081
 ├── requirements.txt
 ├── Dockerfile, Procfile, render.yaml
 ├── data/users.json        # גיבוי/סנכרון משתמשים (GitHub path ב-Render env)
@@ -27,12 +26,11 @@ carinfo/
     │   └── image_api.py
     ├── yad2.py            # בניית URL ל-Yad2
     ├── yad2_models.json   # מיפוי יצרן→דגמים→ID (~8.4K שורות)
-    ├── formatter.py       # הודעות טלגרם/וואטסאפ
+    ├── formatter.py       # הודעות טלגרם
     ├── pdf_report.py      # דוח PDF (reportlab + python-bidi)
     ├── cache.py           # TTL cache בזיכרון
     ├── db.py              # Turso (libsql-experimental)
-    ├── users.py           # מכסות, קודים, חסימות, אדמין
-    └── wa_menu.py         # תפריט וואטסאפ
+    └── users.py           # מכסות, קודים, חסימות, אדמין
 ```
 
 ---
@@ -79,9 +77,7 @@ carinfo/
 | `ADMIN_TELEGRAM_ID` | אדמין (ברירת מחדל בקוד: 594206475) |
 | `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` | DB משתמשים/קודים |
 | `PAYMENT_PROVIDER_TOKEN`, `PAYPAL_ME` | תשלומים |
-| `GREEN_API_*` | וואטסאפ בלבד |
-| `TELEGRAM_ADMIN_ID` | התראות רכישה מ-WA |
-| `PORT` | 8080 (טלגרם), 8081 (WA) |
+| `PORT` | 8080 (ברירת מחדל) |
 | `RENDER_EXTERNAL_URL` | webhook / health |
 | `LOGO_PATH`, `COVER_PATH` | PDF |
 | `GITHUB_PAT`, `GITHUB_REPO`, `GITHUB_DATA_PATH` | סנכרון `data/users.json` (Render) |
@@ -93,7 +89,7 @@ carinfo/
 ## מסד נתונים (Turso)
 
 `init_db()` ב-`db.py`: טבלאות `users`, `codes`, ועוד (ראה קובץ).  
-`users.py` — מכסת חיפושים, קודי הפעלה, חסימה, היסטוריה, קישור TG↔WA.
+`users.py` — מכסת חיפושים, קודי הפעלה, חסימה, היסטוריה.
 
 ---
 
@@ -102,7 +98,7 @@ carinfo/
 - **ענף פעיל:** `main` (מסונכרן עם `origin/main` נכון ל-2026-05-22).
 - **ענף מקומי:** `agents/project-status-update` (worktree — לא production).
 - **קומיט אחרון:** תיקון `_manufacturer_id` / Yad2 (Renault→Kia).
-- **Render:** `python bot.py`, health `/`.
+- **Render:** `python bot.py`, health `/`. startCommand: `python bot.py`.
 - **אל תכלול בקומיטים:** `.env`, סיסמאות, tokens ב-remotes.
 
 ---
@@ -121,7 +117,6 @@ carinfo/
 
 - כפתור Yad2 לא אמור להיעלם — `build_url` תמיד מחזיר URL.
 - התאמת שמות ממשל (עברית/רווחים) לשמות Yad2 דורשת aliases.
-- שני תהליכים נפרדים: `bot.py` ו-`whatsapp_bot.py` (לא לאחד בלי תכנון).
 
 ---
 
@@ -129,7 +124,7 @@ carinfo/
 
 - [ ] בדיקות ידניות ליצרנים בעייתיים (רנו, מזדה/מאזדה, מרצדס).
 - [ ] עדכון `yad2_models.json` כשמוסיפים דגמים חדשים ב-Yad2.
-- [ ] סנכרון README עם מבנה WA + Turso (README מיושן חלקית).
+- [ ] סנכרון README עם מבנה Turso (README מיושן חלקית).
 
 ---
 

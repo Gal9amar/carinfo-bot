@@ -17,7 +17,7 @@ Telegram user
   → Mini App נפתח (https://carinfo-bot.onrender.com)
   → React app
   → FastAPI /api/*
-  → Turso DB (משותף עם bot.py ו-whatsapp_bot.py)
+  → Turso DB (משותף עם bot.py)
 ```
 
 **תהליך תשלום:**
@@ -29,19 +29,15 @@ Telegram user
 
 ---
 
-## בדיקות — WhatsApp לא נפגע
+## בדיקות — Mini App
 
 | בדיקה | תוצאה |
 |-------|--------|
-| `whatsapp_bot.py` לא יובא מ-`api.py` | ✅ אין תלות |
-| `whatsapp_bot.py` לא יובא מ-`bot.py` | ✅ אין תלות |
-| `whatsapp_bot.py` רץ על PORT נפרד (8081) | ✅ FastAPI על 8080 |
 | שינויים ב-DB schema (`bot_settings`) — backwards compatible | ✅ `INSERT OR IGNORE` |
 | `get_packages(force_reload=True)` — לא שובר | ✅ כבר קיים |
-| `_notify_admin_payment` — נקרא רק מ-api.py | ✅ לא נוגע ב-WA |
+| `_notify_admin_payment` — נקרא רק מ-api.py | ✅ |
 
 **אימות ידני מומלץ לאחר deploy:**
-- [ ] שלח הודעה ב-WhatsApp → עובד רגיל
 - [ ] פתח Mini App בטלגרם → נטען
 - [ ] בחר חבילה → מגיע ל-PayPal
 - [ ] לחץ "שילמתי" → אדמין מקבל הודעה בטלגרם
