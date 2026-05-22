@@ -180,7 +180,7 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
           onClick={onPrivacy}
           style={{ background: 'none', border: 'none', color: 'var(--hint)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
         >
-          מדיניות פרטיות
+          מדיניות פרטיות ותנאי שימוש
         </button>
       </div>
     </div>

@@ -65,7 +65,7 @@ export default function App() {
   }
 
   if (screen === 'howItWorks') {
-    return <HowItWorksPage onBack={() => setScreen('packages')} freeSearches={user?.free_searches ?? 10} />
+    return <HowItWorksPage onBack={() => setScreen('packages')} freeSearches={user?.free_searches ?? 10} onPrivacy={() => setScreen('privacy')} />
   }
 
   if (screen === 'history') {

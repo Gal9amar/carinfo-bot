@@ -1,4 +1,4 @@
-export default function HowItWorksPage({ onBack, freeSearches = 10 }) {
+export default function HowItWorksPage({ onBack, freeSearches = 10, onPrivacy }) {
   return (
     <div className="page" style={{ paddingBottom: 32 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
@@ -92,6 +92,16 @@ export default function HowItWorksPage({ onBack, freeSearches = 10 }) {
         <Row icon="👮" text="מאגר רכבים גנובים — מערכת המשטרה" />
         <Row icon="🏷️" text="Yad2 — מחירי שוק ומודעות מכירה" />
       </Section>
+
+      {/* Privacy link */}
+      <div style={{ textAlign: 'center', marginTop: 8 }}>
+        <button
+          onClick={onPrivacy}
+          style={{ background: 'none', border: 'none', color: 'var(--hint)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
+        >
+          🔒 מדיניות פרטיות ותנאי שימוש
+        </button>
+      </div>
     </div>
   )
 }
