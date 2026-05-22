@@ -252,18 +252,6 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    if user_id == ADMIN_ID:
-        stats = await admin_stats()
-        await update.message.reply_text(
-            f"🛠 *פאנל ניהול CarInfo*\n\n"
-            f"👤 משתמשים: *{stats['total_users']}* \\| פעילים: *{stats['active_users']}*\n"
-            f"🔍 בדיקות: *{stats['total_searches']}*\n"
-            f"🔑 קודים: *{stats['used_codes']}/{stats['total_codes']}* נוצלו",
-            parse_mode=ParseMode.MARKDOWN_V2,
-            reply_markup=_admin_main_keyboard(),
-        )
-        return
-
     referrer_id = None
     if args and args[0].startswith('ref_'):
         try:
