@@ -59,8 +59,15 @@ function v(record, w, ...keys) {
   return null
 }
 
-function buildShareText(record, ownership) {
+function row(label, value) {
+  if (value === null || value === undefined || value === '') return ''
+  return `• ${label}: ${String(value)}\n`
+}
+
+function buildFullText(record, ownership) {
   const w = record._wltp || {}
+  const recalls = record._recalls || []
+  const recallsByPlate = record._recalls_by_plate
   const plate = record.mispar_rechev || ''
   const make = record.tozeret_nm || ''
   const model = record.kinuy_mishari || record.degem_nm || ''
@@ -70,22 +77,115 @@ function buildShareText(record, ownership) {
   const baalut = record.baalut || ''
   const kmStr = km ? Number(km).toLocaleString('he-IL') : 'לא ידוע'
   const testStr = testStatus(record.tokef_dt) || 'לא ידוע'
+
   const flags = []
   if (record._scrapped_dt) flags.push('🚨 רכב גרוטאה — אינו רשאי לנסוע על הכביש')
   if (String(record.shinui_mivne_ind || '').trim() === '1') flags.push('⚠️ שינוי מבנה רשום')
   if (record._inactive_no_degem) flags.push('⚠️ רישום לא פעיל ללא קוד דגם')
   else if (record._inactive_registry || record._was_rental) flags.push('⚠️ רשום במאגר רכב לא פעיל')
   if (record._personal_import) flags.push('📦 רכב יבוא אישי')
+
+  const auto = w.automatic_ind
+  const gearbox = (auto === 1 || auto === '1') ? 'אוטומטית' : (auto === 0 || auto === '0') ? 'ידנית' : null
+
   let t = `🚗 דוח רכב — ${plate}\n`
-  t += `─────────────────────\n`
+  t += `━━━━━━━━━━━━━━━━━━━━━\n`
   t += `🏭 ${make} ${model} (${year})\n`
   if (color) t += `🎨 צבע: ${color}\n`
-  t += `👥 בעלויות: ${ownership.length} | נוכחית: ${baalut}\n`
   t += `🔑 ק"מ: ${kmStr}\n`
   t += `🔧 טסט: ${testStr}\n`
-  if (flags.length) { t += '\n⚠️ דגלים:\n'; flags.forEach(f => { t += `• ${f}\n` }) }
-  else t += '\n✅ לא נמצאו דגלים\n'
-  t += `\n─────────────────────\n`
+  t += `👥 בעלויות: ${ownership.length} | נוכחית: ${baalut}\n`
+  if (flags.length) { t += '\n'; flags.forEach(f => { t += `${f}\n` }) }
+
+  t += `\n📋 פרטים כלליים\n${'─'.repeat(20)}\n`
+  t += row('יצרן', make)
+  t += row('דגם', model)
+  t += row('רמת גימור', w.ramat_gimur)
+  t += row('שנת ייצור', year)
+  t += row('צבע', color)
+  t += row('בעלות', baalut)
+  t += row('ארץ ייצור', w.tozeret_eretz_nm)
+  t += row('יבואן', w.tozar)
+  t += row('סוג מרכב', w.merkav)
+  t += row('מסגרת', record.misgeret)
+  t += row('דגם מנוע', record.degem_manoa)
+  t += row('מקוריות', record.mkoriut_nm)
+
+  t += `\n⚙️ מפרט טכני\n${'─'.repeat(20)}\n`
+  t += row('דלק', record.sug_delek_nm)
+  t += row('הנעה', w.hanaa_nm)
+  t += row('נפח מנוע', w.nefah_manoa || record.nefach_manoa ? `${w.nefah_manoa || record.nefach_manoa} סמ"ק` : null)
+  t += row('כוח סוס', w.koah_sus)
+  t += row('הילוכים', gearbox)
+  t += row('מושבים', w.mispar_moshavim)
+  t += row('דלתות', w.mispar_dlatot)
+  t += row('משקל', w.mishkal_kolel ? `${w.mishkal_kolel} ק"ג` : null)
+  t += row('גרירה עם בלמים', w.kosher_grira_im_blamim ? `${w.kosher_grira_im_blamim} ק"ג` : null)
+  t += row('גרירה ללא בלמים', w.kosher_grira_bli_blamim ? `${w.kosher_grira_bli_blamim} ק"ג` : null)
+
+  t += `\n🔧 גלגלים וצמיגים\n${'─'.repeat(20)}\n`
+  t += row('צמיג קדמי', record.zmig_kidmi)
+  t += row('צמיג אחורי', record.zmig_ahori || record.zmig_achori)
+
+  t += `\n🛋️ ציוד\n${'─'.repeat(20)}\n`
+  t += row('מיזוג', yn(w.mazgan_ind))
+  t += row('הגה כוח', yn(w.hege_koah_ind))
+  t += row('חלונות חשמל', w.mispar_halonot_hashmal ? `${w.mispar_halonot_hashmal} חלונות` : null)
+  t += row('גג שמש', yn(w.halon_bagg_ind))
+
+  t += `\n🛡️ בטיחות ופליטות\n${'─'.repeat(20)}\n`
+  t += row('ניקוד בטיחות', w.nikud_betihut)
+  t += row('כריות אוויר', w.mispar_kariot_avir ? `${w.mispar_kariot_avir} כריות` : null)
+  t += row('ABS', yn(w.abs_ind))
+  t += row('ESP', yn(w.bakarat_yatzivut_ind))
+  t += row('CO₂ WLTP', w.CO2_WLTP || w.kamut_CO2 ? `${w.CO2_WLTP || w.kamut_CO2} גר'/ק"מ` : null)
+  t += row('קבוצת זיהום', record.kvutzat_zihum || record.kvuzat_zihum)
+
+  t += `\n🤖 ADAS\n${'─'.repeat(20)}\n`
+  const adasFields = [
+    ['שמירת נתיב', yn(w.bakarat_stiya_menativ_ind)],
+    ['ניטור קדמי', yn(w.nitur_merhak_milfanim_ind)],
+    ['שטח עיוור', yn(w.zihuy_beshetah_nistar_ind)],
+    ['בקרת שיוט', yn(w.bakarat_shyut_adaptivit_ind)],
+    ['זיהוי הולכי רגל', yn(w.zihuy_holchey_regel_ind)],
+    ['בלימת חירום', yn(w.maarechet_ezer_labalam_ind)],
+    ['מצלמת רוורס', yn(w.matzlemat_reverse_ind)],
+    ['חיישני צמיגים', yn(w.hayshaney_lahatz_avir_batzmigim_ind)],
+    ['זיהוי תמרורים', yn(w.zihuy_tamrurey_tnua_ind)],
+  ]
+  adasFields.forEach(([label, val]) => { t += row(label, val) })
+
+  t += `\n📅 היסטוריה\n${'─'.repeat(20)}\n`
+  t += row('רישום ראשון', fmtDate(record.rishum_rishon_dt))
+  t += row('עלייה לכביש', fmtDate(record.moed_aliya_lakvish))
+  t += row('ק"מ בטסט', km ? `${Number(km).toLocaleString('he-IL')} ק"מ` : null)
+  t += row('טסט אחרון', fmtDate(record.mivchan_acharon_dt))
+  t += row('תוקף טסט', testStr)
+  t += row('שינוי מבנה', yn(record.shinui_mivne_ind))
+  t += row('שינוי צבע', yn(record.shnui_zeva_ind))
+  t += row('GAPAM', yn(record.gapam_ind))
+  t += row('תו נכה', record._tag_nache ? '✅ כן' : '❌ לא')
+
+  t += `\n👥 בעלויות (${ownership.length})\n${'─'.repeat(20)}\n`
+  ownership.forEach((o, i) => {
+    const emoji = o.baalut === 'פרטי' ? '👤' : o.baalut === 'סוחר' ? '🏢' : '❓'
+    t += `${i + 1}. ${emoji} ${o.baalut} — ${fmtBaalutDt(o.baalut_dt)}\n`
+  })
+
+  if (recalls.length > 0) {
+    t += `\n🔔 ריקולים (${recalls.length})\n${'─'.repeat(20)}\n`
+    recalls.forEach(r => {
+      if (recallsByPlate) {
+        t += `• ${String(r.TAARICH_PTICHA || '').substring(0, 10)} ${r.TEUR_TAKALA || ''}\n`
+      } else {
+        t += `• ${r.SHNAT_RECALL || ''}: ${r.TEUR_TAKALA || ''}\n`
+      }
+    })
+  } else {
+    t += `\n🔔 ריקולים: לא נמצאו\n`
+  }
+
+  t += `\n━━━━━━━━━━━━━━━━━━━━━\n`
   t += `מופק על ידי @israelcarinfobot`
   return t
 }
@@ -181,21 +281,12 @@ export default function ReportPage({ plate }) {
   const towWithout = w.kosher_grira_bli_blamim
 
   async function handleCopy() {
-    const text = buildShareText(record, ownership)
+    const text = buildFullText(record, ownership)
     try {
       await navigator.clipboard.writeText(text)
       setCopied(true)
       setTimeout(() => setCopied(false), 2200)
     } catch { /* ignore */ }
-  }
-
-  function handleShare() {
-    const text = buildShareText(record, ownership)
-    if (navigator.share) {
-      navigator.share({ text }).catch(() => {})
-    } else {
-      handleCopy()
-    }
   }
 
   return (
@@ -439,14 +530,9 @@ export default function ReportPage({ plate }) {
       </div>
 
       {/* ── Actions ── */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-        <button className="btn btn-secondary" style={{ flex: 1 }} onClick={handleCopy}>
-          {copied ? '✅ הועתק!' : '📋 העתק'}
-        </button>
-        <button className="btn btn-secondary" style={{ flex: 1 }} onClick={handleShare}>
-          📤 שתף
-        </button>
-      </div>
+      <button className="btn btn-secondary" style={{ marginBottom: 10 }} onClick={handleCopy}>
+        {copied ? '✅ הועתק!' : '📋 העתק דוח'}
+      </button>
       <button className="btn btn-secondary" style={{ marginBottom: 20 }}
         onClick={() => window.Telegram?.WebApp?.close()}>
         סגור
