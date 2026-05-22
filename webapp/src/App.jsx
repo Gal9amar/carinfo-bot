@@ -3,6 +3,7 @@ import { fetchPackages, fetchUser } from './api.js'
 import PackagesPage from './pages/PackagesPage.jsx'
 import PaymentPage from './pages/PaymentPage.jsx'
 import AdminPage from './pages/AdminPage.jsx'
+import ReportPage from './pages/ReportPage.jsx'
 
 export default function App() {
   const [screen, setScreen] = useState('loading')
@@ -11,8 +12,18 @@ export default function App() {
   const [selectedPkg, setSelectedPkg] = useState(null)
   const [paymentData, setPaymentData] = useState(null)
   const [error, setError] = useState(null)
+  const [reportPlate, setReportPlate] = useState(null)
 
   useEffect(() => {
+    // Check if we're in vehicle report mode
+    const params = new URLSearchParams(window.location.search)
+    const plate = params.get('plate')
+    if (plate) {
+      setReportPlate(plate)
+      setScreen('report')
+      return
+    }
+
     async function init() {
       try {
         const [pkgs, usr] = await Promise.all([fetchPackages(), fetchUser().catch(() => null)])
@@ -30,6 +41,10 @@ export default function App() {
     }
     init()
   }, [])
+
+  if (screen === 'report') {
+    return <ReportPage plate={reportPlate} />
+  }
 
   if (screen === 'loading') {
     return <div className="loading">⏳ טוען...</div>
