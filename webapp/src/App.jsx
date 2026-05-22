@@ -6,6 +6,8 @@ import AdminPage from './pages/AdminPage.jsx'
 import ReportPage from './pages/ReportPage.jsx'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage.jsx'
 import TicketPage from './pages/TicketPage.jsx'
+import HowItWorksPage from './pages/HowItWorksPage.jsx'
+import HistoryPage from './pages/HistoryPage.jsx'
 
 export default function App() {
   const [screen, setScreen] = useState('loading')
@@ -25,10 +27,10 @@ export default function App() {
       setScreen('report')
       return
     }
-    if (page === 'privacy') {
-      setScreen('privacy')
-      return
-    }
+    if (page === 'privacy') { setScreen('privacy'); return }
+    if (page === 'howItWorks') { setScreen('howItWorks'); return }
+    if (page === 'history') { setScreen('history'); return }
+    if (page === 'ticket') { setScreen('ticket'); return }
 
     async function init() {
       try {
@@ -58,6 +60,19 @@ export default function App() {
 
   if (screen === 'ticket') {
     return <TicketPage onBack={() => setScreen('packages')} />
+  }
+
+  if (screen === 'howItWorks') {
+    return <HowItWorksPage onBack={() => setScreen('packages')} freeSearches={user?.free_searches ?? 10} />
+  }
+
+  if (screen === 'history') {
+    return (
+      <HistoryPage
+        onBack={() => setScreen('packages')}
+        onViewPlate={plate => { setReportPlate(plate); setScreen('report') }}
+      />
+    )
   }
 
   if (screen === 'loading') {
@@ -112,6 +127,9 @@ export default function App() {
         setScreen('payment')
       }}
       onPrivacy={() => setScreen('privacy')}
+      onSupport={() => setScreen('ticket')}
+      onHowItWorks={() => setScreen('howItWorks')}
+      onHistory={() => setScreen('history')}
     />
   )
 }

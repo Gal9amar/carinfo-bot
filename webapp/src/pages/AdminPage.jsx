@@ -59,7 +59,7 @@ function PackagesTab() {
   const [pkgs, setPkgs] = useState(null)
   const [editing, setEditing] = useState(null)
   const [adding, setAdding] = useState(false)
-  const [form, setForm] = useState({ label: '', searches: '', price: '' })
+  const [form, setForm] = useState({ label: '', searches: '', price: '', image_url: '' })
   const [saving, setSaving] = useState(false)
 
   useEffect(() => { adminFetchPackages().then(setPkgs).catch(() => {}) }, [])
@@ -71,6 +71,7 @@ function PackagesTab() {
         label: form.label,
         searches: parseInt(form.searches),
         price: parseInt(form.price),
+        image_url: form.image_url || '',
       })
       const fresh = await adminFetchPackages()
       setPkgs(fresh)
@@ -86,6 +87,7 @@ function PackagesTab() {
         label: form.label,
         searches: parseInt(form.searches),
         price: parseInt(form.price),
+        image_url: form.image_url || '',
       })
       setPkgs(fresh)
       setAdding(false)
@@ -110,6 +112,10 @@ function PackagesTab() {
         <input className="input" placeholder="שם החבילה" value={form.label} onChange={e => setForm(f => ({...f, label: e.target.value}))} />
         <input className="input" placeholder="חיפושים (-1 לבלתי מוגבל)" type="number" value={form.searches} onChange={e => setForm(f => ({...f, searches: e.target.value}))} />
         <input className="input" placeholder="מחיר (₪)" type="number" value={form.price} onChange={e => setForm(f => ({...f, price: e.target.value}))} />
+        <input className="input" placeholder="כתובת תמונה (URL) — אופציונלי" value={form.image_url} onChange={e => setForm(f => ({...f, image_url: e.target.value}))} />
+        {form.image_url && (
+          <img src={form.image_url} alt="תצוגה מקדימה" style={{ width: '100%', height: 100, objectFit: 'cover', borderRadius: 8, marginBottom: 8 }} onError={e => { e.target.style.display = 'none' }} />
+        )}
         <button className="btn" disabled={saving} onClick={onSave}>{saving ? '...' : 'שמור'}</button>
         <button className="btn btn-secondary" style={{marginTop: 8}} onClick={onClose}>ביטול</button>
       </div>
@@ -129,7 +135,7 @@ function PackagesTab() {
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
-                  onClick={() => { setEditing(pkg); setForm({ label: pkg.label, searches: String(pkg.searches), price: String(pkg.price) }) }}>
+                  onClick={() => { setEditing(pkg); setForm({ label: pkg.label, searches: String(pkg.searches), price: String(pkg.price), image_url: pkg.image_url || '' }) }}>
                   ✏️
                 </button>
                 <button className="btn btn-danger" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
@@ -141,7 +147,7 @@ function PackagesTab() {
           </div>
         )
       })}
-      <button className="btn btn-success" onClick={() => { setAdding(true); setForm({ label: '', searches: '', price: '' }) }}>
+      <button className="btn btn-success" onClick={() => { setAdding(true); setForm({ label: '', searches: '', price: '', image_url: '' }) }}>
         ➕ הוסף חבילה
       </button>
 
