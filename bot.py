@@ -96,6 +96,7 @@ def _persistent_rows(is_admin: bool = False) -> list:
          InlineKeyboardButton("🛒 רכישת חבילה",       web_app=WebAppInfo(url=webapp_url))],
         [InlineKeyboardButton("ℹ️ איך זה עובד?",      web_app=WebAppInfo(url=f"{webapp_url}/?page=howItWorks")),
          InlineKeyboardButton("📜 היסטוריית חיפושים", web_app=WebAppInfo(url=f"{webapp_url}/?page=history"))],
+        [InlineKeyboardButton("🎁 קבל חיפושים בחינם — חבר מביא חבר", web_app=WebAppInfo(url=f"{webapp_url}/?page=referral"))],
     ]
     if is_admin:
         rows.append([InlineKeyboardButton("🛠 פאנל מנהל", web_app=WebAppInfo(url=webapp_url))])
