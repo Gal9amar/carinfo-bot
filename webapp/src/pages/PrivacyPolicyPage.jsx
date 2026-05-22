@@ -1,4 +1,4 @@
-export default function PrivacyPolicyPage({ onBack }) {
+export default function PrivacyPolicyPage({ onBack, onContact }) {
   return (
     <div className="page" style={{ paddingBottom: 32 }}>
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 20, gap: 10 }}>
@@ -158,11 +158,15 @@ export default function PrivacyPolicyPage({ onBack }) {
         className="btn"
         style={{ marginTop: 8 }}
         onClick={() => {
-          const tg = window.Telegram?.WebApp
-          if (tg?.openTelegramLink) {
-            tg.openTelegramLink('https://t.me/israelcarinfobot')
+          if (onContact) {
+            onContact()
           } else {
-            window.open('https://t.me/israelcarinfobot', '_blank')
+            const tg = window.Telegram?.WebApp
+            if (tg?.openTelegramLink) {
+              tg.openTelegramLink('https://t.me/israelcarinfobot')
+            } else {
+              window.open('https://t.me/israelcarinfobot', '_blank')
+            }
           }
         }}
       >
