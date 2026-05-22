@@ -30,7 +30,6 @@ from src.users import (
     admin_stats, admin_grant, get_all_users, get_user_by_username, get_user_by_id,
     block_user, unblock_user, is_blocked,
     get_last_plate, set_last_plate, get_search_history,
-    generate_link_code,
 )
 from src.formatter import (
     format_error,
@@ -95,7 +94,6 @@ def _persistent_rows(is_admin: bool = False) -> list:
          InlineKeyboardButton("ℹ️ איך זה עובד?",          callback_data="how_it_works")],
         [InlineKeyboardButton("📜 היסטוריית חיפושים",     callback_data="history"),
          InlineKeyboardButton("🛒 רכישת חבילה",           web_app=WebAppInfo(url=webapp_url))],
-        [InlineKeyboardButton("💚 חבר לוואטסאפ",          callback_data="link_whatsapp")],
     ]
     if is_admin:
         rows.append([InlineKeyboardButton("🛠 פאנל מנהל", web_app=WebAppInfo(url=webapp_url))])
@@ -1616,8 +1614,7 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             return
         if setting == "broadcast":
             all_users = await get_all_users()
-            # Only send to Telegram users (not WhatsApp-only users)
-            tg_users = [u for u in all_users if u.get("channel") != "whatsapp"]
+            tg_users = all_users
             context.user_data.pop("admin_setting", None)
             logger.info("Broadcast: total_users=%d tg_users=%d msg=%r", len(all_users), len(tg_users), raw[:50])
             sent_ok = sent_fail = 0
@@ -1809,46 +1806,6 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 
-WA_PHONE = os.environ.get("WA_BOT_PHONE", "972526777070")
-
-
-async def handle_link_whatsapp(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query   = update.callback_query
-    user_id = query.from_user.id
-    await query.answer()
-    code = await generate_link_code(user_id)
-    wa_url = f"https://wa.me/{WA_PHONE}?text=%D7%A7%D7%A9%D7%A8%20{code}"
-    await query.message.reply_text(
-        f"💚 *חיבור חשבון ווטסאפ*\n\n"
-        f"1\\. לחץ על הכפתור למטה לפתיחת ווטסאפ\n"
-        f"2\\. שלח את ההודעה שנטענה אוטומטית\n"
-        f"3\\. החשבונות יתחברו מיידית ✅\n\n"
-        f"⏱ _הקוד תקף ל\\-10 דקות_\n\n"
-        f"קוד הקישור שלך: `{code}`",
-        parse_mode=ParseMode.MARKDOWN_V2,
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("💚 פתח ווטסאפ לקישור", url=wa_url)],
-            [InlineKeyboardButton("🔙 חזרה", callback_data="back_to_start")],
-        ]),
-    )
-
-
-async def cmd_linkwa(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = update.effective_user.id
-    code    = await generate_link_code(user_id)
-    wa_url  = f"https://wa.me/{WA_PHONE}?text=%D7%A7%D7%A9%D7%A8%20{code}"
-    await update.message.reply_text(
-        f"💚 *חיבור חשבון ווטסאפ*\n\n"
-        f"1\\. לחץ על הכפתור למטה לפתיחת ווטסאפ\n"
-        f"2\\. שלח את ההודעה שנטענה אוטומטית\n"
-        f"3\\. החשבונות יתחברו מיידית ✅\n\n"
-        f"⏱ _הקוד תקף ל\\-10 דקות_\n\n"
-        f"קוד הקישור שלך: `{code}`",
-        parse_mode=ParseMode.MARKDOWN_V2,
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("💚 פתח ווטסאפ לקישור", url=wa_url)],
-        ]),
-    )
 
 
 async def handle_share_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1917,7 +1874,7 @@ async def handle_pdf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             generate_pdf,
             record,
             tg_link=f"t.me/{BOT_USERNAME}",
-            wa_link=f"wa.me/{WA_PHONE}",
+            wa_link="",
             logo_path=os.environ.get("LOGO_PATH", ""),
             cover_path=os.environ.get("COVER_PATH", ""),
             channel="telegram",
@@ -2011,8 +1968,6 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(handle_pdf_callback,      pattern=r"^pdf_report$"))
     app.add_handler(CallbackQueryHandler(handle_share_callback,   pattern=r"^share_report$"))
     app.add_handler(CallbackQueryHandler(handle_result_callback,  pattern=r"^(new_search|chat_admin|admin_panel)$"))
-    app.add_handler(CallbackQueryHandler(handle_link_whatsapp,    pattern=r"^link_whatsapp$"))
-    app.add_handler(CommandHandler("linkwa", cmd_linkwa))
 
     app.add_handler(ConversationHandler(
         entry_points=[CallbackQueryHandler(cb_enter_code, pattern="^enter_code$")],
