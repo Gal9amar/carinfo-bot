@@ -792,9 +792,17 @@ async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 async def handle_how_it_works(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    import src.users as _u
     query    = update.callback_query
     is_admin = query.from_user.id == ADMIN_ID
     await query.answer()
+
+    free = _u.FREE_SEARCHES
+    pkg_lines = []
+    for label, searches, price in _pkgs():
+        desc = "ללא הגבלה" if searches == -1 else f"{searches} חיפושים"
+        pkg_lines.append(f"• {_escape_md(label)} – ₪{price}")
+
     await query.edit_message_text(
         "ℹ️ *איך CarInfo עובד?*\n\n"
         "🔍 *מה המערכת מציגה לך על כל רכב:*\n"
@@ -807,13 +815,10 @@ async def handle_how_it_works(update: Update, context: ContextTypes.DEFAULT_TYPE
         "• היסטוריה – רישום, טסט, ק\"מ, שינויי מבנה\n"
         "• היסטוריית בעלויות – כמה בעלים, פרטי/סוחר\n"
         "• ריקולים – תקלות ידועות של הדגם\n\n"
-        "🆓 *חיפושים חינמיים:*\n"
-        "כל משתמש חדש מקבל *20 חיפושים חינמיים* לניסיון\n\n"
+        f"🆓 *חיפושים חינמיים:*\n"
+        f"כל משתמש חדש מקבל *{free} חיפושים חינמיים* לניסיון\n\n"
         "📦 *חבילות חיפוש:*\n"
-        "• 50 חיפושים – ₪10\n"
-        "• 100 חיפושים – ₪20\n"
-        "• 200 חיפושים – ₪30\n"
-        "• ♾️ מנוי חודשי \\(ללא הגבלה\\) – ₪25\n\n"
+        + "\n".join(pkg_lines) + "\n\n"
         "💡 *איך משתמשים?*\n"
         "פשוט שלח מספר לוחית רישוי \\(לדוגמה: 1234567\\)\n"
         "והמערכת תחזיר לך דוח מלא תוך שניות\\.",
