@@ -261,6 +261,15 @@ export async function adminFetchUserHistory(userId) {
   return r.json()
 }
 
+// Gift searches to all users
+export async function adminGiftAll(searches, message) {
+  const r = await fetch(`${BASE}/api/admin/gift-all`, {
+    method: 'POST', headers: headers(), body: JSON.stringify({ searches, message }),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
 // Activity log
 export async function adminFetchActivity(limit = 100) {
   const r = await fetch(`${BASE}/api/admin/activity?limit=${limit}`, { headers: headers() })

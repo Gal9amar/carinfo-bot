@@ -12,6 +12,7 @@ import {
   adminSendUserMessage,
   adminFetchUserHistory,
   adminFetchActivity,
+  adminGiftAll,
 } from '../api.js'
 
 const TABS = [
@@ -331,6 +332,234 @@ function PackageModal({ title, form, setForm, saving, onSave, onClose }) {
         <button className="btn" disabled={saving} onClick={onSave}>{saving ? '...' : 'שמור'}</button>
         <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={onClose}>ביטול</button>
       </div>
+    </div>
+  )
+}
+
+function PaymentsTab() {
+  const [payments, setPayments] = useState(null)
+  const [acting, setActing] = useState(null) // ref being acted on
+
+  function load() { adminFetchPayments().then(setPayments).catch(() => {}) }
+  useEffect(() => { load() }, [])
+
+  async function act(ref, action) {
+    setActing(ref)
+    try {
+      if (action === 'approve') await adminApprovePayment(ref)
+      else await adminDeclinePayment(ref)
+      load()
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    setActing(null)
+  }
+
+  if (!payments) return <div className="loading">⏳</div>
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <div style={{ fontSize: 13, color: 'var(--hint)' }}>{payments.length} ממתינים</div>
+        <button className="btn" style={{ width: 'auto', padding: '4px 12px', marginTop: 0, fontSize: 12 }} onClick={load}>🔄</button>
+      </div>
+      {payments.length === 0 && (
+        <div style={{ color: 'var(--hint)', textAlign: 'center', padding: 24 }}>אין תשלומים ממתינים ✅</div>
+      )}
+      {payments.map(p => (
+        <div key={p.ref} style={{ background: 'var(--card-bg, rgba(255,255,255,0.05))', borderRadius: 12, padding: '12px 14px', marginBottom: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+            <span style={{ fontWeight: 700 }}>{p.label}</span>
+            <span style={{ color: '#4caf50', fontWeight: 700 }}>₪{p.price}</span>
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 8 }}>
+            משתמש {p.user_id} · {p.created_at?.slice(0, 16).replace('T', ' ')}
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              className="btn btn-success"
+              style={{ flex: 1, marginTop: 0, padding: '6px', fontSize: 13 }}
+              disabled={acting === p.ref}
+              onClick={() => act(p.ref, 'approve')}
+            >
+              ✅ אשר
+            </button>
+            <button
+              className="btn btn-danger"
+              style={{ flex: 1, marginTop: 0, padding: '6px', fontSize: 13 }}
+              disabled={acting === p.ref}
+              onClick={() => act(p.ref, 'decline')}
+            >
+              ❌ דחה
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function CodesTab() {
+  const [codes, setCodes] = useState(null)
+  const [form, setForm] = useState({ searches: 50, unlimited: false, single_use: true, monthly: false })
+  const [creating, setCreating] = useState(false)
+  const [giftOpen, setGiftOpen] = useState(false)
+
+  function load() { adminFetchCodes().then(setCodes).catch(() => {}) }
+  useEffect(() => { load() }, [])
+
+  async function createCode() {
+    setCreating(true)
+    try {
+      const res = await adminCreateCode(form)
+      window.Telegram?.WebApp?.showAlert(`✅ קוד נוצר:\n${res.code}`)
+      load()
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    setCreating(false)
+  }
+
+  async function deleteCode(code) {
+    window.Telegram?.WebApp?.showConfirm(`למחוק את הקוד ${code}?`, async ok => {
+      if (!ok) return
+      try { await adminDeleteCode(code); load() }
+      catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    })
+  }
+
+  function copyCode(code) {
+    navigator.clipboard?.writeText(code).catch(() => {})
+    window.Telegram?.WebApp?.showAlert(`✅ הועתק:\n${code}`)
+  }
+
+  if (!codes) return <div className="loading">⏳</div>
+
+  return (
+    <div>
+      {/* Gift all section */}
+      <div style={{ background: 'var(--card-bg, rgba(255,255,255,0.05))', borderRadius: 12, padding: '12px 14px', marginBottom: 14 }}>
+        <button
+          onClick={() => setGiftOpen(o => !o)}
+          style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'right', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 0, color: 'var(--text)' }}
+        >
+          <span style={{ fontSize: 15, fontWeight: 700 }}>🎁 הענק מתנה לכל המשתמשים</span>
+          <span style={{ fontSize: 12, color: 'var(--hint)' }}>{giftOpen ? '▲' : '▼'}</span>
+        </button>
+        {giftOpen && <GiftAllSection onDone={() => setGiftOpen(false)} />}
+      </div>
+
+      {/* Create code */}
+      <div style={{ background: 'var(--card-bg, rgba(255,255,255,0.05))', borderRadius: 12, padding: '12px 14px', marginBottom: 14 }}>
+        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>➕ צור קוד חדש</div>
+        <input
+          className="input"
+          type="number"
+          min="1"
+          placeholder="כמות חיפושים"
+          value={form.searches}
+          onChange={e => setForm(f => ({ ...f, searches: parseInt(e.target.value) || 50 }))}
+          style={{ marginBottom: 8 }}
+          disabled={form.unlimited}
+        />
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+          {[['unlimited', '♾️ ללא הגבלה'], ['monthly', '📅 חודשי'], ['single_use', '1️⃣ חד-פעמי']].map(([key, label]) => (
+            <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={form[key]}
+                onChange={e => setForm(f => ({ ...f, [key]: e.target.checked, ...(key === 'unlimited' ? { monthly: false } : {}) }))}
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+        <button className="btn" disabled={creating} onClick={createCode} style={{ marginTop: 0 }}>
+          {creating ? '⏳...' : '➕ צור קוד'}
+        </button>
+      </div>
+
+      {/* Code list */}
+      <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8 }}>{codes.length} קודים</div>
+      {codes.map(c => {
+        const used = c.used_by != null
+        const expired = c.expires && new Date(c.expires) < new Date()
+        const status = used ? '✅ נוצל' : expired ? '⏰ פג' : '🟢 פעיל'
+        const desc = c.unlimited ? (c.monthly ? '📅 חודשי' : '♾️ ללא הגבלה') : `${c.searches} חיפושים`
+        return (
+          <div key={c.code} style={{ background: 'var(--card-bg, rgba(255,255,255,0.05))', borderRadius: 10, padding: '10px 12px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 14, letterSpacing: 1 }}>{c.code}</div>
+              <div style={{ fontSize: 11, color: 'var(--hint)', marginTop: 2 }}>{desc} · {status}{c.single_use ? ' · חד-פעמי' : ''}</div>
+            </div>
+            <button
+              className="btn"
+              style={{ width: 'auto', padding: '4px 10px', marginTop: 0, fontSize: 12 }}
+              onClick={() => copyCode(c.code)}
+            >
+              📋
+            </button>
+            <button
+              className="btn btn-danger"
+              style={{ width: 'auto', padding: '4px 10px', marginTop: 0, fontSize: 12 }}
+              onClick={() => deleteCode(c.code)}
+            >
+              🗑️
+            </button>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function GiftAllSection({ onDone }) {
+  const [searches, setSearches] = useState(10)
+  const [message, setMessage] = useState('')
+  const [sending, setSending] = useState(false)
+
+  async function send() {
+    if (!searches || searches < 1) return
+    const preview = `להוסיף ${searches} חיפושים לכל המשתמשים${message.trim() ? ` ולשלוח הודעה?` : '?'}`
+    window.Telegram?.WebApp?.showConfirm(preview, async ok => {
+      if (!ok) return
+      setSending(true)
+      try {
+        const res = await adminGiftAll(searches, message.trim())
+        window.Telegram?.WebApp?.showAlert(
+          `🎁 הושלם!\n✅ ${searches} חיפושים נוספו לכולם${res.notified ? `\n📤 הודעה נשלחה ל-${res.notified} משתמשים` : ''}`
+        )
+        setMessage('')
+        onDone()
+      } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+      setSending(false)
+    })
+  }
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8 }}>כמות חיפושים להוסיף לכל משתמש:</div>
+      <input
+        className="input"
+        type="number"
+        min="1"
+        value={searches}
+        onChange={e => setSearches(parseInt(e.target.value) || 1)}
+        style={{ marginBottom: 10 }}
+      />
+      <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8 }}>הערה / הודעה למשתמשים (אופציונלי):</div>
+      <textarea
+        className="input"
+        rows={3}
+        placeholder="לדוגמה: 🎉 חגיגת שנה! קיבלת 10 חיפושים במתנה"
+        value={message}
+        onChange={e => setMessage(e.target.value)}
+        style={{ resize: 'vertical', fontFamily: 'inherit', marginBottom: 10 }}
+      />
+      <button
+        className="btn"
+        disabled={sending || !searches || searches < 1}
+        onClick={send}
+        style={{ marginTop: 0, background: 'linear-gradient(135deg,#f5a623,#f76b1c)', border: 'none' }}
+      >
+        {sending ? '⏳ מעבד...' : `🎁 הענק ${searches || ''} חיפושים לכולם`}
+      </button>
     </div>
   )
 }

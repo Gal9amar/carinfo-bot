@@ -555,6 +555,38 @@ async def admin_toggle_block(user_id: int, _: dict = Depends(_require_admin)):
     return {"ok": True, "blocked": bool(new_val)}
 
 
+class GiftAllBody(BaseModel):
+    searches: int
+    message: str = ""
+
+
+@api.post("/api/admin/gift-all")
+async def admin_gift_all(body: GiftAllBody, _: dict = Depends(_require_admin)):
+    if body.searches < 1:
+        raise HTTPException(status_code=400, detail="searches must be >= 1")
+    msg = body.message.strip()[:500]
+    r = await execute(
+        "UPDATE users SET searches_quota = searches_quota + ? WHERE searches_quota >= 0 AND blocked = 0",
+        [body.searches],
+    )
+    updated = r.rows[0][0] if r.rows else 0
+    notified = 0
+    if msg:
+        try:
+            from src.notifier import notify_broadcast
+            gift_text = f"🎁 *קיבלת {body.searches} חיפושים במתנה!*\n\n{msg}"
+            result = await notify_broadcast(gift_text)
+            notified = result.get("sent", 0)
+        except Exception:
+            pass
+    try:
+        from src.activity import log as _log
+        await _log("grant", f"מתנה לכולם: +{body.searches} חיפושים. הודעה: {msg[:60]}")
+    except Exception:
+        pass
+    return {"ok": True, "searches": body.searches, "notified": notified}
+
+
 @api.get("/api/admin/activity")
 async def admin_get_activity(limit: int = 100, _: dict = Depends(_require_admin)):
     from src.activity import get_log
