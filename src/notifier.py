@@ -81,3 +81,17 @@ async def notify_broadcast(message: str) -> dict:
     if _broadcast_fn is None:
         return {"ok": False, "sent": 0, "failed": 0}
     return await _broadcast_fn(message)
+
+
+_send_user_message_fn: Optional[Callable[..., Awaitable[None]]] = None
+
+
+def register_user_message_notifier(fn: Callable[..., Awaitable[None]]) -> None:
+    global _send_user_message_fn
+    _send_user_message_fn = fn
+
+
+async def send_user_message(user_id: int, message: str) -> bool:
+    if _send_user_message_fn is None:
+        return False
+    return await _send_user_message_fn(user_id, message)

@@ -9,6 +9,8 @@ import {
   adminFetchCodes, adminCreateCode, adminDeleteCode,
   adminBroadcast,
   adminToggleBlock,
+  adminSendUserMessage,
+  adminFetchUserHistory,
 } from '../api.js'
 
 const TABS = [
@@ -261,6 +263,7 @@ function PackageModal({ title, form, setForm, saving, onSave, onClose }) {
 function UsersTab() {
   const [users, setUsers] = useState(null)
   const [editingUser, setEditingUser] = useState(null)
+  const [messagingUser, setMessagingUser] = useState(null)
 
   useEffect(() => { adminFetchUsers().then(setUsers).catch(() => {}) }, [])
   if (!users) return <div className="loading">⏳</div>
@@ -274,7 +277,7 @@ function UsersTab() {
         return (
           <div key={u.user_id} className="user-row">
             <span>{u.blocked ? '🔴' : '🟢'} {name}</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ color: 'var(--hint)', fontSize: 13 }}>{left} נותרו</span>
               <button
                 className="btn"
@@ -282,6 +285,13 @@ function UsersTab() {
                 onClick={() => setEditingUser(u)}
               >
                 ✏️
+              </button>
+              <button
+                className="btn"
+                style={{ width: 'auto', padding: '4px 10px', marginTop: 0, fontSize: 12 }}
+                onClick={() => setMessagingUser(u)}
+              >
+                💬
               </button>
               <button
                 className={`btn ${u.blocked ? 'btn-success' : 'btn-danger'}`}
@@ -311,18 +321,30 @@ function UsersTab() {
           }}
         />
       )}
+      {messagingUser && (
+        <SendMessageModal
+          user={messagingUser}
+          onClose={() => setMessagingUser(null)}
+        />
+      )}
     </div>
   )
 }
 
 function GrantModal({ user, onClose, onDone }) {
   const [packages, setPackages] = useState(null)
-  const [mode, setMode] = useState('packages') // 'packages' | 'unlimited' | 'custom'
+  const [mode, setMode] = useState('packages') // 'packages' | 'unlimited' | 'custom' | 'history'
   const [unlimitedType, setUnlimitedType] = useState('permanent') // 'permanent' | 'monthly'
   const [customAmount, setCustomAmount] = useState('')
   const [saving, setSaving] = useState(false)
+  const [history, setHistory] = useState(null)
 
   useEffect(() => { adminFetchPackages().then(setPackages).catch(() => {}) }, [])
+  useEffect(() => {
+    if (mode === 'history' && history === null) {
+      adminFetchUserHistory(user.user_id).then(setHistory).catch(() => setHistory([]))
+    }
+  }, [mode])
 
   const name = user.username ? `@${user.username}` : user.full_name || `id:${user.user_id}`
 
@@ -343,13 +365,13 @@ function GrantModal({ user, onClose, onDone }) {
       <div className="modal" onClick={e => e.stopPropagation()}>
         <div className="modal-title">✏️ עריכת {name}</div>
 
-        <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
-          {[['packages','📦 חבילה'],['unlimited','♾️ ללא הגבלה'],['custom','✍️ התאמה']].map(([id, label]) => (
+        <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
+          {[['packages','📦 חבילה'],['unlimited','♾️ ללא הגבלה'],['custom','✍️ התאמה'],['history','📋 היסטוריה']].map(([id, label]) => (
             <button
               key={id}
               onClick={() => setMode(id)}
               style={{
-                flex: 1, padding: '7px 4px', fontSize: 12, borderRadius: 8,
+                flex: 1, minWidth: '40%', padding: '7px 4px', fontSize: 12, borderRadius: 8,
                 border: '1.5px solid var(--accent)',
                 background: mode === id ? 'var(--accent)' : 'transparent',
                 color: mode === id ? '#fff' : 'var(--accent)',
@@ -414,7 +436,72 @@ function GrantModal({ user, onClose, onDone }) {
           </div>
         )}
 
+        {mode === 'history' && (
+          <div>
+            {history === null && <div className="loading" style={{ fontSize: 13 }}>⏳ טוען...</div>}
+            {history !== null && history.length === 0 && (
+              <div style={{ color: 'var(--hint)', fontSize: 13, textAlign: 'center', padding: 12 }}>
+                אין היסטוריית חיפושים
+              </div>
+            )}
+            {history !== null && history.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {history.map((plate, i) => (
+                  <span
+                    key={i}
+                    style={{
+                      background: '#f5c518', color: '#111', fontWeight: 700,
+                      borderRadius: 6, padding: '4px 10px', fontSize: 13, letterSpacing: 1,
+                    }}
+                  >
+                    {plate}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={onClose}>ביטול</button>
+      </div>
+    </div>
+  )
+}
+
+function SendMessageModal({ user, onClose }) {
+  const [message, setMessage] = useState('')
+  const [sending, setSending] = useState(false)
+  const name = user.username ? `@${user.username}` : user.full_name || `id:${user.user_id}`
+
+  async function send() {
+    if (!message.trim()) return
+    setSending(true)
+    try {
+      const res = await adminSendUserMessage(user.user_id, message.trim())
+      window.Telegram?.WebApp?.showAlert(res.ok ? '✅ נשלח בהצלחה' : '❌ שליחה נכשלה')
+      if (res.ok) onClose()
+    } catch {
+      window.Telegram?.WebApp?.showAlert('שגיאה בשליחה')
+    }
+    setSending(false)
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-title">💬 הודעה ל{name}</div>
+        <textarea
+          className="input"
+          rows={4}
+          placeholder="כתוב הודעה..."
+          value={message}
+          onChange={e => setMessage(e.target.value)}
+          style={{ resize: 'vertical', fontFamily: 'inherit' }}
+        />
+        <button className="btn" disabled={sending || !message.trim()} onClick={send}>
+          {sending ? '⏳ שולח...' : '📤 שלח'}
+        </button>
+        <button className="btn btn-secondary" style={{ marginTop: 6 }} onClick={onClose}>ביטול</button>
       </div>
     </div>
   )

@@ -254,6 +254,12 @@ async def generate_code(
     return code
 
 
+async def check_new_user(user_id: int) -> bool:
+    """Returns True if user_id is not yet in the database (before _ensure_user runs)."""
+    r = await execute("SELECT 1 FROM users WHERE user_id=?", [user_id])
+    return not bool(r.rows)
+
+
 async def get_all_users() -> list[dict]:
     r = await execute(
         "SELECT user_id, username, full_name, searches_done, searches_quota, first_seen, last_seen, blocked, whatsapp_phone, channel FROM users ORDER BY searches_done DESC"

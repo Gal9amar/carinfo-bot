@@ -30,6 +30,7 @@ from src.users import (
     admin_stats, admin_grant, get_all_users, get_user_by_username, get_user_by_id,
     block_user, unblock_user, is_blocked,
     get_last_plate, set_last_plate, get_search_history,
+    check_new_user,
 )
 from src.formatter import (
     format_error,
@@ -261,7 +262,24 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
+    is_new = await check_new_user(user_id)
     allowed, left = await is_allowed(user_id, user.username or "", user.full_name or "")
+
+    if is_new and ADMIN_ID:
+        try:
+            stats = await admin_stats()
+            uname = f"@{user.username}" if user.username else f"id:{user_id}"
+            await context.bot.send_message(
+                ADMIN_ID,
+                f"👋 *משתמש חדש הצטרף!*\n\n"
+                f"👤 {uname}\n"
+                f"📛 {user.full_name or ''}\n"
+                f"🆔 `{user_id}`\n\n"
+                f"👥 סה\"כ משתמשים: *{stats['total_users']}*",
+                parse_mode="Markdown",
+            )
+        except Exception as e:
+            logger.debug("Failed to notify admin of new user: %s", e)
 
     if not allowed:
         if await is_blocked(user_id):
@@ -2024,6 +2042,17 @@ def main() -> None:
 
     from src.notifier import register_broadcast_notifier
     register_broadcast_notifier(_do_broadcast)
+
+    async def _send_message_to_user(user_id: int, message: str) -> bool:
+        try:
+            await app.bot.send_message(user_id, message)
+            return True
+        except Exception as e:
+            logger.warning("Failed to send message to user %s: %s", user_id, e)
+            return False
+
+    from src.notifier import register_user_message_notifier
+    register_user_message_notifier(_send_message_to_user)
 
     app.add_handler(CommandHandler("myid",   cmd_myid))
     app.add_handler(CommandHandler("start",  cmd_start))

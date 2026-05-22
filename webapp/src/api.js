@@ -244,3 +244,19 @@ export async function adminToggleBlock(userId) {
   if (!r.ok) throw new Error('Failed')
   return r.json()
 }
+
+// Direct message to user
+export async function adminSendUserMessage(userId, message) {
+  const r = await fetch(`${BASE}/api/admin/users/${userId}/message`, {
+    method: 'POST', headers: headers(), body: JSON.stringify({ message }),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+// User search history (admin view)
+export async function adminFetchUserHistory(userId) {
+  const r = await fetch(`${BASE}/api/admin/users/${userId}/history`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}

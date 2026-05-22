@@ -458,6 +458,26 @@ async def admin_broadcast(body: BroadcastBody, _: dict = Depends(_require_admin)
     return result
 
 
+class DirectMessageBody(BaseModel):
+    message: str
+
+
+@api.post("/api/admin/users/{user_id}/message")
+async def admin_send_user_message(user_id: int, body: DirectMessageBody, _: dict = Depends(_require_admin)):
+    from src.notifier import send_user_message
+    msg = body.message.strip()[:2000]
+    if not msg:
+        raise HTTPException(status_code=400, detail="Empty message")
+    ok = await send_user_message(user_id, msg)
+    return {"ok": ok}
+
+
+@api.get("/api/admin/users/{user_id}/history")
+async def admin_user_history(user_id: int, _: dict = Depends(_require_admin)):
+    from src.users import get_search_history
+    return await get_search_history(user_id)
+
+
 @api.post("/api/admin/users/{user_id}/block")
 async def admin_toggle_block(user_id: int, _: dict = Depends(_require_admin)):
     from src.db import execute
