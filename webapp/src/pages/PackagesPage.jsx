@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { initiatePayment } from '../api.js'
 
-export default function PackagesPage({ packages, user, onSelect }) {
+export default function PackagesPage({ packages, user, onSelect, onPrivacy }) {
   const [loading, setLoading] = useState(null)
 
   async function handleSelect(pkg) {
@@ -29,6 +29,12 @@ export default function PackagesPage({ packages, user, onSelect }) {
         </div>
       )}
 
+      {packages.length === 0 && (
+        <div className="card" style={{ textAlign: 'center', color: 'var(--hint)', fontSize: 14 }}>
+          אין חבילות זמינות כרגע
+        </div>
+      )}
+
       {packages.map(pkg => {
         const desc = pkg.searches === -1 ? 'ללא הגבלה' : `${pkg.searches} חיפושים`
         return (
@@ -47,6 +53,21 @@ export default function PackagesPage({ packages, user, onSelect }) {
           </div>
         )
       })}
+      <div style={{ textAlign: 'center', marginTop: 24 }}>
+        <button
+          onClick={onPrivacy}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'var(--hint)',
+            fontSize: 12,
+            cursor: 'pointer',
+            textDecoration: 'underline',
+          }}
+        >
+          מדיניות פרטיות
+        </button>
+      </div>
     </div>
   )
 }
