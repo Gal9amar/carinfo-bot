@@ -150,10 +150,18 @@ def build_result_keyboard(
     record: dict | None = None,
     yad2_link: str = "",
 ) -> InlineKeyboardMarkup:
+    from telegram import WebAppInfo
+    webapp_url = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
+    plate = record.get("mispar_rechev", "") if record else ""
     rows = [[
         InlineKeyboardButton("📄 הורד PDF", callback_data="pdf_report"),
         InlineKeyboardButton("📤 שתף דוח", callback_data="share_report"),
     ]]
+    if plate:
+        rows.append([InlineKeyboardButton(
+            "📊 צפה בדוח גרפי",
+            web_app=WebAppInfo(url=f"{webapp_url}/?plate={plate}"),
+        )])
     if yad2_link and record:
         label = yad2_label(record)
         rows.append([InlineKeyboardButton(f"🔍 {label} ב-Yad2", url=yad2_link)])
@@ -252,7 +260,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             f"🔍 בדיקות: *{stats['total_searches']}*\n"
             f"🔑 קודים: *{stats['used_codes']}/{stats['total_codes']}* נוצלו",
             parse_mode=ParseMode.MARKDOWN_V2,
-            reply_markup=_admin_reply_keyboard(),
+            reply_markup=_admin_main_keyboard(),
         )
         return
 
@@ -386,11 +394,8 @@ async def receive_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
 async def cancel_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user_id = update.effective_user.id
-    if user_id == ADMIN_ID:
-        await update.message.reply_text("בסדר, חיפוש בוטל.", reply_markup=_admin_reply_keyboard())
-    else:
-        await update.message.reply_text("בסדר, חיפוש בוטל.", reply_markup=ReplyKeyboardRemove())
-        await update.message.reply_text("👇", reply_markup=_persistent_keyboard(is_admin=False))
+    await update.message.reply_text("בסדר, חיפוש בוטל.", reply_markup=ReplyKeyboardRemove())
+    await update.message.reply_text("👇", reply_markup=_persistent_keyboard(is_admin=(user_id == ADMIN_ID)))
     return ConversationHandler.END
 
 
@@ -493,7 +498,7 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"🔍 בדיקות: *{stats['total_searches']}*\n"
         f"🔑 קודים: *{stats['used_codes']}/{stats['total_codes']}* נוצלו",
         parse_mode=ParseMode.MARKDOWN_V2,
-        reply_markup=_admin_reply_keyboard(),
+        reply_markup=_admin_main_keyboard(),
     )
 
 
@@ -1147,10 +1152,14 @@ async def handle_admin_keyboard(update: Update, context: ContextTypes.DEFAULT_TY
         "💰 מחירי חבילות":    send_packages_editor,
     }
     if text_msg == "🛠 פאנל מנהל":
+        stats = await admin_stats()
         await update.message.reply_text(
-            "🛠 *פאנל מנהל*",
+            f"🛠 *פאנל ניהול CarInfo*\n\n"
+            f"👤 משתמשים: *{stats['total_users']}* \\| פעילים: *{stats['active_users']}*\n"
+            f"🔍 בדיקות: *{stats['total_searches']}*\n"
+            f"🔑 קודים: *{stats['used_codes']}/{stats['total_codes']}* נוצלו",
             parse_mode=ParseMode.MARKDOWN_V2,
-            reply_markup=_admin_reply_keyboard(),
+            reply_markup=_admin_main_keyboard(),
         )
         return
     if text_msg == "🔍 חזור לחיפוש":
@@ -1160,10 +1169,8 @@ async def handle_admin_keyboard(update: Update, context: ContextTypes.DEFAULT_TY
         )
         return
     if text_msg == "❌ ביטול":
-        await update.message.reply_text(
-            "בסדר, חיפוש בוטל.",
-            reply_markup=_admin_reply_keyboard(),
-        )
+        await update.message.reply_text("בסדר, חיפוש בוטל.", reply_markup=ReplyKeyboardRemove())
+        await update.message.reply_text("👇", reply_markup=_persistent_keyboard(is_admin=True))
         return
     fn = dispatch.get(text_msg)
     if fn:
@@ -1507,11 +1514,8 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     # Cancel search
     if raw == "❌ ביטול":
-        if user_id == ADMIN_ID:
-            await update.message.reply_text("בסדר, חיפוש בוטל.", reply_markup=_admin_reply_keyboard())
-        else:
-            await update.message.reply_text("בסדר, חיפוש בוטל. בחר פעולה:", reply_markup=ReplyKeyboardRemove())
-            await update.message.reply_text("👇", reply_markup=_persistent_keyboard(is_admin=False))
+        await update.message.reply_text("בסדר, חיפוש בוטל.", reply_markup=ReplyKeyboardRemove())
+        await update.message.reply_text("👇", reply_markup=_persistent_keyboard(is_admin=(user_id == ADMIN_ID)))
         return
 
     # Admin settings input
@@ -1889,7 +1893,7 @@ async def handle_result_callback(update: Update, context: ContextTypes.DEFAULT_T
             f"🔍 בדיקות: *{stats['total_searches']}*\n"
             f"🔑 קודים: *{stats['used_codes']}/{stats['total_codes']}* נוצלו",
             parse_mode=ParseMode.MARKDOWN_V2,
-            reply_markup=_admin_reply_keyboard(),
+            reply_markup=_admin_main_keyboard(),
         )
         return
 

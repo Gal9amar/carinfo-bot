@@ -136,6 +136,17 @@ async def confirm_payment(body: PaymentConfirmRequest, user: dict = Depends(_get
     return {"ok": True}
 
 
+# ── Vehicle report ───────────────────────────────────────────────────────────
+@api.get("/api/vehicle/{plate}")
+async def get_vehicle(plate: str, user: dict = Depends(_get_user)):
+    from src.api.gov_api import fetch_vehicle_data
+    plate = plate.replace("-", "").replace(" ", "")
+    record = await fetch_vehicle_data(plate)
+    if not record:
+        raise HTTPException(status_code=404, detail="Vehicle not found")
+    return record
+
+
 # ── Admin ────────────────────────────────────────────────────────────────────
 @api.get("/api/admin/stats")
 async def admin_stats_api(_: dict = Depends(_require_admin)):

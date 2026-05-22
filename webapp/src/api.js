@@ -40,6 +40,12 @@ export async function confirmPayment(ref, packageId) {
   return r.json()
 }
 
+export async function fetchVehicle(plate) {
+  const r = await fetch(`${BASE}/api/vehicle/${plate}`, { headers: headers() })
+  if (!r.ok) throw new Error('Vehicle not found')
+  return r.json()
+}
+
 // Admin
 export async function adminFetchStats() {
   const r = await fetch(`${BASE}/api/admin/stats`, { headers: headers() })
