@@ -55,6 +55,7 @@ from src.users import (
 )
 from src import wa_menu as menu
 from src import yad2 as _yad2
+from src.packages import get_packages as _get_packages_fresh
 
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -392,7 +393,7 @@ async def handle_admin(chat_id: str, phone: str, text: str) -> bool:
             return True
         if text == "י":
             from src.packages import get_packages
-            pkgs = await get_packages()
+            pkgs = await get_packages(force_reload=True)
             lines = ["💰 *עריכת מחירי חבילות*", "─────────────────"]
             for pid, label, searches, price in pkgs:
                 desc = "ללא הגבלה" if searches == -1 else f"{searches} חיפושים"
@@ -666,6 +667,7 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
             await set_wa_state(phone, None)
             await send_message(chat_id, menu.WELCOME)
             return
+        await _get_packages_fresh(force_reload=True)
         pkg = menu.get_package_details(text.strip())
         if not pkg:
             await send_message(chat_id, "שלח מספר 1-4 לבחירת חבילה, או 'תפריט' לחזרה.")
@@ -788,6 +790,7 @@ async def handle_message(chat_id: str, phone: str, body: str) -> None:
         return
 
     if text == "2":
+        await _get_packages_fresh(force_reload=True)
         await set_wa_state(phone, "WAITING_PACKAGE")
         await send_message(chat_id, menu.build_packages_menu())
         return
