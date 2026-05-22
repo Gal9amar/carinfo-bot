@@ -106,14 +106,12 @@ def _persistent_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
 
 
 def _payment_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
-    buttons = []
-    for label, searches, price in _pkgs():
-        buttons.append([InlineKeyboardButton(
-            f"{label} — {searches} בדיקות ב-₪{price}",
-            callback_data=f"buy|{searches}|{price}"
-        )])
-    buttons.append([InlineKeyboardButton("🔑 יש לי קוד גישה", callback_data="enter_code")])
-    return InlineKeyboardMarkup(buttons)
+    webapp_url = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
+    from telegram import WebAppInfo
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🛒 רכישת חבילה", web_app=WebAppInfo(url=webapp_url))],
+        [InlineKeyboardButton("🔑 יש לי קוד גישה", callback_data="enter_code")],
+    ])
 
 
 def _welcome_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
@@ -1173,15 +1171,15 @@ async def handle_admin_keyboard(update: Update, context: ContextTypes.DEFAULT_TY
 
 
 async def cmd_buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Show payment packages."""
-    buttons = []
-    for label, searches, price in _pkgs():
-        cb = f"buy|{searches}|{price}"
-        buttons.append([InlineKeyboardButton(f"{label} — {searches} בדיקות ב-₪{price}", callback_data=cb)])
+    """Open the Mini App for purchasing packages."""
+    webapp_url = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
+    from telegram import WebAppInfo
     await update.message.reply_text(
-        "💳 *רכישת בדיקות*\n\nבחר חבילה:",
+        "💳 *רכישת בדיקות*\n\nלחץ על הכפתור למטה לפתיחת חנות החבילות:",
         parse_mode=ParseMode.MARKDOWN_V2,
-        reply_markup=InlineKeyboardMarkup(buttons),
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🛒 רכישת חבילה", web_app=WebAppInfo(url=webapp_url))],
+        ]),
     )
 
 
@@ -1279,7 +1277,7 @@ async def handle_approve_callback(update: Update, context: ContextTypes.DEFAULT_
         target   = int(parts[1])
         searches = int(parts[2])
 
-        admin_grant(ADMIN_ID, target, searches, note="PayPal payment approved")
+        await admin_grant(ADMIN_ID, target, searches, note="PayPal payment approved")
 
         desc = "מנוי חודשי ללא הגבלה" if searches == -1 else f"{searches} בדיקות"
         await query.edit_message_text(f"✅ אושר! {desc} למשתמש {target}")
@@ -1337,7 +1335,7 @@ async def handle_successful_payment(update: Update, context: ContextTypes.DEFAUL
     except Exception:
         return
 
-    admin_grant(user_id, searches)
+    await admin_grant(ADMIN_ID, user_id, searches, note="Telegram Stars payment")
 
     amount_ils = payment.total_amount // 100
     await update.message.reply_text(
@@ -1742,7 +1740,11 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         context.user_data["last_share_text"] = get_share_text(record)
     except Exception as exc:
         logger.error("get_summary failed for plate %s: %s", plate, exc)
-        await searching_msg.delete()
+        if searching_msg:
+            try:
+                await searching_msg.delete()
+            except Exception:
+                pass
         await update.message.reply_text(
             format_error(), parse_mode=ParseMode.MARKDOWN_V2,
             reply_markup=_persistent_keyboard(is_admin),
@@ -1768,7 +1770,11 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             emoji = "🟢" if remaining > 5 else ("🟡" if remaining > 1 else "🔴")
             summary += f"\n\n_{emoji} נותרו לך {remaining} {label}_"
 
-    await searching_msg.delete()
+    if searching_msg:
+        try:
+            await searching_msg.delete()
+        except Exception:
+            pass
 
     yad2_link = _yad2.build_url(record)
     try:
@@ -1974,6 +1980,9 @@ def main() -> None:
     app = Application.builder().token(token).post_init(_post_init).build()
     global _bot_instance
     _bot_instance = app.bot
+    # Register the payment notifier so api.py can notify admin without importing bot
+    from src.notifier import register_payment_notifier
+    register_payment_notifier(_notify_admin_payment)
     app.add_handler(CommandHandler("myid",   cmd_myid))
     app.add_handler(CommandHandler("start",  cmd_start))
     app.add_handler(CommandHandler("help",   cmd_help))
