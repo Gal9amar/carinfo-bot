@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { initiatePayment } from '../api.js'
 
-export default function PackagesPage({ packages, user, onSelect, onPrivacy }) {
+export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSupport }) {
   const [loading, setLoading] = useState(null)
 
   async function handleSelect(pkg) {
@@ -53,7 +53,15 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy }) {
           </div>
         )
       })}
-      <div style={{ textAlign: 'center', marginTop: 24 }}>
+      <button
+        className="btn btn-secondary"
+        style={{ marginTop: 16 }}
+        onClick={onSupport}
+      >
+        🎫 פניות ותמיכה
+      </button>
+
+      <div style={{ textAlign: 'center', marginTop: 16 }}>
         <button
           onClick={onPrivacy}
           style={{

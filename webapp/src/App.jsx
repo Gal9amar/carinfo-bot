@@ -112,6 +112,7 @@ export default function App() {
         setScreen('payment')
       }}
       onPrivacy={() => setScreen('privacy')}
+      onSupport={() => setScreen('ticket')}
     />
   )
 }
