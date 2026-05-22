@@ -60,7 +60,7 @@ from src.packages import get_packages as _get_packages
 def _pkgs() -> list[tuple[str, int, int]]:
     """Returns (label, searches, price) from DB cache. Falls back to defaults."""
     from src.packages import _cache
-    if _cache:
+    if _cache is not None:
         return [(p[1], p[2], p[3]) for p in _cache]
     return [
         ("🔍 50 חיפושים",  50,  10),
@@ -72,6 +72,19 @@ def _pkgs() -> list[tuple[str, int, int]]:
 _MD_SPECIAL = r"\_*[]()~`>#+-=|{}.!"
 def _escape_md(text: str) -> str:
     return "".join(f"\\{c}" if c in _MD_SPECIAL else c for c in str(text))
+
+
+_ADMIN_INPUT_KEYS = (
+    "admin_setting",
+    "admin_pkg_id",
+    "admin_pkg_label",
+    "admin_pkg_searches",
+)
+
+
+def _clear_admin_input_state(context: ContextTypes.DEFAULT_TYPE) -> None:
+    for key in _ADMIN_INPUT_KEYS:
+        context.user_data.pop(key, None)
 
 logger.info("ADMIN_ID loaded: %s", ADMIN_ID)
 
@@ -270,6 +283,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 reply_markup=_blocked_keyboard(),
             )
         else:
+            await _get_packages(force_reload=True)
             await update.message.reply_text(
                 PAYMENT_MSG,
                 parse_mode=ParseMode.MARKDOWN_V2,
@@ -835,6 +849,7 @@ async def handle_package_callback(update: Update, context: ContextTypes.DEFAULT_
 
     data = query.data
     if data == "show_packages":
+        await _get_packages(force_reload=True)
         await query.edit_message_text(
             "🛒 *בחר חבילת חיפושים:*",
             parse_mode=ParseMode.MARKDOWN_V2,
@@ -1008,6 +1023,7 @@ async def handle_admin_keyboard(update: Update, context: ContextTypes.DEFAULT_TY
     if user_id != ADMIN_ID:
         return
     text_msg = update.message.text.strip()
+    _clear_admin_input_state(context)
 
     async def send_stats():
         stats = await admin_stats()
@@ -1148,6 +1164,7 @@ async def handle_admin_keyboard(update: Update, context: ContextTypes.DEFAULT_TY
 
 async def cmd_buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Show payment packages."""
+    await _get_packages(force_reload=True)
     buttons = []
     for label, searches, price in _pkgs():
         cb = f"buy|{searches}|{price}"
@@ -1166,7 +1183,16 @@ async def handle_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     parts = query.data.split("|")
     searches = int(parts[1])
     price    = int(parts[2])
-    label = next((l for l, s, p in _pkgs() if s == searches and p == price), f"{searches} בדיקות")
+    await _get_packages(force_reload=True)
+    pkg = next(((l, s, p) for l, s, p in _pkgs() if s == searches and p == price), None)
+    if pkg is None:
+        await query.edit_message_text(
+            "⚠️ מחירי החבילות עודכנו. בחר חבילה מחדש:",
+            parse_mode=ParseMode.MARKDOWN_V2,
+            reply_markup=_packages_keyboard(query.from_user.id == ADMIN_ID),
+        )
+        return
+    label, searches, price = pkg
 
     desc = "ללא הגבלה למשך 30 יום" if searches == -1 else f"{searches} בדיקות רכב"
     await query.message.reply_text(
@@ -1234,7 +1260,7 @@ async def handle_approve_callback(update: Update, context: ContextTypes.DEFAULT_
         target   = int(parts[1])
         searches = int(parts[2])
 
-        admin_grant(ADMIN_ID, target, searches, note="PayPal payment approved")
+        await admin_grant(ADMIN_ID, target, searches, note="PayPal payment approved")
 
         desc = "מנוי חודשי ללא הגבלה" if searches == -1 else f"{searches} בדיקות"
         await query.edit_message_text(f"✅ אושר! {desc} למשתמש {target}")
@@ -1292,7 +1318,7 @@ async def handle_successful_payment(update: Update, context: ContextTypes.DEFAUL
     except Exception:
         return
 
-    admin_grant(user_id, searches)
+    await admin_grant(ADMIN_ID, user_id, searches, note="Telegram payment")
 
     amount_ils = payment.total_amount // 100
     await update.message.reply_text(
@@ -1330,6 +1356,7 @@ async def handle_admpkg_callback(update: Update, context: ContextTypes.DEFAULT_T
 
     parts  = query.data.split("|")
     action = parts[1]
+    _clear_admin_input_state(context)
 
     def _pkg_buttons(pkgs):
         btns = []
@@ -1633,6 +1660,7 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 reply_markup=_blocked_keyboard(),
             )
         else:
+            await _get_packages(force_reload=True)
             await update.message.reply_text(
                 PAYMENT_MSG,
                 parse_mode=ParseMode.MARKDOWN_V2,

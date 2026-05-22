@@ -60,7 +60,7 @@ HELP = ""  # legacy — use build_help() instead
 
 def _get_pkgs() -> list[tuple[int, str, int, int]]:
     from src.packages import _cache
-    if _cache:
+    if _cache is not None:
         return _cache
     return [
         (1, "50 חיפושים",              50,  10),
