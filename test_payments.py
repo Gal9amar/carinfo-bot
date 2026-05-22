@@ -1,6 +1,64 @@
+import sys
+import types
 import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
+
+
+def _install_import_stubs() -> None:
+    telegram = types.ModuleType("telegram")
+
+    class _TelegramObject:
+        def __init__(self, *args, **kwargs):
+            self.args = args
+            self.kwargs = kwargs
+
+    for name in (
+        "Update",
+        "InlineKeyboardButton",
+        "InlineKeyboardMarkup",
+        "ReplyKeyboardMarkup",
+        "ReplyKeyboardRemove",
+        "KeyboardButton",
+        "LabeledPrice",
+    ):
+        setattr(telegram, name, _TelegramObject)
+    sys.modules.setdefault("telegram", telegram)
+
+    constants = types.ModuleType("telegram.constants")
+    constants.ParseMode = SimpleNamespace(MARKDOWN_V2="MarkdownV2")
+    sys.modules.setdefault("telegram.constants", constants)
+
+    ext = types.ModuleType("telegram.ext")
+    ext.Application = _TelegramObject
+    ext.CommandHandler = _TelegramObject
+    ext.MessageHandler = _TelegramObject
+    ext.CallbackQueryHandler = _TelegramObject
+    ext.PreCheckoutQueryHandler = _TelegramObject
+    ext.ConversationHandler = type("ConversationHandler", (), {"END": -1})
+    ext.ContextTypes = SimpleNamespace(DEFAULT_TYPE=object)
+    ext.filters = SimpleNamespace(
+        TEXT=object(),
+        COMMAND=object(),
+        SUCCESSFUL_PAYMENT=object(),
+        Regex=lambda *_args, **_kwargs: object(),
+    )
+    sys.modules.setdefault("telegram.ext", ext)
+
+    libsql = types.ModuleType("libsql_experimental")
+    libsql.connect = lambda *args, **kwargs: None
+    sys.modules.setdefault("libsql_experimental", libsql)
+
+    gov_api = types.ModuleType("src.api.gov_api")
+    gov_api.fetch_vehicle_data = AsyncMock()
+    sys.modules.setdefault("src.api.gov_api", gov_api)
+
+    pdf_report = types.ModuleType("src.pdf_report")
+    pdf_report.generate_pdf = lambda *args, **kwargs: b""
+    sys.modules.setdefault("src.pdf_report", pdf_report)
+
+
+_install_import_stubs()
 
 import bot
 
