@@ -9,7 +9,6 @@ import os
 import re
 import sys
 from threading import Thread
-from http.server import HTTPServer, BaseHTTPRequestHandler
 
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -88,15 +87,17 @@ WAITING_PAYMENT_MSG = 3
 
 def _persistent_rows(is_admin: bool = False) -> list:
     """Bottom rows always shown on every screen."""
+    webapp_url = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
+    from telegram import WebAppInfo
     rows = [
         [InlineKeyboardButton("🔍 חיפוש רכב חדש",        callback_data="new_search"),
          InlineKeyboardButton("ℹ️ איך זה עובד?",          callback_data="how_it_works")],
         [InlineKeyboardButton("📜 היסטוריית חיפושים",     callback_data="history"),
-         InlineKeyboardButton("🛒 רכישת חבילה",           callback_data="show_packages")],
+         InlineKeyboardButton("🛒 רכישת חבילה",           web_app=WebAppInfo(url=webapp_url))],
         [InlineKeyboardButton("💚 חבר לוואטסאפ",          callback_data="link_whatsapp")],
     ]
     if is_admin:
-        rows.append([InlineKeyboardButton("🛠 פאנל מנהל", callback_data="admin_panel")])
+        rows.append([InlineKeyboardButton("🛠 פאנל מנהל", web_app=WebAppInfo(url=webapp_url))])
     return rows
 
 
@@ -1247,6 +1248,25 @@ async def handle_paid_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     )
 
 
+_bot_instance = None  # set in main(), used by API server
+
+async def _notify_admin_payment(user_id: int, name: str, label: str, searches: int, price: int, ref: str) -> None:
+    """Called from api.py when user confirms payment via Mini App."""
+    if not _bot_instance or not ADMIN_ID:
+        return
+    await _bot_instance.send_message(
+        ADMIN_ID,
+        f"💰 *בקשת אישור תשלום \\(Mini App\\)!*\n\n"
+        f"👤 {name}\n🆔 {user_id}\n📦 {label}\n💵 {price} שח\n🔑 ref: {ref}\n\n"
+        f"לאחר אימות התשלום ב\\-PayPal לחץ אשר:",
+        parse_mode=ParseMode.MARKDOWN_V2,
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("✅ אשר ופתח גישה", callback_data=f"approve|{user_id}|{searches}"),
+            InlineKeyboardButton("❌ דחה",             callback_data=f"decline|{user_id}"),
+        ]]),
+    )
+
+
 async def handle_approve_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Admin approves payment — grant searches."""
     query = update.callback_query
@@ -1910,19 +1930,6 @@ async def handle_pdf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     )
 
 
-class HealthHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"OK")
-
-    def log_message(self, *args):
-        pass
-
-
-def run_health_server():
-    port = int(os.environ.get("PORT", 8080))
-    HTTPServer(("0.0.0.0", port), HealthHandler).serve_forever()
 
 
 async def run_self_ping():
@@ -1954,11 +1961,19 @@ def main() -> None:
     if not token:
         raise RuntimeError("TELEGRAM_BOT_TOKEN environment variable is not set")
 
-    Thread(target=run_health_server, daemon=True).start()
+    def _start_api():
+        import uvicorn
+        from api import api as fastapi_app
+        port = int(os.environ.get("PORT", 8080))
+        uvicorn.run(fastapi_app, host="0.0.0.0", port=port, log_level="warning")
+
+    Thread(target=_start_api, daemon=True).start()
     Thread(target=lambda: asyncio.run(run_self_ping()), daemon=True).start()
-    logger.info("Health server started")
+    logger.info("API server starting on port %s", os.environ.get("PORT", 8080))
 
     app = Application.builder().token(token).post_init(_post_init).build()
+    global _bot_instance
+    _bot_instance = app.bot
     app.add_handler(CommandHandler("myid",   cmd_myid))
     app.add_handler(CommandHandler("start",  cmd_start))
     app.add_handler(CommandHandler("help",   cmd_help))

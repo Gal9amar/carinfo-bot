@@ -1,20 +1,18 @@
 services:
   - type: web
     name: carinfo-bot
-    runtime: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: python bot.py
+    runtime: docker
     envVars:
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: ADMIN_TELEGRAM_ID
         value: "594206475"
-      - key: GITHUB_PAT
+      - key: WEBAPP_URL
+        value: "https://carinfo-bot.onrender.com"
+      - key: PAYPAL_ME
         sync: false
-      - key: GITHUB_REPO
-        value: "Gal9amar/carinfo-bot"
-      - key: GITHUB_DATA_PATH
-        value: "data/users.json"
-      - key: GITHUB_BRANCH
-        value: "main"
-    healthCheckPath: /
+      - key: TURSO_DATABASE_URL
+        sync: false
+      - key: TURSO_AUTH_TOKEN
+        sync: false
+    healthCheckPath: /health

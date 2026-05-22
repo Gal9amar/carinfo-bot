@@ -1,0 +1,52 @@
+import { useState } from 'react'
+import { initiatePayment } from '../api.js'
+
+export default function PackagesPage({ packages, user, onSelect }) {
+  const [loading, setLoading] = useState(null)
+
+  async function handleSelect(pkg) {
+    setLoading(pkg.id)
+    try {
+      const data = await initiatePayment(pkg.id)
+      onSelect(pkg, data)
+    } catch {
+      window.Telegram?.WebApp?.showAlert('שגיאה, נסה שוב.')
+    } finally {
+      setLoading(null)
+    }
+  }
+
+  return (
+    <div className="page">
+      <div className="page-title">🛒 רכישת חבילת חיפושים</div>
+
+      {user && (
+        <div className="card" style={{ marginBottom: 16, background: 'var(--bg2)' }}>
+          <span style={{ fontSize: 14, color: 'var(--hint)' }}>
+            שלום {user.first_name} · נותרו לך{' '}
+            <strong>{user.searches_left === -1 ? '∞' : user.searches_left}</strong> חיפושים
+          </span>
+        </div>
+      )}
+
+      {packages.map(pkg => {
+        const desc = pkg.searches === -1 ? 'ללא הגבלה' : `${pkg.searches} חיפושים`
+        return (
+          <div key={pkg.id} className="card">
+            <div className="card-title">{pkg.label}</div>
+            <div className="card-subtitle">{desc}</div>
+            <div className="price-badge">₪{pkg.price}</div>
+            <button
+              className="btn"
+              style={{ marginTop: 12 }}
+              disabled={loading === pkg.id}
+              onClick={() => handleSelect(pkg)}
+            >
+              {loading === pkg.id ? '...' : 'בחר חבילה'}
+            </button>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
