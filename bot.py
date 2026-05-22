@@ -373,9 +373,18 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         searches_info = "גישה מלאה פעילה ✅"
 
     await update.message.reply_text(
-        "👋 *ברוך הבא ל\\-CarInfo\\!*\n\n"
-        "🔍 שלח מספר לוחית רישוי \\(לדוגמה: 1234567\\)\n"
-        "ותקבל דוח מלא על הרכב תוך שניות\\.\n\n"
+        "🚗 *ברוך הבא ל\\-CarInfo\\!*\n"
+        "_הבוט החכם לבדיקת רכבים בישראל_\n\n"
+        "⚡ שלח מספר לוחית רישוי ותקבל תוך שניות:\n\n"
+        "📋 פרטי הרכב המלאים\n"
+        "👥 היסטוריית בעלויות\n"
+        "⚙️ מפרט טכני מלא\n"
+        "🛡️ בטיחות ו\\-ADAS\n"
+        "🔔 ריקולים פתוחים\n"
+        "💰 הערכת מחיר שוק\n\n"
+        "🔍 *כיצד להתחיל?*\n"
+        "פשוט שלח מספר לוחית רישוי\n"
+        "לדוגמה: _1234567_\n\n"
         f"🆓 {searches_info}",
         parse_mode=ParseMode.MARKDOWN_V2,
         reply_markup=_welcome_keyboard(False),
@@ -883,12 +892,44 @@ async def handle_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query    = update.callback_query
-    is_admin = query.from_user.id == ADMIN_ID
+    user_id  = query.from_user.id
+    is_admin = user_id == ADMIN_ID
     await query.answer()
+
+    from src.users import get_user_by_id, get_quota_expires
+    u    = await get_user_by_id(user_id)
+    left  = u.get("searches_left", 0) if u else 0
+    quota = u.get("searches_quota", 0) if u else 0
+    if quota == -1:
+        try:
+            expires = await get_quota_expires(user_id)
+            if expires:
+                from datetime import datetime as _dt
+                exp_str = _dt.strptime(expires, "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y")
+                _si = f"♾️ מנוי חודשי פעיל עד {_escape(exp_str)}"
+            else:
+                _si = "✅ גישה בלתי מוגבלת"
+        except Exception:
+            _si = "✅ גישה בלתי מוגבלת"
+    elif left > 0:
+        _si = f"נותרו לך *{left}* בדיקות\\."
+    else:
+        _si = "גישה מלאה פעילה ✅"
+
     await query.edit_message_text(
-        "👋 *ברוך הבא ל\\-CarInfo\\!*\n\n"
-        "🔍 שלח מספר לוחית רישוי \\(לדוגמה: 1234567\\)\n"
-        "ותקבל דוח מלא על הרכב תוך שניות\\.",
+        "🚗 *ברוך הבא ל\\-CarInfo\\!*\n"
+        "_הבוט החכם לבדיקת רכבים בישראל_\n\n"
+        "⚡ שלח מספר לוחית רישוי ותקבל תוך שניות:\n\n"
+        "📋 פרטי הרכב המלאים\n"
+        "👥 היסטוריית בעלויות\n"
+        "⚙️ מפרט טכני מלא\n"
+        "🛡️ בטיחות ו\\-ADAS\n"
+        "🔔 ריקולים פתוחים\n"
+        "💰 הערכת מחיר שוק\n\n"
+        "🔍 *כיצד להתחיל?*\n"
+        "פשוט שלח מספר לוחית רישוי\n"
+        "לדוגמה: _1234567_\n\n"
+        f"🆓 {_si}",
         parse_mode=ParseMode.MARKDOWN_V2,
         reply_markup=_welcome_keyboard(is_admin),
     )
@@ -906,25 +947,30 @@ async def handle_how_it_works(update: Update, context: ContextTypes.DEFAULT_TYPE
         desc = "ללא הגבלה" if searches == -1 else f"{searches} חיפושים"
         pkg_lines.append(f"• {_escape_md(label)} – ₪{price}")
 
+    pkg_text = "\n".join(pkg_lines) if pkg_lines else "אין חבילות זמינות כרגע"
     await query.edit_message_text(
-        "ℹ️ *איך CarInfo עובד?*\n\n"
-        "🔍 *מה המערכת מציגה לך על כל רכב:*\n"
-        "• פרטים כלליים – יצרן, דגם, שנה, צבע, מסגרת\n"
-        "• מפרט טכני – מנוע, הנעה, הילוכים, דלק, כוח סוס\n"
-        "• גלגלים וצמיגים\n"
-        "• ציוד ונוחות – מיזוג, הגה כוח, חלונות חשמל\n"
-        "• בטיחות ופליטות – ABS, ESP, כריות אוויר, CO2\n"
-        "• מערכות ADAS – בלימה אוטומטית, שמירת נתיב ועוד\n"
-        "• היסטוריה – רישום, טסט, ק\"מ, שינויי מבנה\n"
-        "• היסטוריית בעלויות – כמה בעלים, פרטי/סוחר\n"
-        "• ריקולים – תקלות ידועות של הדגם\n\n"
-        f"🆓 *חיפושים חינמיים:*\n"
-        f"כל משתמש חדש מקבל *{free} חיפושים חינמיים* לניסיון\n\n"
+        "ℹ️ *איך CarInfo עובד?*\n"
+        "_הבוט החכם לבדיקת רכבים בישראל_\n\n"
+        "⚡ *שלח לוחית רישוי — קבל דוח מלא תוך שניות*\n\n"
+        "📋 *מה מוצג על כל רכב:*\n"
+        "🚗 פרטים כלליים – יצרן, דגם, שנה, צבע\n"
+        "⚙️ מפרט טכני – מנוע, הנעה, דלק, כוח סוס\n"
+        "🛞 גלגלים וצמיגים\n"
+        "🪑 ציוד ונוחות – מיזוג, הגה כוח, חלונות\n"
+        "🛡️ בטיחות – ABS, ESP, כריות אוויר, CO2\n"
+        "🤖 מערכות ADAS – בלימה אוטומטית, שמירת נתיב\n"
+        "📅 היסטוריה – רישום, טסט, ק\"מ, שינויי מבנה\n"
+        "👥 בעלויות – כמה בעלים, פרטי/סוחר\n"
+        "💰 הערכת מחיר שוק – על בסיס Yad2\n"
+        "🚨 בדיקת גנבה – מאגר המשטרה\n"
+        "⚠️ ריקולים – תקלות ידועות של הדגם\n\n"
+        f"🆓 *חינמי:* כל משתמש חדש מקבל *{free} חיפושים* לניסיון\n\n"
+        "🎁 *קבל חיפושים במתנה:*\n"
+        "הפנה חברים לבוט וקבל חיפושים על כל הצטרפות\n\n"
         "📦 *חבילות חיפוש:*\n"
-        + "\n".join(pkg_lines) + "\n\n"
-        "💡 *איך משתמשים?*\n"
-        "פשוט שלח מספר לוחית רישוי \\(לדוגמה: 1234567\\)\n"
-        "והמערכת תחזיר לך דוח מלא תוך שניות\\.",
+        f"{pkg_text}\n\n"
+        "🔑 *קוד גישה?* שלח `/code XXXXXXXX`\n"
+        "🎫 *תמיכה?* לחץ על כפתור התמיכה בתפריט",
         parse_mode=ParseMode.MARKDOWN_V2,
         reply_markup=_persistent_keyboard(is_admin),
     )
