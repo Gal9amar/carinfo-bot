@@ -1231,7 +1231,7 @@ async def handle_approve_callback(update: Update, context: ContextTypes.DEFAULT_
         target   = int(parts[1])
         searches = int(parts[2])
 
-        admin_grant(ADMIN_ID, target, searches, note="PayPal payment approved")
+        await admin_grant(ADMIN_ID, target, searches, note="PayPal payment approved")
 
         desc = "מנוי חודשי ללא הגבלה" if searches == -1 else f"{searches} בדיקות"
         await query.edit_message_text(f"✅ אושר! {desc} למשתמש {target}")
@@ -1289,7 +1289,7 @@ async def handle_successful_payment(update: Update, context: ContextTypes.DEFAUL
     except Exception:
         return
 
-    admin_grant(user_id, searches)
+    await admin_grant(ADMIN_ID, user_id, searches, note="Telegram payment")
 
     amount_ils = payment.total_amount // 100
     await update.message.reply_text(
