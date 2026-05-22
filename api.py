@@ -116,6 +116,38 @@ class PaymentConfirmRequest(BaseModel):
     package_id: int
 
 
+async def _notify_admin_payment(user_id: int, name: str, label: str, searches: int, price: int, ref: str) -> None:
+    """Notify the Telegram admin without importing bot.py as a second module."""
+    if not BOT_TOKEN or not ADMIN_ID:
+        raise RuntimeError("Telegram bot token/admin id is not configured")
+
+    import httpx
+
+    text = (
+        "💰 בקשת אישור תשלום (Mini App)!\n\n"
+        f"👤 {name}\n"
+        f"🆔 {user_id}\n"
+        f"📦 {label}\n"
+        f"💵 {price} שח\n"
+        f"🔑 ref: {ref}\n\n"
+        "לאחר אימות התשלום ב-PayPal לחץ אשר:"
+    )
+    reply_markup = {
+        "inline_keyboard": [[
+            {"text": "✅ אשר ופתח גישה", "callback_data": f"approve|{user_id}|{searches}"},
+            {"text": "❌ דחה", "callback_data": f"decline|{user_id}"},
+        ]]
+    }
+    async with httpx.AsyncClient(timeout=10) as client:
+        response = await client.post(
+            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+            json={"chat_id": ADMIN_ID, "text": text, "reply_markup": reply_markup},
+        )
+    data = response.json()
+    if response.status_code >= 400 or not data.get("ok"):
+        raise RuntimeError(f"Telegram sendMessage failed: {response.status_code} {data}")
+
+
 @api.post("/api/payment/confirm")
 async def confirm_payment(body: PaymentConfirmRequest, user: dict = Depends(_get_user)):
     """User clicked 'I paid' — notify admin via bot."""
@@ -125,14 +157,12 @@ async def confirm_payment(body: PaymentConfirmRequest, user: dict = Depends(_get
     if not pkg:
         raise HTTPException(status_code=404, detail="Package not found")
     pid, label, searches, price = pkg
-    # Trigger admin notification via shared bot instance
     try:
-        from bot import _notify_admin_payment
         uid  = int(user["id"])
         name = user.get("first_name", str(uid))
         await _notify_admin_payment(uid, name, label, searches, price, body.ref)
-    except Exception:
-        pass
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="Failed to notify admin") from exc
     return {"ok": True}
 
 
