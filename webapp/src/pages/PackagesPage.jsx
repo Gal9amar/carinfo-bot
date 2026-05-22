@@ -36,6 +36,27 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
         </div>
       )}
 
+      {/* Free searches CTA */}
+      <button
+        onClick={onReferral}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 14, width: '100%',
+          background: 'linear-gradient(135deg, #38a169 0%, #276749 100%)',
+          border: 'none', borderRadius: 16, padding: '14px 18px',
+          marginBottom: 20, cursor: 'pointer', textAlign: 'right',
+        }}
+      >
+        <span style={{ fontSize: 36, flexShrink: 0 }}>🎁</span>
+        <div>
+          <div style={{ color: '#fff', fontWeight: 700, fontSize: 16, marginBottom: 3 }}>
+            קבל חיפושים בחינם!
+          </div>
+          <div style={{ color: 'rgba(255,255,255,0.82)', fontSize: 13 }}>
+            הפנה חברים וקבל חיפושים על כל הצטרפות ←
+          </div>
+        </div>
+      </button>
+
       {packages.length === 0 && (
         <div className="card" style={{ textAlign: 'center', color: 'var(--hint)', fontSize: 14 }}>
           אין חבילות זמינות כרגע
