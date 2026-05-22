@@ -105,89 +105,6 @@ function PackagesTab() {
 
   if (!pkgs) return <div className="loading">⏳</div>
 
-  const Modal = ({ title, onSave, onClose }) => {
-    const fileRef = useRef(null)
-    const [compressing, setCompressing] = useState(false)
-
-    function handleFile(e) {
-      const file = e.target.files?.[0]
-      if (!file) return
-      setCompressing(true)
-      const reader = new FileReader()
-      reader.onload = ev => {
-        const img = new Image()
-        img.onload = () => {
-          const MAX = 800
-          const ratio = Math.min(MAX / img.width, MAX / img.height, 1)
-          const canvas = document.createElement('canvas')
-          canvas.width  = Math.round(img.width  * ratio)
-          canvas.height = Math.round(img.height * ratio)
-          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.82)
-          setForm(f => ({ ...f, image_url: dataUrl }))
-          setCompressing(false)
-        }
-        img.src = ev.target.result
-      }
-      reader.readAsDataURL(file)
-    }
-
-    return (
-      <div className="modal-overlay" onClick={onClose}>
-        <div className="modal" onClick={e => e.stopPropagation()}>
-          <div className="modal-title">{title}</div>
-          <input className="input" placeholder="שם החבילה" value={form.label} onChange={e => setForm(f => ({...f, label: e.target.value}))} />
-          <input className="input" placeholder="חיפושים (-1 לבלתי מוגבל)" type="number" value={form.searches} onChange={e => setForm(f => ({...f, searches: e.target.value}))} />
-          <input className="input" placeholder="מחיר (₪)" type="number" value={form.price} onChange={e => setForm(f => ({...f, price: e.target.value}))} />
-
-          {/* Image section */}
-          {form.image_url ? (
-            <div style={{ position: 'relative', marginBottom: 8 }}>
-              <img
-                src={form.image_url}
-                alt="תצוגה מקדימה"
-                style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 8, display: 'block' }}
-                onError={e => { e.target.style.display = 'none' }}
-              />
-              <button
-                onClick={() => setForm(f => ({ ...f, image_url: '' }))}
-                style={{
-                  position: 'absolute', top: 6, left: 6,
-                  background: 'rgba(0,0,0,0.55)', color: '#fff',
-                  border: 'none', borderRadius: '50%', width: 28, height: 28,
-                  fontSize: 14, cursor: 'pointer', lineHeight: 1,
-                }}
-              >✕</button>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{ flex: 1, marginTop: 0, fontSize: 13 }}
-                disabled={compressing}
-                onClick={() => fileRef.current?.click()}
-              >
-                {compressing ? '⏳ מכווץ...' : '📷 העלאה מהמכשיר'}
-              </button>
-              <input
-                className="input"
-                style={{ flex: 2, marginBottom: 0 }}
-                placeholder="או הדבק כתובת URL"
-                value={form.image_url}
-                onChange={e => setForm(f => ({ ...f, image_url: e.target.value }))}
-              />
-            </div>
-          )}
-          <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
-
-          <button className="btn" disabled={saving} onClick={onSave}>{saving ? '...' : 'שמור'}</button>
-          <button className="btn btn-secondary" style={{marginTop: 8}} onClick={onClose}>ביטול</button>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div>
       {pkgs.map(pkg => {
@@ -217,8 +134,118 @@ function PackagesTab() {
         ➕ הוסף חבילה
       </button>
 
-      {editing && <Modal title="✏️ עריכת חבילה" onSave={saveEdit} onClose={() => setEditing(null)} />}
-      {adding  && <Modal title="➕ חבילה חדשה"  onSave={saveAdd}  onClose={() => setAdding(false)} />}
+      {editing && (
+        <PackageModal
+          title="✏️ עריכת חבילה"
+          form={form} setForm={setForm}
+          saving={saving} onSave={saveEdit} onClose={() => setEditing(null)}
+        />
+      )}
+      {adding && (
+        <PackageModal
+          title="➕ חבילה חדשה"
+          form={form} setForm={setForm}
+          saving={saving} onSave={saveAdd} onClose={() => setAdding(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+function PackageModal({ title, form, setForm, saving, onSave, onClose }) {
+  const fileRef = useRef(null)
+  const [compressing, setCompressing] = useState(false)
+
+  function handleFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setCompressing(true)
+    const reader = new FileReader()
+    reader.onload = ev => {
+      const img = new Image()
+      img.onload = () => {
+        const MAX = 800
+        const ratio = Math.min(MAX / img.width, MAX / img.height, 1)
+        const canvas = document.createElement('canvas')
+        canvas.width  = Math.round(img.width  * ratio)
+        canvas.height = Math.round(img.height * ratio)
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+        setForm(f => ({ ...f, image_url: canvas.toDataURL('image/jpeg', 0.82) }))
+        setCompressing(false)
+      }
+      img.src = ev.target.result
+    }
+    reader.readAsDataURL(file)
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-title">{title}</div>
+        <input
+          className="input"
+          placeholder="שם החבילה"
+          value={form.label}
+          onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
+        />
+        <input
+          className="input"
+          placeholder="חיפושים (-1 לבלתי מוגבל)"
+          type="number"
+          value={form.searches}
+          onChange={e => setForm(f => ({ ...f, searches: e.target.value }))}
+        />
+        <input
+          className="input"
+          placeholder="מחיר (₪)"
+          type="number"
+          value={form.price}
+          onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
+        />
+
+        {form.image_url ? (
+          <div style={{ position: 'relative', marginBottom: 8 }}>
+            <img
+              src={form.image_url}
+              alt="תצוגה מקדימה"
+              style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 8, display: 'block' }}
+              onError={e => { e.target.style.display = 'none' }}
+            />
+            <button
+              onClick={() => setForm(f => ({ ...f, image_url: '' }))}
+              style={{
+                position: 'absolute', top: 6, left: 6,
+                background: 'rgba(0,0,0,0.55)', color: '#fff',
+                border: 'none', borderRadius: '50%', width: 28, height: 28,
+                fontSize: 14, cursor: 'pointer', lineHeight: 1,
+              }}
+            >✕</button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ flex: 1, marginTop: 0, fontSize: 13 }}
+              disabled={compressing}
+              onClick={() => fileRef.current?.click()}
+            >
+              {compressing ? '⏳ מכווץ...' : '📷 העלאה מהמכשיר'}
+            </button>
+            <input
+              className="input"
+              style={{ flex: 2, marginBottom: 0 }}
+              placeholder="או הדבק כתובת URL"
+              value={form.image_url}
+              onChange={e => setForm(f => ({ ...f, image_url: e.target.value }))}
+            />
+          </div>
+        )}
+        <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
+
+        <button className="btn" disabled={saving} onClick={onSave}>{saving ? '...' : 'שמור'}</button>
+        <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={onClose}>ביטול</button>
+      </div>
     </div>
   )
 }
