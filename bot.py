@@ -38,6 +38,7 @@ from src.formatter import (
     get_summary,
     get_share_text,
     yad2_label,
+    quick_summary,
 )
 from src.pdf_report import generate_pdf
 from src import yad2 as _yad2
@@ -774,11 +775,13 @@ async def handle_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             await query.message.reply_text(format_not_found(plate), parse_mode=ParseMode.MARKDOWN_V2)
             return
         context.user_data["last_record"] = record
-        summary = get_summary(record)
+        context.user_data["last_share_text"] = get_share_text(record)
+        card = f"🔖 לוחית: `{plate}`\n" + quick_summary(record)
+        yad2_link = _yad2.build_url(record)
         await query.message.reply_text(
-            summary,
+            card,
             parse_mode=ParseMode.MARKDOWN_V2,
-            reply_markup=_persistent_keyboard(is_admin),
+            reply_markup=build_result_keyboard(is_admin=is_admin, record=record, yad2_link=yad2_link),
         )
         return
 
@@ -1740,10 +1743,10 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await set_last_plate(user_id, plate)
 
     try:
-        summary = get_summary(record)
+        card = f"🔖 לוחית: `{plate}`\n" + quick_summary(record)
         context.user_data["last_share_text"] = get_share_text(record)
     except Exception as exc:
-        logger.error("get_summary failed for plate %s: %s", plate, exc)
+        logger.error("quick_summary failed for plate %s: %s", plate, exc)
         if searching_msg:
             try:
                 await searching_msg.delete()
@@ -1765,14 +1768,14 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                     expires_str = _dt.fromisoformat(expires[:10]).strftime("%d/%m/%Y")
                 except Exception:
                     expires_str = expires[:10].replace("-", "\\-")
-                summary += f"\n\n_♾️ מנוי חודשי פעיל — תוקף עד {expires_str}_"
+                card += f"\n\n_♾️ מנוי חודשי פעיל — תוקף עד {expires_str}_"
             else:
-                summary += "\n\n_✅ גישה בלתי מוגבלת_"
+                card += "\n\n_✅ גישה בלתי מוגבלת_"
         elif left > 0:
             remaining = left - 1
             label = "בדיקות" if remaining != 1 else "בדיקה"
             emoji = "🟢" if remaining > 5 else ("🟡" if remaining > 1 else "🔴")
-            summary += f"\n\n_{emoji} נותרו לך {remaining} {label}_"
+            card += f"\n\n_{emoji} נותרו לך {remaining} {label}_"
 
     if searching_msg:
         try:
@@ -1783,7 +1786,7 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     yad2_link = _yad2.build_url(record)
     try:
         await update.message.reply_text(
-            summary,
+            card,
             parse_mode=ParseMode.MARKDOWN_V2,
             reply_markup=build_result_keyboard(
                 is_admin=(user_id == ADMIN_ID),
@@ -1794,7 +1797,7 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     except Exception as exc:
         logger.error("reply_text MarkdownV2 failed for plate %s: %s", plate, exc)
         try:
-            plain = summary.replace("\\", "")
+            plain = card.replace("\\", "")
             await update.message.reply_text(
                 plain,
                 reply_markup=build_result_keyboard(
