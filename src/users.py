@@ -9,7 +9,38 @@ from typing import Optional
 
 from src.db import execute
 
-FREE_SEARCHES = 10
+FREE_SEARCHES   = 10   # base welcome quota (loaded from DB at startup)
+PROMO_SEARCHES  = 0    # 0 = inactive, -1 = unlimited, >0 = specific count
+PROMO_START     = ''   # 'YYYY-MM-DD' or '' (no restriction)
+PROMO_END       = ''   # 'YYYY-MM-DD' or '' (no expiry)
+
+
+def get_current_welcome_quota() -> int:
+    """Returns the quota a new user should receive right now."""
+    from datetime import date
+    if PROMO_SEARCHES != 0:
+        today = date.today().isoformat()
+        start_ok = (not PROMO_START) or (today >= PROMO_START)
+        end_ok   = (not PROMO_END)   or (today <= PROMO_END)
+        if start_ok and end_ok:
+            return PROMO_SEARCHES
+    return FREE_SEARCHES
+
+
+async def load_welcome_settings() -> None:
+    """Load welcome/promo settings from DB into module-level vars."""
+    global FREE_SEARCHES, PROMO_SEARCHES, PROMO_START, PROMO_END
+    from src.db import get_bot_setting
+    try:
+        fs = await get_bot_setting("free_searches")
+        if fs:
+            FREE_SEARCHES = int(fs)
+        ps = await get_bot_setting("promo_searches")
+        PROMO_SEARCHES = int(ps) if ps else 0
+        PROMO_START = (await get_bot_setting("promo_start")) or ''
+        PROMO_END   = (await get_bot_setting("promo_end"))   or ''
+    except Exception:
+        pass
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
@@ -36,7 +67,7 @@ async def _ensure_user(user_id: int, username: str = "", full_name: str = "") ->
             full_name = CASE WHEN excluded.full_name != '' THEN excluded.full_name ELSE users.full_name END,
             last_seen = datetime('now')
         """,
-        [user_id, username, full_name, FREE_SEARCHES],
+        [user_id, username, full_name, get_current_welcome_quota()],
     )
 
 
@@ -417,7 +448,7 @@ async def _ensure_wa_user(phone: str, name: str = "") -> int:
             whatsapp_phone = excluded.whatsapp_phone,
             last_seen      = datetime('now')
         """,
-        [user_id, phone, name, FREE_SEARCHES, phone],
+        [user_id, phone, name, get_current_welcome_quota(), phone],
     )
     return user_id
 

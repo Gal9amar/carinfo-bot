@@ -61,6 +61,16 @@ async def _require_admin(user: dict = Depends(_get_user)) -> dict:
     return user
 
 
+# ── Startup ─────────────────────────────────────────────────────────────────
+@api.on_event("startup")
+async def _startup():
+    from src.users import load_welcome_settings
+    try:
+        await load_welcome_settings()
+    except Exception:
+        pass
+
+
 # ── Health ──────────────────────────────────────────────────────────────────
 @api.get("/health")
 async def health():
@@ -192,16 +202,22 @@ async def admin_get_settings(_: dict = Depends(_require_admin)):
     from src.db import get_bot_setting
     import src.users as _u
     return {
-        "maintenance": (await get_bot_setting("maintenance")) == "1",
-        "free_searches": _u.FREE_SEARCHES,
+        "maintenance":    (await get_bot_setting("maintenance")) == "1",
+        "free_searches":  _u.FREE_SEARCHES,
         "referral_bonus": int((await get_bot_setting("referral_bonus")) or "10"),
+        "promo_searches": _u.PROMO_SEARCHES,
+        "promo_start":    _u.PROMO_START,
+        "promo_end":      _u.PROMO_END,
     }
 
 
 class SettingsUpdate(BaseModel):
-    maintenance: bool | None = None
-    free_searches: int | None = None
-    referral_bonus: int | None = None
+    maintenance:    bool | None = None
+    free_searches:  int  | None = None
+    referral_bonus: int  | None = None
+    promo_searches: int  | None = None
+    promo_start:    str  | None = None
+    promo_end:      str  | None = None
 
 
 @api.post("/api/admin/settings")
@@ -211,13 +227,23 @@ async def admin_update_settings(body: SettingsUpdate, _: dict = Depends(_require
     if body.maintenance is not None:
         await set_bot_setting("maintenance", "1" if body.maintenance else "0")
     if body.free_searches is not None:
-        _u.FREE_SEARCHES = body.free_searches
+        _u.FREE_SEARCHES = max(0, body.free_searches)
+        await set_bot_setting("free_searches", str(_u.FREE_SEARCHES))
     if body.referral_bonus is not None:
         try:
             rb = max(1, int(body.referral_bonus))
             await set_bot_setting("referral_bonus", str(rb))
         except Exception:
             pass
+    if body.promo_searches is not None:
+        _u.PROMO_SEARCHES = body.promo_searches
+        await set_bot_setting("promo_searches", str(_u.PROMO_SEARCHES))
+    if body.promo_start is not None:
+        _u.PROMO_START = body.promo_start.strip()
+        await set_bot_setting("promo_start", _u.PROMO_START)
+    if body.promo_end is not None:
+        _u.PROMO_END = body.promo_end.strip()
+        await set_bot_setting("promo_end", _u.PROMO_END)
     return {"ok": True}
 
 
