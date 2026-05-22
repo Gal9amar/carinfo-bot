@@ -4,6 +4,7 @@ import {
   adminUpdateSettings, adminFetchPackages,
   adminAddPackage, adminUpdatePackage, adminDeletePackage,
   adminGrantUser,
+  adminFetchTickets, adminFetchTicket, adminReplyTicket, adminUpdateTicketStatus,
 } from '../api.js'
 
 const TABS = [
@@ -11,6 +12,7 @@ const TABS = [
   { id: 'packages', label: '💰 חבילות' },
   { id: 'users',    label: '👥 משתמשים' },
   { id: 'settings', label: '⚙️ הגדרות' },
+  { id: 'tickets',  label: '🎫 טיקטים' },
 ]
 
 export default function AdminPage({ user }) {
@@ -34,6 +36,7 @@ export default function AdminPage({ user }) {
       {tab === 'packages' && <PackagesTab />}
       {tab === 'users'    && <UsersTab />}
       {tab === 'settings' && <SettingsTab />}
+      {tab === 'tickets'  && <TicketsTab />}
     </div>
   )
 }
@@ -352,6 +355,195 @@ function SettingsTab() {
           {saving ? '...' : 'שמור'}
         </button>
       </div>
+    </div>
+  )
+}
+
+const STATUS_LABEL = { open: 'פתוח', in_progress: 'בטיפול', closed: 'סגור' }
+const STATUS_COLOR = { open: '#e07b00', in_progress: '#2481cc', closed: '#38a169' }
+
+function TicketsTab() {
+  const [tickets, setTickets] = useState(null)
+  const [filter, setFilter] = useState('') // '' = all
+  const [selected, setSelected] = useState(null)
+
+  async function load() {
+    const data = await adminFetchTickets(filter || undefined)
+    setTickets(data)
+  }
+
+  useEffect(() => { load().catch(() => {}) }, [filter])
+
+  if (selected) {
+    return (
+      <AdminTicketThread
+        ticketId={selected}
+        onBack={async () => { setSelected(null); await load() }}
+      />
+    )
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+        {[['', 'הכל'], ['open', 'פתוח'], ['in_progress', 'בטיפול'], ['closed', 'סגור']].map(([val, label]) => (
+          <button
+            key={val}
+            onClick={() => setFilter(val)}
+            style={{
+              padding: '5px 12px', fontSize: 12, borderRadius: 20, border: '1.5px solid var(--btn)',
+              background: filter === val ? 'var(--btn)' : 'transparent',
+              color: filter === val ? 'var(--btn-text)' : 'var(--btn)',
+              cursor: 'pointer',
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {!tickets && <div className="loading">⏳</div>}
+      {tickets && tickets.length === 0 && (
+        <div style={{ textAlign: 'center', color: 'var(--hint)', fontSize: 14, padding: 20 }}>אין פניות</div>
+      )}
+      {tickets && tickets.map(t => {
+        const name = t.username ? `@${t.username}` : t.full_name || `id:${t.user_id}`
+        return (
+          <div key={t.id} className="card" style={{ cursor: 'pointer' }} onClick={() => setSelected(t.id)}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <div className="card-title" style={{ fontSize: 14 }}>#{t.id} · {t.subject}</div>
+                <div className="card-subtitle">{name} · {t.created_at?.slice(0, 10)}</div>
+              </div>
+              <span style={{
+                fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10,
+                background: STATUS_COLOR[t.status] + '22', color: STATUS_COLOR[t.status],
+                whiteSpace: 'nowrap', marginRight: 8,
+              }}>
+                {STATUS_LABEL[t.status]}
+              </span>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function AdminTicketThread({ ticketId, onBack }) {
+  const [ticket, setTicket] = useState(null)
+  const [reply, setReply] = useState('')
+  const [sending, setSending] = useState(false)
+  const [updating, setUpdating] = useState(false)
+
+  async function load() {
+    const t = await adminFetchTicket(ticketId)
+    setTicket(t)
+  }
+
+  useEffect(() => { load().catch(() => {}) }, [ticketId])
+
+  async function sendReply() {
+    if (!reply.trim()) return
+    setSending(true)
+    try {
+      await adminReplyTicket(ticketId, reply.trim())
+      setReply('')
+      await load()
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    setSending(false)
+  }
+
+  async function changeStatus(status) {
+    setUpdating(true)
+    try {
+      await adminUpdateTicketStatus(ticketId, status)
+      await load()
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    setUpdating(false)
+  }
+
+  if (!ticket) return <div className="loading">⏳</div>
+
+  const allMessages = [
+    { id: 'orig', sender_name: ticket.full_name || ticket.username || `id:${ticket.user_id}`, is_admin: false, message: ticket.message, created_at: ticket.created_at },
+    ...(ticket.replies || []),
+  ]
+
+  const name = ticket.username ? `@${ticket.username}` : ticket.full_name || `id:${ticket.user_id}`
+
+  return (
+    <div style={{ paddingBottom: 80 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+        <button onClick={onBack} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--btn)', padding: '0 4px' }}>›</button>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>#{ticket.id} · {ticket.subject}</div>
+          <div style={{ fontSize: 12, color: 'var(--hint)' }}>{name}</div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
+        {[['open','🔴 פתוח'], ['in_progress','🟡 בטיפול'], ['closed','🟢 סגור']].map(([val, label]) => (
+          <button
+            key={val}
+            disabled={updating || ticket.status === val}
+            onClick={() => changeStatus(val)}
+            style={{
+              padding: '5px 12px', fontSize: 12, borderRadius: 20, border: '1.5px solid var(--btn)',
+              background: ticket.status === val ? 'var(--btn)' : 'transparent',
+              color: ticket.status === val ? 'var(--btn-text)' : 'var(--btn)',
+              cursor: ticket.status === val ? 'default' : 'pointer',
+              opacity: updating ? 0.6 : 1,
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {allMessages.map((msg, i) => (
+        <div key={msg.id || i} style={{
+          display: 'flex', flexDirection: 'column',
+          alignItems: msg.is_admin ? 'flex-end' : 'flex-start',
+          marginBottom: 10,
+        }}>
+          <div style={{
+            maxWidth: '85%',
+            background: msg.is_admin ? 'var(--btn)' : 'var(--bg2)',
+            color: msg.is_admin ? 'var(--btn-text)' : 'var(--text)',
+            borderRadius: msg.is_admin ? '16px 4px 16px 16px' : '4px 16px 16px 16px',
+            padding: '10px 14px', fontSize: 14, lineHeight: 1.5, wordBreak: 'break-word',
+          }}>
+            {msg.message}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--hint)', marginTop: 3 }}>
+            {msg.is_admin ? '🛠 תמיכה' : name} · {msg.created_at?.slice(0, 16).replace('T', ' ')}
+          </div>
+        </div>
+      ))}
+
+      {ticket.status !== 'closed' && (
+        <div style={{ position: 'fixed', bottom: 0, right: 0, left: 0, padding: '10px 16px', background: 'var(--bg)', borderTop: '1px solid var(--bg2)', zIndex: 10 }}>
+          <div style={{ display: 'flex', gap: 8, maxWidth: 480, margin: '0 auto' }}>
+            <input
+              className="input"
+              style={{ flex: 1, marginBottom: 0 }}
+              placeholder="תגובה למשתמש..."
+              value={reply}
+              onChange={e => setReply(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && sendReply()}
+            />
+            <button
+              className="btn"
+              style={{ width: 'auto', padding: '0 16px', marginTop: 0 }}
+              disabled={sending || !reply.trim()}
+              onClick={sendReply}
+            >
+              {sending ? '⏳' : '↑'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
