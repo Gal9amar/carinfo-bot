@@ -296,9 +296,9 @@ export default function ReportPage({ plate }) {
       <div style={{ textAlign: 'center', marginBottom: 16 }}>
         <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 4 }}>דוח רכב</div>
         <div style={{
-          display: 'inline-block', background: 'var(--btn)', color: 'var(--btn-text)',
+          display: 'inline-block', background: '#FFCC00', color: '#000',
           fontWeight: 800, fontSize: 24, padding: '8px 28px', borderRadius: 10,
-          letterSpacing: 3, marginBottom: 8,
+          letterSpacing: 3, marginBottom: 8, border: '2px solid #222',
         }}>{plateNum}</div>
         <div style={{ fontSize: 16, fontWeight: 600 }}>
           {[make, model, year].filter(Boolean).join(' · ')}
