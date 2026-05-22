@@ -138,6 +138,13 @@ async def init_db() -> None:
     created_at  TEXT    DEFAULT (datetime('now'))
 )""",
         "ALTER TABLE users ADD COLUMN referred_by INTEGER DEFAULT NULL",
+        """CREATE TABLE IF NOT EXISTS referrals (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    referrer_id INTEGER NOT NULL,
+    referee_id  INTEGER NOT NULL,
+    bonus       INTEGER NOT NULL DEFAULT 10,
+    joined_at   TEXT    DEFAULT (datetime('now'))
+)""",
     ]
     for sql in statements:
         conn.execute(sql)

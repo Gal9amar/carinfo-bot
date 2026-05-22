@@ -260,17 +260,47 @@ async def check_new_user(user_id: int) -> bool:
     return not bool(r.rows)
 
 
-async def record_referral(new_user_id: int, referrer_id: int) -> None:
+async def record_referral(new_user_id: int, referrer_id: int, bonus: int = 10) -> None:
     """Record that new_user_id was referred by referrer_id (only if not already set)."""
     r = await execute("SELECT referred_by FROM users WHERE user_id=?", [new_user_id])
     if r.rows and r.rows[0][0] is None:
         await execute("UPDATE users SET referred_by=? WHERE user_id=?", [referrer_id, new_user_id])
+        await execute(
+            "INSERT INTO referrals (referrer_id, referee_id, bonus) VALUES (?, ?, ?)",
+            [referrer_id, new_user_id, bonus],
+        )
 
 
 async def get_referral_count(user_id: int) -> int:
     """Count how many users this user has successfully referred."""
-    r = await execute("SELECT COUNT(*) FROM users WHERE referred_by=?", [user_id])
+    r = await execute("SELECT COUNT(*) FROM referrals WHERE referrer_id=?", [user_id])
     return r.rows[0][0] if r.rows else 0
+
+
+async def get_referrals(referrer_id: int) -> list[dict]:
+    """Return all referrals made by referrer_id with the referred user's info."""
+    r = await execute(
+        """SELECT rf.id, rf.referee_id, rf.bonus, rf.joined_at,
+                  u.username, u.full_name
+           FROM referrals rf
+           LEFT JOIN users u ON u.user_id = rf.referee_id
+           WHERE rf.referrer_id = ?
+           ORDER BY rf.joined_at DESC""",
+        [referrer_id],
+    )
+    result = []
+    for row in r.rows:
+        username  = row[4] or ""
+        full_name = row[5] or ""
+        name = f"@{username}" if username else (full_name or f"id:{row[1]}")
+        result.append({
+            "id":        row[0],
+            "referee_id": row[1],
+            "bonus":     row[2],
+            "joined_at": row[3],
+            "name":      name,
+        })
+    return result
 
 
 async def get_all_users() -> list[dict]:

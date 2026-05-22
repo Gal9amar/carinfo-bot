@@ -604,6 +604,12 @@ async def admin_get_activity(limit: int = 100, _: dict = Depends(_require_admin)
     return await get_log(min(limit, 200))
 
 
+@api.get("/api/user/referrals")
+async def user_referrals_list(user: dict = Depends(_get_user)):
+    from src.users import get_referrals
+    return await get_referrals(int(user["id"]))
+
+
 @api.get("/api/user/referral")
 async def user_referral_info(user: dict = Depends(_get_user)):
     from src.users import get_referral_count

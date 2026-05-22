@@ -30,7 +30,7 @@ from src.users import (
     admin_stats, admin_grant, get_all_users, get_user_by_username, get_user_by_id,
     block_user, unblock_user, is_blocked,
     get_last_plate, set_last_plate, get_search_history,
-    check_new_user, record_referral, get_referral_count,
+    check_new_user, record_referral, get_referral_count, get_referrals,
 )
 from src.formatter import (
     format_error,
@@ -298,10 +298,10 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     if is_new and referrer_id:
         try:
-            await record_referral(user_id, referrer_id)
             from src.db import get_bot_setting, execute as _db_execute
             bonus_str = await get_bot_setting("referral_bonus")
             bonus = int(bonus_str) if bonus_str and bonus_str.isdigit() else 10
+            await record_referral(user_id, referrer_id, bonus)
             await _db_execute(
                 "UPDATE users SET searches_quota = searches_quota + ? WHERE user_id = ? AND searches_quota >= 0",
                 [bonus, referrer_id],

@@ -268,6 +268,13 @@ export async function fetchReferral() {
   return r.json()
 }
 
+// List of users referred by current user
+export async function fetchReferrals() {
+  const r = await fetch(`${BASE}/api/user/referrals`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
 // Gift searches to all users
 export async function adminGiftAll(searches, message, image_b64 = '') {
   const r = await fetch(`${BASE}/api/admin/gift-all`, {
