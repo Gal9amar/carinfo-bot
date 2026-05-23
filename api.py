@@ -134,7 +134,7 @@ async def get_user_info(user: dict = Depends(_get_user)):
 
     # Find matching package label by searches count
     subscription_label = None
-    if is_subscriber:
+    if is_subscriber or quota == -1:
         pkg_r = await execute(
             "SELECT label FROM packages WHERE searches=? ORDER BY price DESC LIMIT 1",
             [quota]

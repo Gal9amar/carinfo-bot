@@ -14,7 +14,7 @@ const adminMenuItem = { id: 'admin', icon: '🛠', label: 'פאנל מנהל', s
 export default function HomePage({ user, onNavigate }) {
   const searchesLeft   = user?.searches_left
   const isUnlimited    = searchesLeft === -1
-  const isSubscriber   = !!user?.is_subscriber
+  const isSubscriber   = !!user?.is_subscriber || isUnlimited
 
   return (
     <div className="page" style={{ paddingBottom: 24 }}>
@@ -27,10 +27,9 @@ export default function HomePage({ user, onNavigate }) {
           {user ? (
             <div style={{ fontSize: 13, color: 'var(--hint)' }}>
               שלום {user.first_name} ·{' '}
-              {isUnlimited
-                ? <span style={{ color: '#7928ca', fontWeight: 600 }}>ללא הגבלה ♾️</span>
-                : <><strong style={{ color: searchesLeft === 0 ? '#e53e3e' : 'var(--btn)' }}>{searchesLeft}</strong> חיפושים נותרו</>
-              }
+              <strong style={{ color: searchesLeft === 0 ? '#e53e3e' : 'var(--btn)' }}>
+                {isUnlimited ? '∞' : searchesLeft}
+              </strong> חיפושים נותרו
             </div>
           ) : (
             <div style={{ fontSize: 13, color: 'var(--hint)' }}>בדיקת רכבים מהירה</div>
@@ -38,7 +37,6 @@ export default function HomePage({ user, onNavigate }) {
         </div>
         {isSubscriber && (
           <div style={{
-            display: 'flex', alignItems: 'center', gap: 5,
             background: 'linear-gradient(135deg,#1e40af,#0ea5e9)',
             color: '#000', borderRadius: 20, padding: '5px 12px',
             fontSize: 12, fontWeight: 400, flexShrink: 0,
