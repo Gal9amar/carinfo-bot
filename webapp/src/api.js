@@ -40,13 +40,8 @@ export async function confirmPayment(ref, packageId) {
   return r.json()
 }
 
-export async function fetchVehicle(plate, deduct = false) {
-  const url = deduct ? `${BASE}/api/vehicle/${plate}?deduct=1` : `${BASE}/api/vehicle/${plate}`
-  const r = await fetch(url, { headers: headers() })
-  if (r.status === 402) {
-    const body = await r.json().catch(() => ({}))
-    throw Object.assign(new Error(body.detail || 'אין חיפושים'), { code: 402 })
-  }
+export async function fetchVehicle(plate) {
+  const r = await fetch(`${BASE}/api/vehicle/${plate}`, { headers: headers() })
   if (!r.ok) throw new Error('Vehicle not found')
   return r.json()
 }
