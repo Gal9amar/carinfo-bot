@@ -29,8 +29,9 @@ export default function HomePage({ user, onNavigate }) {
   // Status text for subscriber row
   function subStatusText() {
     if (!isSubscriber) return null
-    if (quotaExpires) return `בתוקף עד ${fmtExpiry(quotaExpires)}`
-    return 'לא מוגבל בזמן'
+    if (isUnlimited && quotaExpires) return `בתוקף עד ${fmtExpiry(quotaExpires)}`
+    if (isUnlimited && !quotaExpires) return 'לא מוגבל בזמן'
+    return 'פעיל'
   }
 
   return (
