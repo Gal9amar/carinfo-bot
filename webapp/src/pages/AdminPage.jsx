@@ -1493,8 +1493,7 @@ function MarketPriceTab() {
           {stats ? (
             <div style={{ background: 'var(--bg2)', borderRadius: 12, padding: 14 }}>
               <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>💰 מחיר שוק – Yad2</div>
-              <MRow label="חציון"      value={`₪${stats.median?.toLocaleString()}`} bold />
-              <MRow label="ממוצע"      value={`₪${stats.avg?.toLocaleString()}`} />
+              <MRow label="ממוצע שוק"  value={`₪${stats.median?.toLocaleString()}`} bold />
               <MRow label="מינימום"    value={`₪${stats.min?.toLocaleString()}`} />
               <MRow label="מקסימום"    value={`₪${stats.max?.toLocaleString()}`} />
               <MRow label="ק״מ ממוצע" value={stats.avg_km ? `${stats.avg_km.toLocaleString()} ק״מ` : '—'} />
