@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { fetchVehicle } from '../api.js'
+import LicensePlate from '../components/LicensePlate.jsx'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -294,12 +295,10 @@ export default function ReportPage({ plate, onBack }) {
 
       {/* ── Header ── */}
       <div style={{ textAlign: 'center', marginBottom: 16 }}>
-        <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 4 }}>דוח רכב</div>
-        <div style={{
-          display: 'inline-block', background: '#FFCC00', color: '#000',
-          fontWeight: 800, fontSize: 24, padding: '8px 28px', borderRadius: 10,
-          letterSpacing: 3, marginBottom: 8, border: '2px solid #222',
-        }}>{plateNum}</div>
+        <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 8 }}>דוח רכב</div>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
+          <LicensePlate plate={plateNum} size="lg" />
+        </div>
         <div style={{ fontSize: 16, fontWeight: 600 }}>
           {[make, model, year].filter(Boolean).join(' · ')}
         </div>

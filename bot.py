@@ -91,8 +91,7 @@ def _persistent_rows(is_admin: bool = False) -> list:
     """Bottom rows shown in chat — only search-related actions."""
     webapp_url = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
     rows = [
-        [InlineKeyboardButton("🔍 חיפוש רכב חדש", callback_data="new_search"),
-         InlineKeyboardButton("📱 תפריט",           web_app=WebAppInfo(url=webapp_url))],
+        [InlineKeyboardButton("🔍 חיפוש רכב חדש", callback_data="new_search")],
     ]
     if is_admin:
         rows.append([InlineKeyboardButton("🛠 פאנל מנהל", web_app=WebAppInfo(url=webapp_url))])
