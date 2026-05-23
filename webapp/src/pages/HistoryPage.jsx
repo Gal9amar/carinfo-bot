@@ -59,7 +59,7 @@ export default function HistoryPage({ onBack, onViewPlate }) {
               }}>
                 {/* Plate — full width */}
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
-                  <LicensePlate plate={plate} size="lg" style={{ width: '100%' }} />
+                  <LicensePlate plate={plate} size="md" />
                 </div>
 
                 {/* Vehicle info + report button — side by side */}
