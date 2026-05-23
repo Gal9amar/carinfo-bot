@@ -2144,6 +2144,25 @@ def main() -> None:
                 failed += 1
         return {"ok": True, "sent": sent, "failed": failed}
 
+    async def _notify_admin_grant(user_id: int, searches: int):
+        try:
+            if searches == -2:
+                desc = "גישה ללא הגבלת חיפושים לצמיתות ♾️"
+            elif searches == -1:
+                desc = "מנוי חודשי — 30 יום גישה ללא הגבלה ♾️"
+            else:
+                desc = f"{searches} חיפושים 🔍"
+            await app.bot.send_message(
+                user_id,
+                f"🎁 *קיבלת הטבה מהמנהל!*\n\n{desc} נוספו לחשבונך.",
+                parse_mode="Markdown",
+            )
+        except Exception:
+            pass
+
+    from src.notifier import register_admin_grant_notifier
+    register_admin_grant_notifier(_notify_admin_grant)
+
     from src.notifier import register_broadcast_notifier
     register_broadcast_notifier(_do_broadcast)
 

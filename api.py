@@ -557,6 +557,11 @@ async def admin_grant_user(user_id: int, body: GrantBody, admin: dict = Depends(
         await _log("grant", f"הענקה למשתמש {user_id}: {desc}")
     except Exception:
         pass
+    try:
+        from src.notifier import notify_user_admin_grant
+        await notify_user_admin_grant(user_id, body.searches)
+    except Exception:
+        pass
     return {"ok": True, "msg": msg}
 
 

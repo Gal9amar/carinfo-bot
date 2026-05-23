@@ -69,6 +69,19 @@ async def notify_user_payment_declined(user_id: int, label: str) -> None:
         await _notify_user_payment_declined_fn(user_id, label)
 
 
+_notify_user_admin_grant_fn: Optional[Callable[..., Awaitable[None]]] = None
+
+
+def register_admin_grant_notifier(fn: Callable[..., Awaitable[None]]) -> None:
+    global _notify_user_admin_grant_fn
+    _notify_user_admin_grant_fn = fn
+
+
+async def notify_user_admin_grant(user_id: int, searches: int) -> None:
+    if _notify_user_admin_grant_fn:
+        await _notify_user_admin_grant_fn(user_id, searches)
+
+
 _broadcast_fn: Optional[Callable[..., Awaitable[None]]] = None
 
 
