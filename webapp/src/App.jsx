@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { fetchPackages, fetchUser } from './api.js'
+import HomePage from './pages/HomePage.jsx'
 import PackagesPage from './pages/PackagesPage.jsx'
 import PaymentPage from './pages/PaymentPage.jsx'
 import AdminPage from './pages/AdminPage.jsx'
@@ -18,6 +19,7 @@ export default function App() {
   const [paymentData, setPaymentData] = useState(null)
   const [error, setError] = useState(null)
   const [reportPlate, setReportPlate] = useState(null)
+  const [reportDeduct, setReportDeduct] = useState(false)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -25,6 +27,7 @@ export default function App() {
     const page = params.get('page')
     if (plate) {
       setReportPlate(plate)
+      setReportDeduct(false) // deep-link from bot = quota already deducted
       setScreen('report')
       return
     }
@@ -42,7 +45,7 @@ export default function App() {
         if (usr?.is_admin) {
           setScreen('admin')
         } else {
-          setScreen('packages')
+          setScreen('home')
         }
       } catch (e) {
         setError('שגיאה בטעינה. נסה שוב.')
@@ -52,33 +55,49 @@ export default function App() {
     init()
   }, [])
 
+  function navigate(dest) {
+    setScreen(dest)
+  }
+
+  function openReport(plate) {
+    setReportPlate(plate)
+    setReportDeduct(true) // user-initiated search = deduct quota
+    setScreen('report')
+  }
+
   if (screen === 'report') {
-    return <ReportPage plate={reportPlate} />
+    return (
+      <ReportPage
+        plate={reportPlate}
+        deduct={reportDeduct}
+        onBack={(dest) => setScreen(dest ?? 'home')}
+      />
+    )
   }
 
   if (screen === 'privacy') {
-    return <PrivacyPolicyPage onBack={() => setScreen('packages')} onContact={() => setScreen('ticket')} />
+    return <PrivacyPolicyPage onBack={() => setScreen('home')} onContact={() => setScreen('ticket')} />
   }
 
   if (screen === 'ticket') {
-    return <TicketPage onBack={() => setScreen('packages')} />
+    return <TicketPage onBack={() => setScreen('home')} />
   }
 
   if (screen === 'howItWorks') {
-    return <HowItWorksPage onBack={() => setScreen('packages')} freeSearches={user?.free_searches ?? 10} onPrivacy={() => setScreen('privacy')} />
+    return <HowItWorksPage onBack={() => setScreen('home')} freeSearches={user?.free_searches ?? 10} onPrivacy={() => setScreen('privacy')} />
   }
 
   if (screen === 'history') {
     return (
       <HistoryPage
-        onBack={() => setScreen('packages')}
-        onViewPlate={plate => { setReportPlate(plate); setScreen('report') }}
+        onBack={() => setScreen('home')}
+        onViewPlate={plate => { setReportPlate(plate); setReportDeduct(false); setScreen('report') }}
       />
     )
   }
 
   if (screen === 'referral') {
-    return <ReferralPage onBack={() => setScreen('packages')} />
+    return <ReferralPage onBack={() => setScreen('home')} />
   }
 
   if (screen === 'loading') {
@@ -94,7 +113,7 @@ export default function App() {
   }
 
   if (screen === 'admin') {
-    return <AdminPage user={user} onBack={() => setScreen('packages')} />
+    return <AdminPage user={user} onBack={() => setScreen('home')} />
   }
 
   if (screen === 'payment') {
@@ -116,25 +135,37 @@ export default function App() {
         <div className="success-text">
           המנהל יאשר את התשלום בקרוב ותקבל הודעה בטלגרם.
         </div>
-        <button className="btn" onClick={() => window.Telegram?.WebApp?.close()}>
-          סגור
+        <button className="btn" onClick={() => setScreen('home')}>
+          חזור לתפריט
         </button>
       </div>
     )
   }
 
+  if (screen === 'packages') {
+    return (
+      <PackagesPage
+        packages={packages}
+        user={user}
+        onSelect={(pkg, pData) => {
+          setSelectedPkg(pkg)
+          setPaymentData(pData)
+          setScreen('payment')
+        }}
+        onPrivacy={() => setScreen('privacy')}
+        onSupport={() => setScreen('ticket')}
+        onReferral={() => setScreen('referral')}
+        onBack={() => setScreen('home')}
+      />
+    )
+  }
+
+  // Default: home screen for regular users
   return (
-    <PackagesPage
-      packages={packages}
+    <HomePage
       user={user}
-      onSelect={(pkg, pData) => {
-        setSelectedPkg(pkg)
-        setPaymentData(pData)
-        setScreen('payment')
-      }}
-      onPrivacy={() => setScreen('privacy')}
-      onSupport={() => setScreen('ticket')}
-      onReferral={() => setScreen('referral')}
+      onSearch={openReport}
+      onNavigate={navigate}
     />
   )
 }

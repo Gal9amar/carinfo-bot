@@ -13,7 +13,7 @@ from threading import Thread
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton, LabeledPrice
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton, LabeledPrice, MenuButtonWebApp, WebAppInfo
 from telegram.constants import ParseMode
 from telegram.ext import (
     Application, CommandHandler, MessageHandler,
@@ -2070,6 +2070,17 @@ async def run_self_ping():
 async def _post_init(app) -> None:
     await init_db()
     await load_welcome_settings()
+    webapp_url = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
+    try:
+        await app.bot.set_chat_menu_button(
+            menu_button=MenuButtonWebApp(
+                text="פתח אפליקציה",
+                web_app=WebAppInfo(url=webapp_url),
+            )
+        )
+        logger.info("Menu button set to %s", webapp_url)
+    except Exception as e:
+        logger.warning("Could not set menu button: %s", e)
     logger.info("Turso DB initialized")
 
 
