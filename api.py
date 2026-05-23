@@ -177,7 +177,7 @@ async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_u
     pkg = next((p for p in pkgs if p[0] == body.package_id), None)
     if not pkg:
         raise HTTPException(status_code=404, detail="Package not found")
-    pid, label, searches, price, _img = pkg
+    pid, label, searches, price, _img, _order = pkg
     qty = max(1, min(10, body.quantity))
     total_price = price * qty
     total_searches = -1 if searches == -1 else searches * qty
