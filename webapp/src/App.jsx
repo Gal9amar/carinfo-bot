@@ -40,11 +40,7 @@ export default function App() {
         const [pkgs, usr] = await Promise.all([fetchPackages(), fetchUser().catch(() => null)])
         setPackages(pkgs)
         setUser(usr)
-        if (usr?.is_admin) {
-          setScreen('admin')
-        } else {
-          setScreen('home')
-        }
+        setScreen('home')
       } catch (e) {
         setError('שגיאה בטעינה. נסה שוב.')
         setScreen('error')
