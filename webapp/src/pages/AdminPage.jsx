@@ -1497,7 +1497,6 @@ function MarketPriceTab() {
               <MRow label="מינימום"    value={`₪${stats.min?.toLocaleString()}`} />
               <MRow label="מקסימום"    value={`₪${stats.max?.toLocaleString()}`} />
               <MRow label="ק״מ ממוצע" value={stats.avg_km ? `${stats.avg_km.toLocaleString()} ק״מ` : '—'} />
-              <MRow label="מודעות"     value={`${stats.count} מתוך ${stats.total} ב-Yad2`} />
               {result.yad2_url && (
                 <a href={result.yad2_url} target="_blank" rel="noopener noreferrer" style={{
                   display: 'block', marginTop: 12, padding: '9px 0',
@@ -1518,27 +1517,6 @@ function MarketPriceTab() {
             </div>
           )}
 
-          {filteredItems.length > 0 && (
-            <div style={{ background: 'var(--bg2)', borderRadius: 12, padding: 14 }}>
-              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>📋 מודעות ({filteredItems.length})</div>
-              {filteredItems.map((item, i) => (
-                <div key={i} style={{
-                  borderBottom: i < filteredItems.length - 1 ? '1px solid var(--border)' : 'none',
-                  paddingBottom: 10, marginBottom: 10,
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 700, fontSize: 14 }}>₪{item.price?.toLocaleString() ?? '—'}</span>
-                    <span style={{ fontSize: 12, color: 'var(--hint)' }}>
-                      {item.hand?.text ?? ''} · {item.vehicleDates?.yearOfProduction ?? ''}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--hint)', marginTop: 3 }}>
-                    {item.subModel?.text ?? ''}{item.km ? ` · ${item.km.toLocaleString()} ק״מ` : ''}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       )}
     </div>
