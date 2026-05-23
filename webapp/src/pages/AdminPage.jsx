@@ -427,8 +427,8 @@ function PackageModal({ title, form, setForm, saving, onSave, onClose }) {
   )
 }
 
-function grantTypeLabel(searches, freeSearches = 10) {
-  if (searches === 0) return `${freeSearches} חיפושים (מנוי חינם)`
+function grantTypeLabel(searches) {
+  if (searches === 0) return '0 חיפושים (מנוי חינם)'
   if (searches === -1) return 'מנוי חודשי · 30 יום'
   if (searches === -2) return 'גישה חופשית · ללא הגבלה'
   return `${searches} חיפושים`
@@ -442,12 +442,8 @@ function AdminGrantsTab() {
   const [saving, setSaving] = useState(false)
   const [dragIdx, setDragIdx] = useState(null)
   const [reordering, setReordering] = useState(false)
-  const [freeSearches, setFreeSearches] = useState(10)
 
-  useEffect(() => {
-    adminFetchGrants().then(setGrants).catch(() => {})
-    adminFetchSettings().then(s => setFreeSearches(s.free_searches ?? 10)).catch(() => {})
-  }, [])
+  useEffect(() => { adminFetchGrants().then(setGrants).catch(() => {}) }, [])
 
   async function applyReorder(next) {
     setGrants(next)
@@ -524,7 +520,7 @@ function AdminGrantsTab() {
                 <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--hint)', background: 'var(--bg)', borderRadius: 6, padding: '2px 7px' }}>{idx + 1}</span>
                 <div>
                   <div className="card-title">{g.label}</div>
-                  <div className="card-subtitle">{grantTypeLabel(g.searches, freeSearches)}</div>
+                  <div className="card-subtitle">{grantTypeLabel(g.searches)}</div>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
@@ -986,7 +982,6 @@ function UsersTab() {
 
 function GrantModal({ user, onClose, onDone }) {
   const [grants, setGrants] = useState(null)
-  const [freeSearches, setFreeSearches] = useState(10)
   const [mode, setMode] = useState('grants') // 'grants' | 'custom' | 'history' | 'referrals'
   const [customAmount, setCustomAmount] = useState('')
   const [saving, setSaving] = useState(false)
@@ -994,9 +989,6 @@ function GrantModal({ user, onClose, onDone }) {
   const [referralData, setReferralData] = useState(null)
 
   useEffect(() => { adminFetchGrants().then(setGrants).catch(() => {}) }, [])
-  useEffect(() => {
-    adminFetchSettings().then(s => setFreeSearches(s.free_searches ?? 10)).catch(() => {})
-  }, [])
   useEffect(() => {
     if (mode === 'history' && history === null) {
       adminFetchUserHistory(user.user_id).then(setHistory).catch(() => setHistory([]))
@@ -1023,7 +1015,7 @@ function GrantModal({ user, onClose, onDone }) {
   function clickGrant(searches) {
     if (searches === 0) {
       window.Telegram?.WebApp?.showConfirm(
-        `להגדיר מנוי חינם? המשתמש יקבל ${freeSearches} חיפושים ויוסר מקבוצת המנויים.`,
+        `להגדיר מנוי חינם? המשתמש יקבל 0 חיפושים ויוסר מקבוצת המנויים.`,
         async (ok) => { if (ok) grant(0) }
       )
       return
@@ -1085,7 +1077,7 @@ function GrantModal({ user, onClose, onDone }) {
                 }}
               >
                 <span style={{ fontSize: 13, fontWeight: 600, color: g.searches === 0 ? '#38a169' : 'var(--text)' }}>{g.label}</span>
-                <span style={{ fontSize: 12, color: 'var(--hint)' }}>{grantTypeLabel(g.searches, freeSearches)}</span>
+                <span style={{ fontSize: 12, color: 'var(--hint)' }}>{grantTypeLabel(g.searches)}</span>
               </button>
             ))}
 
