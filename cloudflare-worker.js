@@ -11,18 +11,22 @@ export default {
     }
 
     const url = new URL(request.url)
-    const model = url.searchParams.get('model')
-    const year  = url.searchParams.get('year')
+    const manufacturer = url.searchParams.get('manufacturer')
+    const model        = url.searchParams.get('model')
+    const year         = url.searchParams.get('year')
+    const rows         = url.searchParams.get('rows') || '100'
 
-    if (!model) {
-      return new Response(JSON.stringify({ error: 'missing model param' }), {
+    if (!manufacturer && !model) {
+      return new Response(JSON.stringify({ error: 'missing manufacturer or model param' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
       })
     }
 
-    let yad2url = `https://gw.yad2.co.il/lookalike/vehicles/cars?model=${model}&rows=100`
-    if (year) yad2url += `&year=${year}`
+    let yad2url = `https://gw.yad2.co.il/lookalike/vehicles/cars?rows=${rows}`
+    if (manufacturer) yad2url += `&manufacturer=${manufacturer}`
+    if (model)        yad2url += `&model=${model}`
+    if (year)         yad2url += `&year=${year}`
 
     let resp
     try {

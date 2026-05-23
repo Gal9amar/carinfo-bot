@@ -257,25 +257,31 @@ def get_market_price(make: str, model: str, year: int | str) -> dict | None:
 
     # Build Oracle proxy URL (Israeli IP, bypasses Yad2 geo-block)
     proxy_secret = os.environ.get("YAD2_PROXY_SECRET", "carinfo2026")
-    proxy_url = f"{_ORACLE_PROXY}?model={mod_id}&rows=100"
-    if y:
-        proxy_url += f"&year={y}-{y}"
-    proxy_url += f"&secret={proxy_secret}"
 
-    _logger.info(f"get_market_price via Oracle proxy: model={mod_id} year={y}")
-    try:
-        req = urllib.request.Request(proxy_url)
+    def _fetch(extra_params: str) -> list:
+        url = f"{_ORACLE_PROXY}?manufacturer={mid}{extra_params}&rows=100"
+        if y:
+            url += f"&year={y}-{y}"
+        url += f"&secret={proxy_secret}"
+        _logger.info(f"get_market_price: {url}")
+        req = urllib.request.Request(url)
         with urllib.request.urlopen(req, timeout=15) as resp:
             raw = resp.read()
         try:
             data = json.loads(raw.decode("utf-8"))
         except Exception:
             data = json.loads(zlib.decompress(raw, 16 + zlib.MAX_WBITS).decode("utf-8"))
+        return data.get("data") or []
+
+    try:
+        all_items = _fetch(f"&model={mod_id}")
+        # If too few results, retry with manufacturer only (broader search)
+        if len(all_items) <= 3:
+            _logger.info(f"get_market_price: few results ({len(all_items)}), retrying with manufacturer only")
+            all_items = _fetch("") or all_items
     except Exception as e:
         _logger.error(f"get_market_price fetch error: {e}")
         return None
-
-    all_items = data.get("data") or []
     if y:
         filtered = [
             c for c in all_items
