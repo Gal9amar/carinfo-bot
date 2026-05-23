@@ -835,9 +835,7 @@ async def vehicle_market_price(plate: str, user: dict = Depends(_get_user)):
             )
             allowed = len(r.rows) > 0
 
-    if not allowed:
-        raise HTTPException(status_code=403, detail="not authorized")
-
+    # Always fetch data — unauthorized users see a blurred teaser
     clean = plate.replace("-", "").replace(" ", "")
     record = cache.get(clean)
     if record is None:
@@ -853,9 +851,11 @@ async def vehicle_market_price(plate: str, user: dict = Depends(_get_user)):
     market = get_market_price(make, model, year)
 
     return {
-        "year":     year,
-        "yad2_url": build_url(record),
-        "market":   market,
+        "authorized": allowed,
+        "public_end": public_end,
+        "year":       year,
+        "yad2_url":   build_url(record) if allowed else None,
+        "market":     market,
     }
 
 

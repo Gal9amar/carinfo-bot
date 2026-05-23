@@ -350,6 +350,7 @@ export default function ReportPage({ plate, onBack, user }) {
       {/* ── Market Price ── */}
       {(() => {
         if (!marketData?.market) return null
+        const authorized = marketData.authorized !== false
         const m   = marketData.market
         const yr  = marketData.year ? parseInt(marketData.year) : null
         const filtered = yr && m.items?.length
@@ -366,12 +367,32 @@ export default function ReportPage({ plate, onBack, user }) {
         const avgKm  = kms.length ? Math.round(kms.reduce((a, b) => a + b, 0) / kms.length) : null
         return (
           <div className="card" style={{ marginBottom: 12 }}>
-            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>💰 מחיר שוק – Yad2</div>
-            <Row label="ממוצע שוק"  value={`₪${median.toLocaleString()}`} />
-            <Row label="מינימום"    value={`₪${min.toLocaleString()}`} />
-            <Row label="מקסימום"    value={`₪${max.toLocaleString()}`} />
-            {avgKm && <Row label="ק״מ ממוצע" value={`${avgKm.toLocaleString()} ק״מ`} />}
-            {marketData.yad2_url && (
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+              <div>
+                <div style={{
+                  display: 'inline-block', fontSize: 10, fontWeight: 700,
+                  background: '#8b5cf622', color: '#8b5cf6',
+                  borderRadius: 4, padding: '2px 7px', marginBottom: 4,
+                }}>למנויים בלבד</div>
+                <div style={{ fontWeight: 700, fontSize: 15 }}>💰 מחיר שוק – Yad2</div>
+              </div>
+              {marketData.public_end && (
+                <div style={{ fontSize: 11, color: 'var(--hint)', textAlign: 'left', lineHeight: 1.4 }}>
+                  פתוח לכולם עד<br />
+                  <span style={{ fontWeight: 600 }}>{marketData.public_end}</span>
+                </div>
+              )}
+            </div>
+            {/* Stats — blurred for unauthorized users */}
+            <div style={authorized ? {} : { filter: 'blur(5px)', userSelect: 'none', pointerEvents: 'none' }}>
+              <Row label="ממוצע שוק"  value={`₪${median.toLocaleString()}`} />
+              <Row label="מינימום"    value={`₪${min.toLocaleString()}`} />
+              <Row label="מקסימום"    value={`₪${max.toLocaleString()}`} />
+              {avgKm && <Row label="ק״מ ממוצע" value={`${avgKm.toLocaleString()} ק״מ`} />}
+            </div>
+            {/* Yad2 button — visible only for authorized users */}
+            {authorized && marketData.yad2_url && (
               <a href={marketData.yad2_url} target="_blank" rel="noopener noreferrer" style={{
                 display: 'block', marginTop: 10, padding: '8px 0',
                 background: '#FF4301', color: '#fff',
