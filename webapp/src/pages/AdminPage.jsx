@@ -107,7 +107,7 @@ function Section({ title, children }) {
 function StatsTab() {
   const [stats, setStats] = useState(null)
   useEffect(() => { adminFetchStats().then(setStats).catch(() => {}) }, [])
-  if (!stats) return <div className="loading">⏳</div>
+  if (!stats) return <div className="loading"></div>
 
   return (
     <div>
@@ -204,7 +204,7 @@ function ActivityTab() {
           </button>
         </div>
       </div>
-      {!log && <div className="loading">⏳</div>}
+      {!log && <div className="loading"></div>}
       {log && log.length === 0 && (
         <div style={{ color: 'var(--hint)', textAlign: 'center', padding: 24 }}>אין פעילות עדיין</div>
       )}
@@ -308,7 +308,7 @@ function PackagesTab() {
     })
   }
 
-  if (!pkgs) return <div className="loading">⏳</div>
+  if (!pkgs) return <div className="loading"></div>
 
   return (
     <div>
@@ -561,7 +561,7 @@ function AdminGrantsTab() {
     })
   }
 
-  if (!grants) return <div className="loading">⏳</div>
+  if (!grants) return <div className="loading"></div>
 
   return (
     <div>
@@ -653,7 +653,7 @@ function PaymentsTab() {
     setActing(null)
   }
 
-  if (!payments) return <div className="loading">⏳</div>
+  if (!payments) return <div className="loading"></div>
 
   return (
     <div>
@@ -729,7 +729,7 @@ function CodesTab() {
     window.Telegram?.WebApp?.showAlert(`✅ הועתק:\n${code}`)
   }
 
-  if (!codes) return <div className="loading">⏳</div>
+  if (!codes) return <div className="loading"></div>
 
   return (
     <div>
@@ -937,7 +937,7 @@ function UsersTab() {
 
   function load() { adminFetchUsers().then(setUsers).catch(() => {}) }
   useEffect(() => { load() }, [])
-  if (!users) return <div className="loading">⏳</div>
+  if (!users) return <div className="loading"></div>
 
   const filtered = users.filter(u => {
     const st = userStatus(u)
@@ -1208,7 +1208,7 @@ function GrantModal({ user, onClose, onDone }) {
 
         {mode === 'history' && (
           <div>
-            {history === null && <div className="loading" style={{ fontSize: 13 }}>⏳ טוען...</div>}
+            {history === null && <div className="loading"></div>}
             {history !== null && history.length === 0 && (
               <div style={{ color: 'var(--hint)', fontSize: 13, textAlign: 'center', padding: 12 }}>
                 אין היסטוריית חיפושים
@@ -1234,7 +1234,7 @@ function GrantModal({ user, onClose, onDone }) {
 
         {mode === 'referrals' && (
           <div>
-            {referralData === null && <div className="loading" style={{ fontSize: 13 }}>⏳ טוען...</div>}
+            {referralData === null && <div className="loading"></div>}
             {referralData !== null && (
               <>
                 {/* Summary */}
@@ -1468,7 +1468,7 @@ function SettingsTab() {
     return 'expired'
   }
 
-  if (!settings) return <div className="loading">⏳</div>
+  if (!settings) return <div className="loading"></div>
 
   const STATUS_COLORS = { active: '#38a169', upcoming: '#d69e2e', expired: '#e53e3e' }
   const STATUS_LABELS = { active: '🟢 פעיל כעת', upcoming: '🟡 טרם התחיל', expired: '🔴 הסתיים' }
@@ -1775,7 +1775,7 @@ function TicketsTab() {
         ))}
       </div>
 
-      {!tickets && <div className="loading">⏳</div>}
+      {!tickets && <div className="loading"></div>}
       {tickets && tickets.length === 0 && (
         <div style={{ textAlign: 'center', color: 'var(--hint)', fontSize: 14, padding: 20 }}>אין פניות</div>
       )}
@@ -1836,7 +1836,7 @@ function AdminTicketThread({ ticketId, onBack }) {
     setUpdating(false)
   }
 
-  if (!ticket) return <div className="loading">⏳</div>
+  if (!ticket) return <div className="loading"></div>
 
   const allMessages = [
     { id: 'orig', sender_name: ticket.full_name || ticket.username || `id:${ticket.user_id}`, is_admin: false, message: ticket.message, created_at: ticket.created_at },
@@ -1983,7 +1983,7 @@ function GroupsTab() {
     return u.username ? `@${u.username}` : u.full_name || String(uid)
   }
 
-  if (!groups) return <div className="loading">⏳</div>
+  if (!groups) return <div className="loading"></div>
 
   // Users not already in the group
   function availableUsers(group) {

@@ -221,9 +221,22 @@ body {
 }
 
 .loading {
-  text-align: center;
-  padding: 40px;
-  color: var(--hint);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 48px 0;
+}
+.loading::after {
+  content: '';
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(255,255,255,0.12);
+  border-top-color: var(--accent, #2481cc);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .success-icon {
@@ -325,34 +338,23 @@ body {
 }
 .bottom-nav-item.active .nav-label { color: var(--btn); font-weight: 700; }
 
-/* ── Logo spinner ─────────────────────────────────────── */
-@keyframes platePulse {
-  0%, 100% { transform: scale(1);    opacity: 1; }
-  50%       { transform: scale(1.04); opacity: 0.85; }
-}
-@keyframes plateGlow {
-  0%, 100% { box-shadow: 0 4px 18px rgba(36, 129, 204, 0.25); }
-  50%       { box-shadow: 0 4px 32px rgba(36, 129, 204, 0.55); }
-}
+/* ── Logo spinner (replaced with CSS spinner) ─────────── */
 .logo-loader {
   display: flex;
-  flex-direction: column;
-  align-items: center;
   justify-content: center;
+  align-items: center;
   padding: 60px 0;
-  gap: 20px;
 }
-.logo-loader-ring {
-  position: relative;
-  width: auto;
-  height: auto;
+.logo-loader::after {
+  content: '';
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(255,255,255,0.12);
+  border-top-color: var(--accent, #2481cc);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
 }
-.logo-loader-ring img {
-  width: 240px;
-  height: auto;
-  border-radius: 10px;
-  animation: platePulse 1.4s ease-in-out infinite, plateGlow 1.4s ease-in-out infinite;
-}
+.logo-loader-ring,
 .logo-loader-text {
   display: none;
 }

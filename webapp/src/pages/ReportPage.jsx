@@ -245,7 +245,7 @@ export default function ReportPage({ plate, onBack, user }) {
         onClick={() => onBack ? onBack('home') : window.Telegram?.WebApp?.close()}>חזור</button>
     </div>
   )
-  if (!record) return <div className="loading">🔍 טוען נתוני רכב...</div>
+  if (!record) return <div className="loading"></div>
 
   const w = record._wltp || {}
   const ownership = record._ownership || []

@@ -119,7 +119,7 @@ export default function App() {
   }
 
   if (screen === 'loading') {
-    return <div className="loading">⏳ טוען...</div>
+    return <div className="loading"></div>
   }
 
   if (screen === 'error') {

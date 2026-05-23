@@ -24,14 +24,7 @@ export default function HistoryPage({ onBack, onViewPlate }) {
       <BackButton onClick={onBack} />
       <div className="page-title">📜 היסטוריית חיפושים</div>
 
-      {items === null && (
-        <div className="logo-loader">
-          <div className="logo-loader-ring">
-            <img src={loaderImg} alt="טוען" />
-          </div>
-          <span className="logo-loader-text">טוען היסטוריה...</span>
-        </div>
-      )}
+      {items === null && <div className="loading"></div>}
 
       {items !== null && (
         <>

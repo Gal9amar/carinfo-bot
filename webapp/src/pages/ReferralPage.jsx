@@ -128,7 +128,7 @@ export default function ReferralPage({ onBack }) {
       {/* History tab */}
       {tab === 'history' && (
         <div>
-          {referrals === null && <div className="loading">⏳ טוען...</div>}
+          {referrals === null && <div className="loading"></div>}
 
           {referrals !== null && referrals.length === 0 && (
             <div style={{ textAlign: 'center', padding: '32px 16px' }}>

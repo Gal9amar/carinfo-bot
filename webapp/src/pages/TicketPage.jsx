@@ -56,7 +56,7 @@ export default function TicketPage({ onBack }) {
         ✉️ פנייה חדשה
       </button>
 
-      {loading && <div className="loading">⏳</div>}
+      {loading && <div className="loading"></div>}
 
       {!loading && tickets.length === 0 && (
         <div className="card" style={{ textAlign: 'center', color: 'var(--hint)', fontSize: 14 }}>
