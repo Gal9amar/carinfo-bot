@@ -1029,10 +1029,13 @@ function SettingsTab() {
   }
 
   // Yad2 market price state
-  const [yad2Enabled, setYad2Enabled]         = useState(false)
-  const [yad2Groups, setYad2Groups]           = useState([])
-  const [allGroups, setAllGroups]             = useState(null)
-  const [yad2Saving, setYad2Saving]           = useState(false)
+  const [yad2Enabled, setYad2Enabled]           = useState(false)
+  const [yad2Groups, setYad2Groups]             = useState([])
+  const [allGroups, setAllGroups]               = useState(null)
+  const [yad2Public, setYad2Public]             = useState(false)
+  const [yad2PublicStart, setYad2PublicStart]   = useState('')
+  const [yad2PublicEnd, setYad2PublicEnd]       = useState('')
+  const [yad2Saving, setYad2Saving]             = useState(false)
 
   useEffect(() => {
     adminFetchGroups().then(setAllGroups).catch(() => setAllGroups([]))
@@ -1042,13 +1045,22 @@ function SettingsTab() {
     if (settings) {
       setYad2Enabled(!!settings.yad2_market_enabled)
       setYad2Groups(settings.yad2_market_groups || [])
+      setYad2Public(!!settings.yad2_market_public)
+      setYad2PublicStart(settings.yad2_market_public_start || '')
+      setYad2PublicEnd(settings.yad2_market_public_end || '')
     }
   }, [settings])
 
   async function saveYad2() {
     setYad2Saving(true)
     try {
-      await adminUpdateSettings({ yad2_market_enabled: yad2Enabled, yad2_market_groups: yad2Groups })
+      await adminUpdateSettings({
+        yad2_market_enabled:      yad2Enabled,
+        yad2_market_groups:       yad2Groups,
+        yad2_market_public:       yad2Public,
+        yad2_market_public_start: yad2PublicStart,
+        yad2_market_public_end:   yad2PublicEnd,
+      })
       window.Telegram?.WebApp?.showAlert('✅ הגדרות Yad2 עודכנו')
     } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
     setYad2Saving(false)
@@ -1212,25 +1224,71 @@ function SettingsTab() {
         </div>
 
         {yad2Enabled && (
-          <div style={{ marginTop: 14 }}>
-            <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8 }}>
-              הגבלה לקבוצות <span style={{ fontSize: 11 }}>(ריק = כולם)</span>
-            </div>
-            {allGroups === null && <div style={{ fontSize: 13, color: 'var(--hint)' }}>⏳ טוען קבוצות...</div>}
-            {allGroups && allGroups.length === 0 && (
-              <div style={{ fontSize: 13, color: 'var(--hint)' }}>אין קבוצות — צור קבוצות בטאב קבוצות</div>
-            )}
-            {allGroups && allGroups.map(g => (
-              <label key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 14, cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={yad2Groups.includes(g.id)}
-                  onChange={() => toggleYad2Group(g.id)}
-                  style={{ width: 16, height: 16 }}
+          <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+            {/* Public mode */}
+            <div style={{ background: 'var(--bg2)', borderRadius: 10, padding: 12 }}>
+              <div className="toggle-row" style={{ paddingTop: 0 }}>
+                <span className="toggle-label" style={{ fontSize: 14 }}>🌐 פתוח לכולם</span>
+                <button
+                  className={`toggle ${yad2Public ? 'on' : ''}`}
+                  onClick={() => setYad2Public(v => !v)}
                 />
-                {g.name} <span style={{ fontSize: 12, color: 'var(--hint)' }}>({g.member_ids.length} חברים)</span>
-              </label>
-            ))}
+              </div>
+              {yad2Public && (
+                <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ fontSize: 12, color: 'var(--hint)' }}>תאריך התחלה (אופציונלי)</div>
+                  <input
+                    type="date"
+                    className="input"
+                    style={{ marginBottom: 0 }}
+                    value={yad2PublicStart}
+                    onChange={e => setYad2PublicStart(e.target.value)}
+                  />
+                  <div style={{ fontSize: 12, color: 'var(--hint)' }}>תאריך סיום (אופציונלי)</div>
+                  <input
+                    type="date"
+                    className="input"
+                    style={{ marginBottom: 0 }}
+                    value={yad2PublicEnd}
+                    onChange={e => setYad2PublicEnd(e.target.value)}
+                  />
+                  {/* Status indicator */}
+                  {(() => {
+                    const today = new Date().toISOString().slice(0, 10)
+                    const inWindow = (!yad2PublicStart || today >= yad2PublicStart) &&
+                                     (!yad2PublicEnd   || today <= yad2PublicEnd)
+                    return (
+                      <div style={{ fontSize: 12, fontWeight: 600, color: inWindow ? '#38a169' : '#d69e2e' }}>
+                        {inWindow ? '🟢 פעיל כעת לכולם' : '🟡 לא פעיל (מחוץ לטווח התאריכים)'}
+                      </div>
+                    )
+                  })()}
+                </div>
+              )}
+            </div>
+
+            {/* Groups mode */}
+            <div>
+              <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8 }}>
+                הגבלה לקבוצות <span style={{ fontSize: 11 }}>(בנוסף למצב פתוח לכולם)</span>
+              </div>
+              {allGroups === null && <div style={{ fontSize: 13, color: 'var(--hint)' }}>⏳ טוען קבוצות...</div>}
+              {allGroups && allGroups.length === 0 && (
+                <div style={{ fontSize: 13, color: 'var(--hint)' }}>אין קבוצות — צור קבוצות בטאב קבוצות</div>
+              )}
+              {allGroups && allGroups.map(g => (
+                <label key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 14, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={yad2Groups.includes(g.id)}
+                    onChange={() => toggleYad2Group(g.id)}
+                    style={{ width: 16, height: 16 }}
+                  />
+                  {g.name} <span style={{ fontSize: 12, color: 'var(--hint)' }}>({g.member_ids.length} חברים)</span>
+                </label>
+              ))}
+            </div>
           </div>
         )}
 

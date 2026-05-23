@@ -95,21 +95,33 @@ async def get_user_info(user: dict = Depends(_get_user)):
     left = db_user.get("searches_left", 0) if db_user else 0
     quota = db_user.get("searches_quota", 0) if db_user else 0
 
-    # Determine show_market_price based on feature flag and group membership
+    # Determine show_market_price based on feature flag, public mode, and group membership
     yad2_enabled = (await get_bot_setting("yad2_market_enabled")) == "1"
+    show_market = False
     if yad2_enabled:
-        groups_json = (await get_bot_setting("yad2_market_groups")) or "[]"
-        allowed_groups = json.loads(groups_json)
-        if not allowed_groups:  # empty = all users
-            show_market = True
-        else:
-            r = await execute(
-                f"SELECT 1 FROM user_group_members WHERE user_id=? AND group_id IN ({','.join('?' * len(allowed_groups))})",
-                [user_id, *allowed_groups]
-            )
-            show_market = len(r.rows) > 0
-    else:
-        show_market = False
+        # Check public (open-to-all) mode with optional date window
+        public_on    = (await get_bot_setting("yad2_market_public")) == "1"
+        public_start = (await get_bot_setting("yad2_market_public_start")) or ""
+        public_end   = (await get_bot_setting("yad2_market_public_end"))   or ""
+        if public_on:
+            from datetime import date as _date
+            today = str(_date.today())
+            in_window = (not public_start or today >= public_start) and \
+                        (not public_end   or today <= public_end)
+            show_market = in_window
+
+        # If not shown via public, check group membership
+        if not show_market:
+            groups_json = (await get_bot_setting("yad2_market_groups")) or "[]"
+            allowed_groups = json.loads(groups_json)
+            if not allowed_groups:
+                pass  # no groups configured = groups mode inactive
+            else:
+                r = await execute(
+                    f"SELECT 1 FROM user_group_members WHERE user_id=? AND group_id IN ({','.join('?' * len(allowed_groups))})",
+                    [user_id, *allowed_groups]
+                )
+                show_market = len(r.rows) > 0
 
     return {
         "id": user["id"],
@@ -254,8 +266,11 @@ async def admin_get_settings(_: dict = Depends(_require_admin)):
         "promo_searches":      _u.PROMO_SEARCHES,
         "promo_start":         _u.PROMO_START,
         "promo_end":           _u.PROMO_END,
-        "yad2_market_enabled": (await get_bot_setting("yad2_market_enabled")) == "1",
-        "yad2_market_groups":  json.loads((await get_bot_setting("yad2_market_groups")) or "[]"),
+        "yad2_market_enabled":      (await get_bot_setting("yad2_market_enabled")) == "1",
+        "yad2_market_groups":       json.loads((await get_bot_setting("yad2_market_groups")) or "[]"),
+        "yad2_market_public":       (await get_bot_setting("yad2_market_public")) == "1",
+        "yad2_market_public_start": (await get_bot_setting("yad2_market_public_start")) or "",
+        "yad2_market_public_end":   (await get_bot_setting("yad2_market_public_end"))   or "",
     }
 
 
@@ -266,8 +281,11 @@ class SettingsUpdate(BaseModel):
     promo_searches:      int          | None = None
     promo_start:         str          | None = None
     promo_end:           str          | None = None
-    yad2_market_enabled: bool         | None = None
-    yad2_market_groups:  Optional[list]      = None
+    yad2_market_enabled:      bool         | None = None
+    yad2_market_groups:       Optional[list]      = None
+    yad2_market_public:       bool         | None = None
+    yad2_market_public_start: str          | None = None
+    yad2_market_public_end:   str          | None = None
 
 
 @api.post("/api/admin/settings")
@@ -298,6 +316,12 @@ async def admin_update_settings(body: SettingsUpdate, _: dict = Depends(_require
         await set_bot_setting("yad2_market_enabled", "1" if body.yad2_market_enabled else "0")
     if body.yad2_market_groups is not None:
         await set_bot_setting("yad2_market_groups", json.dumps(body.yad2_market_groups))
+    if body.yad2_market_public is not None:
+        await set_bot_setting("yad2_market_public", "1" if body.yad2_market_public else "0")
+    if body.yad2_market_public_start is not None:
+        await set_bot_setting("yad2_market_public_start", body.yad2_market_public_start.strip())
+    if body.yad2_market_public_end is not None:
+        await set_bot_setting("yad2_market_public_end", body.yad2_market_public_end.strip())
     return {"ok": True}
 
 
