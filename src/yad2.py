@@ -222,6 +222,7 @@ _FETCH_HEADERS = {
 }
 
 _LOOKALIKE_BASE = "https://gw.yad2.co.il/lookalike/vehicles/cars"
+_ORACLE_PROXY = "http://151.145.86.13:8080/yad2"  # Israeli proxy on Oracle Cloud
 
 
 def get_market_price(make: str, model: str, year: int | str) -> dict | None:
@@ -230,6 +231,9 @@ def get_market_price(make: str, model: str, year: int | str) -> dict | None:
 
     Returns a dict with keys: total, count, min, max, avg, median, avg_km, items
     Returns None if no data found or on error.
+
+    Set YAD2_PROXY env var to route through a proxy:
+      YAD2_PROXY=http://user:pass@host:port
     """
     import urllib.request
     import zlib
@@ -251,9 +255,16 @@ def get_market_price(make: str, model: str, year: int | str) -> dict | None:
     except (TypeError, ValueError):
         y = None
 
-    _logger.info(f"get_market_price: {url}")
+    # Build Oracle proxy URL (Israeli IP, bypasses Yad2 geo-block)
+    proxy_secret = os.environ.get("YAD2_PROXY_SECRET", "carinfo2026")
+    proxy_url = f"{_ORACLE_PROXY}?model={mod_id}"
+    if y:
+        proxy_url += f"&year={y}-{y}"
+    proxy_url += f"&secret={proxy_secret}"
+
+    _logger.info(f"get_market_price via Oracle proxy: model={mod_id} year={y}")
     try:
-        req = urllib.request.Request(url, headers=_FETCH_HEADERS)
+        req = urllib.request.Request(proxy_url)
         with urllib.request.urlopen(req, timeout=15) as resp:
             raw = resp.read()
         try:
