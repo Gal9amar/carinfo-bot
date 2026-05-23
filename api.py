@@ -141,6 +141,8 @@ async def get_user_info(user: dict = Depends(_get_user)):
         )
         if pkg_r.rows:
             subscription_label = pkg_r.rows[0][0]
+        elif quota == -1:
+            subscription_label = 'הטבת מנהל'
 
     # Get quota expiry date
     from src.users import get_quota_expires
