@@ -383,13 +383,24 @@ export default function ReportPage({ plate, onBack, user }) {
                 </div>
               )}
             </div>
-            {/* Stats — blurred for unauthorized users */}
-            <div style={authorized ? {} : { filter: 'blur(5px)', userSelect: 'none', pointerEvents: 'none' }}>
-              <Row label="ממוצע שוק"  value={`₪${median.toLocaleString()}`} />
-              <Row label="מינימום"    value={`₪${min.toLocaleString()}`} />
-              <Row label="מקסימום"    value={`₪${max.toLocaleString()}`} />
-              {avgKm && <Row label="ק״מ ממוצע" value={`${avgKm.toLocaleString()} ק״מ`} />}
-            </div>
+            {/* Stats — only values blurred for unauthorized users */}
+            {[
+              ['ממוצע שוק',  `₪${median.toLocaleString()}`],
+              ['מינימום',    `₪${min.toLocaleString()}`],
+              ['מקסימום',    `₪${max.toLocaleString()}`],
+              ...(avgKm ? [['ק״מ ממוצע', `${avgKm.toLocaleString()} ק״מ`]] : []),
+            ].map(([label, val]) => (
+              <div key={label} style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+                padding: '6px 0', borderBottom: '1px solid var(--bg)', fontSize: 14, gap: 8,
+              }}>
+                <span style={{ color: 'var(--hint)', flexShrink: 0, minWidth: 120 }}>{label}</span>
+                <span style={{
+                  fontWeight: 500, textAlign: 'end',
+                  ...(authorized ? {} : { filter: 'blur(5px)', userSelect: 'none' }),
+                }}>{val}</span>
+              </div>
+            ))}
             {/* Yad2 button — visible only for authorized users */}
             {authorized && marketData.yad2_url && (
               <a href={marketData.yad2_url} target="_blank" rel="noopener noreferrer" style={{
