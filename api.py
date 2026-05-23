@@ -163,19 +163,10 @@ async def get_user_history(user: dict = Depends(_get_user)):
 
 # ── Vehicle report ───────────────────────────────────────────────────────────
 @api.get("/api/vehicle/{plate}")
-async def get_vehicle(plate: str, deduct: int = 0, user: dict = Depends(_get_user)):
+async def get_vehicle(plate: str, user: dict = Depends(_get_user)):
     from src.api.gov_api import fetch_vehicle_data
     from src.cache import cache
-    from src.users import is_allowed, increment_search
     plate = plate.replace("-", "").replace(" ", "")
-    uid  = int(user["id"])
-    name = user.get("username") or user.get("first_name", str(uid))
-
-    if deduct:
-        allowed, left = await is_allowed(uid, name)
-        if not allowed:
-            raise HTTPException(status_code=402, detail="אין לך מספיק חיפושים. רכוש חבילה כדי להמשיך.")
-
     record = cache.get(plate)
     if record is None:
         record = await fetch_vehicle_data(plate)
@@ -183,10 +174,8 @@ async def get_vehicle(plate: str, deduct: int = 0, user: dict = Depends(_get_use
             cache.set(plate, record)
     if not record:
         raise HTTPException(status_code=404, detail="Vehicle not found")
-
-    if deduct:
-        await increment_search(uid, plate)
-
+    uid  = int(user["id"])
+    name = user.get("username") or user.get("first_name", str(uid))
     try:
         from src.activity import log as _log
         await _log("search", f"חיפוש לוחית {plate}", uid, name)
