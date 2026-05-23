@@ -379,7 +379,7 @@ export default function ReportPage({ plate, onBack, user }) {
               </div>
               {marketData.public_end && (
                 <div style={{ fontSize: 11, color: 'var(--hint)', textAlign: 'left', whiteSpace: 'nowrap' }}>
-                  פתוח לכולם עד <span style={{ fontWeight: 600 }}>{marketData.public_end}</span>
+                  פתוח לכולם עד <span style={{ fontWeight: 600 }}>{marketData.public_end.split('-').reverse().join('/')}</span>
                 </div>
               )}
             </div>
