@@ -1,16 +1,10 @@
+import BackButton from '../components/BackButton.jsx'
+
 export default function HowItWorksPage({ onBack, freeSearches = 10, onPrivacy }) {
   return (
     <div className="page" style={{ paddingBottom: 32 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-        <button
-          onClick={onBack}
-          style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--btn)', padding: '0 4px' }}
-          aria-label="חזרה"
-        >
-          ›
-        </button>
-        <div className="page-title" style={{ margin: 0 }}>ℹ️ איך CarInfo עובד?</div>
-      </div>
+      <BackButton onClick={onBack} />
+      <div className="page-title">ℹ️ איך CarInfo עובד?</div>
 
       {/* Hero */}
       <div style={{
