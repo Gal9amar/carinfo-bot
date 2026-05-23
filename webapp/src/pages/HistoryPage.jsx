@@ -48,7 +48,6 @@ export default function HistoryPage({ onBack, onViewPlate }) {
             const model = item.model || ''
             const year  = item.year  || ''
             const color = item.color || ''
-            const yad2  = item.yad2  || ''
             const title = [make, model].filter(Boolean).join(' ')
 
             return (
@@ -58,9 +57,13 @@ export default function HistoryPage({ onBack, onViewPlate }) {
                 padding: 16,
                 marginBottom: 12,
               }}>
-                {/* Plate + vehicle info — one row */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                  <LicensePlate plate={plate} size="sm" />
+                {/* Plate — full width */}
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
+                  <LicensePlate plate={plate} size="lg" style={{ width: '100%' }} />
+                </div>
+
+                {/* Vehicle info + report button — side by side */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     {title && (
                       <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -73,51 +76,23 @@ export default function HistoryPage({ onBack, onViewPlate }) {
                       </div>
                     )}
                   </div>
-                </div>
-
-                {/* Action buttons */}
-                <div style={{ display: 'flex', gap: 8 }}>
                   <button
                     onClick={() => onViewPlate(plate)}
                     style={{
-                      flex: 1,
-                      padding: '10px 0',
+                      flexShrink: 0,
+                      padding: '8px 14px',
                       border: 'none',
                       borderRadius: 10,
                       background: 'var(--btn)',
                       color: 'var(--btn-text)',
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: 600,
                       cursor: 'pointer',
+                      whiteSpace: 'nowrap',
                     }}
                   >
                     📊 צפה בדוח
                   </button>
-                  {yad2 && (
-                    <a
-                      href={yad2}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{
-                        flex: 1,
-                        padding: '10px 0',
-                        border: 'none',
-                        borderRadius: 10,
-                        background: '#FF4301',
-                        color: '#fff',
-                        fontSize: 15,
-                        fontWeight: 800,
-                        cursor: 'pointer',
-                        textDecoration: 'none',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        letterSpacing: 0.5,
-                      }}
-                    >
-                      Yad2
-                    </a>
-                  )}
                 </div>
               </div>
             )
