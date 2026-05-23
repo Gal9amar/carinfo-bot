@@ -371,16 +371,15 @@ export default function ReportPage({ plate, onBack, user }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
               <div>
                 <div style={{
-                  display: 'inline-block', fontSize: 10, fontWeight: 700,
-                  background: '#8b5cf622', color: '#8b5cf6',
-                  borderRadius: 4, padding: '2px 7px', marginBottom: 4,
+                  display: 'inline-block', fontSize: 11, fontWeight: 700,
+                  background: '#8b5cf6', color: '#fff',
+                  borderRadius: 20, padding: '4px 10px', marginBottom: 6,
                 }}>למנויים בלבד</div>
                 <div style={{ fontWeight: 700, fontSize: 15 }}>💰 מחיר שוק – Yad2</div>
               </div>
               {marketData.public_end && (
-                <div style={{ fontSize: 11, color: 'var(--hint)', textAlign: 'left', lineHeight: 1.4 }}>
-                  פתוח לכולם עד<br />
-                  <span style={{ fontWeight: 600 }}>{marketData.public_end}</span>
+                <div style={{ fontSize: 11, color: 'var(--hint)', textAlign: 'left', whiteSpace: 'nowrap' }}>
+                  פתוח לכולם עד <span style={{ fontWeight: 600 }}>{marketData.public_end}</span>
                 </div>
               )}
             </div>
