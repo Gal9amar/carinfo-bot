@@ -88,18 +88,37 @@ async def list_packages():
 @api.get("/api/user")
 async def get_user_info(user: dict = Depends(_get_user)):
     from src.users import get_user_by_id
-    from src.db import get_bot_setting
-    db_user = await get_user_by_id(int(user["id"]))
+    from src.db import get_bot_setting, execute
+    user_id = int(user["id"])
+    db_user = await get_user_by_id(user_id)
     maintenance = (await get_bot_setting("maintenance")) == "1"
     left = db_user.get("searches_left", 0) if db_user else 0
     quota = db_user.get("searches_quota", 0) if db_user else 0
+
+    # Determine show_market_price based on feature flag and group membership
+    yad2_enabled = (await get_bot_setting("yad2_market_enabled")) == "1"
+    if yad2_enabled:
+        groups_json = (await get_bot_setting("yad2_market_groups")) or "[]"
+        allowed_groups = json.loads(groups_json)
+        if not allowed_groups:  # empty = all users
+            show_market = True
+        else:
+            r = await execute(
+                f"SELECT 1 FROM user_group_members WHERE user_id=? AND group_id IN ({','.join('?' * len(allowed_groups))})",
+                [user_id, *allowed_groups]
+            )
+            show_market = len(r.rows) > 0
+    else:
+        show_market = False
+
     return {
         "id": user["id"],
         "first_name": user.get("first_name", ""),
-        "is_admin": int(user["id"]) == ADMIN_ID,
+        "is_admin": user_id == ADMIN_ID,
         "searches_left": left,
         "searches_quota": quota,
         "maintenance": maintenance,
+        "show_market_price": show_market,
     }
 
 
@@ -229,22 +248,26 @@ async def admin_get_settings(_: dict = Depends(_require_admin)):
     from src.db import get_bot_setting
     import src.users as _u
     return {
-        "maintenance":    (await get_bot_setting("maintenance")) == "1",
-        "free_searches":  _u.FREE_SEARCHES,
-        "referral_bonus": int((await get_bot_setting("referral_bonus")) or "10"),
-        "promo_searches": _u.PROMO_SEARCHES,
-        "promo_start":    _u.PROMO_START,
-        "promo_end":      _u.PROMO_END,
+        "maintenance":         (await get_bot_setting("maintenance")) == "1",
+        "free_searches":       _u.FREE_SEARCHES,
+        "referral_bonus":      int((await get_bot_setting("referral_bonus")) or "10"),
+        "promo_searches":      _u.PROMO_SEARCHES,
+        "promo_start":         _u.PROMO_START,
+        "promo_end":           _u.PROMO_END,
+        "yad2_market_enabled": (await get_bot_setting("yad2_market_enabled")) == "1",
+        "yad2_market_groups":  json.loads((await get_bot_setting("yad2_market_groups")) or "[]"),
     }
 
 
 class SettingsUpdate(BaseModel):
-    maintenance:    bool | None = None
-    free_searches:  int  | None = None
-    referral_bonus: int  | None = None
-    promo_searches: int  | None = None
-    promo_start:    str  | None = None
-    promo_end:      str  | None = None
+    maintenance:         bool         | None = None
+    free_searches:       int          | None = None
+    referral_bonus:      int          | None = None
+    promo_searches:      int          | None = None
+    promo_start:         str          | None = None
+    promo_end:           str          | None = None
+    yad2_market_enabled: bool         | None = None
+    yad2_market_groups:  Optional[list]      = None
 
 
 @api.post("/api/admin/settings")
@@ -271,6 +294,92 @@ async def admin_update_settings(body: SettingsUpdate, _: dict = Depends(_require
     if body.promo_end is not None:
         _u.PROMO_END = body.promo_end.strip()
         await set_bot_setting("promo_end", _u.PROMO_END)
+    if body.yad2_market_enabled is not None:
+        await set_bot_setting("yad2_market_enabled", "1" if body.yad2_market_enabled else "0")
+    if body.yad2_market_groups is not None:
+        await set_bot_setting("yad2_market_groups", json.dumps(body.yad2_market_groups))
+    return {"ok": True}
+
+
+@api.get("/api/admin/groups")
+async def admin_list_groups(_: dict = Depends(_require_admin)):
+    from src.db import execute
+    groups_r = await execute(
+        "SELECT id, name, created_at FROM user_groups ORDER BY created_at ASC"
+    )
+    result = []
+    for row in groups_r.rows:
+        group_id, name, created_at = row[0], row[1], row[2]
+        members_r = await execute(
+            "SELECT user_id FROM user_group_members WHERE group_id=?", [group_id]
+        )
+        member_ids = [m[0] for m in members_r.rows]
+        result.append({
+            "id": group_id,
+            "name": name,
+            "created_at": created_at,
+            "member_ids": member_ids,
+        })
+    return result
+
+
+class GroupCreateBody(BaseModel):
+    name: str
+
+
+@api.post("/api/admin/groups")
+async def admin_create_group(body: GroupCreateBody, _: dict = Depends(_require_admin)):
+    from src.db import execute
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name required")
+    try:
+        await execute(
+            "INSERT INTO user_groups (name) VALUES (?)", [name]
+        )
+    except Exception as e:
+        if "UNIQUE" in str(e).upper() or "unique" in str(e).lower():
+            raise HTTPException(status_code=409, detail="Group name already exists")
+        raise
+    r = await execute("SELECT id, name, created_at FROM user_groups WHERE name=?", [name])
+    if not r.rows:
+        raise HTTPException(status_code=500, detail="Failed to create group")
+    row = r.rows[0]
+    return {"id": row[0], "name": row[1], "created_at": row[2], "member_ids": []}
+
+
+@api.delete("/api/admin/groups/{group_id}")
+async def admin_delete_group(group_id: int, _: dict = Depends(_require_admin)):
+    from src.db import execute
+    await execute("DELETE FROM user_group_members WHERE group_id=?", [group_id])
+    await execute("DELETE FROM user_groups WHERE id=?", [group_id])
+    return {"ok": True}
+
+
+class GroupMemberBody(BaseModel):
+    user_id: int
+
+
+@api.post("/api/admin/groups/{group_id}/members")
+async def admin_add_group_member(group_id: int, body: GroupMemberBody, _: dict = Depends(_require_admin)):
+    from src.db import execute
+    r = await execute("SELECT id FROM user_groups WHERE id=?", [group_id])
+    if not r.rows:
+        raise HTTPException(status_code=404, detail="Group not found")
+    await execute(
+        "INSERT OR IGNORE INTO user_group_members (group_id, user_id) VALUES (?, ?)",
+        [group_id, body.user_id]
+    )
+    return {"ok": True}
+
+
+@api.delete("/api/admin/groups/{group_id}/members/{user_id}")
+async def admin_remove_group_member(group_id: int, user_id: int, _: dict = Depends(_require_admin)):
+    from src.db import execute
+    await execute(
+        "DELETE FROM user_group_members WHERE group_id=? AND user_id=?",
+        [group_id, user_id]
+    )
     return {"ok": True}
 
 
@@ -670,6 +779,23 @@ async def vehicle_market_price(plate: str, user: dict = Depends(_get_user)):
     from src.api.gov_api import fetch_vehicle_data
     from src.cache import cache
     from src.yad2 import get_market_price, build_url
+    from src.db import get_bot_setting, execute
+
+    # Check feature flag
+    yad2_enabled = (await get_bot_setting("yad2_market_enabled")) == "1"
+    if not yad2_enabled:
+        raise HTTPException(status_code=403, detail="disabled")
+
+    user_id = int(user["id"])
+    groups_json = (await get_bot_setting("yad2_market_groups")) or "[]"
+    allowed_groups = json.loads(groups_json)
+    if allowed_groups:
+        r = await execute(
+            f"SELECT 1 FROM user_group_members WHERE user_id=? AND group_id IN ({','.join('?' * len(allowed_groups))})",
+            [user_id, *allowed_groups]
+        )
+        if len(r.rows) == 0:
+            raise HTTPException(status_code=403, detail="not in group")
 
     clean = plate.replace("-", "").replace(" ", "")
     record = cache.get(clean)

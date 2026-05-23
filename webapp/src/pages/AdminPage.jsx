@@ -15,6 +15,11 @@ import {
   adminFetchActivity,
   adminGiftAll,
   adminFetchMarketPrice,
+  adminFetchGroups,
+  adminCreateGroup,
+  adminDeleteGroup,
+  adminAddGroupMember,
+  adminRemoveGroupMember,
 } from '../api.js'
 import BackButton from '../components/BackButton.jsx'
 
@@ -25,6 +30,7 @@ const TABS = [
   { id: 'codes',    icon: '🔑', label: 'קודים' },
   { id: 'packages', icon: '📦', label: 'חבילות' },
   { id: 'users',    icon: '👥', label: 'משתמשים' },
+  { id: 'groups',   icon: '👥', label: 'קבוצות' },
   { id: 'settings', icon: '⚙️', label: 'הגדרות' },
   { id: 'tickets',  icon: '🎫', label: 'טיקטים' },
   { id: 'market',   icon: '💰', label: 'מחיר שוק' },
@@ -66,6 +72,7 @@ export default function AdminPage({ user }) {
       {tab === 'codes'    && <CodesTab />}
       {tab === 'packages' && <PackagesTab />}
       {tab === 'users'    && <UsersTab />}
+      {tab === 'groups'   && <GroupsTab />}
       {tab === 'settings' && <SettingsTab />}
       {tab === 'tickets'  && <TicketsTab />}
       {tab === 'market'   && <MarketPriceTab />}
@@ -1021,6 +1028,36 @@ function SettingsTab() {
     setSaving(false)
   }
 
+  // Yad2 market price state
+  const [yad2Enabled, setYad2Enabled]         = useState(false)
+  const [yad2Groups, setYad2Groups]           = useState([])
+  const [allGroups, setAllGroups]             = useState(null)
+  const [yad2Saving, setYad2Saving]           = useState(false)
+
+  useEffect(() => {
+    adminFetchGroups().then(setAllGroups).catch(() => setAllGroups([]))
+  }, [])
+
+  useEffect(() => {
+    if (settings) {
+      setYad2Enabled(!!settings.yad2_market_enabled)
+      setYad2Groups(settings.yad2_market_groups || [])
+    }
+  }, [settings])
+
+  async function saveYad2() {
+    setYad2Saving(true)
+    try {
+      await adminUpdateSettings({ yad2_market_enabled: yad2Enabled, yad2_market_groups: yad2Groups })
+      window.Telegram?.WebApp?.showAlert('✅ הגדרות Yad2 עודכנו')
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    setYad2Saving(false)
+  }
+
+  function toggleYad2Group(id) {
+    setYad2Groups(prev => prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id])
+  }
+
   // Is the promo currently active?
   function promoStatus() {
     if (!settings) return null
@@ -1160,6 +1197,51 @@ function SettingsTab() {
       <div style={{ marginTop: 24 }}>
         <div className="toggle-label" style={{ marginBottom: 8 }}>📢 שידור הודעה לכל המשתמשים</div>
         <BroadcastSection />
+      </div>
+
+      {/* Yad2 market price feature flag */}
+      <div style={{ marginTop: 24, border: '1.5px solid var(--border, rgba(255,255,255,0.12))', borderRadius: 14, padding: 16 }}>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14 }}>💰 מחיר שוק Yad2 — הצגה בדוח</div>
+
+        <div className="toggle-row">
+          <span className="toggle-label">הפעל הצגת מחיר שוק</span>
+          <button
+            className={`toggle ${yad2Enabled ? 'on' : ''}`}
+            onClick={() => setYad2Enabled(v => !v)}
+          />
+        </div>
+
+        {yad2Enabled && (
+          <div style={{ marginTop: 14 }}>
+            <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8 }}>
+              הגבלה לקבוצות <span style={{ fontSize: 11 }}>(ריק = כולם)</span>
+            </div>
+            {allGroups === null && <div style={{ fontSize: 13, color: 'var(--hint)' }}>⏳ טוען קבוצות...</div>}
+            {allGroups && allGroups.length === 0 && (
+              <div style={{ fontSize: 13, color: 'var(--hint)' }}>אין קבוצות — צור קבוצות בטאב קבוצות</div>
+            )}
+            {allGroups && allGroups.map(g => (
+              <label key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 14, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={yad2Groups.includes(g.id)}
+                  onChange={() => toggleYad2Group(g.id)}
+                  style={{ width: 16, height: 16 }}
+                />
+                {g.name} <span style={{ fontSize: 12, color: 'var(--hint)' }}>({g.member_ids.length} חברים)</span>
+              </label>
+            ))}
+          </div>
+        )}
+
+        <button
+          className="btn btn-success"
+          style={{ marginTop: 14 }}
+          disabled={yad2Saving}
+          onClick={saveYad2}
+        >
+          {yad2Saving ? '...' : '💾 שמור הגדרות Yad2'}
+        </button>
       </div>
     </div>
   )
@@ -1528,6 +1610,169 @@ function MRow({ label, value, bold }) {
     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13 }}>
       <span style={{ color: 'var(--hint)' }}>{label}</span>
       <span style={{ fontWeight: bold ? 700 : 400 }}>{value ?? '—'}</span>
+    </div>
+  )
+}
+
+// ── Groups Tab ────────────────────────────────────────────────────────────────
+function GroupsTab() {
+  const [groups, setGroups] = useState(null)
+  const [users, setUsers] = useState(null)
+  const [newGroupName, setNewGroupName] = useState('')
+  const [creating, setCreating] = useState(false)
+  const [addingMember, setAddingMember] = useState({}) // groupId -> userId string
+
+  async function loadGroups() {
+    try { setGroups(await adminFetchGroups()) } catch { }
+  }
+
+  useEffect(() => {
+    loadGroups()
+    adminFetchUsers().then(setUsers).catch(() => {})
+  }, [])
+
+  async function createGroup() {
+    const name = newGroupName.trim()
+    if (!name) return
+    setCreating(true)
+    try {
+      await adminCreateGroup(name)
+      setNewGroupName('')
+      await loadGroups()
+    } catch (e) {
+      window.Telegram?.WebApp?.showAlert('שגיאה: ' + (e.message || 'נסה שוב'))
+    }
+    setCreating(false)
+  }
+
+  async function deleteGroup(id, name) {
+    window.Telegram?.WebApp?.showConfirm(`למחוק את הקבוצה "${name}"?`, async ok => {
+      if (!ok) return
+      try { await adminDeleteGroup(id); await loadGroups() }
+      catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    })
+  }
+
+  async function addMember(groupId) {
+    const userId = parseInt(addingMember[groupId])
+    if (!userId) return
+    try {
+      await adminAddGroupMember(groupId, userId)
+      setAddingMember(m => ({ ...m, [groupId]: '' }))
+      await loadGroups()
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+  }
+
+  async function removeMember(groupId, userId) {
+    try {
+      await adminRemoveGroupMember(groupId, userId)
+      await loadGroups()
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+  }
+
+  function getUserName(uid) {
+    if (!users) return String(uid)
+    const u = users.find(u => u.user_id === uid)
+    if (!u) return String(uid)
+    return u.username ? `@${u.username}` : u.full_name || String(uid)
+  }
+
+  if (!groups) return <div className="loading">⏳</div>
+
+  // Users not already in the group
+  function availableUsers(group) {
+    if (!users) return []
+    return users.filter(u => !group.member_ids.includes(u.user_id))
+  }
+
+  return (
+    <div>
+      {/* Create group */}
+      <div style={{ background: 'var(--card-bg, rgba(255,255,255,0.05))', borderRadius: 12, padding: '12px 14px', marginBottom: 16 }}>
+        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>➕ צור קבוצה</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            className="input"
+            style={{ flex: 1, marginBottom: 0 }}
+            placeholder="שם הקבוצה"
+            value={newGroupName}
+            onChange={e => setNewGroupName(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && createGroup()}
+          />
+          <button
+            className="btn"
+            style={{ width: 'auto', padding: '0 16px', marginTop: 0 }}
+            disabled={creating || !newGroupName.trim()}
+            onClick={createGroup}
+          >
+            {creating ? '⏳' : 'צור'}
+          </button>
+        </div>
+      </div>
+
+      {/* Groups list */}
+      {groups.length === 0 && (
+        <div style={{ color: 'var(--hint)', textAlign: 'center', padding: 24 }}>אין קבוצות עדיין</div>
+      )}
+      {groups.map(group => (
+        <div key={group.id} style={{ background: 'var(--card-bg, rgba(255,255,255,0.05))', borderRadius: 12, padding: '12px 14px', marginBottom: 14 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>{group.name}</div>
+              <div style={{ fontSize: 12, color: 'var(--hint)' }}>{group.member_ids.length} חברים</div>
+            </div>
+            <button
+              className="btn btn-danger"
+              style={{ width: 'auto', padding: '5px 12px', marginTop: 0, fontSize: 13 }}
+              onClick={() => deleteGroup(group.id, group.name)}
+            >
+              🗑
+            </button>
+          </div>
+
+          {/* Members */}
+          {group.member_ids.length > 0 && (
+            <div style={{ marginBottom: 10 }}>
+              {group.member_ids.map(uid => (
+                <div key={uid} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid var(--bg)', fontSize: 13 }}>
+                  <span>{getUserName(uid)}</span>
+                  <button
+                    onClick={() => removeMember(group.id, uid)}
+                    style={{ background: 'none', border: 'none', color: '#e53e3e', cursor: 'pointer', fontSize: 16, padding: '0 4px' }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add member */}
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <select
+              className="input"
+              style={{ flex: 1, marginBottom: 0 }}
+              value={addingMember[group.id] || ''}
+              onChange={e => setAddingMember(m => ({ ...m, [group.id]: e.target.value }))}
+            >
+              <option value="">הוסף משתמש...</option>
+              {availableUsers(group).map(u => (
+                <option key={u.user_id} value={u.user_id}>
+                  {u.username ? `@${u.username}` : u.full_name || String(u.user_id)}
+                </option>
+              ))}
+            </select>
+            <button
+              className="btn btn-success"
+              style={{ width: 'auto', padding: '0 14px', marginTop: 0 }}
+              disabled={!addingMember[group.id]}
+              onClick={() => addMember(group.id)}
+            >
+              הוסף
+            </button>
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

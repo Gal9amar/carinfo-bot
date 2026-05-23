@@ -220,19 +220,23 @@ function Sec({ title, children }) {
 
 // ── main component ────────────────────────────────────────────────────────────
 
-export default function ReportPage({ plate, onBack }) {
+export default function ReportPage({ plate, onBack, user }) {
   const [record, setRecord] = useState(null)
   const [error, setError] = useState(null)
   const [copied, setCopied] = useState(false)
-  const [marketData, setMarketData] = useState(undefined) // undefined=loading, null=no data
+  const [marketData, setMarketData] = useState(null) // null=no data
 
   useEffect(() => {
     if (!plate) { setError('לא צוין מספר רכב'); return }
     fetchVehicle(plate)
-      .then(r => { setRecord(r); return r })
-      .then(() => fetchMarketPrice(plate).then(setMarketData).catch(() => setMarketData(null)))
+      .then(r => {
+        setRecord(r)
+        if (user?.show_market_price) {
+          return fetchMarketPrice(plate).then(setMarketData).catch(() => setMarketData(null))
+        }
+      })
       .catch(() => setError('הרכב לא נמצא או שגיאה בטעינה'))
-  }, [plate])
+  }, [plate, user?.show_market_price])
 
   if (error) return (
     <div className="page">
@@ -345,11 +349,7 @@ export default function ReportPage({ plate, onBack }) {
 
       {/* ── Market Price ── */}
       {(() => {
-        if (marketData === undefined) return (
-          <div className="card" style={{ marginBottom: 12, color: 'var(--hint)', fontSize: 13 }}>
-            ⏳ טוען מחיר שוק מ-Yad2...
-          </div>
-        )
+        if (!user?.show_market_price) return null
         if (!marketData?.market) return null
         const m   = marketData.market
         const yr  = marketData.year ? parseInt(marketData.year) : null

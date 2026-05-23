@@ -137,6 +137,16 @@ async def init_db() -> None:
     bonus       INTEGER NOT NULL DEFAULT 10,
     joined_at   TEXT    DEFAULT (datetime('now'))
 )""",
+        """CREATE TABLE IF NOT EXISTS user_groups (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL UNIQUE,
+    created_at TEXT DEFAULT (datetime('now'))
+)""",
+        """CREATE TABLE IF NOT EXISTS user_group_members (
+    group_id INTEGER NOT NULL,
+    user_id  INTEGER NOT NULL,
+    PRIMARY KEY (group_id, user_id)
+)""",
     ]
     for sql in statements:
         conn.execute(sql)
@@ -161,6 +171,17 @@ async def init_db() -> None:
     conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('promo_searches', '0')")
     conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('promo_start', '')")
     conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('promo_end', '')")
+    conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('yad2_market_enabled', '0')")
+    conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('yad2_market_groups', '[]')")
+    conn.commit()
+
+    # Seed the "מנהלים" group and add admin as member
+    admin_id = int(os.environ.get("ADMIN_TELEGRAM_ID", "0"))
+    if admin_id:
+        conn.execute("INSERT OR IGNORE INTO user_groups (name) VALUES ('מנהלים')")
+        r = conn.execute("SELECT id FROM user_groups WHERE name='מנהלים'").fetchone()
+        if r:
+            conn.execute("INSERT OR IGNORE INTO user_group_members (group_id, user_id) VALUES (?, ?)", (r[0], admin_id))
     conn.commit()
 
     from src.packages import init_packages

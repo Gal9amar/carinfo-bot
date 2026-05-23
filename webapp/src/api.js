@@ -305,6 +305,45 @@ export async function fetchMarketPrice(plate) {
   return r.json()
 }
 
+// Groups admin
+export async function adminFetchGroups() {
+  const r = await fetch(`${BASE}/api/admin/groups`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+export async function adminCreateGroup(name) {
+  const r = await fetch(`${BASE}/api/admin/groups`, {
+    method: 'POST', headers: headers(), body: JSON.stringify({ name }),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+export async function adminDeleteGroup(id) {
+  const r = await fetch(`${BASE}/api/admin/groups/${id}`, {
+    method: 'DELETE', headers: headers(),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+export async function adminAddGroupMember(groupId, userId) {
+  const r = await fetch(`${BASE}/api/admin/groups/${groupId}/members`, {
+    method: 'POST', headers: headers(), body: JSON.stringify({ user_id: userId }),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+export async function adminRemoveGroupMember(groupId, userId) {
+  const r = await fetch(`${BASE}/api/admin/groups/${groupId}/members/${userId}`, {
+    method: 'DELETE', headers: headers(),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
 // Market price (admin)
 export async function adminFetchMarketPrice(plate) {
   const r = await fetch(`${BASE}/api/admin/market-price?plate=${encodeURIComponent(plate)}`, { headers: headers() })

@@ -60,6 +60,7 @@ export default function App() {
         <ReportPage
           plate={reportPlate}
           onBack={(dest) => setScreen(dest ?? 'home')}
+          user={user}
         />
       </div>
     )
