@@ -466,18 +466,80 @@ async def is_blocked(user_id: int) -> bool:
 
 
 async def admin_stats() -> dict:
-    total_r    = await execute("SELECT COUNT(*) as c FROM users")
-    active_r   = await execute(
-        "SELECT COUNT(*) as c FROM users WHERE searches_quota = -1 OR searches_quota > searches_done"
+    from datetime import date, timedelta
+    today     = date.today().isoformat()
+    week_ago  = (date.today() - timedelta(days=7)).isoformat()
+    month_ago = (date.today() - timedelta(days=30)).isoformat()
+
+    total_r         = await execute("SELECT COUNT(*) as c FROM users")
+    blocked_r       = await execute("SELECT COUNT(*) as c FROM users WHERE blocked=1")
+    new_today_r     = await execute("SELECT COUNT(*) as c FROM users WHERE first_seen >= ?", [today])
+    new_week_r      = await execute("SELECT COUNT(*) as c FROM users WHERE first_seen >= ?", [week_ago])
+    active_week_r   = await execute("SELECT COUNT(*) as c FROM users WHERE last_seen >= ?", [week_ago])
+    active_month_r  = await execute("SELECT COUNT(*) as c FROM users WHERE last_seen >= ?", [month_ago])
+
+    subscribers_r   = await execute(
+        "SELECT COUNT(*) as c FROM user_group_members ugm "
+        "JOIN user_groups ug ON ug.id = ugm.group_id WHERE ug.name='מנויים'"
     )
-    searches_r = await execute("SELECT COALESCE(SUM(searches_done), 0) as c FROM users")
+    unlimited_r     = await execute(
+        "SELECT COUNT(*) as c FROM users WHERE searches_quota=-1 AND (quota_expires IS NULL OR quota_expires > datetime('now'))"
+    )
+    expiring_soon_r = await execute(
+        "SELECT COUNT(*) as c FROM users WHERE searches_quota=-1 AND quota_expires IS NOT NULL "
+        "AND quota_expires <= datetime('now', '+7 days') AND quota_expires > datetime('now')"
+    )
+
+    searches_r       = await execute("SELECT COALESCE(SUM(searches_done), 0) as c FROM users")
+    searches_today_r = await execute(
+        "SELECT COUNT(*) as c FROM search_history WHERE searched_at >= ?", [today]
+    )
+    searches_week_r  = await execute(
+        "SELECT COUNT(*) as c FROM search_history WHERE searched_at >= ?", [week_ago]
+    )
+
+    pending_payments_r = await execute("SELECT COUNT(*) as c FROM pending_payments")
+    approved_revenue_r = await execute(
+        "SELECT COALESCE(SUM(price), 0) as c FROM pending_payments WHERE 1=0"  # approved are deleted
+    )
+
     codes_r    = await execute("SELECT COUNT(*) as c FROM codes")
     used_r     = await execute("SELECT COUNT(*) as c FROM codes WHERE used_by IS NOT NULL")
+    active_codes_r = await execute(
+        "SELECT COUNT(*) as c FROM codes WHERE used_by IS NULL "
+        "AND (expires IS NULL OR expires > datetime('now'))"
+    )
+
+    tickets_open_r = await execute(
+        "SELECT COUNT(*) as c FROM tickets WHERE status='open'"
+    )
+
+    top_users_r = await execute(
+        "SELECT username, full_name, searches_done FROM users "
+        "ORDER BY searches_done DESC LIMIT 5"
+    )
+    top_users = [
+        {"name": (r[0] and f"@{r[0]}") or r[1] or "?", "searches": r[2]}
+        for r in top_users_r.rows
+    ]
 
     return {
-        "total_users":    _row(total_r)["c"],
-        "active_users":   _row(active_r)["c"],
-        "total_searches": _row(searches_r)["c"],
-        "total_codes":    _row(codes_r)["c"],
-        "used_codes":     _row(used_r)["c"],
+        "total_users":      _row(total_r)["c"],
+        "blocked_users":    _row(blocked_r)["c"],
+        "new_today":        _row(new_today_r)["c"],
+        "new_week":         _row(new_week_r)["c"],
+        "active_week":      _row(active_week_r)["c"],
+        "active_month":     _row(active_month_r)["c"],
+        "subscribers":      _row(subscribers_r)["c"],
+        "unlimited":        _row(unlimited_r)["c"],
+        "expiring_soon":    _row(expiring_soon_r)["c"],
+        "total_searches":   _row(searches_r)["c"],
+        "searches_today":   _row(searches_today_r)["c"],
+        "searches_week":    _row(searches_week_r)["c"],
+        "pending_payments": _row(pending_payments_r)["c"],
+        "total_codes":      _row(codes_r)["c"],
+        "used_codes":       _row(used_r)["c"],
+        "active_codes":     _row(active_codes_r)["c"],
+        "tickets_open":     _row(tickets_open_r)["c"],
+        "top_users":        top_users,
     }

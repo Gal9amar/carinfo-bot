@@ -82,16 +82,85 @@ export default function AdminPage({ user, onBack }) {
   )
 }
 
+function StatCard({ value, label, sub, accent }) {
+  return (
+    <div style={{
+      background: 'var(--bg2)', borderRadius: 12, padding: '12px 14px',
+      borderRight: accent ? `3px solid ${accent}` : undefined,
+    }}>
+      <div style={{ fontSize: 22, fontWeight: 800, color: accent || 'var(--text)', lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginTop: 3 }}>{label}</div>
+      {sub && <div style={{ fontSize: 11, color: 'var(--hint)', marginTop: 2 }}>{sub}</div>}
+    </div>
+  )
+}
+
+function Section({ title, children }) {
+  return (
+    <div style={{ marginBottom: 18 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--hint)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>{title}</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>{children}</div>
+    </div>
+  )
+}
+
 function StatsTab() {
   const [stats, setStats] = useState(null)
   useEffect(() => { adminFetchStats().then(setStats).catch(() => {}) }, [])
   if (!stats) return <div className="loading">⏳</div>
+
   return (
-    <div className="stat-grid">
-      <div className="stat-card"><div className="stat-value">{stats.total_users}</div><div className="stat-label">משתמשים</div></div>
-      <div className="stat-card"><div className="stat-value">{stats.active_users}</div><div className="stat-label">פעילים</div></div>
-      <div className="stat-card"><div className="stat-value">{stats.total_searches}</div><div className="stat-label">בדיקות</div></div>
-      <div className="stat-card"><div className="stat-value">{stats.used_codes}/{stats.total_codes}</div><div className="stat-label">קודים</div></div>
+    <div>
+      <Section title="משתמשים">
+        <StatCard value={stats.total_users}   label="סה״כ משתמשים" />
+        <StatCard value={stats.active_week}   label="פעילים השבוע" accent="#38a169" />
+        <StatCard value={stats.new_today}     label="חדשים היום"   sub={`${stats.new_week} השבוע`} accent="#38bdf8" />
+        <StatCard value={stats.blocked_users} label="חסומים"       accent={stats.blocked_users > 0 ? '#e53e3e' : undefined} />
+      </Section>
+
+      <Section title="מנויים">
+        <StatCard value={stats.subscribers}   label="מנויים פעילים" accent="#a855f7" />
+        <StatCard value={stats.unlimited}     label="ללא הגבלה"     accent="#38bdf8" />
+        <StatCard
+          value={stats.expiring_soon}
+          label="פגים ב-7 ימים"
+          accent={stats.expiring_soon > 0 ? '#d69e2e' : undefined}
+        />
+        <StatCard value={stats.pending_payments} label="תשלומים ממתינים" accent={stats.pending_payments > 0 ? '#f59e0b' : undefined} />
+      </Section>
+
+      <Section title="חיפושים">
+        <StatCard value={stats.searches_today} label="היום"    accent="#38a169" />
+        <StatCard value={stats.searches_week}  label="השבוע" />
+        <StatCard value={stats.total_searches} label="סה״כ כל הזמנים" />
+        <StatCard value={stats.active_month}   label="פעילים החודש" />
+      </Section>
+
+      <Section title="קודים וטיקטים">
+        <StatCard value={stats.active_codes}  label="קודים פעילים"  sub={`${stats.used_codes}/${stats.total_codes} נוצלו`} />
+        <StatCard value={stats.tickets_open}  label="טיקטים פתוחים" accent={stats.tickets_open > 0 ? '#f59e0b' : undefined} />
+      </Section>
+
+      {stats.top_users?.length > 0 && (
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--hint)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+            🏆 מחפשים מובילים
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {stats.top_users.map((u, i) => (
+              <div key={i} style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                background: 'var(--bg2)', borderRadius: 10, padding: '8px 14px',
+              }}>
+                <span style={{ fontSize: 13 }}>
+                  <span style={{ color: 'var(--hint)', marginLeft: 6 }}>#{i + 1}</span> {u.name}
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{u.searches} 🔍</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
