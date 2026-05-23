@@ -89,13 +89,9 @@ WAITING_PAYMENT_MSG = 3
 
 def _persistent_rows(is_admin: bool = False) -> list:
     """Bottom rows shown in chat — only search-related actions."""
-    webapp_url = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
-    rows = [
+    return [
         [InlineKeyboardButton("🔍 חיפוש רכב חדש", callback_data="new_search")],
     ]
-    if is_admin:
-        rows.append([InlineKeyboardButton("🛠 פאנל מנהל", web_app=WebAppInfo(url=webapp_url))])
-    return rows
 
 
 def _persistent_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
