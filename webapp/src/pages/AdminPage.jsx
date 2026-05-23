@@ -750,79 +750,109 @@ function GrantModal({ user, onClose, onDone }) {
     setSaving(false)
   }
 
+  const TABS = [
+    ['packages',  '⭐', 'מנוי'],
+    ['unlimited', '♾️', 'ללא הגבלה'],
+    ['custom',    '✍️', 'התאמה'],
+    ['history',   '📋', 'חיפושים'],
+    ['referrals', '🤝', 'הפניות'],
+  ]
+
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-title">✏️ עריכת {name}</div>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{ padding: '18px 16px' }}>
 
-        <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
-          {[['packages','⭐ מנוי'],['unlimited','♾️ ללא הגבלה'],['custom','✍️ התאמה'],['history','📋 חיפושים'],['referrals','🤝 הפניות']].map(([id, label]) => (
+        {/* Title */}
+        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14, color: 'var(--text)' }}>
+          עריכת {name}
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: 4, marginBottom: 16, background: 'var(--bg)', borderRadius: 10, padding: 3 }}>
+          {TABS.map(([id, icon, label]) => (
             <button
               key={id}
               onClick={() => setMode(id)}
               style={{
-                flex: 1, minWidth: '30%', padding: '7px 4px', fontSize: 11, borderRadius: 8,
-                border: '1.5px solid var(--accent)',
-                background: mode === id ? 'var(--accent)' : 'transparent',
-                color: mode === id ? '#fff' : 'var(--accent)',
-                cursor: 'pointer',
+                flex: 1, padding: '6px 2px', fontSize: 10, borderRadius: 7, border: 'none',
+                background: mode === id ? 'var(--bg2)' : 'transparent',
+                color: mode === id ? 'var(--text)' : 'var(--hint)',
+                cursor: 'pointer', fontWeight: mode === id ? 600 : 400,
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                transition: 'all 0.15s',
               }}
             >
-              {label}
+              <span style={{ fontSize: 14 }}>{icon}</span>
+              <span>{label}</span>
             </button>
           ))}
         </div>
 
         {mode === 'packages' && (
-          <div>
-            {!packages && <div className="loading" style={{ fontSize: 13 }}>⏳</div>}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+            {!packages && <div style={{ fontSize: 13, color: 'var(--hint)', textAlign: 'center', padding: 12 }}>⏳</div>}
             {packages && packages.map(pkg => (
               <button
                 key={pkg.id}
-                className="btn"
                 disabled={saving}
-                style={{ marginBottom: 8, textAlign: 'right' }}
                 onClick={() => grant(pkg.searches)}
+                style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)',
+                  background: 'var(--bg)', cursor: 'pointer', opacity: saving ? 0.5 : 1,
+                }}
               >
-                {pkg.label} — {pkg.searches === -1 ? '∞' : pkg.searches} חיפושים
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{pkg.label}</span>
+                <span style={{ fontSize: 12, color: 'var(--hint)' }}>{pkg.searches === -1 ? '∞' : pkg.searches} חיפושים</span>
               </button>
             ))}
           </div>
         )}
 
         {mode === 'unlimited' && (
-          <div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
-              {[['permanent','♾️ ללא הגבלת זמן'],['monthly','📅 מנוי חודשי (30 יום)']].map(([val, label]) => (
-                <label key={val} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                  <input type="radio" checked={unlimitedType === val} onChange={() => setUnlimitedType(val)} />
-                  {label}
-                </label>
-              ))}
-            </div>
-            <button className="btn" disabled={saving} onClick={() => grant(unlimitedType === 'permanent' ? -2 : -1)}>
-              {saving ? '...' : 'אשר'}
-            </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {[['permanent','♾️ ללא הגבלת זמן'],['monthly','📅 מנוי חודשי (30 יום)']].map(([val, label]) => (
+              <label key={val} onClick={() => setUnlimitedType(val)} style={{
+                display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
+                borderRadius: 10, cursor: 'pointer',
+                background: unlimitedType === val ? 'var(--accent)22' : 'var(--bg)',
+                border: `1px solid ${unlimitedType === val ? 'var(--accent)' : 'rgba(255,255,255,0.08)'}`,
+              }}>
+                <input type="radio" checked={unlimitedType === val} onChange={() => setUnlimitedType(val)} style={{ accentColor: 'var(--accent)' }} />
+                <span style={{ fontSize: 13 }}>{label}</span>
+              </label>
+            ))}
+            <button
+              disabled={saving}
+              onClick={() => grant(unlimitedType === 'permanent' ? -2 : -1)}
+              style={{
+                marginTop: 4, padding: '10px', borderRadius: 10, border: 'none',
+                background: 'var(--accent)', color: '#fff', fontSize: 13,
+                fontWeight: 600, cursor: 'pointer', opacity: saving ? 0.5 : 1,
+              }}
+            >{saving ? '...' : 'אשר'}</button>
           </div>
         )}
 
         {mode === 'custom' && (
-          <div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <input
               className="input"
-              type="number"
-              min="1"
+              type="number" min="1"
               placeholder="כמות חיפושים להוסיף"
               value={customAmount}
               onChange={e => setCustomAmount(e.target.value)}
+              style={{ fontSize: 13 }}
             />
             <button
-              className="btn"
               disabled={saving || !customAmount || parseInt(customAmount) < 1}
               onClick={() => grant(parseInt(customAmount))}
-            >
-              {saving ? '...' : 'הוסף'}
-            </button>
+              style={{
+                padding: '10px', borderRadius: 10, border: 'none',
+                background: 'var(--accent)', color: '#fff', fontSize: 13,
+                fontWeight: 600, cursor: 'pointer', opacity: (saving || !customAmount) ? 0.5 : 1,
+              }}
+            >{saving ? '...' : 'הוסף'}</button>
           </div>
         )}
 
