@@ -9,14 +9,9 @@ export default function HistoryPage({ onBack, onViewPlate }) {
   const [query, setQuery]   = useState('')
 
   useEffect(() => {
-    const start = Date.now()
     fetchSearchHistory()
       .catch(() => [])
-      .then(data => {
-        const elapsed = Date.now() - start
-        const remaining = Math.max(0, 3000 - elapsed)
-        setTimeout(() => setItems(data), remaining)
-      })
+      .then(data => setItems(data))
   }, [])
 
   const filtered = items?.filter(item => {
