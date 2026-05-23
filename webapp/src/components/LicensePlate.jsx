@@ -9,60 +9,57 @@ function formatPlate(plate) {
   return plate
 }
 
+const SIZES = {
+  sm: { h: 38, r: 6, bw: 2, flag: 12, il: 6,  isr: 5,  mw: 28, py: '3px 5px',  numSz: 17, numPx: '0 10px', ls: 1   },
+  md: { h: 46, r: 7, bw: 2, flag: 15, il: 8,  isr: 6,  mw: 34, py: '3px 6px',  numSz: 22, numPx: '0 14px', ls: 1.5 },
+  lg: { h: 64, r: 10, bw: 3, flag: 20, il: 11, isr: 8, mw: 44, py: '4px 8px',  numSz: 32, numPx: '0 20px', ls: 2   },
+}
+
 export default function LicensePlate({ plate, size = 'md' }) {
   const formatted = formatPlate(plate)
-  const lg = size === 'lg'
+  const s = SIZES[size] || SIZES.md
 
   return (
     <div style={{
       display: 'inline-flex',
       alignItems: 'stretch',
-      borderRadius: lg ? 10 : 7,
-      border: `${lg ? 3 : 2}px solid #1a3896`,
+      borderRadius: s.r,
+      border: `${s.bw}px solid #1a3896`,
       overflow: 'hidden',
       boxShadow: '0 2px 8px rgba(0,0,0,0.22)',
-      height: lg ? 64 : 46,
+      height: s.h,
       direction: 'ltr',
+      flexShrink: 0,
     }}>
       {/* Blue IL section */}
       <div style={{
         background: 'linear-gradient(170deg, #1e40af 0%, #1230a0 100%)',
         color: '#fff',
-        padding: lg ? '4px 8px' : '3px 6px',
+        padding: s.py,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         gap: 1,
-        minWidth: lg ? 44 : 34,
+        minWidth: s.mw,
       }}>
-        <span style={{ fontSize: lg ? 20 : 15, lineHeight: 1 }}>🇮🇱</span>
-        <span style={{
-          fontSize: lg ? 11 : 8,
-          fontWeight: 800,
-          letterSpacing: 1,
-          lineHeight: 1,
-        }}>IL</span>
-        <span style={{
-          fontSize: lg ? 8 : 6,
-          letterSpacing: 0.3,
-          lineHeight: 1,
-          opacity: 0.9,
-        }}>ישראל</span>
+        <span style={{ fontSize: s.flag, lineHeight: 1 }}>🇮🇱</span>
+        <span style={{ fontSize: s.il, fontWeight: 800, letterSpacing: 1, lineHeight: 1 }}>IL</span>
+        <span style={{ fontSize: s.isr, letterSpacing: 0.3, lineHeight: 1, opacity: 0.9 }}>ישראל</span>
       </div>
 
       {/* Yellow number section */}
       <div style={{
         background: '#FFE500',
-        padding: lg ? '0 20px' : '0 14px',
+        padding: s.numPx,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         fontFamily: '"Arial Black", "Arial Bold", Arial, sans-serif',
         fontWeight: 900,
-        fontSize: lg ? 32 : 22,
+        fontSize: s.numSz,
         color: '#111',
-        letterSpacing: lg ? 2 : 1.5,
+        letterSpacing: s.ls,
         whiteSpace: 'nowrap',
       }}>
         {formatted}
