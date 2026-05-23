@@ -977,6 +977,43 @@ async def handle_package_callback(update: Update, context: ContextTypes.DEFAULT_
 
     # buy| handled by handle_buy_callback
 
+async def _build_user_grant_keyboard(uid: int, blocked: bool) -> InlineKeyboardMarkup:
+    from src.admin_grants import get_admin_grants
+    grants = await get_admin_grants()
+    rows: list[list[InlineKeyboardButton]] = []
+    row: list[InlineKeyboardButton] = []
+    for _gid, label, searches, _order in grants:
+        row.append(InlineKeyboardButton(label, callback_data=f"ugrant|{uid}|{searches}"))
+        if len(row) == 2:
+            rows.append(row)
+            row = []
+    if row:
+        rows.append(row)
+    rows.append([InlineKeyboardButton("🚫 חסום" if not blocked else "✅ שחרר", callback_data=f"utoggle|{uid}")])
+    rows.append([InlineKeyboardButton("🔙 חזור למשתמשים", callback_data="usr|back")])
+    return InlineKeyboardMarkup(rows)
+
+
+def _grant_description(amount: int) -> str:
+    if amount == -2:
+        return "גישה חופשית"
+    if amount == -1:
+        return "מנוי חודשי"
+    if amount == 0:
+        return "מנוי חינם"
+    return f"{amount} בדיקות"
+
+
+def _grant_user_message(amount: int, msg: str) -> str:
+    if amount == -2:
+        return "🎖️ קיבלת גישה חופשית ללא הגבלת זמן! תוכל לחפש רכבים ללא הגבלה."
+    if amount == -1:
+        return f"🎉 המנוי החודשי שלך אושר!\n{msg}\n\nתוכל לחפש ללא הגבלה!"
+    if amount == 0:
+        return f"🆓 הוגדרת למנוי חינם.\n{msg}"
+    return f"🎉 נוספו לך {amount} בדיקות רכב!"
+
+
 async def handle_user_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Admin clicked on a user — show options."""
     query = update.callback_query
@@ -1014,16 +1051,8 @@ async def handle_user_callback(update: Update, context: ContextTypes.DEFAULT_TYP
             f"📌 נותרו: {left_str}\n"
             f"{'🔴 חסום' if blocked else '🟢 פעיל'}"
         )
-        buttons = [
-            [InlineKeyboardButton("➕ 50 בדיקות",  callback_data=f"ugrant|{uid}|50"),
-             InlineKeyboardButton("➕ 100 בדיקות", callback_data=f"ugrant|{uid}|100")],
-            [InlineKeyboardButton("➕ 200 בדיקות", callback_data=f"ugrant|{uid}|200"),
-             InlineKeyboardButton("♾️ מנוי חודשי", callback_data=f"ugrant|{uid}|-1")],
-            [InlineKeyboardButton("🎖️ גישה חופשית", callback_data=f"ugrant|{uid}|-2")],
-            [InlineKeyboardButton("🚫 חסום" if not blocked else "✅ שחרר", callback_data=f"utoggle|{uid}")],
-            [InlineKeyboardButton("🔙 חזור למשתמשים", callback_data="usr|back")],
-        ]
-        await query.edit_message_text(info, reply_markup=InlineKeyboardMarkup(buttons))
+        buttons = await _build_user_grant_keyboard(uid, blocked)
+        await query.edit_message_text(info, reply_markup=buttons)
         return
 
 
@@ -1032,18 +1061,11 @@ async def handle_user_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         uid     = int(parts[1])
         amount  = int(parts[2])
         msg     = await admin_grant(ADMIN_ID, uid, amount, "granted via admin panel")
-        desc    = "גישה חופשית" if amount == -2 else ("מנוי חודשי" if amount == -1 else f"{amount} בדיקות")
+        desc    = _grant_description(amount)
         await query.answer(f"✅ הוענקו {desc}", show_alert=True)
         # Notify user
         try:
-            user_msg = (
-                "🎖️ קיבלת גישה חופשית ללא הגבלת זמן! תוכל לחפש רכבים ללא הגבלה."
-                if amount == -2 else
-                f"🎉 המנוי החודשי שלך אושר!\n{msg}\n\nתוכל לחפש ללא הגבלה!"
-                if amount == -1 else
-                f"🎉 נוספו לך {amount} בדיקות רכב!"
-            )
-            await context.bot.send_message(uid, user_msg)
+            await context.bot.send_message(uid, _grant_user_message(amount, msg))
         except Exception:
             pass
         # Refresh user view
@@ -1070,16 +1092,7 @@ async def handle_user_callback(update: Update, context: ContextTypes.DEFAULT_TYP
             f"📌 נותרו: {left_str}\n"
             f"{'🔴 חסום' if blocked else '🟢 פעיל'}"
         )
-        buttons = [
-            [InlineKeyboardButton("➕ 50 בדיקות",  callback_data=f"ugrant|{uid}|50"),
-             InlineKeyboardButton("➕ 100 בדיקות", callback_data=f"ugrant|{uid}|100")],
-            [InlineKeyboardButton("➕ 200 בדיקות", callback_data=f"ugrant|{uid}|200"),
-             InlineKeyboardButton("♾️ מנוי חודשי", callback_data=f"ugrant|{uid}|-1")],
-            [InlineKeyboardButton("🎖️ גישה חופשית", callback_data=f"ugrant|{uid}|-2")],
-            [InlineKeyboardButton("🚫 חסום" if not blocked else "✅ שחרר", callback_data=f"utoggle|{uid}")],
-            [InlineKeyboardButton("🔙 חזור למשתמשים", callback_data="usr|back")],
-        ]
-        await query.edit_message_text(info, reply_markup=InlineKeyboardMarkup(buttons))
+        await query.edit_message_text(info, reply_markup=await _build_user_grant_keyboard(uid, blocked))
         return
 
     # utoggle|UID — block/unblock
@@ -1123,16 +1136,7 @@ async def handle_user_callback(update: Update, context: ContextTypes.DEFAULT_TYP
             f"📌 נותרו: {left_str}\n"
             f"{'🔴 חסום' if blocked else '🟢 פעיל'}"
         )
-        buttons = [
-            [InlineKeyboardButton("➕ 50 בדיקות",  callback_data=f"ugrant|{uid}|50"),
-             InlineKeyboardButton("➕ 100 בדיקות", callback_data=f"ugrant|{uid}|100")],
-            [InlineKeyboardButton("➕ 200 בדיקות", callback_data=f"ugrant|{uid}|200"),
-             InlineKeyboardButton("♾️ מנוי חודשי", callback_data=f"ugrant|{uid}|-1")],
-            [InlineKeyboardButton("🎖️ גישה חופשית", callback_data=f"ugrant|{uid}|-2")],
-            [InlineKeyboardButton("🚫 חסום" if not blocked else "✅ שחרר", callback_data=f"utoggle|{uid}")],
-            [InlineKeyboardButton("🔙 חזור למשתמשים", callback_data="usr|back")],
-        ]
-        await query.edit_message_text(info, reply_markup=InlineKeyboardMarkup(buttons))
+        await query.edit_message_text(info, reply_markup=await _build_user_grant_keyboard(uid, blocked))
         return
 
 

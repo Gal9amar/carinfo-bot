@@ -110,6 +110,61 @@ export async function adminDeletePackage(id) {
   return r.json()
 }
 
+export async function adminReorderPackages(order) {
+  const r = await fetch(`${BASE}/api/admin/packages/reorder`, {
+    method: 'PUT',
+    headers: headers(),
+    body: JSON.stringify({ order }),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+export async function adminFetchGrants() {
+  const r = await fetch(`${BASE}/api/admin/grants`, { headers: headers() })
+  if (!r.ok) throw new Error('Unauthorized')
+  return r.json()
+}
+
+export async function adminAddGrant(data) {
+  const r = await fetch(`${BASE}/api/admin/grants`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify(data),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+export async function adminUpdateGrant(id, data) {
+  const r = await fetch(`${BASE}/api/admin/grants/${id}`, {
+    method: 'PUT',
+    headers: headers(),
+    body: JSON.stringify(data),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+export async function adminDeleteGrant(id) {
+  const r = await fetch(`${BASE}/api/admin/grants/${id}`, {
+    method: 'DELETE',
+    headers: headers(),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+export async function adminReorderGrants(order) {
+  const r = await fetch(`${BASE}/api/admin/grants/reorder`, {
+    method: 'PUT',
+    headers: headers(),
+    body: JSON.stringify({ order }),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
 export async function adminRevokeSubscription(userId) {
   const r = await fetch(`${BASE}/api/admin/users/${userId}/revoke-subscription`, {
     method: 'POST',

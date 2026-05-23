@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import {
   adminFetchStats, adminFetchUsers, adminFetchSettings,
   adminUpdateSettings, adminFetchPackages,
-  adminAddPackage, adminUpdatePackage, adminDeletePackage,
+  adminAddPackage, adminUpdatePackage, adminDeletePackage, adminReorderPackages,
+  adminFetchGrants, adminAddGrant, adminUpdateGrant, adminDeleteGrant, adminReorderGrants,
   adminGrantUser,
   adminRevokeSubscription,
   adminFetchTickets, adminFetchTicket, adminReplyTicket, adminUpdateTicketStatus,
@@ -15,7 +16,6 @@ import {
   adminFetchUserReferrals,
   adminFetchActivity,
   adminGiftAll,
-  adminFetchMarketPrice,
   adminFetchGroups,
   adminCreateGroup,
   adminDeleteGroup,
@@ -30,11 +30,11 @@ const TABS = [
   { id: 'payments', icon: '💳', label: 'תשלומים' },
   { id: 'codes',    icon: '🔑', label: 'קודים' },
   { id: 'packages', icon: '⭐', label: 'מנויים' },
+  { id: 'grants',   icon: '🎁', label: 'הטבות מנהל' },
   { id: 'users',    icon: '👥', label: 'משתמשים' },
   { id: 'groups',   icon: '👥', label: 'קבוצות' },
   { id: 'settings', icon: '⚙️', label: 'הגדרות' },
   { id: 'tickets',  icon: '🎫', label: 'טיקטים' },
-  { id: 'market',   icon: '💰', label: 'מחיר שוק' },
 ]
 
 export default function AdminPage({ user, onBack }) {
@@ -73,11 +73,11 @@ export default function AdminPage({ user, onBack }) {
       {tab === 'payments' && <PaymentsTab />}
       {tab === 'codes'    && <CodesTab />}
       {tab === 'packages' && <PackagesTab />}
+      {tab === 'grants'   && <AdminGrantsTab />}
       {tab === 'users'    && <UsersTab />}
       {tab === 'groups'   && <GroupsTab />}
       {tab === 'settings' && <SettingsTab />}
       {tab === 'tickets'  && <TicketsTab />}
-      {tab === 'market'   && <MarketPriceTab />}
     </div>
   )
 }
@@ -174,8 +174,31 @@ function PackagesTab() {
   const [adding, setAdding] = useState(false)
   const [form, setForm] = useState({ label: '', searches: '', price: '', image_url: '' })
   const [saving, setSaving] = useState(false)
+  const [dragIdx, setDragIdx] = useState(null)
+  const [reordering, setReordering] = useState(false)
 
   useEffect(() => { adminFetchPackages().then(setPkgs).catch(() => {}) }, [])
+
+  async function applyReorder(next) {
+    setPkgs(next)
+    setReordering(true)
+    try {
+      const fresh = await adminReorderPackages(next.map(p => p.id))
+      setPkgs(fresh)
+    } catch {
+      window.Telegram?.WebApp?.showAlert('שגיאה בעדכון הסדר')
+      setPkgs(await adminFetchPackages())
+    }
+    setReordering(false)
+  }
+
+  function movePackage(fromIdx, toIdx) {
+    if (fromIdx === toIdx || fromIdx < 0 || toIdx < 0 || !pkgs) return
+    const next = [...pkgs]
+    const [moved] = next.splice(fromIdx, 1)
+    next.splice(toIdx, 0, moved)
+    applyReorder(next)
+  }
 
   async function saveEdit() {
     setSaving(true)
@@ -220,16 +243,57 @@ function PackagesTab() {
 
   return (
     <div>
-      {pkgs.map(pkg => {
+      <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 10 }}>
+        גרור ⠿ לשינוי סדר תצוגה · 1 = ראשון
+      </div>
+      {pkgs.map((pkg, idx) => {
         const desc = pkg.searches === -1 ? 'ללא הגבלה' : `${pkg.searches} חיפושים`
+        const isDragging = dragIdx === idx
         return (
-          <div key={pkg.id} className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <div className="card-title">{pkg.label}</div>
-                <div className="card-subtitle">{desc} · ₪{pkg.price}</div>
+          <div
+            key={pkg.id}
+            draggable={!reordering}
+            onDragStart={() => setDragIdx(idx)}
+            onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
+            onDrop={() => { if (dragIdx !== null) movePackage(dragIdx, idx); setDragIdx(null) }}
+            onDragEnd={() => setDragIdx(null)}
+            className="card"
+            style={{
+              opacity: isDragging ? 0.45 : 1,
+              cursor: reordering ? 'wait' : 'grab',
+              transition: 'opacity 0.15s',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flex: 1, minWidth: 0 }}>
+                <span
+                  style={{ fontSize: 20, color: 'var(--hint)', lineHeight: 1.2, cursor: 'grab', userSelect: 'none', flexShrink: 0 }}
+                  title="גרור לשינוי סדר"
+                >⠿</span>
+                <span style={{
+                  fontSize: 11, fontWeight: 700, color: 'var(--hint)',
+                  background: 'var(--bg)', borderRadius: 6, padding: '2px 7px', flexShrink: 0,
+                }}>{idx + 1}</span>
+                <div>
+                  <div className="card-title">{pkg.label}</div>
+                  <div className="card-subtitle">{desc} · ₪{pkg.price}</div>
+                </div>
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                <button
+                  className="btn"
+                  style={{ width: 'auto', padding: '4px 8px', marginTop: 0, fontSize: 12 }}
+                  disabled={idx === 0 || reordering}
+                  onClick={() => movePackage(idx, idx - 1)}
+                  title="הזז למעלה"
+                >↑</button>
+                <button
+                  className="btn"
+                  style={{ width: 'auto', padding: '4px 8px', marginTop: 0, fontSize: 12 }}
+                  disabled={idx === pkgs.length - 1 || reordering}
+                  onClick={() => movePackage(idx, idx + 1)}
+                  title="הזז למטה"
+                >↓</button>
                 <button className="btn" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
                   onClick={() => { setEditing(pkg); setForm({ label: pkg.label, searches: String(pkg.searches), price: String(pkg.price), image_url: pkg.image_url || '' }) }}>
                   ✏️
@@ -357,6 +421,150 @@ function PackageModal({ title, form, setForm, saving, onSave, onClose }) {
         <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
 
         <button className="btn" disabled={saving} onClick={onSave}>{saving ? '...' : 'שמור'}</button>
+        <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={onClose}>ביטול</button>
+      </div>
+    </div>
+  )
+}
+
+function grantTypeLabel(searches, freeSearches = 10) {
+  if (searches === 0) return `${freeSearches} חיפושים (מנוי חינם)`
+  if (searches === -1) return 'מנוי חודשי · 30 יום'
+  if (searches === -2) return 'גישה חופשית · ללא הגבלה'
+  return `${searches} חיפושים`
+}
+
+function AdminGrantsTab() {
+  const [grants, setGrants] = useState(null)
+  const [editing, setEditing] = useState(null)
+  const [adding, setAdding] = useState(false)
+  const [form, setForm] = useState({ label: '', searches: '' })
+  const [saving, setSaving] = useState(false)
+  const [dragIdx, setDragIdx] = useState(null)
+  const [reordering, setReordering] = useState(false)
+  const [freeSearches, setFreeSearches] = useState(10)
+
+  useEffect(() => {
+    adminFetchGrants().then(setGrants).catch(() => {})
+    adminFetchSettings().then(s => setFreeSearches(s.free_searches ?? 10)).catch(() => {})
+  }, [])
+
+  async function applyReorder(next) {
+    setGrants(next)
+    setReordering(true)
+    try {
+      setGrants(await adminReorderGrants(next.map(g => g.id)))
+    } catch {
+      window.Telegram?.WebApp?.showAlert('שגיאה בעדכון הסדר')
+      setGrants(await adminFetchGrants())
+    }
+    setReordering(false)
+  }
+
+  function moveGrant(fromIdx, toIdx) {
+    if (fromIdx === toIdx || fromIdx < 0 || toIdx < 0 || !grants) return
+    const next = [...grants]
+    const [moved] = next.splice(fromIdx, 1)
+    next.splice(toIdx, 0, moved)
+    applyReorder(next)
+  }
+
+  async function saveEdit() {
+    setSaving(true)
+    try {
+      await adminUpdateGrant(editing.id, { label: form.label, searches: parseInt(form.searches) })
+      setGrants(await adminFetchGrants())
+      setEditing(null)
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    setSaving(false)
+  }
+
+  async function saveAdd() {
+    setSaving(true)
+    try {
+      setGrants(await adminAddGrant({ label: form.label, searches: parseInt(form.searches) }))
+      setAdding(false)
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    setSaving(false)
+  }
+
+  async function deleteGrant(id) {
+    window.Telegram?.WebApp?.showConfirm('למחוק הטבה?', async (ok) => {
+      if (!ok) return
+      await adminDeleteGrant(id)
+      setGrants(await adminFetchGrants())
+    })
+  }
+
+  if (!grants) return <div className="loading">⏳</div>
+
+  return (
+    <div>
+      <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 10, lineHeight: 1.5 }}>
+        הטבות שמנהל יכול לתת למשתמש בעריכת משתמש. גרור ⠿ לשינוי סדר · 1 = ראשון.
+        <br />
+        ערכי חיפושים: 0=מנוי חינם, -1=חודשי, -2=גישה חופשית, מספר חיובי=הוספת חיפושים.
+      </div>
+      {grants.map((g, idx) => {
+        const isDragging = dragIdx === idx
+        return (
+          <div
+            key={g.id}
+            draggable={!reordering}
+            onDragStart={() => setDragIdx(idx)}
+            onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
+            onDrop={() => { if (dragIdx !== null) moveGrant(dragIdx, idx); setDragIdx(null) }}
+            onDragEnd={() => setDragIdx(null)}
+            className="card"
+            style={{ opacity: isDragging ? 0.45 : 1, cursor: reordering ? 'wait' : 'grab' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flex: 1, minWidth: 0 }}>
+                <span style={{ fontSize: 20, color: 'var(--hint)', cursor: 'grab', userSelect: 'none' }}>⠿</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--hint)', background: 'var(--bg)', borderRadius: 6, padding: '2px 7px' }}>{idx + 1}</span>
+                <div>
+                  <div className="card-title">{g.label}</div>
+                  <div className="card-subtitle">{grantTypeLabel(g.searches, freeSearches)}</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                <button className="btn" style={{ width: 'auto', padding: '4px 8px', marginTop: 0, fontSize: 12 }}
+                  disabled={idx === 0 || reordering} onClick={() => moveGrant(idx, idx - 1)}>↑</button>
+                <button className="btn" style={{ width: 'auto', padding: '4px 8px', marginTop: 0, fontSize: 12 }}
+                  disabled={idx === grants.length - 1 || reordering} onClick={() => moveGrant(idx, idx + 1)}>↓</button>
+                <button className="btn" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
+                  onClick={() => { setEditing(g); setForm({ label: g.label, searches: String(g.searches) }) }}>✏️</button>
+                <button className="btn btn-danger" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
+                  onClick={() => deleteGrant(g.id)}>🗑</button>
+              </div>
+            </div>
+          </div>
+        )
+      })}
+      <button className="btn btn-success" onClick={() => { setAdding(true); setForm({ label: '', searches: '' }) }}>
+        ➕ הוסף הטבה
+      </button>
+      {editing && (
+        <AdminGrantModal title="✏️ עריכת הטבה" form={form} setForm={setForm} saving={saving} onSave={saveEdit} onClose={() => setEditing(null)} />
+      )}
+      {adding && (
+        <AdminGrantModal title="➕ הטבה חדשה" form={form} setForm={setForm} saving={saving} onSave={saveAdd} onClose={() => setAdding(false)} />
+      )}
+    </div>
+  )
+}
+
+function AdminGrantModal({ title, form, setForm, saving, onSave, onClose }) {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-title">{title}</div>
+        <input className="input" placeholder="שם ההטבה" value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} />
+        <input className="input" placeholder="חיפושים (0=חינם, -1=חודשי, -2=חופשי)" type="number" value={form.searches} onChange={e => setForm(f => ({ ...f, searches: e.target.value }))} />
+        <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 12, lineHeight: 1.4 }}>
+          0 = מנוי חינם · -1 = מנוי חודשי · -2 = גישה חופשית · מספר חיובי = הוספת חיפושים
+        </div>
+        <button className="btn" disabled={saving || !form.label.trim()} onClick={onSave}>{saving ? '...' : 'שמור'}</button>
         <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={onClose}>ביטול</button>
       </div>
     </div>
@@ -777,15 +985,18 @@ function UsersTab() {
 }
 
 function GrantModal({ user, onClose, onDone }) {
-  const [packages, setPackages] = useState(null)
-  const [mode, setMode] = useState('packages') // 'packages' | 'unlimited' | 'custom' | 'history' | 'referrals'
-  const [unlimitedType, setUnlimitedType] = useState(null)
+  const [grants, setGrants] = useState(null)
+  const [freeSearches, setFreeSearches] = useState(10)
+  const [mode, setMode] = useState('grants') // 'grants' | 'custom' | 'history' | 'referrals'
   const [customAmount, setCustomAmount] = useState('')
   const [saving, setSaving] = useState(false)
   const [history, setHistory] = useState(null)
   const [referralData, setReferralData] = useState(null)
 
-  useEffect(() => { adminFetchPackages().then(setPackages).catch(() => {}) }, [])
+  useEffect(() => { adminFetchGrants().then(setGrants).catch(() => {}) }, [])
+  useEffect(() => {
+    adminFetchSettings().then(s => setFreeSearches(s.free_searches ?? 10)).catch(() => {})
+  }, [])
   useEffect(() => {
     if (mode === 'history' && history === null) {
       adminFetchUserHistory(user.user_id).then(setHistory).catch(() => setHistory([]))
@@ -809,9 +1020,19 @@ function GrantModal({ user, onClose, onDone }) {
     setSaving(false)
   }
 
+  function clickGrant(searches) {
+    if (searches === 0) {
+      window.Telegram?.WebApp?.showConfirm(
+        `להגדיר מנוי חינם? המשתמש יקבל ${freeSearches} חיפושים ויוסר מקבוצת המנויים.`,
+        async (ok) => { if (ok) grant(0) }
+      )
+      return
+    }
+    grant(searches)
+  }
+
   const TABS = [
-    ['packages',  '⭐', 'מנוי'],
-    ['unlimited', '♾️', 'ללא הגבלה'],
+    ['grants',    '🎁', 'הטבות'],
     ['custom',    '✍️', 'התאמה'],
     ['history',   '📋', 'חיפושים'],
     ['referrals', '🤝', 'הפניות'],
@@ -847,22 +1068,24 @@ function GrantModal({ user, onClose, onDone }) {
           ))}
         </div>
 
-        {mode === 'packages' && (
+        {mode === 'grants' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-            {!packages && <div style={{ fontSize: 13, color: 'var(--hint)', textAlign: 'center', padding: 12 }}>⏳</div>}
-            {packages && packages.map(pkg => (
+            {!grants && <div style={{ fontSize: 13, color: 'var(--hint)', textAlign: 'center', padding: 12 }}>⏳</div>}
+            {grants && grants.map(g => (
               <button
-                key={pkg.id}
+                key={g.id}
                 disabled={saving}
-                onClick={() => grant(pkg.searches)}
+                onClick={() => clickGrant(g.searches)}
                 style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)',
-                  background: 'var(--bg)', cursor: 'pointer', opacity: saving ? 0.5 : 1,
+                  padding: '10px 14px', borderRadius: 10,
+                  border: g.searches === 0 ? '1px solid #38a16944' : '1px solid rgba(255,255,255,0.08)',
+                  background: g.searches === 0 ? '#38a16911' : 'var(--bg)',
+                  cursor: 'pointer', opacity: saving ? 0.5 : 1,
                 }}
               >
-                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{pkg.label}</span>
-                <span style={{ fontSize: 12, color: 'var(--hint)' }}>{pkg.searches === -1 ? '∞' : pkg.searches} חיפושים</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: g.searches === 0 ? '#38a169' : 'var(--text)' }}>{g.label}</span>
+                <span style={{ fontSize: 12, color: 'var(--hint)' }}>{grantTypeLabel(g.searches, freeSearches)}</span>
               </button>
             ))}
 
@@ -897,47 +1120,6 @@ function GrantModal({ user, onClose, onDone }) {
                 </button>
               </>
             )}
-          </div>
-        )}
-
-        {mode === 'unlimited' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {[['permanent','♾️ ללא הגבלת זמן'],['monthly','📅 מנוי חודשי (30 יום)']].map(([val, label]) => (
-              <label
-                key={val}
-                onClick={() => setUnlimitedType(prev => prev === val ? null : val)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
-                  borderRadius: 10, cursor: 'pointer',
-                  background: unlimitedType === val ? 'var(--accent)22' : 'var(--bg)',
-                  border: `1px solid ${unlimitedType === val ? 'var(--accent)' : 'rgba(255,255,255,0.08)'}`,
-                }}
-              >
-                <input type="radio" checked={unlimitedType === val} onChange={() => {}} style={{ accentColor: 'var(--accent)' }} />
-                <span style={{ fontSize: 13 }}>{label}</span>
-              </label>
-            ))}
-            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-              <button
-                disabled={saving || !unlimitedType}
-                onClick={() => grant(unlimitedType === 'permanent' ? -2 : -1)}
-                style={{
-                  flex: 1, padding: '10px', borderRadius: 10, border: 'none',
-                  background: 'var(--accent)', color: '#fff', fontSize: 13,
-                  fontWeight: 600, cursor: unlimitedType ? 'pointer' : 'default',
-                  opacity: (saving || !unlimitedType) ? 0.4 : 1,
-                }}
-              >{saving ? '...' : 'אשר'}</button>
-              <button
-                onClick={onClose}
-                style={{
-                  flex: 1, padding: '10px', borderRadius: 10,
-                  border: '1px solid rgba(255,255,255,0.12)',
-                  background: 'transparent', color: 'var(--hint)', fontSize: 13,
-                  cursor: 'pointer',
-                }}
-              >ביטול</button>
-            </div>
           </div>
         )}
 
@@ -1676,150 +1858,6 @@ function AdminTicketThread({ ticketId, onBack }) {
   )
 }
 
-// ── Market Price Tab ─────────────────────────────────────────────────────────
-function MarketPriceTab() {
-  const [plate, setPlate] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState(null)
-  const [error, setError] = useState(null)
-
-  async function search() {
-    const clean = plate.replace(/[^0-9]/g, '')
-    if (!clean) return
-    setLoading(true)
-    setResult(null)
-    setError(null)
-    try {
-      const data = await adminFetchMarketPrice(clean)
-      setResult(data)
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const m = result?.market
-
-  // Filter listings by the vehicle's exact year (Yad2 API doesn't always filter server-side)
-  const vehicleYear = result?.year ? parseInt(result.year) : null
-  const filteredItems = vehicleYear && m?.items?.length
-    ? m.items.filter(item => parseInt(item.vehicleDates?.yearOfProduction || 0) === vehicleYear)
-    : m?.items || []
-  const yearMismatch = vehicleYear && m?.items?.length > 0 && filteredItems.length === 0
-
-  // Recompute stats from filtered items only
-  const prices = filteredItems.map(i => i.price).filter(Boolean).sort((a, b) => a - b)
-  const kms    = filteredItems.map(i => i.km).filter(Boolean)
-  const stats  = prices.length > 0 ? {
-    count:  prices.length,
-    total:  m?.total,
-    min:    prices[0],
-    max:    prices[prices.length - 1],
-    avg:    Math.round(prices.reduce((a, b) => a + b, 0) / prices.length),
-    median: prices[Math.floor(prices.length / 2)],
-    avg_km: kms.length > 0 ? Math.round(kms.reduce((a, b) => a + b, 0) / kms.length) : null,
-  } : null
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ fontSize: 13, color: 'var(--hint)', lineHeight: 1.5 }}>
-        הזן לוחית רישוי — המערכת תשלוף פרטי רכב ותחפש מחיר שוק חי מ-Yad2 לפי יצרן / דגם / שנה.
-      </div>
-
-      <div style={{ display: 'flex', gap: 8 }}>
-        <input
-          type="tel"
-          placeholder="מספר לוחית (ספרות בלבד)"
-          value={plate}
-          onChange={e => setPlate(e.target.value.replace(/[^0-9]/g, ''))}
-          onKeyDown={e => e.key === 'Enter' && search()}
-          maxLength={8}
-          style={{
-            flex: 1, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)',
-            background: 'var(--bg2)', color: 'var(--text)', fontSize: 16,
-            textAlign: 'center', letterSpacing: 2,
-          }}
-        />
-        <button
-          className="btn"
-          style={{ width: 'auto', padding: '0 18px' }}
-          onClick={search}
-          disabled={loading || !plate}
-        >
-          {loading ? '⏳' : '🔍 חפש'}
-        </button>
-      </div>
-
-      {error && (
-        <div style={{ background: '#ff3b3022', borderRadius: 10, padding: 12, color: '#ff3b30', fontSize: 13 }}>
-          ❌ {error}
-        </div>
-      )}
-
-      {result && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ background: 'var(--bg2)', borderRadius: 12, padding: 14 }}>
-            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>🚗 פרטי הרכב</div>
-            <MRow label="יצרן"   value={result.make} />
-            <MRow label="דגם"    value={result.model} />
-            <MRow label="שנה"    value={result.year} />
-            <MRow label="צבע"    value={result.color} />
-            <MRow label="לוחית" value={result.plate} />
-          </div>
-
-          {yearMismatch && (
-            <div style={{ background: '#ff9f0a22', borderRadius: 10, padding: 12, fontSize: 13, color: '#b8730a' }}>
-              ⚠️ Yad2 החזיר {m.items.length} מודעות אך אף אחת לא תואמת שנתון {vehicleYear}. לא ניתן להציג מחיר שוק מדויק.
-              {result.yad2_url && (
-                <a href={result.yad2_url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', marginTop: 8, color: 'var(--btn)', fontWeight: 600, textDecoration: 'none' }}>
-                  🔗 חפש ידנית ב-Yad2
-                </a>
-              )}
-            </div>
-          )}
-
-          {stats ? (
-            <div style={{ background: 'var(--bg2)', borderRadius: 12, padding: 14 }}>
-              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>💰 מחיר שוק – Yad2</div>
-              <MRow label="ממוצע שוק"  value={`₪${stats.median?.toLocaleString()}`} bold />
-              <MRow label="מינימום"    value={`₪${stats.min?.toLocaleString()}`} />
-              <MRow label="מקסימום"    value={`₪${stats.max?.toLocaleString()}`} />
-              <MRow label="ק״מ ממוצע" value={stats.avg_km ? `${stats.avg_km.toLocaleString()} ק״מ` : '—'} />
-              {result.yad2_url && (
-                <a href={result.yad2_url} target="_blank" rel="noopener noreferrer" style={{
-                  display: 'block', marginTop: 12, padding: '9px 0',
-                  background: 'var(--btn)', color: 'var(--btn-text)',
-                  borderRadius: 10, textAlign: 'center', fontSize: 13,
-                  fontWeight: 600, textDecoration: 'none',
-                }}>🔗 פתח חיפוש ב-Yad2</a>
-              )}
-            </div>
-          ) : (
-            <div style={{ background: 'var(--bg2)', borderRadius: 12, padding: 14, color: 'var(--hint)', fontSize: 13 }}>
-              ⚠️ לא נמצאו נתוני מחיר שוק ב-Yad2 לרכב זה.
-              {result.yad2_url && (
-                <a href={result.yad2_url} target="_blank" rel="noopener noreferrer" style={{
-                  display: 'block', marginTop: 10, color: 'var(--btn)', textDecoration: 'none', fontWeight: 600,
-                }}>🔗 חפש ידנית ב-Yad2</a>
-              )}
-            </div>
-          )}
-
-        </div>
-      )}
-    </div>
-  )
-}
-
-function MRow({ label, value, bold }) {
-  return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13 }}>
-      <span style={{ color: 'var(--hint)' }}>{label}</span>
-      <span style={{ fontWeight: bold ? 700 : 400 }}>{value ?? '—'}</span>
-    </div>
-  )
-}
 
 // ── Groups Tab ────────────────────────────────────────────────────────────────
 function GroupsTab() {

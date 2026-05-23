@@ -82,7 +82,7 @@ async def health():
 async def list_packages():
     from src.packages import get_packages
     pkgs = await get_packages()
-    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4]} for p in pkgs]
+    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4], "display_order": p[5]} for p in pkgs]
 
 
 @api.get("/api/user")
@@ -443,7 +443,7 @@ async def admin_remove_group_member(group_id: int, user_id: int, _: dict = Depen
 async def admin_list_packages(_: dict = Depends(_require_admin)):
     from src.packages import get_packages
     pkgs = await get_packages(force_reload=True)
-    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4]} for p in pkgs]
+    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4], "display_order": p[5]} for p in pkgs]
 
 
 class PackageBody(BaseModel):
@@ -453,12 +453,26 @@ class PackageBody(BaseModel):
     image_url: str = ""
 
 
+class PackageReorderBody(BaseModel):
+    order: list[int]
+
+
+@api.put("/api/admin/packages/reorder")
+async def admin_reorder_packages(body: PackageReorderBody, _: dict = Depends(_require_admin)):
+    from src.packages import reorder_packages, get_packages
+    if not body.order:
+        raise HTTPException(status_code=400, detail="Order list required")
+    await reorder_packages(body.order)
+    pkgs = await get_packages(force_reload=True)
+    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4], "display_order": p[5]} for p in pkgs]
+
+
 @api.post("/api/admin/packages")
 async def admin_add_package(body: PackageBody, _: dict = Depends(_require_admin)):
     from src.packages import add_package, get_packages
     await add_package(body.label, body.searches, body.price, body.image_url)
     pkgs = await get_packages(force_reload=True)
-    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4]} for p in pkgs]
+    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4], "display_order": p[5]} for p in pkgs]
 
 
 @api.put("/api/admin/packages/{pkg_id}")
@@ -475,6 +489,56 @@ async def admin_delete_package(pkg_id: int, _: dict = Depends(_require_admin)):
     return {"ok": True}
 
 
+def _grants_json(pkgs):
+    return [{"id": g[0], "label": g[1], "searches": g[2], "display_order": g[3]} for g in pkgs]
+
+
+class AdminGrantBody(BaseModel):
+    label: str
+    searches: int
+
+
+class AdminGrantReorderBody(BaseModel):
+    order: list[int]
+
+
+@api.get("/api/admin/grants")
+async def admin_list_grants(_: dict = Depends(_require_admin)):
+    from src.admin_grants import get_admin_grants
+    grants = await get_admin_grants(force_reload=True)
+    return _grants_json(grants)
+
+
+@api.put("/api/admin/grants/reorder")
+async def admin_reorder_grants(body: AdminGrantReorderBody, _: dict = Depends(_require_admin)):
+    from src.admin_grants import reorder_admin_grants, get_admin_grants
+    if not body.order:
+        raise HTTPException(status_code=400, detail="Order list required")
+    await reorder_admin_grants(body.order)
+    return _grants_json(await get_admin_grants(force_reload=True))
+
+
+@api.post("/api/admin/grants")
+async def admin_add_grant(body: AdminGrantBody, _: dict = Depends(_require_admin)):
+    from src.admin_grants import add_admin_grant, get_admin_grants
+    await add_admin_grant(body.label, body.searches)
+    return _grants_json(await get_admin_grants(force_reload=True))
+
+
+@api.put("/api/admin/grants/{grant_id}")
+async def admin_update_grant(grant_id: int, body: AdminGrantBody, _: dict = Depends(_require_admin)):
+    from src.admin_grants import update_admin_grant
+    await update_admin_grant(grant_id, body.label, body.searches)
+    return {"ok": True}
+
+
+@api.delete("/api/admin/grants/{grant_id}")
+async def admin_delete_grant(grant_id: int, _: dict = Depends(_require_admin)):
+    from src.admin_grants import delete_admin_grant
+    await delete_admin_grant(grant_id)
+    return {"ok": True}
+
+
 class GrantBody(BaseModel):
     searches: int
 
@@ -485,7 +549,11 @@ async def admin_grant_user(user_id: int, body: GrantBody, admin: dict = Depends(
     msg = await admin_grant(int(admin["id"]), user_id, body.searches)
     try:
         from src.activity import log as _log
-        desc = "ללא הגבלה" if body.searches == -2 else ("מנוי חודשי" if body.searches == -1 else f"{body.searches} חיפושים")
+        desc = (
+            "מנוי חינם" if body.searches == 0 else
+            "ללא הגבלה" if body.searches == -2 else
+            ("מנוי חודשי" if body.searches == -1 else f"{body.searches} חיפושים")
+        )
         await _log("grant", f"הענקה למשתמש {user_id}: {desc}")
     except Exception:
         pass

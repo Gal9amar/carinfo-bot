@@ -264,7 +264,18 @@ async def admin_grant(admin_id: int, target_id: int, searches: int, note: str = 
     quota = u["searches_quota"] if u else FREE_SEARCHES
     done  = u["searches_done"]  if u else 0
 
-    if searches == -2:  # permanent unlimited
+    if searches == 0:  # reset to free tier
+        free_q = get_current_welcome_quota()
+        await remove_from_subscribers(target_id)
+        await execute(
+            "UPDATE users SET searches_quota = ?, searches_done = 0, quota_expires = NULL WHERE user_id = ?",
+            [free_q, target_id],
+        )
+        if free_q == -1:
+            msg = "מנוי חינם — גישה ללא הגבלה (מבצע פעיל)"
+        else:
+            msg = f"מנוי חינם — {free_q} חיפושים"
+    elif searches == -2:  # permanent unlimited
         await execute(
             "UPDATE users SET searches_quota = -1, searches_done = 0, quota_expires = NULL WHERE user_id = ?",
             [target_id],

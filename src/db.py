@@ -101,6 +101,7 @@ async def init_db() -> None:
             created_at  TEXT DEFAULT (datetime('now'))
         )""",
         "ALTER TABLE packages ADD COLUMN image_url TEXT DEFAULT ''",
+        "ALTER TABLE packages ADD COLUMN display_order INTEGER DEFAULT 0",
         """CREATE TABLE IF NOT EXISTS tickets (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id     INTEGER NOT NULL,
@@ -192,6 +193,8 @@ async def init_db() -> None:
 
     from src.packages import init_packages
     await init_packages()
+    from src.admin_grants import init_admin_grants
+    await init_admin_grants()
 
 
 async def get_bot_setting(key: str) -> str:
