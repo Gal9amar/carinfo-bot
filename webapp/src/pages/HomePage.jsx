@@ -39,11 +39,11 @@ export default function HomePage({ user, onNavigate }) {
         {isSubscriber && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: 5,
-            background: 'linear-gradient(135deg,#7928ca,#5a1e99)',
-            color: '#fff', borderRadius: 20, padding: '5px 12px',
-            fontSize: 12, fontWeight: 700, flexShrink: 0,
-            boxShadow: '0 2px 8px #7928ca44',
-          }}>⭐ מנוי</div>
+            background: 'linear-gradient(135deg,#1e40af,#0ea5e9)',
+            color: '#000', borderRadius: 20, padding: '5px 12px',
+            fontSize: 12, fontWeight: 400, flexShrink: 0,
+            boxShadow: '0 2px 8px #0ea5e944',
+          }}>⭐ מנוי {user?.subscription_label || ''}</div>
         )}
       </div>
 

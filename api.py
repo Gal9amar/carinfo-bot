@@ -132,6 +132,16 @@ async def get_user_info(user: dict = Depends(_get_user)):
     )
     is_subscriber = len(sub_r.rows) > 0
 
+    # Find matching package label by searches count
+    subscription_label = None
+    if is_subscriber:
+        pkg_r = await execute(
+            "SELECT label FROM packages WHERE searches=? ORDER BY price DESC LIMIT 1",
+            [quota]
+        )
+        if pkg_r.rows:
+            subscription_label = pkg_r.rows[0][0]
+
     return {
         "id": user["id"],
         "first_name": user.get("first_name", ""),
@@ -141,6 +151,7 @@ async def get_user_info(user: dict = Depends(_get_user)):
         "maintenance": maintenance,
         "show_market_price": show_market,
         "is_subscriber": is_subscriber,
+        "subscription_label": subscription_label,
     }
 
 

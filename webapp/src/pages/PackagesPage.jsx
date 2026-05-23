@@ -36,10 +36,10 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
             <strong>{user.searches_left === -1 ? '∞' : user.searches_left}</strong> חיפושים
             {user.is_subscriber && (
               <span style={{
-                marginRight: 8, fontSize: 11, fontWeight: 700,
-                background: 'linear-gradient(135deg,#7928ca,#5a1e99)',
-                color: '#fff', borderRadius: 20, padding: '2px 9px',
-              }}>⭐ מנוי פעיל</span>
+                marginRight: 8, fontSize: 11, fontWeight: 400,
+                background: 'linear-gradient(135deg,#1e40af,#0ea5e9)',
+                color: '#000', borderRadius: 20, padding: '2px 9px',
+              }}>⭐ מנוי {user.subscription_label || ''}</span>
             )}
           </span>
         </div>
@@ -99,7 +99,7 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
 
       {packages.length === 0 && (
         <div className="card" style={{ textAlign: 'center', color: 'var(--hint)', fontSize: 14 }}>
-          אין חבילות זמינות כרגע
+          אין מנויים זמינים כרגע
         </div>
       )}
 

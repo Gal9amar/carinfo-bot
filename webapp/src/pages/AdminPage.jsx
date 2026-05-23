@@ -28,7 +28,7 @@ const TABS = [
   { id: 'activity', icon: '🕐', label: 'לוג פעילות' },
   { id: 'payments', icon: '💳', label: 'תשלומים' },
   { id: 'codes',    icon: '🔑', label: 'קודים' },
-  { id: 'packages', icon: '📦', label: 'חבילות' },
+  { id: 'packages', icon: '⭐', label: 'מנויים' },
   { id: 'users',    icon: '👥', label: 'משתמשים' },
   { id: 'groups',   icon: '👥', label: 'קבוצות' },
   { id: 'settings', icon: '⚙️', label: 'הגדרות' },
@@ -207,7 +207,7 @@ function PackagesTab() {
   }
 
   async function deletePkg(id) {
-    window.Telegram?.WebApp?.showConfirm('למחוק חבילה?', async (ok) => {
+    window.Telegram?.WebApp?.showConfirm('למחוק מנוי?', async (ok) => {
       if (!ok) return
       await adminDeletePackage(id)
       setPkgs(await adminFetchPackages())
@@ -242,19 +242,19 @@ function PackagesTab() {
         )
       })}
       <button className="btn btn-success" onClick={() => { setAdding(true); setForm({ label: '', searches: '', price: '', image_url: '' }) }}>
-        ➕ הוסף חבילה
+        ➕ הוסף מנוי
       </button>
 
       {editing && (
         <PackageModal
-          title="✏️ עריכת חבילה"
+          title="✏️ עריכת מנוי"
           form={form} setForm={setForm}
           saving={saving} onSave={saveEdit} onClose={() => setEditing(null)}
         />
       )}
       {adding && (
         <PackageModal
-          title="➕ חבילה חדשה"
+          title="➕ מנוי חדש"
           form={form} setForm={setForm}
           saving={saving} onSave={saveAdd} onClose={() => setAdding(false)}
         />
@@ -295,7 +295,7 @@ function PackageModal({ title, form, setForm, saving, onSave, onClose }) {
         <div className="modal-title">{title}</div>
         <input
           className="input"
-          placeholder="שם החבילה"
+          placeholder="שם המנוי"
           value={form.label}
           onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
         />
@@ -756,7 +756,7 @@ function GrantModal({ user, onClose, onDone }) {
         <div className="modal-title">✏️ עריכת {name}</div>
 
         <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
-          {[['packages','📦 חבילה'],['unlimited','♾️ ללא הגבלה'],['custom','✍️ התאמה'],['history','📋 חיפושים'],['referrals','🤝 הפניות']].map(([id, label]) => (
+          {[['packages','⭐ מנוי'],['unlimited','♾️ ללא הגבלה'],['custom','✍️ התאמה'],['history','📋 חיפושים'],['referrals','🤝 הפניות']].map(([id, label]) => (
             <button
               key={id}
               onClick={() => setMode(id)}

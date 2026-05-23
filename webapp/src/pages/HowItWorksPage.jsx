@@ -58,9 +58,9 @@ export default function HowItWorksPage({ onBack, freeSearches = 10, onPrivacy })
       </Section>
 
       {/* Packages */}
-      <Section title="📦 חבילות חיפוש">
+      <Section title="⭐ רכישת מנוי">
         <p style={{ fontSize: 14, lineHeight: 1.7, margin: 0 }}>
-          לאחר שמיצית את החיפושים החינמיים, ניתן לרכוש חבילת חיפושים נוספת בעמוד הרכישה.
+          לאחר שמיצית את החיפושים החינמיים, ניתן לרכוש מנוי חיפושים נוסף בעמוד הרכישה.
           התשלום מתבצע דרך PayPal ומאושר ידנית — החיפושים מתווספים לחשבון מיד לאחר האישור.
         </p>
       </Section>
