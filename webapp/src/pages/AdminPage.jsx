@@ -1417,11 +1417,11 @@ function MarketPriceTab() {
   const filteredItems = vehicleYear && m?.items?.length
     ? m.items.filter(item => parseInt(item.vehicleDates?.yearOfProduction || 0) === vehicleYear)
     : m?.items || []
-  const displayItems = filteredItems.length > 0 ? filteredItems : (m?.items || [])
+  const yearMismatch = vehicleYear && m?.items?.length > 0 && filteredItems.length === 0
 
-  // Recompute stats from displayed items
-  const prices = displayItems.map(i => i.price).filter(Boolean).sort((a, b) => a - b)
-  const kms    = displayItems.map(i => i.km).filter(Boolean)
+  // Recompute stats from filtered items only
+  const prices = filteredItems.map(i => i.price).filter(Boolean).sort((a, b) => a - b)
+  const kms    = filteredItems.map(i => i.km).filter(Boolean)
   const stats  = prices.length > 0 ? {
     count:  prices.length,
     total:  m?.total,
@@ -1479,6 +1479,17 @@ function MarketPriceTab() {
             <MRow label="לוחית" value={result.plate} />
           </div>
 
+          {yearMismatch && (
+            <div style={{ background: '#ff9f0a22', borderRadius: 10, padding: 12, fontSize: 13, color: '#b8730a' }}>
+              ⚠️ Yad2 החזיר {m.items.length} מודעות אך אף אחת לא תואמת שנתון {vehicleYear}. לא ניתן להציג מחיר שוק מדויק.
+              {result.yad2_url && (
+                <a href={result.yad2_url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', marginTop: 8, color: 'var(--btn)', fontWeight: 600, textDecoration: 'none' }}>
+                  🔗 חפש ידנית ב-Yad2
+                </a>
+              )}
+            </div>
+          )}
+
           {stats ? (
             <div style={{ background: 'var(--bg2)', borderRadius: 12, padding: 14 }}>
               <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>💰 מחיר שוק – Yad2</div>
@@ -1508,12 +1519,12 @@ function MarketPriceTab() {
             </div>
           )}
 
-          {displayItems.length > 0 && (
+          {filteredItems.length > 0 && (
             <div style={{ background: 'var(--bg2)', borderRadius: 12, padding: 14 }}>
-              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>📋 מודעות ({displayItems.length})</div>
-              {displayItems.map((item, i) => (
+              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>📋 מודעות ({filteredItems.length})</div>
+              {filteredItems.map((item, i) => (
                 <div key={i} style={{
-                  borderBottom: i < displayItems.length - 1 ? '1px solid var(--border)' : 'none',
+                  borderBottom: i < filteredItems.length - 1 ? '1px solid var(--border)' : 'none',
                   paddingBottom: 10, marginBottom: 10,
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
