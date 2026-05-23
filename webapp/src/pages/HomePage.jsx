@@ -43,7 +43,7 @@ export default function HomePage({ user, onNavigate }) {
             color: '#000', borderRadius: 20, padding: '5px 12px',
             fontSize: 12, fontWeight: 400, flexShrink: 0,
             boxShadow: '0 2px 8px #0ea5e944',
-          }}>⭐ מנוי {user?.subscription_label || ''}</div>
+          }}>{user?.subscription_label || 'מנוי'}</div>
         )}
       </div>
 

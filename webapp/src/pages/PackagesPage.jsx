@@ -39,7 +39,7 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
                 marginRight: 8, fontSize: 11, fontWeight: 400,
                 background: 'linear-gradient(135deg,#1e40af,#0ea5e9)',
                 color: '#000', borderRadius: 20, padding: '2px 9px',
-              }}>⭐ מנוי {user.subscription_label || ''}</span>
+              }}>{user.subscription_label || 'מנוי'}</span>
             )}
           </span>
         </div>
