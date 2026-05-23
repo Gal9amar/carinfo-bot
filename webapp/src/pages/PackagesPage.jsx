@@ -103,19 +103,14 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
         </div>
       )}
 
-      {packages.map((pkg, idx) => {
+      {packages.map((pkg) => {
         const qty           = getQty(pkg.id)
         const isUnlimited   = pkg.searches === -1
         const totalPrice    = pkg.price * qty
         const totalSearches = isUnlimited ? '∞' : pkg.searches * qty
 
-        // Tier accent colours — cycle through silver / gold / platinum
-        const tiers = [
-          { grad: 'linear-gradient(135deg,#1e40af,#0ea5e9)', accent: '#38bdf8', label: '🥈 Silver' },
-          { grad: 'linear-gradient(135deg,#92400e,#f59e0b)', accent: '#fbbf24', label: '🥇 Gold'   },
-          { grad: 'linear-gradient(135deg,#4c1d95,#a855f7)', accent: '#c084fc', label: '💎 Platinum'},
-        ]
-        const tier = tiers[idx % tiers.length]
+        const grad   = 'linear-gradient(135deg,#1e40af,#0ea5e9)'
+        const accent = '#38bdf8'
 
         return (
           <div key={pkg.id} style={{
@@ -129,7 +124,7 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
               {pkg.image_url
                 ? <img src={pkg.image_url} alt={pkg.label}
                     style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                : <div style={{ width: '100%', height: '100%', background: tier.grad,
+                : <div style={{ width: '100%', height: '100%', background: grad,
                     display: 'flex', flexDirection: 'column',
                     alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                     <span style={{ fontSize: 52, lineHeight: 1 }}>{isUnlimited ? '♾️' : '⭐'}</span>
@@ -147,9 +142,9 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
               }}>
                 <span style={{
                   fontSize: 13, fontWeight: 400, padding: '4px 12px',
-                  background: tier.accent, color: '#000',
+                  background: accent, color: '#000',
                   borderRadius: 20, whiteSpace: 'nowrap',
-                }}>⭐ מנוי {tier.label.replace(/^[^\s]+\s/, '')}</span>
+                }}>⭐ מנוי {pkg.label}</span>
               </div>
             </div>
 
@@ -157,9 +152,9 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
             <div style={{
               display: 'flex', gap: 7, padding: '14px 14px 10px', flexWrap: 'wrap',
             }}>
-              <Chip accent={tier.accent}>{isUnlimited ? '♾️ ללא הגבלה' : `🔍 ${pkg.searches} חיפושים`}</Chip>
-              <Chip accent={tier.accent}>💳 חד-פעמי</Chip>
-              <Chip accent={tier.accent}>🔓 ללא תפוגה</Chip>
+              <Chip accent={accent}>{isUnlimited ? '♾️ ללא הגבלה' : `🔍 ${pkg.searches} חיפושים`}</Chip>
+              <Chip accent={accent}>💳 חד-פעמי</Chip>
+              <Chip accent={accent}>🔓 ללא תפוגה</Chip>
             </div>
 
             <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 14px' }} />
@@ -176,13 +171,13 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
                   <button onClick={() => setQty(pkg.id, qty - 1)} disabled={qty <= 1} style={{
                     width: 44, height: 40, border: 'none', background: 'transparent',
                     fontSize: 22, cursor: qty <= 1 ? 'default' : 'pointer',
-                    color: qty <= 1 ? 'var(--hint)' : tier.accent, fontWeight: 700,
+                    color: qty <= 1 ? 'var(--hint)' : accent, fontWeight: 700,
                   }}>−</button>
                   <span style={{ width: 34, textAlign: 'center', fontWeight: 800, fontSize: 16 }}>{qty}</span>
                   <button onClick={() => setQty(pkg.id, qty + 1)} disabled={qty >= 10} style={{
                     width: 44, height: 40, border: 'none', background: 'transparent',
                     fontSize: 22, cursor: qty >= 10 ? 'default' : 'pointer',
-                    color: qty >= 10 ? 'var(--hint)' : tier.accent, fontWeight: 700,
+                    color: qty >= 10 ? 'var(--hint)' : accent, fontWeight: 700,
                   }}>+</button>
                 </div>
                 <span style={{ fontSize: 13, color: 'var(--hint)' }}>
@@ -197,7 +192,7 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
                 display: 'flex', alignItems: 'baseline', justifyContent: 'center',
                 gap: 6, marginBottom: 12,
               }}>
-                <span style={{ fontSize: 40, fontWeight: 900, color: tier.accent, lineHeight: 1 }}>
+                <span style={{ fontSize: 40, fontWeight: 900, color: accent, lineHeight: 1 }}>
                   ₪{totalPrice}
                 </span>
                 {qty > 1 && (
@@ -209,7 +204,7 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
                 disabled={loading === pkg.id}
                 style={{
                   width: '100%', padding: '14px 0', border: 'none', borderRadius: 14,
-                  background: tier.grad,
+                  background: grad,
                   color: '#fff', fontSize: 16, fontWeight: 700,
                   cursor: 'pointer', opacity: loading === pkg.id ? 0.6 : 1,
                   boxShadow: `0 4px 14px rgba(0,0,0,0.25)`,
