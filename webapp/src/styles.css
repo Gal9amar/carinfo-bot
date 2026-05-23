@@ -319,3 +319,50 @@ body {
   font-weight: 500;
 }
 .bottom-nav-item.active .nav-label { color: var(--btn); font-weight: 700; }
+
+/* ── Logo spinner ─────────────────────────────────────── */
+@keyframes logoPulse {
+  0%   { transform: scale(1)    rotate(0deg);   opacity: 1; }
+  25%  { transform: scale(1.08) rotate(4deg);   opacity: 0.9; }
+  50%  { transform: scale(1)    rotate(0deg);   opacity: 1; }
+  75%  { transform: scale(1.08) rotate(-4deg);  opacity: 0.9; }
+  100% { transform: scale(1)    rotate(0deg);   opacity: 1; }
+}
+@keyframes ringRotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.logo-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 0;
+  gap: 20px;
+}
+.logo-loader-ring {
+  position: relative;
+  width: 100px;
+  height: 100px;
+}
+.logo-loader-ring::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 4px solid transparent;
+  border-top-color: var(--btn);
+  border-right-color: var(--btn);
+  animation: ringRotate 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+.logo-loader-ring img {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  animation: logoPulse 2s ease-in-out infinite;
+}
+.logo-loader-text {
+  font-size: 14px;
+  color: var(--hint);
+  font-weight: 500;
+}
