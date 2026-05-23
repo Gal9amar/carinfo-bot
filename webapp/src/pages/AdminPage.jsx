@@ -36,11 +36,12 @@ const TABS = [
   { id: 'market',   icon: '💰', label: 'מחיר שוק' },
 ]
 
-export default function AdminPage({ user }) {
+export default function AdminPage({ user, onBack }) {
   const [tab, setTab] = useState('stats')
 
   return (
     <div className="page">
+      {onBack && <BackButton onClick={onBack} />}
       <div className="page-title">🛠 פאנל ניהול</div>
       <div style={{
         display: 'grid',
