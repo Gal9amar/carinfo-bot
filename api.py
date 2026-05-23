@@ -650,6 +650,23 @@ async def admin_approve_payment(ref: str, admin: dict = Depends(_require_admin))
     return {"ok": True}
 
 
+@api.post("/api/admin/users/{user_id}/revoke-subscription")
+async def admin_revoke_subscription(user_id: int, _: dict = Depends(_require_admin)):
+    from src.db import execute
+    from src.users import remove_from_subscribers
+    await remove_from_subscribers(user_id)
+    await execute(
+        "UPDATE users SET searches_quota = 0, searches_done = 0, quota_expires = NULL WHERE user_id = ?",
+        [user_id]
+    )
+    try:
+        from src.activity import log as _log
+        await _log("subscription_revoked", f"מנוי הוסר ידנית למשתמש {user_id}")
+    except Exception:
+        pass
+    return {"ok": True}
+
+
 @api.post("/api/admin/payments/{ref}/decline")
 async def admin_decline_payment(ref: str, _: dict = Depends(_require_admin)):
     from src.db import execute

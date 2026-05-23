@@ -110,6 +110,15 @@ export async function adminDeletePackage(id) {
   return r.json()
 }
 
+export async function adminRevokeSubscription(userId) {
+  const r = await fetch(`${BASE}/api/admin/users/${userId}/revoke-subscription`, {
+    method: 'POST',
+    headers: headers(),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
 export async function adminGrantUser(userId, searches) {
   const r = await fetch(`${BASE}/api/admin/users/${userId}/grant`, {
     method: 'POST',

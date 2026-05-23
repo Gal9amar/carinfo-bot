@@ -4,6 +4,7 @@ import {
   adminUpdateSettings, adminFetchPackages,
   adminAddPackage, adminUpdatePackage, adminDeletePackage,
   adminGrantUser,
+  adminRevokeSubscription,
   adminFetchTickets, adminFetchTicket, adminReplyTicket, adminUpdateTicketStatus,
   adminFetchPayments, adminApprovePayment, adminDeclinePayment,
   adminFetchCodes, adminCreateCode, adminDeleteCode,
@@ -807,6 +808,38 @@ function GrantModal({ user, onClose, onDone }) {
                 <span style={{ fontSize: 12, color: 'var(--hint)' }}>{pkg.searches === -1 ? '∞' : pkg.searches} חיפושים</span>
               </button>
             ))}
+
+            {user.is_subscriber && (
+              <>
+                <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '4px 0' }} />
+                <button
+                  disabled={saving}
+                  onClick={() => {
+                    window.Telegram?.WebApp?.showConfirm('להסיר את המנוי של המשתמש?', async (ok) => {
+                      if (!ok) return
+                      setSaving(true)
+                      try {
+                        await adminRevokeSubscription(user.user_id)
+                        window.Telegram?.WebApp?.showAlert('✅ המנוי הוסר')
+                        await onDone()
+                        onClose()
+                      } catch {
+                        window.Telegram?.WebApp?.showAlert('שגיאה')
+                      }
+                      setSaving(false)
+                    })
+                  }}
+                  style={{
+                    display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6,
+                    padding: '10px 14px', borderRadius: 10,
+                    border: '1px solid #e53e3e44',
+                    background: '#e53e3e11', cursor: 'pointer', opacity: saving ? 0.5 : 1,
+                  }}
+                >
+                  <span style={{ fontSize: 13, color: '#e53e3e', fontWeight: 600 }}>🚫 הסר מנוי</span>
+                </button>
+              </>
+            )}
           </div>
         )}
 
