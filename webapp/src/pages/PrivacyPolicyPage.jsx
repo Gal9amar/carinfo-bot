@@ -3,21 +3,13 @@ const BOT_NAME     = 'CarInfo'
 const BOT_HANDLE   = '@israelcarinfobot'
 const CONTACT_URL  = 'https://t.me/israelcarinfobot'
 
+import BackButton from '../components/BackButton.jsx'
+
 export default function PrivacyPolicyPage({ onBack, onContact }) {
   return (
     <div className="page" style={{ paddingBottom: 40 }}>
-
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6, gap: 10 }}>
-        {onBack && (
-          <button
-            onClick={onBack}
-            style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--btn)', padding: '0 4px' }}
-            aria-label="חזרה"
-          >›</button>
-        )}
-        <div className="page-title" style={{ margin: 0, fontSize: 17 }}>🔒 מדיניות פרטיות ותנאי שימוש</div>
-      </div>
+      {onBack && <BackButton onClick={onBack} />}
+      <div className="page-title" style={{ fontSize: 17 }}>🔒 מדיניות פרטיות ותנאי שימוש</div>
       <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 6 }}>עודכן לאחרונה: {LAST_UPDATED}</div>
       <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 20 }}>
         מסמך זה מסדיר את תנאי השימוש ואת מדיניות הפרטיות של בוט {BOT_NAME} בטלגרם.

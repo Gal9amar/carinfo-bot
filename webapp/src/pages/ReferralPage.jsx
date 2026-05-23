@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { fetchReferral, fetchReferrals } from '../api.js'
+import BackButton from '../components/BackButton.jsx'
 
 export default function ReferralPage({ onBack }) {
   const [info, setInfo]         = useState(null)
@@ -38,13 +39,8 @@ export default function ReferralPage({ onBack }) {
 
   return (
     <div className="page">
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-        {onBack && (
-          <button onClick={onBack} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--btn)', padding: '0 4px' }}>›</button>
-        )}
-        <div className="page-title" style={{ margin: 0 }}>🤝 הפנה חבר</div>
-      </div>
+      {onBack && <BackButton onClick={onBack} />}
+      <div className="page-title">🤝 הפנה חבר</div>
 
       {/* Stats row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 16 }}>
