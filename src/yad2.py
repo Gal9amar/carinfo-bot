@@ -205,6 +205,90 @@ def _year_param(year_str: str) -> str:
         return ""
 
 
+_FETCH_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/148.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Referer": "https://www.yad2.co.il/vehicles/cars",
+    "Origin": "https://www.yad2.co.il",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-site",
+}
+
+_LOOKALIKE_BASE = "https://gw.yad2.co.il/lookalike/vehicles/cars"
+
+
+def get_market_price(make: str, model: str, year: int | str) -> dict | None:
+    """
+    Fetch live market price data from Yad2 for a given make/model/year.
+
+    Returns a dict with keys: total, count, min, max, avg, median, avg_km, items
+    Returns None if no data found or on error.
+    """
+    import urllib.request
+    import zlib
+
+    mid = _manufacturer_id(make)
+    if not mid:
+        _logger.warning(f"get_market_price: unknown make '{make}'")
+        return None
+
+    mod_id = _model_id(mid, model) if model else None
+    if not mod_id:
+        _logger.warning(f"get_market_price: unknown model '{model}' for '{make}'")
+        return None
+
+    url = f"{_LOOKALIKE_BASE}?model={mod_id}"
+    try:
+        y = int(year)
+        url += f"&year={y}-{y}"
+    except (TypeError, ValueError):
+        y = None
+
+    _logger.info(f"get_market_price: {url}")
+    try:
+        req = urllib.request.Request(url, headers=_FETCH_HEADERS)
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            raw = resp.read()
+        try:
+            data = json.loads(raw.decode("utf-8"))
+        except Exception:
+            data = json.loads(zlib.decompress(raw, 16 + zlib.MAX_WBITS).decode("utf-8"))
+    except Exception as e:
+        _logger.error(f"get_market_price fetch error: {e}")
+        return None
+
+    all_items = data.get("data") or []
+    items = all_items
+    if y:
+        filtered = [c for c in all_items if c.get("vehicleDates", {}).get("yearOfProduction") == y]
+        if filtered:
+            items = filtered
+
+    if not items:
+        return None
+
+    prices = sorted([int(c["price"]) for c in items if c.get("price")])
+    kms    = [int(c["km"]) for c in items if c.get("km")]
+
+    return {
+        "total":   len(all_items),
+        "count":   len(prices),
+        "min":     min(prices) if prices else None,
+        "max":     max(prices) if prices else None,
+        "avg":     int(sum(prices) / len(prices)) if prices else None,
+        "median":  prices[len(prices) // 2] if prices else None,
+        "avg_km":  int(sum(kms) / len(kms)) if kms else None,
+        "items":   items,
+    }
+
+
 def build_url(record: dict) -> str:
     """Return a Yad2 search URL with manufacturer, model, and year when available."""
     wltp  = record.get("_wltp") or {}
