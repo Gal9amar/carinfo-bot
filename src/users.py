@@ -375,13 +375,20 @@ async def get_referrals(referrer_id: int) -> list[dict]:
 
 async def get_all_users() -> list[dict]:
     r = await execute(
-        "SELECT user_id, username, full_name, searches_done, searches_quota, first_seen, last_seen, blocked, channel FROM users ORDER BY searches_done DESC"
+        "SELECT u.user_id, u.username, u.full_name, u.searches_done, u.searches_quota, "
+        "u.first_seen, u.last_seen, u.blocked, u.channel, u.quota_expires, "
+        "CASE WHEN ugm.user_id IS NOT NULL THEN 1 ELSE 0 END as is_subscriber "
+        "FROM users u "
+        "LEFT JOIN user_group_members ugm ON ugm.user_id = u.user_id "
+        "  AND ugm.group_id = (SELECT id FROM user_groups WHERE name='מנויים' LIMIT 1) "
+        "ORDER BY u.last_seen DESC"
     )
     users = []
     for u in _rows(r):
         quota = u["searches_quota"]
         done  = u["searches_done"]
         u["searches_left"] = -1 if quota == -1 else max(0, quota - done)
+        u["is_subscriber"] = bool(u.get("is_subscriber", 0))
         users.append(u)
     return users
 
