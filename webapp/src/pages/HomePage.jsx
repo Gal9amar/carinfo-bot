@@ -1,7 +1,7 @@
 import { } from 'react'
 
 const menuItems = [
-  { id: 'packages',   icon: '📦', label: 'חבילות',      sub: 'רכוש חיפושים' },
+  { id: 'packages',   icon: '⭐', label: 'רכישת מנוי',  sub: 'חיפושים + תכונות מנוי' },
   { id: 'history',    icon: '📋', label: 'היסטוריה',    sub: 'חיפושים קודמים' },
   { id: 'referral',   icon: '🤝', label: 'הפנה חבר',    sub: 'קבל חיפושים בחינם' },
   { id: 'ticket',     icon: '🎫', label: 'תמיכה',        sub: 'פתח פנייה' },

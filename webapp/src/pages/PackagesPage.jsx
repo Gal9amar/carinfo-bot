@@ -27,16 +27,51 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
   return (
     <div className="page" style={{ paddingBottom: 16 }}>
       {onBack && <BackButton onClick={onBack} />}
-      <div className="page-title">🛒 חנות חיפושים</div>
+      <div className="page-title">⭐ רכישת מנוי</div>
 
       {user && (
         <div className="card" style={{ marginBottom: 16 }}>
           <span style={{ fontSize: 14, color: 'var(--hint)' }}>
             שלום {user.first_name} · נותרו לך{' '}
             <strong>{user.searches_left === -1 ? '∞' : user.searches_left}</strong> חיפושים
+            {user.is_subscriber && (
+              <span style={{
+                marginRight: 8, fontSize: 11, fontWeight: 700,
+                background: 'linear-gradient(135deg,#7928ca,#5a1e99)',
+                color: '#fff', borderRadius: 20, padding: '2px 9px',
+              }}>⭐ מנוי פעיל</span>
+            )}
           </span>
         </div>
       )}
+
+      {/* What is a subscription */}
+      <div style={{
+        background: 'linear-gradient(135deg,#7928ca18,#5a1e9908)',
+        border: '1px solid #7928ca33',
+        borderRadius: 16, padding: '16px 18px', marginBottom: 20,
+      }}>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10, color: '#a855f7' }}>
+          ⭐ מה זה מנוי CarInfo?
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 9, fontSize: 13 }}>
+          <Row icon="🔍" text="מנוי מקנה לך סל חיפושים לשימוש בקצב שלך — ללא הגבלת זמן לניצול היתרה" />
+          <Row icon="💰" text="גישה לתכונת מחיר שוק Yad2 בדוח הרכב — נתוני שוק עדכניים ישירות בדוח" />
+          <Row icon="💳" text="תשלום חד-פעמי בלבד — אין חיוב חוזר, אין מנוי אוטומטי, אין הפתעות" />
+          <Row icon="🔓" text="תוקף המנוי נשמר כל עוד יש לך יתרת חיפושים — יסתיים עם ניצול מלא" />
+          <Row icon="➕" text='ניתן לרכוש כמה פעמים שרוצים ולצבור חיפושים — לחץ "+" לכמות מרובה' />
+        </div>
+
+        <div style={{
+          marginTop: 14, padding: '10px 14px',
+          background: 'rgba(56,161,105,0.12)', borderRadius: 10,
+          fontSize: 12, color: '#38a169', fontWeight: 600,
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <span style={{ fontSize: 16 }}>✅</span>
+          <span>כל רכישה מוכנסת לחשבונך תוך שעות ספורות לאחר אישור ידני ע"י המפעיל</span>
+        </div>
+      </div>
 
       {/* Free searches CTA */}
       <button
@@ -51,10 +86,10 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
         <span style={{ fontSize: 36, flexShrink: 0 }}>🎁</span>
         <div>
           <div style={{ color: '#fff', fontWeight: 700, fontSize: 16, marginBottom: 3 }}>
-            קבל חיפושים בחינם!
+            רוצה חיפושים בחינם?
           </div>
           <div style={{ color: 'rgba(255,255,255,0.82)', fontSize: 13 }}>
-            הפנה חברים וקבל חיפושים על כל הצטרפות ←
+            הפנה חברים וקבל חיפושים על כל הצטרפות ← (אינו מקנה מנוי)
           </div>
         </div>
       </button>
@@ -94,14 +129,20 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
                   : 'linear-gradient(135deg, var(--btn) 0%, #1a6aac 100%)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 52,
               }}>
-                {isUnlimited ? '♾️' : '🔍'}
+                {isUnlimited ? '♾️' : '⭐'}
               </div>
             )}
 
             <div style={{ padding: 16 }}>
-              <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 4 }}>{pkg.label}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <div style={{ fontSize: 17, fontWeight: 700 }}>{pkg.label}</div>
+                <span style={{
+                  fontSize: 10, fontWeight: 700, padding: '2px 7px',
+                  background: '#7928ca22', color: '#a855f7', borderRadius: 20,
+                }}>מנוי</span>
+              </div>
               <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 14 }}>
-                {isUnlimited ? 'חיפושים ללא הגבלת כמות' : `${pkg.searches} חיפושים לחבילה`}
+                {isUnlimited ? 'חיפושים ללא הגבלת כמות' : `${pkg.searches} חיפושים · תשלום חד-פעמי`}
               </div>
 
               {/* Quantity row — only for non-unlimited */}
@@ -185,6 +226,15 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
           מדיניות פרטיות ותנאי שימוש
         </button>
       </div>
+    </div>
+  )
+}
+
+function Row({ icon, text }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+      <span style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>{icon}</span>
+      <span style={{ color: 'var(--text)', lineHeight: 1.5 }}>{text}</span>
     </div>
   )
 }
