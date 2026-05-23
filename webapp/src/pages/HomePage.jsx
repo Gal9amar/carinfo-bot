@@ -9,6 +9,8 @@ const menuItems = [
   { id: 'privacy',    icon: '🔒', label: 'פרטיות',       sub: 'תנאים ומדיניות' },
 ]
 
+const adminMenuItem = { id: 'admin', icon: '🛠', label: 'פאנל מנהל', sub: 'ניהול מערכת' }
+
 export default function HomePage({ user, onNavigate }) {
   const searchesLeft = user?.searches_left
   const isUnlimited  = searchesLeft === -1
@@ -61,13 +63,13 @@ export default function HomePage({ user, onNavigate }) {
         תפריט ראשי
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        {menuItems.map(item => (
+        {[...menuItems, ...(user?.is_admin ? [adminMenuItem] : [])].map(item => (
           <button
             key={item.id}
             onClick={() => onNavigate(item.id)}
             style={{
-              background: 'var(--bg2)',
-              border: 'none',
+              background: item.id === 'admin' ? 'linear-gradient(135deg,#2d3748,#1a202c)' : 'var(--bg2)',
+              border: item.id === 'admin' ? '1px solid #4a5568' : 'none',
               borderRadius: 14,
               padding: '16px 14px',
               textAlign: 'right',
