@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { createTicket, fetchMyTickets, fetchTicket, replyTicket } from '../api.js'
+import BackButton from '../components/BackButton.jsx'
 
 const STATUS_LABEL = { open: 'פתוח', in_progress: 'בטיפול', closed: 'סגור' }
 const STATUS_COLOR = { open: '#e07b00', in_progress: '#2481cc', closed: '#38a169' }
@@ -48,12 +49,8 @@ export default function TicketPage({ onBack }) {
 
   return (
     <div className="page">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-        {onBack && (
-          <button onClick={onBack} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--btn)', padding: '0 4px' }}>›</button>
-        )}
-        <div className="page-title" style={{ margin: 0 }}>🎫 הפניות שלי</div>
-      </div>
+      {onBack && <BackButton onClick={onBack} />}
+      <div className="page-title">🎫 הפניות שלי</div>
 
       <button className="btn btn-success" style={{ marginBottom: 16 }} onClick={() => setView('create')}>
         ✉️ פנייה חדשה

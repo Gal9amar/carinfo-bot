@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { fetchSearchHistory } from '../api.js'
 import LicensePlate from '../components/LicensePlate.jsx'
+import BackButton from '../components/BackButton.jsx'
 
 export default function HistoryPage({ onBack, onViewPlate }) {
   const [items, setItems] = useState(null)
@@ -11,13 +12,8 @@ export default function HistoryPage({ onBack, onViewPlate }) {
 
   return (
     <div className="page">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-        <button
-          onClick={onBack}
-          style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--btn)', padding: '0 4px' }}
-        >‹</button>
-        <div className="page-title" style={{ margin: 0 }}>📜 היסטוריית חיפושים</div>
-      </div>
+      <BackButton onClick={onBack} />
+      <div className="page-title">📜 היסטוריית חיפושים</div>
 
       {items === null && <div className="loading">⏳ טוען...</div>}
 

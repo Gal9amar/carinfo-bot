@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { fetchVehicle } from '../api.js'
 import LicensePlate from '../components/LicensePlate.jsx'
+import BackButton from '../components/BackButton.jsx'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -292,6 +293,7 @@ export default function ReportPage({ plate, onBack }) {
 
   return (
     <div className="page">
+      {onBack && <BackButton onClick={onBack} />}
 
       {/* ── Header ── */}
       <div style={{ textAlign: 'center', marginBottom: 16 }}>
