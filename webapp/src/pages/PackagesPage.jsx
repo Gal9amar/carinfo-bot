@@ -103,101 +103,123 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
         </div>
       )}
 
-      {packages.map(pkg => {
-        const qty          = getQty(pkg.id)
-        const isUnlimited  = pkg.searches === -1
-        const totalPrice   = pkg.price * qty
+      {packages.map((pkg, idx) => {
+        const qty           = getQty(pkg.id)
+        const isUnlimited   = pkg.searches === -1
+        const totalPrice    = pkg.price * qty
         const totalSearches = isUnlimited ? '∞' : pkg.searches * qty
+
+        // Tier accent colours — cycle through silver / gold / platinum
+        const tiers = [
+          { grad: 'linear-gradient(135deg,#1e40af,#0ea5e9)', accent: '#38bdf8', label: '🥈 Silver' },
+          { grad: 'linear-gradient(135deg,#92400e,#f59e0b)', accent: '#fbbf24', label: '🥇 Gold'   },
+          { grad: 'linear-gradient(135deg,#4c1d95,#a855f7)', accent: '#c084fc', label: '💎 Platinum'},
+        ]
+        const tier = tiers[idx % tiers.length]
 
         return (
           <div key={pkg.id} style={{
-            background: 'var(--bg2)', borderRadius: 18,
-            overflow: 'hidden', marginBottom: 20,
-            boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
-            border: '1px solid rgba(255,255,255,0.06)',
+            borderRadius: 20, overflow: 'hidden', marginBottom: 22,
+            boxShadow: `0 6px 28px rgba(0,0,0,0.18), 0 0 0 1px rgba(255,255,255,0.07)`,
+            background: 'var(--bg2)',
           }}>
 
-            {/* Image */}
-            {pkg.image_url ? (
-              <img src={pkg.image_url} alt={pkg.label}
-                style={{ width: '100%', height: 170, objectFit: 'cover', display: 'block' }} />
-            ) : (
+            {/* ── Hero ── */}
+            <div style={{ position: 'relative', height: pkg.image_url ? 170 : 150 }}>
+              {pkg.image_url
+                ? <img src={pkg.image_url} alt={pkg.label}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                : <div style={{ width: '100%', height: '100%', background: tier.grad,
+                    display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 52, lineHeight: 1 }}>{isUnlimited ? '♾️' : '⭐'}</span>
+                    <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 600 }}>
+                      {isUnlimited ? 'גישה ללא הגבלת כמות' : `${pkg.searches} חיפושים`}
+                    </span>
+                  </div>
+              }
+              {/* Dark overlay + name + tier badge at bottom of hero */}
               <div style={{
-                width: '100%', height: 130,
-                background: isUnlimited
-                  ? 'linear-gradient(135deg,#7928ca,#ff0080)'
-                  : 'linear-gradient(135deg,#1a6aac,#0ea5e9)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 56,
-              }}>{isUnlimited ? '♾️' : '⭐'}</div>
-            )}
+                position: 'absolute', inset: 0,
+                background: 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, transparent 55%)',
+                display: 'flex', alignItems: 'flex-end',
+                padding: '12px 14px',
+                justifyContent: 'space-between',
+              }}>
+                <div style={{ fontWeight: 800, fontSize: 19, color: '#fff',
+                  textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>{pkg.label}</div>
+                <span style={{
+                  fontSize: 11, fontWeight: 700, padding: '4px 11px',
+                  background: tier.accent, color: '#000',
+                  borderRadius: 20, whiteSpace: 'nowrap',
+                }}>⭐ מנוי</span>
+              </div>
+            </div>
 
-            {/* Name bar */}
+            {/* ── Perks row ── */}
             <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '14px 16px 0',
+              display: 'flex', gap: 7, padding: '14px 14px 10px', flexWrap: 'wrap',
             }}>
-              <div style={{ fontSize: 18, fontWeight: 800 }}>{pkg.label}</div>
-              <span style={{
-                fontSize: 11, fontWeight: 700, padding: '3px 10px',
-                background: 'linear-gradient(135deg,#7928ca,#5a1e99)',
-                color: '#fff', borderRadius: 20,
-              }}>⭐ מנוי</span>
+              <Chip accent={tier.accent}>{isUnlimited ? '♾️ ללא הגבלה' : `🔍 ${pkg.searches} חיפושים`}</Chip>
+              <Chip accent={tier.accent}>💳 חד-פעמי</Chip>
+              <Chip accent={tier.accent}>🔓 ללא תפוגה</Chip>
+              <Chip accent={tier.accent}>✨ תכונות מנוי</Chip>
             </div>
 
-            {/* Perks */}
-            <div style={{ display: 'flex', gap: 8, padding: '10px 16px', flexWrap: 'wrap' }}>
-              <Chip>{isUnlimited ? '♾️ ללא הגבלה' : `🔍 ${pkg.searches} חיפושים`}</Chip>
-              <Chip>💳 תשלום חד-פעמי</Chip>
-              <Chip>🔓 ללא תפוגה</Chip>
-            </div>
+            <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 14px' }} />
 
-            <div style={{ height: 1, background: 'var(--bg)', margin: '0 16px' }} />
-
-            {/* Quantity — non-unlimited only */}
+            {/* ── Quantity ── */}
             {!isUnlimited && (
-              <div style={{ padding: '12px 16px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '12px 16px',
+              }}>
                 <span style={{ fontSize: 13, color: 'var(--hint)' }}>כמות</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 0,
+                <div style={{ display: 'flex', alignItems: 'center',
                   background: 'var(--bg)', borderRadius: 12, overflow: 'hidden' }}>
                   <button onClick={() => setQty(pkg.id, qty - 1)} disabled={qty <= 1} style={{
-                    width: 42, height: 38, border: 'none', background: 'transparent',
-                    fontSize: 20, cursor: qty <= 1 ? 'default' : 'pointer',
-                    color: qty <= 1 ? 'var(--hint)' : 'var(--btn)', fontWeight: 700,
+                    width: 44, height: 40, border: 'none', background: 'transparent',
+                    fontSize: 22, cursor: qty <= 1 ? 'default' : 'pointer',
+                    color: qty <= 1 ? 'var(--hint)' : tier.accent, fontWeight: 700,
                   }}>−</button>
-                  <span style={{ width: 36, textAlign: 'center', fontWeight: 700, fontSize: 15 }}>{qty}</span>
+                  <span style={{ width: 34, textAlign: 'center', fontWeight: 800, fontSize: 16 }}>{qty}</span>
                   <button onClick={() => setQty(pkg.id, qty + 1)} disabled={qty >= 10} style={{
-                    width: 42, height: 38, border: 'none', background: 'transparent',
-                    fontSize: 20, cursor: qty >= 10 ? 'default' : 'pointer',
-                    color: qty >= 10 ? 'var(--hint)' : 'var(--btn)', fontWeight: 700,
+                    width: 44, height: 40, border: 'none', background: 'transparent',
+                    fontSize: 22, cursor: qty >= 10 ? 'default' : 'pointer',
+                    color: qty >= 10 ? 'var(--hint)' : tier.accent, fontWeight: 700,
                   }}>+</button>
                 </div>
                 <span style={{ fontSize: 13, color: 'var(--hint)' }}>
-                  סה״כ <strong style={{ color: 'var(--text)' }}>{totalSearches}</strong> חיפושים
+                  סה״כ <strong style={{ color: 'var(--text)' }}>{totalSearches}</strong>
                 </span>
               </div>
             )}
 
-            {/* Price + CTA */}
-            <div style={{ padding: '14px 16px 16px' }}>
-              <div style={{ textAlign: 'center', marginBottom: 12 }}>
-                <span style={{ fontSize: 34, fontWeight: 900, color: 'var(--btn)' }}>₪{totalPrice}</span>
+            {/* ── Price + CTA ── */}
+            <div style={{ padding: '10px 14px 16px' }}>
+              <div style={{
+                display: 'flex', alignItems: 'baseline', justifyContent: 'center',
+                gap: 6, marginBottom: 12,
+              }}>
+                <span style={{ fontSize: 40, fontWeight: 900, color: tier.accent, lineHeight: 1 }}>
+                  ₪{totalPrice}
+                </span>
                 {qty > 1 && (
-                  <span style={{ fontSize: 12, color: 'var(--hint)', marginRight: 8 }}>
-                    ({qty} × ₪{pkg.price})
-                  </span>
+                  <span style={{ fontSize: 12, color: 'var(--hint)' }}>({qty} × ₪{pkg.price})</span>
                 )}
               </div>
               <button
                 onClick={() => handleSelect(pkg)}
                 disabled={loading === pkg.id}
                 style={{
-                  width: '100%', padding: '13px 0', border: 'none', borderRadius: 12,
-                  background: 'var(--btn)', color: 'var(--btn-text)',
-                  fontSize: 16, fontWeight: 700, cursor: 'pointer',
-                  opacity: loading === pkg.id ? 0.6 : 1,
-                  letterSpacing: 0.3,
+                  width: '100%', padding: '14px 0', border: 'none', borderRadius: 14,
+                  background: tier.grad,
+                  color: '#fff', fontSize: 16, fontWeight: 700,
+                  cursor: 'pointer', opacity: loading === pkg.id ? 0.6 : 1,
+                  boxShadow: `0 4px 14px rgba(0,0,0,0.25)`,
+                  letterSpacing: 0.4,
                 }}
-              >{loading === pkg.id ? '⏳ מעבד...' : '🛒 לרכישה'}</button>
+              >{loading === pkg.id ? '⏳ מעבד...' : '🛒 רכישת מנוי'}</button>
             </div>
           </div>
         )
@@ -234,12 +256,13 @@ function Row({ icon, text }) {
   )
 }
 
-function Chip({ children }) {
+function Chip({ children, accent }) {
   return (
     <span style={{
       fontSize: 11, fontWeight: 600, padding: '4px 10px',
-      background: 'var(--bg)', borderRadius: 20,
-      color: 'var(--hint)', border: '1px solid rgba(255,255,255,0.07)',
+      background: accent ? `${accent}18` : 'var(--bg)',
+      borderRadius: 20, color: accent || 'var(--hint)',
+      border: `1px solid ${accent ? `${accent}44` : 'rgba(255,255,255,0.07)'}`,
       whiteSpace: 'nowrap',
     }}>{children}</span>
   )
