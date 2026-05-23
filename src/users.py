@@ -14,6 +14,36 @@ PROMO_SEARCHES  = 0    # 0 = inactive, -1 = unlimited, >0 = specific count
 PROMO_START     = ''   # 'YYYY-MM-DD' or '' (no restriction)
 PROMO_END       = ''   # 'YYYY-MM-DD' or '' (no expiry)
 
+_SUBSCRIBERS_GROUP = "מנויים"
+
+
+async def _get_subscribers_group_id() -> int | None:
+    """Return the id of the subscribers group, creating it if missing."""
+    r = await execute("SELECT id FROM user_groups WHERE name=?", [_SUBSCRIBERS_GROUP])
+    if r.rows:
+        return r.rows[0][0]
+    await execute("INSERT OR IGNORE INTO user_groups (name) VALUES (?)", [_SUBSCRIBERS_GROUP])
+    r2 = await execute("SELECT id FROM user_groups WHERE name=?", [_SUBSCRIBERS_GROUP])
+    return r2.rows[0][0] if r2.rows else None
+
+
+async def add_to_subscribers(user_id: int) -> None:
+    gid = await _get_subscribers_group_id()
+    if gid:
+        await execute(
+            "INSERT OR IGNORE INTO user_group_members (group_id, user_id) VALUES (?, ?)",
+            [gid, user_id],
+        )
+
+
+async def remove_from_subscribers(user_id: int) -> None:
+    gid = await _get_subscribers_group_id()
+    if gid:
+        await execute(
+            "DELETE FROM user_group_members WHERE group_id=? AND user_id=?",
+            [gid, user_id],
+        )
+
 
 def get_current_welcome_quota() -> int:
     """Returns the quota a new user should receive right now."""
@@ -94,11 +124,12 @@ async def is_allowed(user_id: int, username: str = "", full_name: str = "") -> t
     if quota == -1 and quota_expires:
         try:
             if datetime.now() > datetime.fromisoformat(quota_expires):
-                # Subscription expired – revert to 0
+                # Subscription expired – revert to 0 and remove from subscribers
                 await execute(
                     "UPDATE users SET searches_quota = 0, quota_expires = NULL WHERE user_id = ?",
                     [user_id],
                 )
+                await remove_from_subscribers(user_id)
                 return False, 0
         except Exception:
             pass
@@ -120,6 +151,14 @@ async def increment_search(user_id: int, plate: str = "") -> None:
             "INSERT INTO search_history (user_id, plate) VALUES (?, ?)",
             [user_id, plate],
         )
+    # Remove from subscribers group when quota is fully exhausted
+    r = await execute(
+        "SELECT searches_quota, searches_done FROM users WHERE user_id = ?",
+        [user_id],
+    )
+    u = _row(r)
+    if u and u["searches_quota"] != -1 and u["searches_quota"] <= u["searches_done"]:
+        await remove_from_subscribers(user_id)
 
 
 async def get_last_plate(user_id: int) -> str:
@@ -212,6 +251,8 @@ async def apply_code(user_id: int, code: str, username: str = "") -> tuple[bool,
         "INSERT OR IGNORE INTO user_codes (user_id, code) VALUES (?, ?)",
         [user_id, code],
     )
+    # Auto-join subscribers group on successful code redemption
+    await add_to_subscribers(user_id)
     return True, result_msg
 
 
@@ -253,6 +294,8 @@ async def admin_grant(admin_id: int, target_id: int, searches: int, note: str = 
         "INSERT INTO grants (user_id, granted_by, searches, note) VALUES (?, ?, ?, ?)",
         [target_id, admin_id, searches, note],
     )
+    # Auto-join subscribers group on any positive grant
+    await add_to_subscribers(target_id)
     return msg
 
 

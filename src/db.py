@@ -186,6 +186,8 @@ async def init_db() -> None:
         r = conn.execute("SELECT id FROM user_groups WHERE name='מנהלים'").fetchone()
         if r:
             conn.execute("INSERT OR IGNORE INTO user_group_members (group_id, user_id) VALUES (?, ?)", (r[0], admin_id))
+    # Seed the "מנויים" group (members managed automatically)
+    conn.execute("INSERT OR IGNORE INTO user_groups (name) VALUES ('מנויים')")
     conn.commit()
 
     from src.packages import init_packages
