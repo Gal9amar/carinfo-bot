@@ -6,7 +6,14 @@ export default function HistoryPage({ onBack, onViewPlate }) {
   const [items, setItems] = useState(null)
 
   useEffect(() => {
-    fetchSearchHistory().then(setItems).catch(() => setItems([]))
+    const start = Date.now()
+    fetchSearchHistory()
+      .catch(() => [])
+      .then(data => {
+        const elapsed = Date.now() - start
+        const remaining = Math.max(0, 3000 - elapsed)
+        setTimeout(() => setItems(data), remaining)
+      })
   }, [])
 
   return (
