@@ -298,6 +298,13 @@ export async function adminFetchActivity(limit = 100) {
   return r.json()
 }
 
+// Market price (user)
+export async function fetchMarketPrice(plate) {
+  const r = await fetch(`${BASE}/api/vehicle/${encodeURIComponent(plate)}/market-price`, { headers: headers() })
+  if (!r.ok) return null
+  return r.json()
+}
+
 // Market price (admin)
 export async function adminFetchMarketPrice(plate) {
   const r = await fetch(`${BASE}/api/admin/market-price?plate=${encodeURIComponent(plate)}`, { headers: headers() })

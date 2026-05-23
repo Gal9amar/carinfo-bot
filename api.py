@@ -665,6 +665,33 @@ async def admin_get_activity(limit: int = 100, _: dict = Depends(_require_admin)
     return await get_log(min(limit, 200))
 
 
+@api.get("/api/vehicle/{plate}/market-price")
+async def vehicle_market_price(plate: str, user: dict = Depends(_get_user)):
+    from src.api.gov_api import fetch_vehicle_data
+    from src.cache import cache
+    from src.yad2 import get_market_price, build_url
+
+    clean = plate.replace("-", "").replace(" ", "")
+    record = cache.get(clean)
+    if record is None:
+        record = await fetch_vehicle_data(clean)
+        if record:
+            cache.set(clean, record)
+    if not record:
+        raise HTTPException(status_code=404, detail="רכב לא נמצא")
+
+    make  = str(record.get("tozeret_nm") or "").strip()
+    model = str(record.get("kinuy_mishari") or record.get("degem_nm") or "").strip()
+    year  = record.get("shnat_yitzur")
+    market = get_market_price(make, model, year)
+
+    return {
+        "year":     year,
+        "yad2_url": build_url(record),
+        "market":   market,
+    }
+
+
 @api.get("/api/admin/market-price")
 async def admin_market_price(plate: str, _: dict = Depends(_require_admin)):
     from src.api.gov_api import fetch_vehicle_data

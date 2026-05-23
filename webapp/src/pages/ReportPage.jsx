@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { fetchVehicle } from '../api.js'
+import { fetchVehicle, fetchMarketPrice } from '../api.js'
 import LicensePlate from '../components/LicensePlate.jsx'
 import BackButton from '../components/BackButton.jsx'
 
@@ -224,11 +224,13 @@ export default function ReportPage({ plate, onBack }) {
   const [record, setRecord] = useState(null)
   const [error, setError] = useState(null)
   const [copied, setCopied] = useState(false)
+  const [marketData, setMarketData] = useState(undefined) // undefined=loading, null=no data
 
   useEffect(() => {
     if (!plate) { setError('לא צוין מספר רכב'); return }
     fetchVehicle(plate)
-      .then(setRecord)
+      .then(r => { setRecord(r); return r })
+      .then(() => fetchMarketPrice(plate).then(setMarketData).catch(() => setMarketData(null)))
       .catch(() => setError('הרכב לא נמצא או שגיאה בטעינה'))
   }, [plate])
 
@@ -340,6 +342,47 @@ export default function ReportPage({ plate, onBack }) {
           <div className="stat-label">תוקף טסט</div>
         </div>
       </div>
+
+      {/* ── Market Price ── */}
+      {(() => {
+        if (marketData === undefined) return (
+          <div className="card" style={{ marginBottom: 12, color: 'var(--hint)', fontSize: 13 }}>
+            ⏳ טוען מחיר שוק מ-Yad2...
+          </div>
+        )
+        if (!marketData?.market) return null
+        const m   = marketData.market
+        const yr  = marketData.year ? parseInt(marketData.year) : null
+        const filtered = yr && m.items?.length
+          ? m.items.filter(i => parseInt(i.vehicleDates?.yearOfProduction || 0) === yr)
+          : m.items || []
+        const prices = (filtered.length > 0 ? filtered : m.items || [])
+          .map(i => i.price).filter(Boolean).sort((a, b) => a - b)
+        const kms = (filtered.length > 0 ? filtered : m.items || [])
+          .map(i => i.km).filter(Boolean)
+        if (!prices.length) return null
+        const median = prices[Math.floor(prices.length / 2)]
+        const min    = prices[0]
+        const max    = prices[prices.length - 1]
+        const avgKm  = kms.length ? Math.round(kms.reduce((a, b) => a + b, 0) / kms.length) : null
+        return (
+          <div className="card" style={{ marginBottom: 12 }}>
+            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>💰 מחיר שוק – Yad2</div>
+            <Row label="ממוצע שוק"  value={`₪${median.toLocaleString()}`} />
+            <Row label="מינימום"    value={`₪${min.toLocaleString()}`} />
+            <Row label="מקסימום"    value={`₪${max.toLocaleString()}`} />
+            {avgKm && <Row label="ק״מ ממוצע" value={`${avgKm.toLocaleString()} ק״מ`} />}
+            {marketData.yad2_url && (
+              <a href={marketData.yad2_url} target="_blank" rel="noopener noreferrer" style={{
+                display: 'block', marginTop: 10, padding: '8px 0',
+                background: '#FF4301', color: '#fff',
+                borderRadius: 10, textAlign: 'center', fontSize: 13,
+                fontWeight: 700, textDecoration: 'none',
+              }}>חפש ב-Yad2</a>
+            )}
+          </div>
+        )
+      })()}
 
       {/* ── General ── */}
       <Sec title="📋 פרטים כלליים">
