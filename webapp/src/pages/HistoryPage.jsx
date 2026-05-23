@@ -44,22 +44,22 @@ export default function HistoryPage({ onBack, onViewPlate }) {
                 padding: 16,
                 marginBottom: 12,
               }}>
-                {/* Plate + title row */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: title ? 10 : 0 }}>
-                  <LicensePlate plate={plate} />
-                  {(year || color) && (
-                    <div style={{ textAlign: 'left', fontSize: 13, color: 'var(--hint)' }}>
-                      {year && <div style={{ fontWeight: 600, color: 'var(--text)' }}>{year}</div>}
-                      {color && <div>{color}</div>}
-                    </div>
-                  )}
-                </div>
-
-                {title && (
-                  <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>
-                    {title}
+                {/* Plate + vehicle info — one row */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                  <LicensePlate plate={plate} size="sm" />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {title && (
+                      <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {title}
+                      </div>
+                    )}
+                    {(year || color) && (
+                      <div style={{ fontSize: 12, color: 'var(--hint)' }}>
+                        {[year, color].filter(Boolean).join(' · ')}
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
 
                 {/* Action buttons */}
                 <div style={{ display: 'flex', gap: 8 }}>
