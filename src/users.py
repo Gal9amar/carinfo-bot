@@ -490,7 +490,7 @@ async def admin_stats() -> dict:
         "AND quota_expires <= datetime('now', '+7 days') AND quota_expires > datetime('now')"
     )
 
-    searches_r       = await execute("SELECT COALESCE(SUM(searches_done), 0) as c FROM users")
+    searches_r       = await execute("SELECT COUNT(*) as c FROM search_history")
     searches_today_r = await execute(
         "SELECT COUNT(*) as c FROM search_history WHERE searched_at >= ?", [today]
     )
