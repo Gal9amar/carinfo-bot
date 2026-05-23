@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { fetchSearchHistory } from '../api.js'
 import LicensePlate from '../components/LicensePlate.jsx'
 import BackButton from '../components/BackButton.jsx'
+import loaderImg from '../assets/loader.png'
 export default function HistoryPage({ onBack, onViewPlate }) {
   const [items, setItems] = useState(null)
 
@@ -24,7 +25,7 @@ export default function HistoryPage({ onBack, onViewPlate }) {
       {items === null && (
         <div className="logo-loader">
           <div className="logo-loader-ring">
-            <img src="/logo.png" alt="CarInfo" />
+            <img src={loaderImg} alt="טוען" />
           </div>
           <span className="logo-loader-text">טוען היסטוריה...</span>
         </div>
