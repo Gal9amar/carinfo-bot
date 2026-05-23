@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { confirmPayment } from '../api.js'
+import paypalLogo from '../assets/paypal-logo.png'
+import payboxLogo from '../assets/paybox-logo.webp'
 
 export default function PaymentPage({ pkg, paymentData, onBack, onDone }) {
   const [confirming, setConfirming] = useState(false)
@@ -60,7 +62,7 @@ export default function PaymentPage({ pkg, paymentData, onBack, onDone }) {
             cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
           }}
         >
-          <img src="/paypal-logo.png" alt="PayPal" style={{ height: 28, objectFit: 'contain' }} />
+          <img src={paypalLogo} alt="PayPal" style={{ height: 28, objectFit: 'contain' }} />
         </button>
         <button
           onClick={openPayBox}
@@ -70,7 +72,7 @@ export default function PaymentPage({ pkg, paymentData, onBack, onDone }) {
             cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
           }}
         >
-          <img src="/paybox-logo.webp" alt="PayBox" style={{ height: 28, objectFit: 'contain' }} />
+          <img src={payboxLogo} alt="PayBox" style={{ height: 28, objectFit: 'contain' }} />
         </button>
       </div>
 
