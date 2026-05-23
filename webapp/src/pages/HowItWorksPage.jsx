@@ -33,7 +33,7 @@ export default function HowItWorksPage({ onBack, freeSearches = 10, onPrivacy })
         <Row icon="🤖" text="מערכות ADAS — בלימה אוטומטית, שמירת נתיב ועוד" />
         <Row icon="📅" text="היסטוריה — רישום, טסט, ק״מ, שינויי מבנה" />
         <Row icon="👥" text="היסטוריית בעלויות — כמה בעלים, פרטי/סוחר" />
-        <Row icon="💰" text="הערכת מחיר שוק — על בסיס מודעות Yad2" />
+        <Row icon="💰" text="הערכת מחיר שוק על בסיס מודעות Yad2 — תכונת מנוי בלבד ⭐" />
         <Row icon="🚨" text="בדיקת גנבה — מאגר המשטרה לרכבים גנובים" />
         <Row icon="⚠️" text="ריקולים — תקלות ידועות ופתוחות של הדגם" />
       </Section>
@@ -51,17 +51,23 @@ export default function HowItWorksPage({ onBack, freeSearches = 10, onPrivacy })
       <Section title="🎁 קבל חיפושים במתנה">
         <Row icon="🔗" text="שתף את הלינק האישי שלך עם חברים" />
         <Row icon="👤" text="כל חבר שמצטרף לבוט דרך הלינק שלך" />
-        <Row icon="✅" text={`מוסיף לך חיפושים אוטומטית — בלי לעשות כלום`} />
+        <Row icon="✅" text="מוסיף לך חיפושים אוטומטית — בלי לעשות כלום" />
         <p style={{ fontSize: 13, color: 'var(--hint)', margin: '8px 0 0', lineHeight: 1.5 }}>
           לחץ על "🎁 קבל חיפושים במתנה" בתפריט הראשי לשיתוף הלינק שלך.
+        </p>
+        <p style={{ fontSize: 12, color: 'var(--hint)', margin: '4px 0 0', lineHeight: 1.5 }}>
+          * חיפושים שהתקבלו מהפניות אינם כוללים גישה לתכונות המיועדות למנויים.
         </p>
       </Section>
 
       {/* Packages */}
       <Section title="⭐ רכישת מנוי">
-        <p style={{ fontSize: 14, lineHeight: 1.7, margin: 0 }}>
-          לאחר שמיצית את החיפושים החינמיים, ניתן לרכוש מנוי חיפושים נוסף בעמוד הרכישה.
-          התשלום מתבצע דרך PayPal ומאושר ידנית — החיפושים מתווספים לחשבון מיד לאחר האישור.
+        <Row icon="🔍" text="רכישת מנוי מקנה סל חיפושים לשימוש בקצב שלך — ללא הגבלת זמן לניצול היתרה" />
+        <Row icon="⭐" text="גישה לתכונות המיועדות למנויים בלבד — כגון מחיר שוק Yad2 ותכונות עתידיות" />
+        <Row icon="💳" text="תשלום חד-פעמי בלבד — אין חיוב חוזר, אין מנוי אוטומטי" />
+        <Row icon="🔓" text="המנוי תקף עד גמר יתרת החיפושים, ניתן לרכוש שוב ולצבור" />
+        <p style={{ fontSize: 13, color: 'var(--hint)', margin: '8px 0 0', lineHeight: 1.5 }}>
+          התשלום מתבצע דרך PayPal ומאושר ידנית ע"י המפעיל — החיפושים מתווספים לאחר האישור.
         </p>
       </Section>
 
@@ -70,6 +76,9 @@ export default function HowItWorksPage({ onBack, freeSearches = 10, onPrivacy })
         <p style={{ fontSize: 14, lineHeight: 1.7, margin: 0 }}>
           קיבלת קוד גישה? שלח <strong>/code XXXXXXXX</strong> לבוט והחיפושים יתווספו לחשבונך אוטומטית.
           קודים יכולים להיות חד-פעמיים או לשימוש מרובה — תלוי בסוג שקיבלת.
+        </p>
+        <p style={{ fontSize: 12, color: 'var(--hint)', margin: '4px 0 0', lineHeight: 1.5 }}>
+          * שימוש בקוד אינו מקנה סטטוס מנוי או גישה לתכונות מנוי.
         </p>
       </Section>
 
