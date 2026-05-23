@@ -92,11 +92,13 @@ async def get_user_info(user: dict = Depends(_get_user)):
     db_user = await get_user_by_id(int(user["id"]))
     maintenance = (await get_bot_setting("maintenance")) == "1"
     left = db_user.get("searches_left", 0) if db_user else 0
+    quota = db_user.get("searches_quota", 0) if db_user else 0
     return {
         "id": user["id"],
         "first_name": user.get("first_name", ""),
         "is_admin": int(user["id"]) == ADMIN_ID,
         "searches_left": left,
+        "searches_quota": quota,
         "maintenance": maintenance,
     }
 
