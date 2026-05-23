@@ -142,12 +142,17 @@ async def get_user_info(user: dict = Depends(_get_user)):
         if pkg_r.rows:
             subscription_label = pkg_r.rows[0][0]
 
+    # Get quota expiry date
+    from src.users import get_quota_expires
+    quota_expires = await get_quota_expires(user_id)
+
     return {
         "id": user["id"],
         "first_name": user.get("first_name", ""),
         "is_admin": user_id == ADMIN_ID,
         "searches_left": left,
         "searches_quota": quota,
+        "quota_expires": quota_expires,
         "maintenance": maintenance,
         "show_market_price": show_market,
         "is_subscriber": is_subscriber,

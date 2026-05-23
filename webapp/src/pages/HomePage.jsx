@@ -16,6 +16,22 @@ export default function HomePage({ user, onNavigate }) {
   const isUnlimited  = searchesLeft === -1
   const isSubscriber = !!user?.is_subscriber || isUnlimited
   const subLabel     = user?.subscription_label || null
+  const quotaExpires = user?.quota_expires || null
+
+  // Format expiry: "31/12/2025" or null
+  function fmtExpiry(iso) {
+    if (!iso) return null
+    const d = new Date(iso)
+    if (isNaN(d)) return null
+    return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`
+  }
+
+  // Status text for subscriber row
+  function subStatusText() {
+    if (!isSubscriber) return null
+    if (quotaExpires) return `בתוקף עד ${fmtExpiry(quotaExpires)}`
+    return 'לא מוגבל בזמן'
+  }
 
   return (
     <div className="page" style={{ paddingBottom: 24 }}>
@@ -25,32 +41,42 @@ export default function HomePage({ user, onNavigate }) {
         <div style={{
           background: 'var(--bg2)', borderRadius: 14,
           padding: '14px 16px', marginBottom: 16,
-          display: 'flex', flexDirection: 'column', gap: 8,
+          display: 'flex', flexDirection: 'column', gap: 10,
         }}>
-          {/* שם משתמש */}
-          <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 2 }}>שלום {user.first_name}</div>
-
-          {/* סטטוס מנוי */}
+          {/* שם משתמש + תגית מנוי */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 13, color: 'var(--hint)' }}>סטטוס מנוי</span>
+            <span style={{ fontSize: 13, color: 'var(--hint)' }}>שלום {user.first_name}</span>
             {isSubscriber
               ? <span style={{
                   background: 'linear-gradient(135deg,#1e40af,#0ea5e9)',
                   color: '#000', borderRadius: 20, padding: '3px 12px',
                   fontSize: 12, fontWeight: 500,
                 }}>{subLabel || 'מנוי'}</span>
-              : <span style={{ fontSize: 13, color: 'var(--hint)', fontWeight: 500 }}>ללא מנוי</span>
+              : <span style={{
+                  background: '#3a3a3a', color: '#aaa',
+                  borderRadius: 20, padding: '3px 12px',
+                  fontSize: 12, fontWeight: 500,
+                }}>חינם</span>
             }
           </div>
 
-          {/* יתרה / תוקף */}
+          {/* סטטוס מנוי */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 13, color: 'var(--hint)' }}>סטטוס מנוי</span>
+            {isSubscriber
+              ? <span style={{ fontSize: 12, color: 'var(--text)', fontWeight: 500 }}>{subStatusText()}</span>
+              : <span style={{ fontSize: 12, color: 'var(--hint)' }}>ללא מנוי</span>
+            }
+          </div>
+
+          {/* יתרת חיפושים */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={{ fontSize: 13, color: 'var(--hint)' }}>יתרת חיפושים</span>
             <span style={{
               fontSize: 13, fontWeight: 700,
               color: isUnlimited ? '#38bdf8' : searchesLeft === 0 ? '#e53e3e' : 'var(--text)',
             }}>
-              {isUnlimited ? '∞ ללא הגבלה' : searchesLeft}
+              {isUnlimited ? '∞' : searchesLeft}
             </span>
           </div>
 

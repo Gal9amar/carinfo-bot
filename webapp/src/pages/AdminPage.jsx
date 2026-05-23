@@ -721,7 +721,7 @@ function UsersTab() {
 function GrantModal({ user, onClose, onDone }) {
   const [packages, setPackages] = useState(null)
   const [mode, setMode] = useState('packages') // 'packages' | 'unlimited' | 'custom' | 'history' | 'referrals'
-  const [unlimitedType, setUnlimitedType] = useState('permanent')
+  const [unlimitedType, setUnlimitedType] = useState(null)
   const [customAmount, setCustomAmount] = useState('')
   const [saving, setSaving] = useState(false)
   const [history, setHistory] = useState(null)
@@ -813,25 +813,41 @@ function GrantModal({ user, onClose, onDone }) {
         {mode === 'unlimited' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {[['permanent','♾️ ללא הגבלת זמן'],['monthly','📅 מנוי חודשי (30 יום)']].map(([val, label]) => (
-              <label key={val} onClick={() => setUnlimitedType(val)} style={{
-                display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
-                borderRadius: 10, cursor: 'pointer',
-                background: unlimitedType === val ? 'var(--accent)22' : 'var(--bg)',
-                border: `1px solid ${unlimitedType === val ? 'var(--accent)' : 'rgba(255,255,255,0.08)'}`,
-              }}>
-                <input type="radio" checked={unlimitedType === val} onChange={() => setUnlimitedType(val)} style={{ accentColor: 'var(--accent)' }} />
+              <label
+                key={val}
+                onClick={() => setUnlimitedType(prev => prev === val ? null : val)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
+                  borderRadius: 10, cursor: 'pointer',
+                  background: unlimitedType === val ? 'var(--accent)22' : 'var(--bg)',
+                  border: `1px solid ${unlimitedType === val ? 'var(--accent)' : 'rgba(255,255,255,0.08)'}`,
+                }}
+              >
+                <input type="radio" checked={unlimitedType === val} onChange={() => {}} style={{ accentColor: 'var(--accent)' }} />
                 <span style={{ fontSize: 13 }}>{label}</span>
               </label>
             ))}
-            <button
-              disabled={saving}
-              onClick={() => grant(unlimitedType === 'permanent' ? -2 : -1)}
-              style={{
-                marginTop: 4, padding: '10px', borderRadius: 10, border: 'none',
-                background: 'var(--accent)', color: '#fff', fontSize: 13,
-                fontWeight: 600, cursor: 'pointer', opacity: saving ? 0.5 : 1,
-              }}
-            >{saving ? '...' : 'אשר'}</button>
+            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+              <button
+                disabled={saving || !unlimitedType}
+                onClick={() => grant(unlimitedType === 'permanent' ? -2 : -1)}
+                style={{
+                  flex: 1, padding: '10px', borderRadius: 10, border: 'none',
+                  background: 'var(--accent)', color: '#fff', fontSize: 13,
+                  fontWeight: 600, cursor: unlimitedType ? 'pointer' : 'default',
+                  opacity: (saving || !unlimitedType) ? 0.4 : 1,
+                }}
+              >{saving ? '...' : 'אשר'}</button>
+              <button
+                onClick={onClose}
+                style={{
+                  flex: 1, padding: '10px', borderRadius: 10,
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  background: 'transparent', color: 'var(--hint)', fontSize: 13,
+                  cursor: 'pointer',
+                }}
+              >ביטול</button>
+            </div>
           </div>
         )}
 
