@@ -89,7 +89,10 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
             רוצה חיפושים בחינם?
           </div>
           <div style={{ color: 'rgba(255,255,255,0.82)', fontSize: 13 }}>
-            הפנה חברים וקבל חיפושים על כל הצטרפות ← (אינו מקנה מנוי)
+            הפנה חברים וקבל חיפושים על כל הצטרפות ←
+          </div>
+          <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 11, marginTop: 3 }}>
+            * חיפושים אלו אינם כוללים גישה לתכונות המיועדות למנויים
           </div>
         </div>
       </button>
