@@ -222,7 +222,7 @@ _FETCH_HEADERS = {
 }
 
 _LOOKALIKE_BASE = "https://gw.yad2.co.il/lookalike/vehicles/cars"
-_ORACLE_PROXY = os.environ.get("YAD2_PROXY_URL", "http://151.145.86.13:8000/yad2")
+_ORACLE_PROXY = os.environ.get("YAD2_PROXY_URL", "http://151.145.86.13:8080/yad2")
 
 
 def get_market_price(make: str, model: str, year: int | str) -> dict | None:
