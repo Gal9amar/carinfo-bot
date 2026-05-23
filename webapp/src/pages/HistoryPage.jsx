@@ -3,8 +3,10 @@ import { fetchSearchHistory } from '../api.js'
 import LicensePlate from '../components/LicensePlate.jsx'
 import BackButton from '../components/BackButton.jsx'
 import loaderImg from '../assets/loader.png'
+
 export default function HistoryPage({ onBack, onViewPlate }) {
-  const [items, setItems] = useState(null)
+  const [items, setItems]   = useState(null)
+  const [query, setQuery]   = useState('')
 
   useEffect(() => {
     const start = Date.now()
@@ -16,6 +18,11 @@ export default function HistoryPage({ onBack, onViewPlate }) {
         setTimeout(() => setItems(data), remaining)
       })
   }, [])
+
+  const filtered = items?.filter(item => {
+    const plate = typeof item === 'string' ? item : item.plate
+    return plate.replace('-', '').includes(query.replace('-', '').trim())
+  }) ?? []
 
   return (
     <div className="page">
@@ -31,72 +38,93 @@ export default function HistoryPage({ onBack, onViewPlate }) {
         </div>
       )}
 
-      {items?.length === 0 && (
-        <div className="card" style={{ textAlign: 'center', color: 'var(--hint)', fontSize: 14 }}>
-          אין היסטוריית חיפושים עדיין
-        </div>
-      )}
-
-      {items?.length > 0 && (
+      {items !== null && (
         <>
-          <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 12 }}>
-            צפייה חוזרת אינה מנכה חיפוש
-          </div>
-          {items.map(item => {
-            const plate = typeof item === 'string' ? item : item.plate
-            const make  = item.make  || ''
-            const model = item.model || ''
-            const year  = item.year  || ''
-            const color = item.color || ''
-            const title = [make, model].filter(Boolean).join(' ')
+          {/* Search */}
+          <input
+            type="text"
+            className="input"
+            placeholder="🔍 חפש לפי מספר רכב"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            style={{ marginBottom: 10 }}
+          />
 
-            return (
-              <div key={plate} style={{
-                background: 'var(--bg2)',
-                borderRadius: 16,
-                padding: 16,
-                marginBottom: 12,
-              }}>
-                {/* Plate — full width */}
-                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
-                  <LicensePlate plate={plate} size="md" />
-                </div>
+          {items.length === 0 && (
+            <div className="card" style={{ textAlign: 'center', color: 'var(--hint)', fontSize: 14 }}>
+              אין היסטוריית חיפושים עדיין
+            </div>
+          )}
 
-                {/* Vehicle info + report button — side by side */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    {title && (
-                      <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {title}
-                      </div>
-                    )}
-                    {(year || color) && (
-                      <div style={{ fontSize: 12, color: 'var(--hint)' }}>
-                        {[year, color].filter(Boolean).join(' · ')}
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => onViewPlate(plate)}
-                    style={{
-                      flexShrink: 0,
-                      padding: '8px 14px',
-                      border: 'none',
-                      borderRadius: 10,
-                      background: 'var(--btn)',
-                      color: 'var(--btn-text)',
-                      fontSize: 13,
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    📊 צפה בדוח
-                  </button>
-                </div>
+          {items.length > 0 && filtered.length === 0 && (
+            <div className="card" style={{ textAlign: 'center', color: 'var(--hint)', fontSize: 14 }}>
+              לא נמצאו תוצאות
+            </div>
+          )}
+
+          {filtered.length > 0 && (
+            <>
+              <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 12 }}>
+                צפייה חוזרת אינה מנכה חיפוש
               </div>
-            )
-          })}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                {filtered.map(item => {
+                  const plate = typeof item === 'string' ? item : item.plate
+                  const make  = item.make  || ''
+                  const model = item.model || ''
+                  const year  = item.year  || ''
+                  const color = item.color || ''
+                  const title = [make, model].filter(Boolean).join(' ')
+
+                  return (
+                    <div key={plate} style={{
+                      background: 'var(--bg2)',
+                      borderRadius: 14,
+                      padding: 12,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: 8,
+                    }}>
+                      {/* Plate */}
+                      <LicensePlate plate={plate} size="sm" />
+
+                      {/* Info */}
+                      <div style={{ width: '100%', textAlign: 'center', minHeight: 32 }}>
+                        {title && (
+                          <div style={{
+                            fontSize: 12, fontWeight: 700, marginBottom: 2,
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }}>{title}</div>
+                        )}
+                        {(year || color) && (
+                          <div style={{ fontSize: 11, color: 'var(--hint)' }}>
+                            {[year, color].filter(Boolean).join(' · ')}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Button */}
+                      <button
+                        onClick={() => onViewPlate(plate)}
+                        style={{
+                          width: '100%',
+                          padding: '8px 0',
+                          border: 'none',
+                          borderRadius: 10,
+                          background: 'var(--btn)',
+                          color: 'var(--btn-text)',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >📊 צפה בדוח</button>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
         </>
       )}
     </div>
