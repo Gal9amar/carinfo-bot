@@ -401,14 +401,21 @@ export default function ReportPage({ plate, onBack, user }) {
                 }}>{val}</span>
               </div>
             ))}
-            {/* Yad2 button — visible only for authorized users */}
-            {authorized && marketData.yad2_url && (
+            {/* Yad2 button — active for authorized, disabled for others */}
+            {authorized && marketData.yad2_url ? (
               <a href={marketData.yad2_url} target="_blank" rel="noopener noreferrer" style={{
                 display: 'block', marginTop: 10, padding: '8px 0',
                 background: '#FF4301', color: '#fff',
                 borderRadius: 10, textAlign: 'center', fontSize: 13,
                 fontWeight: 700, textDecoration: 'none',
               }}>חפש ב-Yad2</a>
+            ) : (
+              <div style={{
+                display: 'block', marginTop: 10, padding: '8px 0',
+                background: '#55555544', color: 'var(--hint)',
+                borderRadius: 10, textAlign: 'center', fontSize: 13,
+                fontWeight: 700, cursor: 'not-allowed',
+              }}>חפש ב-Yad2</div>
             )}
           </div>
         )
