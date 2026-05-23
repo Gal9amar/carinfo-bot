@@ -20,17 +20,6 @@ export default function HomePage({ user, onNavigate }) {
   return (
     <div className="page" style={{ paddingBottom: 24 }}>
 
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-        <div style={{ fontSize: 40, lineHeight: 1 }}>🚗</div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 700, fontSize: 18 }}>CarInfo Bot</div>
-          {user && (
-            <div style={{ fontSize: 13, color: 'var(--hint)', marginTop: 2 }}>שלום {user.first_name}</div>
-          )}
-        </div>
-      </div>
-
       {/* Status card */}
       {user && (
         <div style={{
@@ -38,6 +27,9 @@ export default function HomePage({ user, onNavigate }) {
           padding: '14px 16px', marginBottom: 16,
           display: 'flex', flexDirection: 'column', gap: 8,
         }}>
+          {/* שם משתמש */}
+          <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 2 }}>שלום {user.first_name}</div>
+
           {/* סטטוס מנוי */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={{ fontSize: 13, color: 'var(--hint)' }}>סטטוס מנוי</span>
