@@ -156,9 +156,34 @@ async def confirm_payment(body: PaymentConfirmRequest, user: dict = Depends(_get
 # ── User history ─────────────────────────────────────────────────────────────
 @api.get("/api/user/history")
 async def get_user_history(user: dict = Depends(_get_user)):
+    import asyncio
     from src.users import get_search_history
+    from src.api.gov_api import fetch_vehicle_data
+    from src.cache import cache
+    from src import yad2 as _yad2
+
     plates = await get_search_history(int(user["id"]), limit=20)
-    return plates
+
+    async def enrich(plate: str) -> dict:
+        record = cache.get(plate)
+        if record is None:
+            try:
+                record = await fetch_vehicle_data(plate)
+                if record:
+                    cache.set(plate, record)
+            except Exception:
+                record = None
+        entry: dict = {"plate": plate}
+        if record:
+            entry["make"]  = record.get("tozeret_nm") or ""
+            entry["model"] = record.get("kinuy_mishari") or record.get("degem_nm") or ""
+            entry["year"]  = str(record.get("shnat_yitzur") or "")
+            entry["color"] = record.get("tzeva_rechev") or ""
+            entry["yad2"]  = _yad2.build_url(record) or ""
+        return entry
+
+    results = await asyncio.gather(*[enrich(p) for p in plates])
+    return list(results)
 
 
 # ── Vehicle report ───────────────────────────────────────────────────────────
