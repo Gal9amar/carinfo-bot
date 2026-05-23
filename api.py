@@ -811,15 +811,32 @@ async def vehicle_market_price(plate: str, user: dict = Depends(_get_user)):
         raise HTTPException(status_code=403, detail="disabled")
 
     user_id = int(user["id"])
-    groups_json = (await get_bot_setting("yad2_market_groups")) or "[]"
-    allowed_groups = json.loads(groups_json)
-    if allowed_groups:
-        r = await execute(
-            f"SELECT 1 FROM user_group_members WHERE user_id=? AND group_id IN ({','.join('?' * len(allowed_groups))})",
-            [user_id, *allowed_groups]
-        )
-        if len(r.rows) == 0:
-            raise HTTPException(status_code=403, detail="not in group")
+    allowed = False
+
+    # Check public (open-to-all) mode with optional date window
+    public_on    = (await get_bot_setting("yad2_market_public")) == "1"
+    public_start = (await get_bot_setting("yad2_market_public_start")) or ""
+    public_end   = (await get_bot_setting("yad2_market_public_end"))   or ""
+    if public_on:
+        from datetime import date as _date
+        today = str(_date.today())
+        in_window = (not public_start or today >= public_start) and \
+                    (not public_end   or today <= public_end)
+        allowed = in_window
+
+    # If not allowed via public, check group membership
+    if not allowed:
+        groups_json = (await get_bot_setting("yad2_market_groups")) or "[]"
+        allowed_groups = json.loads(groups_json)
+        if allowed_groups:
+            r = await execute(
+                f"SELECT 1 FROM user_group_members WHERE user_id=? AND group_id IN ({','.join('?' * len(allowed_groups))})",
+                [user_id, *allowed_groups]
+            )
+            allowed = len(r.rows) > 0
+
+    if not allowed:
+        raise HTTPException(status_code=403, detail="not authorized")
 
     clean = plate.replace("-", "").replace(" ", "")
     record = cache.get(clean)

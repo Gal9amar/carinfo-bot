@@ -224,19 +224,19 @@ export default function ReportPage({ plate, onBack, user }) {
   const [record, setRecord] = useState(null)
   const [error, setError] = useState(null)
   const [copied, setCopied] = useState(false)
-  const [marketData, setMarketData] = useState(null) // null=no data
+  const [marketData, setMarketData] = useState(undefined) // undefined=loading, null=disabled/error
 
   useEffect(() => {
     if (!plate) { setError('לא צוין מספר רכב'); return }
     fetchVehicle(plate)
       .then(r => {
         setRecord(r)
-        if (user?.show_market_price) {
-          return fetchMarketPrice(plate).then(setMarketData).catch(() => setMarketData(null))
-        }
+        return fetchMarketPrice(plate)
+          .then(d => setMarketData(d))
+          .catch(() => setMarketData(null))
       })
       .catch(() => setError('הרכב לא נמצא או שגיאה בטעינה'))
-  }, [plate, user?.show_market_price])
+  }, [plate])
 
   if (error) return (
     <div className="page">
@@ -349,7 +349,6 @@ export default function ReportPage({ plate, onBack, user }) {
 
       {/* ── Market Price ── */}
       {(() => {
-        if (!user?.show_market_price) return null
         if (!marketData?.market) return null
         const m   = marketData.market
         const yr  = marketData.year ? parseInt(marketData.year) : null
