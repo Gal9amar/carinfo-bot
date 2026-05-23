@@ -12,54 +12,70 @@ const menuItems = [
 const adminMenuItem = { id: 'admin', icon: '🛠', label: 'פאנל מנהל', sub: 'ניהול מערכת' }
 
 export default function HomePage({ user, onNavigate }) {
-  const searchesLeft   = user?.searches_left
-  const isUnlimited    = searchesLeft === -1
-  const isSubscriber   = !!user?.is_subscriber || isUnlimited
+  const searchesLeft = user?.searches_left
+  const isUnlimited  = searchesLeft === -1
+  const isSubscriber = !!user?.is_subscriber || isUnlimited
+  const subLabel     = user?.subscription_label || null
 
   return (
     <div className="page" style={{ paddingBottom: 24 }}>
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: isSubscriber ? 12 : 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
         <div style={{ fontSize: 40, lineHeight: 1 }}>🚗</div>
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 700, fontSize: 18 }}>CarInfo Bot</div>
-          {user ? (
-            <div style={{ fontSize: 13, color: 'var(--hint)' }}>
-              שלום {user.first_name} ·{' '}
-              <strong style={{ color: searchesLeft === 0 ? '#e53e3e' : 'var(--btn)' }}>
-                {isUnlimited ? '∞' : searchesLeft}
-              </strong> חיפושים נותרו
-            </div>
-          ) : (
-            <div style={{ fontSize: 13, color: 'var(--hint)' }}>בדיקת רכבים מהירה</div>
+          {user && (
+            <div style={{ fontSize: 13, color: 'var(--hint)', marginTop: 2 }}>שלום {user.first_name}</div>
           )}
         </div>
-        {isSubscriber && (
-          <div style={{
-            background: 'linear-gradient(135deg,#1e40af,#0ea5e9)',
-            color: '#000', borderRadius: 20, padding: '5px 12px',
-            fontSize: 12, fontWeight: 400, flexShrink: 0,
-            boxShadow: '0 2px 8px #0ea5e944',
-          }}>{user?.subscription_label || 'מנוי'}</div>
-        )}
       </div>
 
-      {/* Subscriber banner */}
-      {isSubscriber && (
+      {/* Status card */}
+      {user && (
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 12,
-          background: 'linear-gradient(135deg,#7928ca22,#5a1e9911)',
-          border: '1px solid #7928ca44',
-          borderRadius: 14, padding: '12px 16px', marginBottom: 16,
+          background: 'var(--bg2)', borderRadius: 14,
+          padding: '14px 16px', marginBottom: 16,
+          display: 'flex', flexDirection: 'column', gap: 8,
         }}>
-          <span style={{ fontSize: 26, flexShrink: 0 }}>⭐</span>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 14, color: '#a855f7' }}>חשבון מנוי פעיל</div>
-            <div style={{ fontSize: 12, color: 'var(--hint)', marginTop: 2 }}>
-              גישה לתכונות מנוי כולל מחיר שוק Yad2 בדוח הרכב
-            </div>
+          {/* סטטוס מנוי */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 13, color: 'var(--hint)' }}>סטטוס מנוי</span>
+            {isSubscriber
+              ? <span style={{
+                  background: 'linear-gradient(135deg,#1e40af,#0ea5e9)',
+                  color: '#000', borderRadius: 20, padding: '3px 12px',
+                  fontSize: 12, fontWeight: 500,
+                }}>{subLabel || 'מנוי'}</span>
+              : <span style={{ fontSize: 13, color: 'var(--hint)', fontWeight: 500 }}>ללא מנוי</span>
+            }
           </div>
+
+          {/* יתרה / תוקף */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 13, color: 'var(--hint)' }}>יתרת חיפושים</span>
+            <span style={{
+              fontSize: 13, fontWeight: 700,
+              color: isUnlimited ? '#38bdf8' : searchesLeft === 0 ? '#e53e3e' : 'var(--text)',
+            }}>
+              {isUnlimited ? '∞ ללא הגבלה' : searchesLeft}
+            </span>
+          </div>
+
+          {/* progress bar — רק אם יש מספר מוגבל */}
+          {!isUnlimited && searchesLeft >= 0 && (() => {
+            const total = user.searches_quota > 0 ? user.searches_quota : Math.max(searchesLeft, 10)
+            const pct   = Math.min(100, Math.round((searchesLeft / total) * 100))
+            const color = pct > 50 ? '#38a169' : pct > 20 ? '#d69e2e' : '#e53e3e'
+            return (
+              <div style={{ height: 6, background: 'var(--bg)', borderRadius: 4, overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%', width: `${pct}%`, background: color,
+                  borderRadius: 4, transition: 'width 0.7s cubic-bezier(0.22,1,0.36,1)',
+                }} />
+              </div>
+            )
+          })()}
         </div>
       )}
 
@@ -83,33 +99,6 @@ export default function HomePage({ user, onNavigate }) {
           </div>
         </div>
       </button>
-
-      {/* Search progress bar */}
-      {user && user.searches_left !== -1 && user.searches_left >= 0 && (
-        (() => {
-          const left = user.searches_left
-          const total = user.searches_quota > 0 ? user.searches_quota : Math.max(left, 10)
-          const pct = Math.min(100, Math.round((left / total) * 100))
-          const color = pct > 50 ? '#38a169' : pct > 20 ? '#d69e2e' : '#e53e3e'
-          return (
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--hint)', marginBottom: 5 }}>
-                <span>חיפושים נותרים</span>
-                <span style={{ fontWeight: 600, color }}>{left}</span>
-              </div>
-              <div style={{ height: 7, background: 'var(--bg2)', borderRadius: 4, overflow: 'hidden' }}>
-                <div style={{
-                  height: '100%',
-                  width: `${pct}%`,
-                  background: color,
-                  borderRadius: 4,
-                  transition: 'width 0.7s cubic-bezier(0.22,1,0.36,1)',
-                }} />
-              </div>
-            </div>
-          )
-        })()
-      )}
 
       {/* Menu grid */}
       <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 10, fontWeight: 500 }}>
