@@ -14,6 +14,7 @@ import {
   adminFetchUserReferrals,
   adminFetchActivity,
   adminGiftAll,
+  adminFetchMarketPrice,
 } from '../api.js'
 import BackButton from '../components/BackButton.jsx'
 
@@ -26,6 +27,7 @@ const TABS = [
   { id: 'users',    icon: '👥', label: 'משתמשים' },
   { id: 'settings', icon: '⚙️', label: 'הגדרות' },
   { id: 'tickets',  icon: '🎫', label: 'טיקטים' },
+  { id: 'market',   icon: '💰', label: 'מחיר שוק' },
 ]
 
 export default function AdminPage({ user }) {
@@ -66,6 +68,7 @@ export default function AdminPage({ user }) {
       {tab === 'users'    && <UsersTab />}
       {tab === 'settings' && <SettingsTab />}
       {tab === 'tickets'  && <TicketsTab />}
+      {tab === 'market'   && <MarketPriceTab />}
     </div>
   )
 }
@@ -1380,6 +1383,143 @@ function AdminTicketThread({ ticketId, onBack }) {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Market Price Tab ─────────────────────────────────────────────────────────
+function MarketPriceTab() {
+  const [plate, setPlate] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState(null)
+  const [error, setError] = useState(null)
+
+  async function search() {
+    const clean = plate.replace(/[^0-9]/g, '')
+    if (!clean) return
+    setLoading(true)
+    setResult(null)
+    setError(null)
+    try {
+      const data = await adminFetchMarketPrice(clean)
+      setResult(data)
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const m = result?.market
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ fontSize: 13, color: 'var(--hint)', lineHeight: 1.5 }}>
+        הזן לוחית רישוי — המערכת תשלוף פרטי רכב ותחפש מחיר שוק חי מ-Yad2 לפי יצרן / דגם / שנה.
+      </div>
+
+      <div style={{ display: 'flex', gap: 8 }}>
+        <input
+          type="tel"
+          placeholder="מספר לוחית (ספרות בלבד)"
+          value={plate}
+          onChange={e => setPlate(e.target.value.replace(/[^0-9]/g, ''))}
+          onKeyDown={e => e.key === 'Enter' && search()}
+          maxLength={8}
+          style={{
+            flex: 1, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)',
+            background: 'var(--bg2)', color: 'var(--text)', fontSize: 16,
+            textAlign: 'center', letterSpacing: 2,
+          }}
+        />
+        <button
+          className="btn"
+          style={{ width: 'auto', padding: '0 18px' }}
+          onClick={search}
+          disabled={loading || !plate}
+        >
+          {loading ? '⏳' : '🔍 חפש'}
+        </button>
+      </div>
+
+      {error && (
+        <div style={{ background: '#ff3b3022', borderRadius: 10, padding: 12, color: '#ff3b30', fontSize: 13 }}>
+          ❌ {error}
+        </div>
+      )}
+
+      {result && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ background: 'var(--bg2)', borderRadius: 12, padding: 14 }}>
+            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>🚗 פרטי הרכב</div>
+            <MRow label="יצרן"   value={result.make} />
+            <MRow label="דגם"    value={result.model} />
+            <MRow label="שנה"    value={result.year} />
+            <MRow label="צבע"    value={result.color} />
+            <MRow label="לוחית" value={result.plate} />
+          </div>
+
+          {m ? (
+            <div style={{ background: 'var(--bg2)', borderRadius: 12, padding: 14 }}>
+              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>💰 מחיר שוק – Yad2</div>
+              <MRow label="חציון"      value={`₪${m.median?.toLocaleString()}`} bold />
+              <MRow label="ממוצע"      value={`₪${m.avg?.toLocaleString()}`} />
+              <MRow label="מינימום"    value={`₪${m.min?.toLocaleString()}`} />
+              <MRow label="מקסימום"    value={`₪${m.max?.toLocaleString()}`} />
+              <MRow label="ק״מ ממוצע" value={m.avg_km ? `${m.avg_km.toLocaleString()} ק״מ` : '—'} />
+              <MRow label="מודעות"     value={`${m.count} מתוך ${m.total} ב-Yad2`} />
+              {result.yad2_url && (
+                <a href={result.yad2_url} target="_blank" rel="noopener noreferrer" style={{
+                  display: 'block', marginTop: 12, padding: '9px 0',
+                  background: 'var(--btn)', color: 'var(--btn-text)',
+                  borderRadius: 10, textAlign: 'center', fontSize: 13,
+                  fontWeight: 600, textDecoration: 'none',
+                }}>🔗 פתח חיפוש ב-Yad2</a>
+              )}
+            </div>
+          ) : (
+            <div style={{ background: 'var(--bg2)', borderRadius: 12, padding: 14, color: 'var(--hint)', fontSize: 13 }}>
+              ⚠️ לא נמצאו נתוני מחיר שוק ב-Yad2 לרכב זה.
+              {result.yad2_url && (
+                <a href={result.yad2_url} target="_blank" rel="noopener noreferrer" style={{
+                  display: 'block', marginTop: 10, color: 'var(--btn)', textDecoration: 'none', fontWeight: 600,
+                }}>🔗 חפש ידנית ב-Yad2</a>
+              )}
+            </div>
+          )}
+
+          {m?.items?.length > 0 && (
+            <div style={{ background: 'var(--bg2)', borderRadius: 12, padding: 14 }}>
+              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>📋 מודעות ({m.items.length})</div>
+              {m.items.map((item, i) => (
+                <div key={i} style={{
+                  borderBottom: i < m.items.length - 1 ? '1px solid var(--border)' : 'none',
+                  paddingBottom: 10, marginBottom: 10,
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 700, fontSize: 14 }}>₪{item.price?.toLocaleString() ?? '—'}</span>
+                    <span style={{ fontSize: 12, color: 'var(--hint)' }}>
+                      {item.hand?.text ?? ''} · {item.vehicleDates?.yearOfProduction ?? ''}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--hint)', marginTop: 3 }}>
+                    {item.subModel?.text ?? ''}{item.km ? ` · ${item.km.toLocaleString()} ק״מ` : ''}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MRow({ label, value, bold }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13 }}>
+      <span style={{ color: 'var(--hint)' }}>{label}</span>
+      <span style={{ fontWeight: bold ? 700 : 400 }}>{value ?? '—'}</span>
     </div>
   )
 }

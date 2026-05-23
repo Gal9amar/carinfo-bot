@@ -297,3 +297,11 @@ export async function adminFetchActivity(limit = 100) {
   if (!r.ok) throw new Error('Failed')
   return r.json()
 }
+
+// Market price (admin)
+export async function adminFetchMarketPrice(plate) {
+  const r = await fetch(`${BASE}/api/admin/market-price?plate=${encodeURIComponent(plate)}`, { headers: headers() })
+  if (r.status === 404) throw new Error('רכב לא נמצא')
+  if (!r.ok) throw new Error('שגיאה בשליפה')
+  return r.json()
+}
