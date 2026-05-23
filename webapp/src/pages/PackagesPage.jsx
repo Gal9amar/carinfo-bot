@@ -104,108 +104,100 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
       )}
 
       {packages.map(pkg => {
-        const qty = getQty(pkg.id)
-        const isUnlimited = pkg.searches === -1
-        const totalPrice = pkg.price * qty
+        const qty          = getQty(pkg.id)
+        const isUnlimited  = pkg.searches === -1
+        const totalPrice   = pkg.price * qty
         const totalSearches = isUnlimited ? '∞' : pkg.searches * qty
 
         return (
           <div key={pkg.id} style={{
-            background: 'var(--bg2)',
-            borderRadius: 16,
-            overflow: 'hidden',
-            marginBottom: 16,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+            background: 'var(--bg2)', borderRadius: 18,
+            overflow: 'hidden', marginBottom: 20,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
+            border: '1px solid rgba(255,255,255,0.06)',
           }}>
-            {/* Product image / placeholder */}
+
+            {/* Image */}
             {pkg.image_url ? (
-              <img
-                src={pkg.image_url}
-                alt={pkg.label}
-                style={{ width: '100%', height: 160, objectFit: 'cover', display: 'block' }}
-              />
+              <img src={pkg.image_url} alt={pkg.label}
+                style={{ width: '100%', height: 170, objectFit: 'cover', display: 'block' }} />
             ) : (
               <div style={{
-                width: '100%', height: 120,
+                width: '100%', height: 130,
                 background: isUnlimited
-                  ? 'linear-gradient(135deg, #7928ca 0%, #ff0080 100%)'
-                  : 'linear-gradient(135deg, var(--btn) 0%, #1a6aac 100%)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 52,
-              }}>
-                {isUnlimited ? '♾️' : '⭐'}
+                  ? 'linear-gradient(135deg,#7928ca,#ff0080)'
+                  : 'linear-gradient(135deg,#1a6aac,#0ea5e9)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 56,
+              }}>{isUnlimited ? '♾️' : '⭐'}</div>
+            )}
+
+            {/* Name bar */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '14px 16px 0',
+            }}>
+              <div style={{ fontSize: 18, fontWeight: 800 }}>{pkg.label}</div>
+              <span style={{
+                fontSize: 11, fontWeight: 700, padding: '3px 10px',
+                background: 'linear-gradient(135deg,#7928ca,#5a1e99)',
+                color: '#fff', borderRadius: 20,
+              }}>⭐ מנוי</span>
+            </div>
+
+            {/* Perks */}
+            <div style={{ display: 'flex', gap: 8, padding: '10px 16px', flexWrap: 'wrap' }}>
+              <Chip>{isUnlimited ? '♾️ ללא הגבלה' : `🔍 ${pkg.searches} חיפושים`}</Chip>
+              <Chip>💳 תשלום חד-פעמי</Chip>
+              <Chip>🔓 ללא תפוגה</Chip>
+            </div>
+
+            <div style={{ height: 1, background: 'var(--bg)', margin: '0 16px' }} />
+
+            {/* Quantity — non-unlimited only */}
+            {!isUnlimited && (
+              <div style={{ padding: '12px 16px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 13, color: 'var(--hint)' }}>כמות</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 0,
+                  background: 'var(--bg)', borderRadius: 12, overflow: 'hidden' }}>
+                  <button onClick={() => setQty(pkg.id, qty - 1)} disabled={qty <= 1} style={{
+                    width: 42, height: 38, border: 'none', background: 'transparent',
+                    fontSize: 20, cursor: qty <= 1 ? 'default' : 'pointer',
+                    color: qty <= 1 ? 'var(--hint)' : 'var(--btn)', fontWeight: 700,
+                  }}>−</button>
+                  <span style={{ width: 36, textAlign: 'center', fontWeight: 700, fontSize: 15 }}>{qty}</span>
+                  <button onClick={() => setQty(pkg.id, qty + 1)} disabled={qty >= 10} style={{
+                    width: 42, height: 38, border: 'none', background: 'transparent',
+                    fontSize: 20, cursor: qty >= 10 ? 'default' : 'pointer',
+                    color: qty >= 10 ? 'var(--hint)' : 'var(--btn)', fontWeight: 700,
+                  }}>+</button>
+                </div>
+                <span style={{ fontSize: 13, color: 'var(--hint)' }}>
+                  סה״כ <strong style={{ color: 'var(--text)' }}>{totalSearches}</strong> חיפושים
+                </span>
               </div>
             )}
 
-            <div style={{ padding: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                <div style={{ fontSize: 17, fontWeight: 700 }}>{pkg.label}</div>
-                <span style={{
-                  fontSize: 10, fontWeight: 700, padding: '2px 7px',
-                  background: '#7928ca22', color: '#a855f7', borderRadius: 20,
-                }}>מנוי</span>
+            {/* Price + CTA */}
+            <div style={{ padding: '14px 16px 16px' }}>
+              <div style={{ textAlign: 'center', marginBottom: 12 }}>
+                <span style={{ fontSize: 34, fontWeight: 900, color: 'var(--btn)' }}>₪{totalPrice}</span>
+                {qty > 1 && (
+                  <span style={{ fontSize: 12, color: 'var(--hint)', marginRight: 8 }}>
+                    ({qty} × ₪{pkg.price})
+                  </span>
+                )}
               </div>
-              <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 14 }}>
-                {isUnlimited ? 'חיפושים ללא הגבלת כמות' : `${pkg.searches} חיפושים · תשלום חד-פעמי`}
-              </div>
-
-              {/* Quantity row — only for non-unlimited */}
-              {!isUnlimited && (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                  <div style={{
-                    display: 'flex', alignItems: 'center',
-                    background: 'var(--bg)', borderRadius: 10, overflow: 'hidden',
-                    border: '1px solid rgba(0,0,0,0.07)',
-                  }}>
-                    <button
-                      onClick={() => setQty(pkg.id, qty - 1)}
-                      disabled={qty <= 1}
-                      style={{
-                        width: 40, height: 40, border: 'none', background: 'transparent',
-                        fontSize: 22, lineHeight: 1, cursor: qty <= 1 ? 'default' : 'pointer',
-                        color: qty <= 1 ? 'var(--hint)' : 'var(--btn)', fontWeight: 700,
-                      }}
-                    >−</button>
-                    <span style={{ width: 38, textAlign: 'center', fontWeight: 700, fontSize: 16 }}>{qty}</span>
-                    <button
-                      onClick={() => setQty(pkg.id, qty + 1)}
-                      disabled={qty >= 10}
-                      style={{
-                        width: 40, height: 40, border: 'none', background: 'transparent',
-                        fontSize: 22, lineHeight: 1, cursor: qty >= 10 ? 'default' : 'pointer',
-                        color: qty >= 10 ? 'var(--hint)' : 'var(--btn)', fontWeight: 700,
-                      }}
-                    >+</button>
-                  </div>
-
-                  <div style={{ textAlign: 'left', color: 'var(--hint)', fontSize: 13 }}>
-                    סה״כ <strong style={{ color: 'var(--text)' }}>{totalSearches}</strong> חיפושים
-                  </div>
-                </div>
-              )}
-
-              {/* Price + buy */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                <div>
-                  <span style={{ fontSize: 24, fontWeight: 800, color: 'var(--btn)' }}>₪{totalPrice}</span>
-                  {qty > 1 && (
-                    <span style={{ fontSize: 12, color: 'var(--hint)', marginRight: 6 }}>
-                      ({qty} × ₪{pkg.price})
-                    </span>
-                  )}
-                </div>
-                <button
-                  onClick={() => handleSelect(pkg)}
-                  disabled={loading === pkg.id}
-                  style={{
-                    padding: '10px 22px', border: 'none', borderRadius: 12,
-                    background: 'var(--btn)', color: 'var(--btn-text)',
-                    fontSize: 15, fontWeight: 600, cursor: 'pointer',
-                    opacity: loading === pkg.id ? 0.6 : 1,
-                  }}
-                >
-                  {loading === pkg.id ? '⏳' : '🛒 רכישה'}
-                </button>
-              </div>
+              <button
+                onClick={() => handleSelect(pkg)}
+                disabled={loading === pkg.id}
+                style={{
+                  width: '100%', padding: '13px 0', border: 'none', borderRadius: 12,
+                  background: 'var(--btn)', color: 'var(--btn-text)',
+                  fontSize: 16, fontWeight: 700, cursor: 'pointer',
+                  opacity: loading === pkg.id ? 0.6 : 1,
+                  letterSpacing: 0.3,
+                }}
+              >{loading === pkg.id ? '⏳ מעבד...' : '🛒 לרכישה'}</button>
             </div>
           </div>
         )
@@ -239,5 +231,16 @@ function Row({ icon, text }) {
       <span style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>{icon}</span>
       <span style={{ color: 'var(--text)', lineHeight: 1.5 }}>{text}</span>
     </div>
+  )
+}
+
+function Chip({ children }) {
+  return (
+    <span style={{
+      fontSize: 11, fontWeight: 600, padding: '4px 10px',
+      background: 'var(--bg)', borderRadius: 20,
+      color: 'var(--hint)', border: '1px solid rgba(255,255,255,0.07)',
+      whiteSpace: 'nowrap',
+    }}>{children}</span>
   )
 }
