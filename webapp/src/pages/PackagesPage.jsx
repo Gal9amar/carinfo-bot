@@ -163,7 +163,6 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
               <Chip accent={tier.accent}>{isUnlimited ? '♾️ ללא הגבלה' : `🔍 ${pkg.searches} חיפושים`}</Chip>
               <Chip accent={tier.accent}>💳 חד-פעמי</Chip>
               <Chip accent={tier.accent}>🔓 ללא תפוגה</Chip>
-              <Chip accent={tier.accent}>✨ תכונות מנוי</Chip>
             </div>
 
             <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 14px' }} />
