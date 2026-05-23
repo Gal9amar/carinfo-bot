@@ -276,11 +276,13 @@ def get_market_price(make: str, model: str, year: int | str) -> dict | None:
         return None
 
     all_items = data.get("data") or []
-    items = all_items
     if y:
-        filtered = [c for c in all_items if c.get("vehicleDates", {}).get("yearOfProduction") == y]
-        if filtered:
-            items = filtered
+        items = [
+            c for c in all_items
+            if int(c.get("vehicleDates", {}).get("yearOfProduction") or 0) == y
+        ]
+    else:
+        items = all_items
 
     if not items:
         return None
