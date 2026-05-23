@@ -51,13 +51,14 @@ export default function PaymentPage({ pkg, paymentData, onBack, onDone }) {
         </div>
       </div>
 
-      <button className="btn" onClick={openPayPal}>
-        💳 שלם ₪{pkg.price} ב-PayPal
-      </button>
-
-      <button className="btn" style={{ marginTop: 8, background: 'linear-gradient(135deg, #16a34a, #22c55e)' }} onClick={openPayBox}>
-        💚 שלם ₪{pkg.price} ב-PayBox
-      </button>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button className="btn" style={{ flex: 1 }} onClick={openPayPal}>
+          💳 PayPal
+        </button>
+        <button className="btn" style={{ flex: 1, background: 'linear-gradient(135deg, #16a34a, #22c55e)' }} onClick={openPayBox}>
+          💚 PayBox
+        </button>
+      </div>
 
       {paid && (
         <button
