@@ -19,7 +19,6 @@ export default function App() {
   const [paymentData, setPaymentData] = useState(null)
   const [error, setError] = useState(null)
   const [reportPlate, setReportPlate] = useState(null)
-  const [reportDeduct, setReportDeduct] = useState(false)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -27,7 +26,6 @@ export default function App() {
     const page = params.get('page')
     if (plate) {
       setReportPlate(plate)
-      setReportDeduct(false) // deep-link from bot = quota already deducted
       setScreen('report')
       return
     }
@@ -59,17 +57,10 @@ export default function App() {
     setScreen(dest)
   }
 
-  function openReport(plate) {
-    setReportPlate(plate)
-    setReportDeduct(true) // user-initiated search = deduct quota
-    setScreen('report')
-  }
-
   if (screen === 'report') {
     return (
       <ReportPage
         plate={reportPlate}
-        deduct={reportDeduct}
         onBack={(dest) => setScreen(dest ?? 'home')}
       />
     )
@@ -91,7 +82,7 @@ export default function App() {
     return (
       <HistoryPage
         onBack={() => setScreen('home')}
-        onViewPlate={plate => { setReportPlate(plate); setReportDeduct(false); setScreen('report') }}
+        onViewPlate={plate => { setReportPlate(plate); setScreen('report') }}
       />
     )
   }
@@ -164,7 +155,6 @@ export default function App() {
   return (
     <HomePage
       user={user}
-      onSearch={openReport}
       onNavigate={navigate}
     />
   )

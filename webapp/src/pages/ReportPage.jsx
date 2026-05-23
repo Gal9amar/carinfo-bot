@@ -218,27 +218,22 @@ function Sec({ title, children }) {
 
 // ── main component ────────────────────────────────────────────────────────────
 
-export default function ReportPage({ plate, deduct = false, onBack }) {
+export default function ReportPage({ plate, onBack }) {
   const [record, setRecord] = useState(null)
   const [error, setError] = useState(null)
-  const [errorCode, setErrorCode] = useState(null)
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     if (!plate) { setError('לא צוין מספר רכב'); return }
-    fetchVehicle(plate, deduct)
+    fetchVehicle(plate)
       .then(setRecord)
-      .catch(e => { setError(e.message || 'הרכב לא נמצא או שגיאה בטעינה'); setErrorCode(e.code ?? null) })
-  }, [plate, deduct])
+      .catch(() => setError('הרכב לא נמצא או שגיאה בטעינה'))
+  }, [plate])
 
   if (error) return (
     <div className="page">
       <div className="loading">❌ {error}</div>
-      {errorCode === 402 && (
-        <button className="btn" style={{ marginTop: 16 }}
-          onClick={() => onBack?.('packages')}>🛒 רכוש חבילה</button>
-      )}
-      <button className="btn btn-secondary" style={{ marginTop: 8 }}
+      <button className="btn btn-secondary" style={{ marginTop: 16 }}
         onClick={() => onBack ? onBack('home') : window.Telegram?.WebApp?.close()}>חזור</button>
     </div>
   )
