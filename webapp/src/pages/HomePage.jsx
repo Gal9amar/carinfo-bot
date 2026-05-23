@@ -12,22 +12,23 @@ const menuItems = [
 const adminMenuItem = { id: 'admin', icon: '🛠', label: 'פאנל מנהל', sub: 'ניהול מערכת' }
 
 export default function HomePage({ user, onNavigate }) {
-  const searchesLeft = user?.searches_left
-  const isUnlimited  = searchesLeft === -1
+  const searchesLeft   = user?.searches_left
+  const isUnlimited    = searchesLeft === -1
+  const isSubscriber   = !!user?.is_subscriber
 
   return (
     <div className="page" style={{ paddingBottom: 24 }}>
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: isSubscriber ? 12 : 20 }}>
         <div style={{ fontSize: 40, lineHeight: 1 }}>🚗</div>
-        <div>
+        <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 700, fontSize: 18 }}>CarInfo Bot</div>
           {user ? (
             <div style={{ fontSize: 13, color: 'var(--hint)' }}>
               שלום {user.first_name} ·{' '}
               {isUnlimited
-                ? <span style={{ color: '#7928ca', fontWeight: 600 }}>מנוי ♾️</span>
+                ? <span style={{ color: '#7928ca', fontWeight: 600 }}>ללא הגבלה ♾️</span>
                 : <><strong style={{ color: searchesLeft === 0 ? '#e53e3e' : 'var(--btn)' }}>{searchesLeft}</strong> חיפושים נותרו</>
               }
             </div>
@@ -35,7 +36,34 @@ export default function HomePage({ user, onNavigate }) {
             <div style={{ fontSize: 13, color: 'var(--hint)' }}>בדיקת רכבים מהירה</div>
           )}
         </div>
+        {isSubscriber && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 5,
+            background: 'linear-gradient(135deg,#7928ca,#5a1e99)',
+            color: '#fff', borderRadius: 20, padding: '5px 12px',
+            fontSize: 12, fontWeight: 700, flexShrink: 0,
+            boxShadow: '0 2px 8px #7928ca44',
+          }}>⭐ מנוי</div>
+        )}
       </div>
+
+      {/* Subscriber banner */}
+      {isSubscriber && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 12,
+          background: 'linear-gradient(135deg,#7928ca22,#5a1e9911)',
+          border: '1px solid #7928ca44',
+          borderRadius: 14, padding: '12px 16px', marginBottom: 16,
+        }}>
+          <span style={{ fontSize: 26, flexShrink: 0 }}>⭐</span>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 14, color: '#a855f7' }}>חשבון מנוי פעיל</div>
+            <div style={{ fontSize: 12, color: 'var(--hint)', marginTop: 2 }}>
+              גישה לתכונות מנוי כולל מחיר שוק Yad2 בדוח הרכב
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Referral banner */}
       <button

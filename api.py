@@ -123,6 +123,15 @@ async def get_user_info(user: dict = Depends(_get_user)):
                 )
                 show_market = len(r.rows) > 0
 
+    # Check if user is in the 'מנויים' group
+    sub_r = await execute(
+        "SELECT 1 FROM user_group_members ugm "
+        "JOIN user_groups ug ON ug.id = ugm.group_id "
+        "WHERE ugm.user_id=? AND ug.name='מנויים'",
+        [user_id]
+    )
+    is_subscriber = len(sub_r.rows) > 0
+
     return {
         "id": user["id"],
         "first_name": user.get("first_name", ""),
@@ -131,6 +140,7 @@ async def get_user_info(user: dict = Depends(_get_user)):
         "searches_quota": quota,
         "maintenance": maintenance,
         "show_market_price": show_market,
+        "is_subscriber": is_subscriber,
     }
 
 
@@ -606,6 +616,8 @@ async def admin_approve_payment(ref: str, admin: dict = Depends(_require_admin))
         raise HTTPException(status_code=404, detail="Payment not found")
     user_id, searches, label = int(r.rows[0][0]), r.rows[0][1], r.rows[0][2]
     await admin_grant(int(admin["id"]), user_id, searches)
+    from src.users import add_to_subscribers
+    await add_to_subscribers(user_id)
     await execute("DELETE FROM pending_payments WHERE ref=?", [ref])
     try:
         from src.notifier import notify_user_payment_approved

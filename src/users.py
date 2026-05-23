@@ -251,8 +251,6 @@ async def apply_code(user_id: int, code: str, username: str = "") -> tuple[bool,
         "INSERT OR IGNORE INTO user_codes (user_id, code) VALUES (?, ?)",
         [user_id, code],
     )
-    # Auto-join subscribers group on successful code redemption
-    await add_to_subscribers(user_id)
     return True, result_msg
 
 
@@ -294,8 +292,6 @@ async def admin_grant(admin_id: int, target_id: int, searches: int, note: str = 
         "INSERT INTO grants (user_id, granted_by, searches, note) VALUES (?, ?, ?, ?)",
         [target_id, admin_id, searches, note],
     )
-    # Auto-join subscribers group on any positive grant
-    await add_to_subscribers(target_id)
     return msg
 
 
