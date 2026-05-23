@@ -52,11 +52,25 @@ export default function PaymentPage({ pkg, paymentData, onBack, onDone }) {
       </div>
 
       <div style={{ display: 'flex', gap: 8 }}>
-        <button className="btn" style={{ flex: 1 }} onClick={openPayPal}>
-          💳 PayPal
+        <button
+          onClick={openPayPal}
+          style={{
+            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: '#003087', border: 'none', borderRadius: 12, padding: '14px 8px',
+            cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
+          }}
+        >
+          <img src="/paypal-logo.png" alt="PayPal" style={{ height: 28, objectFit: 'contain' }} />
         </button>
-        <button className="btn" style={{ flex: 1, background: 'linear-gradient(135deg, #16a34a, #22c55e)' }} onClick={openPayBox}>
-          💚 PayBox
+        <button
+          onClick={openPayBox}
+          style={{
+            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: '#ffffff', border: '2px solid #29abe2', borderRadius: 12, padding: '14px 8px',
+            cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
+          }}
+        >
+          <img src="/paybox-logo.webp" alt="PayBox" style={{ height: 28, objectFit: 'contain' }} />
         </button>
       </div>
 
