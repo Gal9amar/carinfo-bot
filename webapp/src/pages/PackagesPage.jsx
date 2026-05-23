@@ -138,19 +138,13 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
                     </span>
                   </div>
               }
-              {/* Dark overlay + name + tier badge at bottom of hero */}
+              {/* Dark overlay + tier badge at bottom-left of hero */}
               <div style={{
                 position: 'absolute', inset: 0,
                 background: 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, transparent 55%)',
                 display: 'flex', alignItems: 'flex-end',
                 padding: '12px 14px',
-                justifyContent: 'space-between',
               }}>
-                <div style={{
-                  fontWeight: 800, fontSize: 16, color: '#000',
-                  background: tier.accent, borderRadius: 20,
-                  padding: '4px 12px', whiteSpace: 'nowrap',
-                }}>{pkg.label}</div>
                 <span style={{
                   fontSize: 13, fontWeight: 400, padding: '4px 12px',
                   background: tier.accent, color: '#000',
