@@ -152,10 +152,10 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
                   padding: '4px 12px', whiteSpace: 'nowrap',
                 }}>{pkg.label}</div>
                 <span style={{
-                  fontSize: 11, fontWeight: 700, padding: '4px 11px',
+                  fontSize: 16, fontWeight: 800, padding: '4px 12px',
                   background: tier.accent, color: '#000',
                   borderRadius: 20, whiteSpace: 'nowrap',
-                }}>⭐ מנוי</span>
+                }}>{tier.label}</span>
               </div>
             </div>
 
