@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { fetchSearchHistory } from '../api.js'
+import LicensePlate from '../components/LicensePlate.jsx'
 
 export default function HistoryPage({ onBack, onViewPlate }) {
   const [plates, setPlates] = useState(null)
@@ -46,24 +47,12 @@ export default function HistoryPage({ onBack, onViewPlate }) {
                 background: 'var(--bg2)',
                 border: 'none',
                 borderRadius: 12,
-                padding: '14px 16px',
+                padding: '12px 16px',
                 marginBottom: 8,
                 cursor: 'pointer',
-                textAlign: 'right',
               }}
             >
-              <span style={{
-                fontFamily: 'monospace',
-                fontSize: 18,
-                fontWeight: 700,
-                background: '#f5d020',
-                color: '#111',
-                borderRadius: 6,
-                padding: '4px 12px',
-                letterSpacing: 2,
-              }}>
-                {plate}
-              </span>
+              <LicensePlate plate={plate} size="sm" />
               <span style={{ fontSize: 13, color: 'var(--btn)', fontWeight: 600 }}>
                 צפה בדוח ›
               </span>
