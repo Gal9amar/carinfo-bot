@@ -1056,6 +1056,7 @@ function GrantModal({ user, onClose, onDone }) {
   const [saving, setSaving] = useState(false)
   const [history, setHistory] = useState(null)
   const [referralData, setReferralData] = useState(null)
+  const [pendingGrant, setPendingGrant] = useState(null)
 
   useEffect(() => { adminFetchGrants().then(setGrants).catch(() => {}) }, [])
   useEffect(() => {
@@ -1081,15 +1082,21 @@ function GrantModal({ user, onClose, onDone }) {
     setSaving(false)
   }
 
-  function clickGrant(searches) {
-    if (searches === 0) {
+  function clickGrant(g) {
+    setPendingGrant(prev => prev?.id === g.id ? null : g)
+  }
+
+  async function confirmGrant() {
+    if (!pendingGrant) return
+    if (pendingGrant.searches === 0) {
       window.Telegram?.WebApp?.showConfirm(
-        `להגדיר מנוי חינם? המשתמש יקבל 0 חיפושים ויוסר מקבוצת המנויים.`,
-        async (ok) => { if (ok) grant(0) }
+        'להסיר את יתרת החיפושים ולהסיר מקבוצת המנויים?',
+        async (ok) => { if (ok) { setPendingGrant(null); await grant(0) } }
       )
       return
     }
-    grant(searches)
+    setPendingGrant(null)
+    await grant(pendingGrant.searches)
   }
 
   const TABS = [
@@ -1132,23 +1139,26 @@ function GrantModal({ user, onClose, onDone }) {
         {mode === 'grants' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
             {!grants && <div style={{ fontSize: 13, color: 'var(--hint)', textAlign: 'center', padding: 12 }}>⏳</div>}
-            {grants && grants.map(g => (
-              <button
-                key={g.id}
-                disabled={saving}
-                onClick={() => clickGrant(g.searches)}
-                style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  padding: '10px 14px', borderRadius: 10,
-                  border: g.searches === 0 ? '1px solid #38a16944' : '1px solid rgba(255,255,255,0.08)',
-                  background: g.searches === 0 ? '#38a16911' : 'var(--bg)',
-                  cursor: 'pointer', opacity: saving ? 0.5 : 1,
-                }}
-              >
-                <span style={{ fontSize: 13, fontWeight: 600, color: g.searches === 0 ? '#38a169' : 'var(--text)' }}>{g.label}</span>
-                <span style={{ fontSize: 12, color: 'var(--hint)' }}>{grantTypeLabel(g.searches)}</span>
-              </button>
-            ))}
+            {grants && grants.map(g => {
+              const selected = pendingGrant?.id === g.id
+              return (
+                <button
+                  key={g.id}
+                  disabled={saving}
+                  onClick={() => clickGrant(g)}
+                  style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '10px 14px', borderRadius: 10,
+                    border: selected ? '1px solid #7c3aed' : g.searches === 0 ? '1px solid #38a16944' : '1px solid rgba(255,255,255,0.08)',
+                    background: selected ? '#7c3aed22' : g.searches === 0 ? '#38a16911' : 'var(--bg)',
+                    cursor: 'pointer', opacity: saving ? 0.5 : 1,
+                  }}
+                >
+                  <span style={{ fontSize: 13, fontWeight: 600, color: selected ? '#a78bfa' : g.searches === 0 ? '#38a169' : 'var(--text)' }}>{g.label}</span>
+                  <span style={{ fontSize: 12, color: selected ? '#a78bfa' : 'var(--hint)' }}>{grantTypeLabel(g.searches)}</span>
+                </button>
+              )
+            })}
 
             {user.is_subscriber && (
               <>
@@ -1280,7 +1290,25 @@ function GrantModal({ user, onClose, onDone }) {
           </div>
         )}
 
-        <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={onClose}>ביטול</button>
+        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+          {pendingGrant && (
+            <button
+              className="btn"
+              disabled={saving}
+              onClick={confirmGrant}
+              style={{ flex: 1, marginTop: 0 }}
+            >
+              {saving ? '⏳...' : '✅ אשר הטבה'}
+            </button>
+          )}
+          <button
+            className="btn btn-secondary"
+            onClick={onClose}
+            style={{ flex: pendingGrant ? 1 : undefined, marginTop: 0 }}
+          >
+            ביטול
+          </button>
+        </div>
       </div>
     </div>
   )
