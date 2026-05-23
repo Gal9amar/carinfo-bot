@@ -89,19 +89,19 @@ export default function HistoryPage({ onBack, onViewPlate }) {
                         padding: '10px 0',
                         border: 'none',
                         borderRadius: 10,
-                        background: '#e8f5e9',
-                        color: '#2e7d32',
-                        fontSize: 14,
-                        fontWeight: 600,
+                        background: '#FF4301',
+                        color: '#fff',
+                        fontSize: 15,
+                        fontWeight: 800,
                         cursor: 'pointer',
                         textDecoration: 'none',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        gap: 4,
+                        letterSpacing: 0.5,
                       }}
                     >
-                      🔍 יד2
+                      Yad2
                     </a>
                   )}
                 </div>
