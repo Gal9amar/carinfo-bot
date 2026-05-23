@@ -716,6 +716,54 @@ async def user_referral_info(user: dict = Depends(_get_user)):
     return {"link": link, "count": count, "bonus": bonus, "total_earned": count * bonus}
 
 
+
+# ── Yad2 proxy (Israeli IP bypass) ──────────────────────────────────────────
+_YAD2_SECRET = os.environ.get("YAD2_PROXY_SECRET", "carinfo2026")
+_YAD2_BASE   = "https://gw.yad2.co.il/lookalike/vehicles/cars"
+_YAD2_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Referer": "https://www.yad2.co.il/vehicles/cars",
+    "Origin": "https://www.yad2.co.il",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-site",
+}
+
+@api.get("/yad2")
+async def yad2_proxy(
+    request: Request,
+    secret: str = "",
+    manufacturer: Optional[str] = None,
+    model: Optional[str] = None,
+    year: Optional[str] = None,
+    rows: int = 100,
+):
+    if secret != _YAD2_SECRET:
+        raise HTTPException(status_code=403, detail="forbidden")
+
+    import urllib.request as _ureq, gzip as _gzip, zlib as _zlib
+    from urllib.parse import urlencode as _ue
+
+    params: dict = {"rows": rows}
+    if manufacturer: params["manufacturer"] = manufacturer
+    if model:        params["model"]        = model
+    if year:         params["year"]         = year
+
+    yad2_url = f"{_YAD2_BASE}?{_ue(params)}"
+    req = _ureq.Request(yad2_url, headers=_YAD2_HEADERS)
+    try:
+        with _ureq.urlopen(req, timeout=15) as resp:
+            raw      = resp.read()
+            encoding = resp.headers.get("Content-Encoding", "")
+        if "gzip"    in encoding: raw = _gzip.decompress(raw)
+        elif "deflate" in encoding: raw = _zlib.decompress(raw)
+        return JSONResponse(content=json.loads(raw.decode("utf-8")))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+
 # ── Serve React SPA (must be last) ──────────────────────────────────────────
 _DIST = os.path.join(os.path.dirname(__file__), "webapp", "dist")
 
