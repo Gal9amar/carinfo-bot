@@ -267,3 +267,55 @@ body {
   font-weight: 700;
   margin-bottom: 16px;
 }
+
+/* ── Page enter animation ─────────────────────────────── */
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.page-enter {
+  animation: pageEnter 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── Skeleton shimmer ─────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -400% 0; }
+  100% { background-position:  400% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--bg2) 25%, var(--bg) 50%, var(--bg2) 75%);
+  background-size: 400% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+/* ── Bottom navigation ────────────────────────────────── */
+.bottom-nav {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 62px;
+  background: var(--bg);
+  border-top: 1px solid var(--bg2);
+  display: flex;
+  z-index: 50;
+}
+.bottom-nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 8px 0;
+  transition: opacity 0.15s;
+}
+.bottom-nav-item .nav-icon { font-size: 22px; line-height: 1; }
+.bottom-nav-item .nav-label {
+  font-size: 10px;
+  color: var(--hint);
+  font-weight: 500;
+}
+.bottom-nav-item.active .nav-label { color: var(--btn); font-weight: 700; }

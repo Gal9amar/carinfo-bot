@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { fetchSearchHistory } from '../api.js'
 import LicensePlate from '../components/LicensePlate.jsx'
 import BackButton from '../components/BackButton.jsx'
+import { SkeletonHistoryCard } from '../components/SkeletonCard.jsx'
 
 export default function HistoryPage({ onBack, onViewPlate }) {
   const [items, setItems] = useState(null)
@@ -15,7 +16,7 @@ export default function HistoryPage({ onBack, onViewPlate }) {
       <BackButton onClick={onBack} />
       <div className="page-title">📜 היסטוריית חיפושים</div>
 
-      {items === null && <div className="loading">⏳ טוען...</div>}
+      {items === null && [0,1,2].map(i => <SkeletonHistoryCard key={i} />)}
 
       {items?.length === 0 && (
         <div className="card" style={{ textAlign: 'center', color: 'var(--hint)', fontSize: 14 }}>

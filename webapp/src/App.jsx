@@ -10,6 +10,7 @@ import TicketPage from './pages/TicketPage.jsx'
 import HowItWorksPage from './pages/HowItWorksPage.jsx'
 import HistoryPage from './pages/HistoryPage.jsx'
 import ReferralPage from './pages/ReferralPage.jsx'
+import BottomNav from './components/BottomNav.jsx'
 
 export default function App() {
   const [screen, setScreen] = useState('loading')
@@ -55,36 +56,65 @@ export default function App() {
 
   if (screen === 'report') {
     return (
-      <ReportPage
-        plate={reportPlate}
-        onBack={(dest) => setScreen(dest ?? 'home')}
-      />
+      <div key="report" className="page-enter">
+        <ReportPage
+          plate={reportPlate}
+          onBack={(dest) => setScreen(dest ?? 'home')}
+        />
+      </div>
     )
   }
 
   if (screen === 'privacy') {
-    return <PrivacyPolicyPage onBack={() => setScreen('home')} onContact={() => setScreen('ticket')} />
+    return (
+      <div key="privacy" className="page-enter">
+        <PrivacyPolicyPage onBack={() => setScreen('home')} onContact={() => setScreen('ticket')} />
+      </div>
+    )
   }
 
   if (screen === 'ticket') {
-    return <TicketPage onBack={() => setScreen('home')} />
+    return (
+      <>
+        <div key="ticket" className="page-enter" style={{ paddingBottom: 78 }}>
+          <TicketPage onBack={() => setScreen('home')} />
+        </div>
+        <BottomNav screen={screen} onNavigate={navigate} />
+      </>
+    )
   }
 
   if (screen === 'howItWorks') {
-    return <HowItWorksPage onBack={() => setScreen('home')} freeSearches={user?.free_searches ?? 10} onPrivacy={() => setScreen('privacy')} />
+    return (
+      <div key="howItWorks" className="page-enter">
+        <HowItWorksPage onBack={() => setScreen('home')} freeSearches={user?.free_searches ?? 10} onPrivacy={() => setScreen('privacy')} />
+      </div>
+    )
   }
 
   if (screen === 'history') {
     return (
-      <HistoryPage
-        onBack={() => setScreen('home')}
-        onViewPlate={plate => { setReportPlate(plate); setScreen('report') }}
-      />
+      <>
+        <div key="history" className="page-enter" style={{ paddingBottom: 78 }}>
+          <HistoryPage
+            onBack={() => setScreen('home')}
+            onViewPlate={plate => { setReportPlate(plate); setScreen('report') }}
+          />
+        </div>
+        <BottomNav screen={screen} onNavigate={navigate} />
+      </>
     )
   }
 
   if (screen === 'referral') {
-    return <ReferralPage onBack={() => setScreen('home')} />
+    return (
+      <>
+        <div key="referral" className="page-enter" style={{ paddingBottom: 78 }}>
+          <ReferralPage onBack={() => setScreen('home')} />
+        </div>
+        <BottomNav screen={screen} onNavigate={navigate} />
+      </>
+    )
   }
 
   if (screen === 'loading') {
@@ -100,58 +130,76 @@ export default function App() {
   }
 
   if (screen === 'admin') {
-    return <AdminPage user={user} onBack={() => setScreen('home')} />
+    return (
+      <div key="admin" className="page-enter">
+        <AdminPage user={user} onBack={() => setScreen('home')} />
+      </div>
+    )
   }
 
   if (screen === 'payment') {
     return (
-      <PaymentPage
-        pkg={selectedPkg}
-        paymentData={paymentData}
-        onBack={() => setScreen('packages')}
-        onDone={() => setScreen('success')}
-      />
+      <div key="payment" className="page-enter">
+        <PaymentPage
+          pkg={selectedPkg}
+          paymentData={paymentData}
+          onBack={() => setScreen('packages')}
+          onDone={() => setScreen('success')}
+        />
+      </div>
     )
   }
 
   if (screen === 'success') {
     return (
-      <div className="page">
-        <div className="success-icon">✅</div>
-        <div className="success-title">הבקשה נשלחה!</div>
-        <div className="success-text">
-          המנהל יאשר את התשלום בקרוב ותקבל הודעה בטלגרם.
+      <div key="success" className="page-enter">
+        <div className="page">
+          <div className="success-icon">✅</div>
+          <div className="success-title">הבקשה נשלחה!</div>
+          <div className="success-text">
+            המנהל יאשר את התשלום בקרוב ותקבל הודעה בטלגרם.
+          </div>
+          <button className="btn" onClick={() => setScreen('home')}>
+            חזור לתפריט
+          </button>
         </div>
-        <button className="btn" onClick={() => setScreen('home')}>
-          חזור לתפריט
-        </button>
       </div>
     )
   }
 
   if (screen === 'packages') {
     return (
-      <PackagesPage
-        packages={packages}
-        user={user}
-        onSelect={(pkg, pData) => {
-          setSelectedPkg(pkg)
-          setPaymentData(pData)
-          setScreen('payment')
-        }}
-        onPrivacy={() => setScreen('privacy')}
-        onSupport={() => setScreen('ticket')}
-        onReferral={() => setScreen('referral')}
-        onBack={() => setScreen('home')}
-      />
+      <>
+        <div key="packages" className="page-enter" style={{ paddingBottom: 78 }}>
+          <PackagesPage
+            packages={packages}
+            user={user}
+            onSelect={(pkg, pData) => {
+              setSelectedPkg(pkg)
+              setPaymentData(pData)
+              setScreen('payment')
+            }}
+            onPrivacy={() => setScreen('privacy')}
+            onSupport={() => setScreen('ticket')}
+            onReferral={() => setScreen('referral')}
+            onBack={() => setScreen('home')}
+          />
+        </div>
+        <BottomNav screen={screen} onNavigate={navigate} />
+      </>
     )
   }
 
   // Default: home screen for regular users
   return (
-    <HomePage
-      user={user}
-      onNavigate={navigate}
-    />
+    <>
+      <div key="home" className="page-enter" style={{ paddingBottom: 78 }}>
+        <HomePage
+          user={user}
+          onNavigate={navigate}
+        />
+      </div>
+      <BottomNav screen="home" onNavigate={navigate} />
+    </>
   )
 }
