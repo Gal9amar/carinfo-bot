@@ -1035,6 +1035,7 @@ function SettingsTab() {
   const [yad2Public, setYad2Public]             = useState(false)
   const [yad2PublicStart, setYad2PublicStart]   = useState('')
   const [yad2PublicEnd, setYad2PublicEnd]       = useState('')
+  const [yad2PublicLabel, setYad2PublicLabel]   = useState('')
   const [yad2Saving, setYad2Saving]             = useState(false)
 
   useEffect(() => {
@@ -1048,6 +1049,7 @@ function SettingsTab() {
       setYad2Public(!!settings.yad2_market_public)
       setYad2PublicStart(settings.yad2_market_public_start || '')
       setYad2PublicEnd(settings.yad2_market_public_end || '')
+      setYad2PublicLabel(settings.yad2_market_public_label || '')
     }
   }, [settings])
 
@@ -1057,9 +1059,10 @@ function SettingsTab() {
       await adminUpdateSettings({
         yad2_market_enabled:      yad2Enabled,
         yad2_market_groups:       yad2Groups,
-        yad2_market_public:       yad2Public,
-        yad2_market_public_start: yad2PublicStart,
-        yad2_market_public_end:   yad2PublicEnd,
+        yad2_market_public:        yad2Public,
+        yad2_market_public_start:  yad2PublicStart,
+        yad2_market_public_end:    yad2PublicEnd,
+        yad2_market_public_label:  yad2PublicLabel,
       })
       window.Telegram?.WebApp?.showAlert('✅ הגדרות Yad2 עודכנו')
     } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
@@ -1237,6 +1240,15 @@ function SettingsTab() {
               </div>
               {yad2Public && (
                 <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ fontSize: 12, color: 'var(--hint)' }}>טקסט תצוגה למשתמש</div>
+                  <input
+                    type="text"
+                    className="input"
+                    style={{ marginBottom: 0 }}
+                    placeholder='לדוגמה: פתוח לכולם עד 01/07/2026'
+                    value={yad2PublicLabel}
+                    onChange={e => setYad2PublicLabel(e.target.value)}
+                  />
                   <div style={{ fontSize: 12, color: 'var(--hint)' }}>תאריך התחלה (אופציונלי)</div>
                   <input
                     type="date"

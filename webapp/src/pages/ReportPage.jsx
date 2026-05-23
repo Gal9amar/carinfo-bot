@@ -377,9 +377,9 @@ export default function ReportPage({ plate, onBack, user }) {
                 }}>למנויים בלבד</div>
                 <div style={{ fontWeight: 700, fontSize: 15 }}>💰 מחיר שוק – Yad2</div>
               </div>
-              {marketData.public_end && (
+              {marketData.public_label && (
                 <div style={{ fontSize: 11, color: 'var(--hint)', textAlign: 'left', whiteSpace: 'nowrap' }}>
-                  פתוח לכולם עד <span style={{ fontWeight: 600 }}>{marketData.public_end.split('-').reverse().join('/')}</span>
+                  {marketData.public_label}
                 </div>
               )}
             </div>

@@ -266,11 +266,12 @@ async def admin_get_settings(_: dict = Depends(_require_admin)):
         "promo_searches":      _u.PROMO_SEARCHES,
         "promo_start":         _u.PROMO_START,
         "promo_end":           _u.PROMO_END,
-        "yad2_market_enabled":      (await get_bot_setting("yad2_market_enabled")) == "1",
-        "yad2_market_groups":       json.loads((await get_bot_setting("yad2_market_groups")) or "[]"),
-        "yad2_market_public":       (await get_bot_setting("yad2_market_public")) == "1",
-        "yad2_market_public_start": (await get_bot_setting("yad2_market_public_start")) or "",
-        "yad2_market_public_end":   (await get_bot_setting("yad2_market_public_end"))   or "",
+        "yad2_market_enabled":       (await get_bot_setting("yad2_market_enabled")) == "1",
+        "yad2_market_groups":        json.loads((await get_bot_setting("yad2_market_groups")) or "[]"),
+        "yad2_market_public":        (await get_bot_setting("yad2_market_public")) == "1",
+        "yad2_market_public_start":  (await get_bot_setting("yad2_market_public_start")) or "",
+        "yad2_market_public_end":    (await get_bot_setting("yad2_market_public_end"))   or "",
+        "yad2_market_public_label":  (await get_bot_setting("yad2_market_public_label")) or "",
     }
 
 
@@ -281,11 +282,12 @@ class SettingsUpdate(BaseModel):
     promo_searches:      int          | None = None
     promo_start:         str          | None = None
     promo_end:           str          | None = None
-    yad2_market_enabled:      bool         | None = None
-    yad2_market_groups:       Optional[list]      = None
-    yad2_market_public:       bool         | None = None
-    yad2_market_public_start: str          | None = None
-    yad2_market_public_end:   str          | None = None
+    yad2_market_enabled:       bool         | None = None
+    yad2_market_groups:        Optional[list]      = None
+    yad2_market_public:        bool         | None = None
+    yad2_market_public_start:  str          | None = None
+    yad2_market_public_end:    str          | None = None
+    yad2_market_public_label:  str          | None = None
 
 
 @api.post("/api/admin/settings")
@@ -322,6 +324,8 @@ async def admin_update_settings(body: SettingsUpdate, _: dict = Depends(_require
         await set_bot_setting("yad2_market_public_start", body.yad2_market_public_start.strip())
     if body.yad2_market_public_end is not None:
         await set_bot_setting("yad2_market_public_end", body.yad2_market_public_end.strip())
+    if body.yad2_market_public_label is not None:
+        await set_bot_setting("yad2_market_public_label", body.yad2_market_public_label.strip())
     return {"ok": True}
 
 
@@ -850,12 +854,13 @@ async def vehicle_market_price(plate: str, user: dict = Depends(_get_user)):
     year  = record.get("shnat_yitzur")
     market = get_market_price(make, model, year)
 
+    public_label = (await get_bot_setting("yad2_market_public_label")) or "" if public_on else ""
     return {
-        "authorized": allowed,
-        "public_end": public_end,
-        "year":       year,
-        "yad2_url":   build_url(record) if allowed else None,
-        "market":     market,
+        "authorized":   allowed,
+        "public_label": public_label,
+        "year":         year,
+        "yad2_url":     build_url(record) if allowed else None,
+        "market":       market,
     }
 
 
