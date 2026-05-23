@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { fetchSearchHistory } from '../api.js'
 import LicensePlate from '../components/LicensePlate.jsx'
 import BackButton from '../components/BackButton.jsx'
-import loaderImg from '../assets/loader.png'
 
 export default function HistoryPage({ onBack, onViewPlate }) {
   const [items, setItems]   = useState(null)
