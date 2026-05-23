@@ -146,8 +146,11 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
                 padding: '12px 14px',
                 justifyContent: 'space-between',
               }}>
-                <div style={{ fontWeight: 800, fontSize: 19, color: '#fff',
-                  textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>{pkg.label}</div>
+                <div style={{
+                  fontWeight: 800, fontSize: 16, color: '#000',
+                  background: tier.accent, borderRadius: 20,
+                  padding: '4px 12px', whiteSpace: 'nowrap',
+                }}>{pkg.label}</div>
                 <span style={{
                   fontSize: 11, fontWeight: 700, padding: '4px 11px',
                   background: tier.accent, color: '#000',
