@@ -1412,6 +1412,26 @@ function MarketPriceTab() {
 
   const m = result?.market
 
+  // Filter listings by the vehicle's exact year (Yad2 API doesn't always filter server-side)
+  const vehicleYear = result?.year ? parseInt(result.year) : null
+  const filteredItems = vehicleYear && m?.items?.length
+    ? m.items.filter(item => parseInt(item.vehicleDates?.yearOfProduction || 0) === vehicleYear)
+    : m?.items || []
+  const displayItems = filteredItems.length > 0 ? filteredItems : (m?.items || [])
+
+  // Recompute stats from displayed items
+  const prices = displayItems.map(i => i.price).filter(Boolean).sort((a, b) => a - b)
+  const kms    = displayItems.map(i => i.km).filter(Boolean)
+  const stats  = prices.length > 0 ? {
+    count:  prices.length,
+    total:  m?.total,
+    min:    prices[0],
+    max:    prices[prices.length - 1],
+    avg:    Math.round(prices.reduce((a, b) => a + b, 0) / prices.length),
+    median: prices[Math.floor(prices.length / 2)],
+    avg_km: kms.length > 0 ? Math.round(kms.reduce((a, b) => a + b, 0) / kms.length) : null,
+  } : null
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ fontSize: 13, color: 'var(--hint)', lineHeight: 1.5 }}>
@@ -1459,15 +1479,15 @@ function MarketPriceTab() {
             <MRow label="לוחית" value={result.plate} />
           </div>
 
-          {m ? (
+          {stats ? (
             <div style={{ background: 'var(--bg2)', borderRadius: 12, padding: 14 }}>
               <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>💰 מחיר שוק – Yad2</div>
-              <MRow label="חציון"      value={`₪${m.median?.toLocaleString()}`} bold />
-              <MRow label="ממוצע"      value={`₪${m.avg?.toLocaleString()}`} />
-              <MRow label="מינימום"    value={`₪${m.min?.toLocaleString()}`} />
-              <MRow label="מקסימום"    value={`₪${m.max?.toLocaleString()}`} />
-              <MRow label="ק״מ ממוצע" value={m.avg_km ? `${m.avg_km.toLocaleString()} ק״מ` : '—'} />
-              <MRow label="מודעות"     value={`${m.count} מתוך ${m.total} ב-Yad2`} />
+              <MRow label="חציון"      value={`₪${stats.median?.toLocaleString()}`} bold />
+              <MRow label="ממוצע"      value={`₪${stats.avg?.toLocaleString()}`} />
+              <MRow label="מינימום"    value={`₪${stats.min?.toLocaleString()}`} />
+              <MRow label="מקסימום"    value={`₪${stats.max?.toLocaleString()}`} />
+              <MRow label="ק״מ ממוצע" value={stats.avg_km ? `${stats.avg_km.toLocaleString()} ק״מ` : '—'} />
+              <MRow label="מודעות"     value={`${stats.count} מתוך ${stats.total} ב-Yad2`} />
               {result.yad2_url && (
                 <a href={result.yad2_url} target="_blank" rel="noopener noreferrer" style={{
                   display: 'block', marginTop: 12, padding: '9px 0',
@@ -1488,12 +1508,12 @@ function MarketPriceTab() {
             </div>
           )}
 
-          {m?.items?.length > 0 && (
+          {displayItems.length > 0 && (
             <div style={{ background: 'var(--bg2)', borderRadius: 12, padding: 14 }}>
-              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>📋 מודעות ({m.items.length})</div>
-              {m.items.map((item, i) => (
+              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>📋 מודעות ({displayItems.length})</div>
+              {displayItems.map((item, i) => (
                 <div key={i} style={{
-                  borderBottom: i < m.items.length - 1 ? '1px solid var(--border)' : 'none',
+                  borderBottom: i < displayItems.length - 1 ? '1px solid var(--border)' : 'none',
                   paddingBottom: 10, marginBottom: 10,
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
