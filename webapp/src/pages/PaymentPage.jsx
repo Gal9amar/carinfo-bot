@@ -12,6 +12,11 @@ export default function PaymentPage({ pkg, paymentData, onBack, onDone }) {
     setPaid(true)
   }
 
+  function openPayBox() {
+    window.open(paymentData.paybox_url, '_blank')
+    setPaid(true)
+  }
+
   async function handleConfirm() {
     setConfirming(true)
     try {
@@ -40,7 +45,7 @@ export default function PaymentPage({ pkg, paymentData, onBack, onDone }) {
 
       <div className="card" style={{ marginBottom: 16 }}>
         <div style={{ fontSize: 14, lineHeight: 1.6 }}>
-          <div>1️⃣ לחץ על כפתור PayPal למטה</div>
+          <div>1️⃣ בחר שיטת תשלום למטה</div>
           <div>2️⃣ השלם את התשלום</div>
           <div>3️⃣ חזור ולחץ "שילמתי ✓"</div>
         </div>
@@ -48,6 +53,10 @@ export default function PaymentPage({ pkg, paymentData, onBack, onDone }) {
 
       <button className="btn" onClick={openPayPal}>
         💳 שלם ₪{pkg.price} ב-PayPal
+      </button>
+
+      <button className="btn" style={{ marginTop: 8, background: 'linear-gradient(135deg, #16a34a, #22c55e)' }} onClick={openPayBox}>
+        💚 שלם ₪{pkg.price} ב-PayBox
       </button>
 
       {paid && (

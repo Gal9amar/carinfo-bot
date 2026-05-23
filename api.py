@@ -19,6 +19,7 @@ from pydantic import BaseModel
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 ADMIN_ID   = int(os.environ.get("ADMIN_TELEGRAM_ID", "594206475"))
 PAYPAL_ME  = os.environ.get("PAYPAL_ME", "https://www.paypal.me/G9ST")
+PAYBOX_URL = os.environ.get("PAYBOX_URL", "https://links.payboxapp.com/xjZpYBP2n3b")
 
 api = FastAPI()
 
@@ -186,7 +187,7 @@ async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_u
         "INSERT OR IGNORE INTO pending_payments (ref, phone, searches, price, label) VALUES (?,?,?,?,?)",
         [ref, str(user["id"]), total_searches, total_price, qty_label],
     )
-    return {"ref": ref, "paypal_url": f"{PAYPAL_ME}/{total_price}", "label": qty_label, "price": total_price, "searches": total_searches}
+    return {"ref": ref, "paypal_url": f"{PAYPAL_ME}/{total_price}", "paybox_url": PAYBOX_URL, "label": qty_label, "price": total_price, "searches": total_searches}
 
 
 class PaymentConfirmRequest(BaseModel):

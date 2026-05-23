@@ -54,7 +54,8 @@ PLATE_RE  = re.compile(r"^[\d\-]{5,10}$")
 ADMIN_ID  = int(os.environ.get("ADMIN_TELEGRAM_ID", "594206475"))
 BOT_USERNAME = "israelcarinfobot"
 PAYMENT_PROVIDER_TOKEN = os.environ.get("PAYMENT_PROVIDER_TOKEN", "6073714100:TEST:TG_2ZwhGNC5yAq7J6bMbZfUti0A")
-PAYPAL_ME = os.environ.get("PAYPAL_ME", "https://www.paypal.me/G9ST")
+PAYPAL_ME  = os.environ.get("PAYPAL_ME", "https://www.paypal.me/G9ST")
+PAYBOX_URL = os.environ.get("PAYBOX_URL", "https://links.payboxapp.com/xjZpYBP2n3b")
 
 from src.packages import get_packages as _get_packages
 from src.db import get_bot_setting, set_bot_setting
@@ -176,6 +177,7 @@ def _paypal_keyboard(searches: int, price: int) -> InlineKeyboardMarkup:
     webapp_url = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(f"💳 שלם ₪{price} ב-PayPal", url=paypal_url)],
+        [InlineKeyboardButton(f"💚 שלם ₪{price} ב-PayBox", url=PAYBOX_URL)],
         [InlineKeyboardButton("✅ שילמתי — שלח אישור", callback_data=f"paid|{searches}|{price}")],
         [InlineKeyboardButton("📱 פתח תפריט", web_app=WebAppInfo(url=webapp_url))],
     ])
@@ -1313,8 +1315,8 @@ async def handle_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         f"💳 *{label}*\n\n"
         f"• {desc}\n"
         f"• מחיר: *₪{price}*\n\n"
-        f"1\. לחץ על כפתור התשלום למטה\n"
-        f"2\. השלם את התשלום ב\-PayPal\n"
+        f"1\. לחץ על כפתור התשלום למטה \(PayPal או PayBox\)\n"
+        f"2\. השלם את התשלום\n"
         f"3\. חזור לכאן ולחץ *שילמתי* לשליחת אישור\n\n"
         f"_הגישה תיפתח לאחר אישור ידני על ידי המנהל_",
         parse_mode=ParseMode.MARKDOWN_V2,
