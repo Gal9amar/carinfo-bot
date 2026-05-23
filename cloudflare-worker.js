@@ -21,7 +21,7 @@ export default {
       })
     }
 
-    let yad2url = `https://gw.yad2.co.il/lookalike/vehicles/cars?model=${model}`
+    let yad2url = `https://gw.yad2.co.il/lookalike/vehicles/cars?model=${model}&rows=100`
     if (year) yad2url += `&year=${year}`
 
     let resp

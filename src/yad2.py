@@ -257,7 +257,7 @@ def get_market_price(make: str, model: str, year: int | str) -> dict | None:
 
     # Build Oracle proxy URL (Israeli IP, bypasses Yad2 geo-block)
     proxy_secret = os.environ.get("YAD2_PROXY_SECRET", "carinfo2026")
-    proxy_url = f"{_ORACLE_PROXY}?model={mod_id}"
+    proxy_url = f"{_ORACLE_PROXY}?model={mod_id}&rows=100"
     if y:
         proxy_url += f"&year={y}-{y}"
     proxy_url += f"&secret={proxy_secret}"
