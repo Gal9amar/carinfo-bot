@@ -88,15 +88,11 @@ WAITING_FREE_COUNT = 2
 WAITING_PAYMENT_MSG = 3
 
 def _persistent_rows(is_admin: bool = False) -> list:
-    """Bottom rows always shown on every screen."""
+    """Bottom rows shown in chat — only search-related actions."""
     webapp_url = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
-    from telegram import WebAppInfo
     rows = [
-        [InlineKeyboardButton("🔍 חיפוש רכב חדש",    callback_data="new_search"),
-         InlineKeyboardButton("🛒 רכישת חבילה",       web_app=WebAppInfo(url=webapp_url))],
-        [InlineKeyboardButton("ℹ️ איך זה עובד?",      web_app=WebAppInfo(url=f"{webapp_url}/?page=howItWorks")),
-         InlineKeyboardButton("📜 היסטוריית חיפושים", web_app=WebAppInfo(url=f"{webapp_url}/?page=history"))],
-        [InlineKeyboardButton("🎁 קבל חיפושים במתנה", web_app=WebAppInfo(url=f"{webapp_url}/?page=referral"))],
+        [InlineKeyboardButton("🔍 חיפוש רכב חדש", callback_data="new_search"),
+         InlineKeyboardButton("📱 תפריט",           web_app=WebAppInfo(url=webapp_url))],
     ]
     if is_admin:
         rows.append([InlineKeyboardButton("🛠 פאנל מנהל", web_app=WebAppInfo(url=webapp_url))])
@@ -109,7 +105,6 @@ def _persistent_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
 
 def _payment_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
     webapp_url = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
-    from telegram import WebAppInfo
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🛒 רכישת חבילה", web_app=WebAppInfo(url=webapp_url))],
         [InlineKeyboardButton("🔑 יש לי קוד גישה", callback_data="enter_code")],
@@ -177,16 +172,17 @@ def _packages_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
             callback_data=f"buy|{searches}|{price}"
         )])
     buttons.append([InlineKeyboardButton("🎟️ יש לי קוד הטבה", callback_data="enter_code")])
-    buttons.append([InlineKeyboardButton("🔙 חזרה", callback_data="back_to_start")])
+    buttons.append([InlineKeyboardButton("📱 פתח תפריט", web_app=WebAppInfo(url=os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")))])
     return InlineKeyboardMarkup(buttons)
 
 
 def _paypal_keyboard(searches: int, price: int) -> InlineKeyboardMarkup:
     paypal_url = f"{PAYPAL_ME}/{price}"
+    webapp_url = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(f"💳 שלם ₪{price} ב-PayPal", url=paypal_url)],
         [InlineKeyboardButton("✅ שילמתי — שלח אישור", callback_data=f"paid|{searches}|{price}")],
-        [InlineKeyboardButton("🔙 חזרה לחבילות", callback_data="show_packages")],
+        [InlineKeyboardButton("📱 פתח תפריט", web_app=WebAppInfo(url=webapp_url))],
     ])
 
 
@@ -435,7 +431,7 @@ async def cb_enter_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         "שלח את הקוד שקיבלת \\(לא תלוי רישיות\\):",
         parse_mode=ParseMode.MARKDOWN_V2,
         reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🔙 חזרה", callback_data="show_packages")],
+            [InlineKeyboardButton("📱 פתח תפריט", web_app=WebAppInfo(url=os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")))],
         ]),
     )
     context.user_data["code_is_admin"] = is_admin
@@ -458,7 +454,6 @@ async def receive_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
             f"❌ *קוד לא תקין*\n\n{_escape_md(msg)}\n\nנסה שוב או חזור לתפריט החבילות\\.",
             parse_mode=ParseMode.MARKDOWN_V2,
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🔙 חזרה לחבילות", callback_data="show_packages")],
                 *_persistent_rows(is_admin),
             ]),
         )
@@ -975,10 +970,13 @@ async def handle_package_callback(update: Update, context: ContextTypes.DEFAULT_
 
     data = query.data
     if data == "show_packages":
+        webapp_url = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
         await query.edit_message_text(
-            "🛒 *בחר חבילת חיפושים:*",
+            "🛒 *רכישת חבילת חיפושים*\n\nפתח את התפריט לרכישה:",
             parse_mode=ParseMode.MARKDOWN_V2,
-            reply_markup=_packages_keyboard(is_admin),
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("📱 פתח תפריט", web_app=WebAppInfo(url=webapp_url))
+            ]]),
         )
         return
 
