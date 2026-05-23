@@ -15,6 +15,7 @@ import {
   adminFetchActivity,
   adminGiftAll,
 } from '../api.js'
+import BackButton from '../components/BackButton.jsx'
 
 const TABS = [
   { id: 'stats',    icon: '📊', label: 'סטטיסטיקות' },
@@ -1311,12 +1312,10 @@ function AdminTicketThread({ ticketId, onBack }) {
 
   return (
     <div style={{ paddingBottom: 80 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-        <button onClick={onBack} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--btn)', padding: '0 4px' }}>›</button>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>#{ticket.id} · {ticket.subject}</div>
-          <div style={{ fontSize: 12, color: 'var(--hint)' }}>{name}</div>
-        </div>
+      <BackButton onClick={onBack} />
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontWeight: 700, fontSize: 15 }}>#{ticket.id} · {ticket.subject}</div>
+        <div style={{ fontSize: 12, color: 'var(--hint)' }}>{name}</div>
       </div>
 
       <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>

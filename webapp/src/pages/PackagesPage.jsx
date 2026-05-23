@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { initiatePayment } from '../api.js'
+import BackButton from '../components/BackButton.jsx'
 
 export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSupport, onReferral, onBack }) {
   const [quantities, setQuantities] = useState({})
@@ -25,12 +26,8 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
 
   return (
     <div className="page" style={{ paddingBottom: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-        {onBack && (
-          <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'var(--btn)', cursor: 'pointer', fontSize: 22, padding: 0 }}>‹</button>
-        )}
-        <div className="page-title" style={{ margin: 0 }}>🛒 חנות חיפושים</div>
-      </div>
+      {onBack && <BackButton onClick={onBack} />}
+      <div className="page-title">🛒 חנות חיפושים</div>
 
       {user && (
         <div className="card" style={{ marginBottom: 16 }}>
