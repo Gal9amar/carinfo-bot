@@ -294,6 +294,12 @@ export async function adminDeleteCode(code) {
 }
 
 // Broadcast
+export async function adminFetchBroadcastHistory() {
+  const r = await fetch(`${BASE}/api/admin/broadcast/history`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
 export async function adminBroadcast(message, image_b64 = '') {
   const r = await fetch(`${BASE}/api/admin/broadcast`, {
     method: 'POST', headers: headers(), body: JSON.stringify({ message, image_b64 }),

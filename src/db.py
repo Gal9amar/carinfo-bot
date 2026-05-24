@@ -148,6 +148,14 @@ async def init_db() -> None:
     user_id  INTEGER NOT NULL,
     PRIMARY KEY (group_id, user_id)
 )""",
+        """CREATE TABLE IF NOT EXISTS broadcast_history (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    message   TEXT    NOT NULL,
+    has_image INTEGER DEFAULT 0,
+    sent      INTEGER DEFAULT 0,
+    failed    INTEGER DEFAULT 0,
+    sent_at   TEXT    DEFAULT (datetime('now'))
+)""",
     ]
     for sql in statements:
         conn.execute(sql)

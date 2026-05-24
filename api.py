@@ -834,6 +834,7 @@ class BroadcastBody(BaseModel):
 
 @api.post("/api/admin/broadcast")
 async def admin_broadcast(body: BroadcastBody, _: dict = Depends(_require_admin)):
+    from src.db import execute as _db_execute
     msg = body.message.strip()[:2000]
     if not msg:
         raise HTTPException(status_code=400, detail="Empty message")
@@ -844,11 +845,31 @@ async def admin_broadcast(body: BroadcastBody, _: dict = Depends(_require_admin)
         from src.notifier import notify_broadcast
         result = await notify_broadcast(msg)
     try:
+        await _db_execute(
+            "INSERT INTO broadcast_history (message, has_image, sent, failed) VALUES (?, ?, ?, ?)",
+            [msg, 1 if body.image_b64 else 0, result.get("sent", 0), result.get("failed", 0)],
+        )
+    except Exception:
+        pass
+    try:
         from src.activity import log as _log
         await _log("broadcast", f"שידור נשלח: {msg[:80]}{'...' if len(msg) > 80 else ''}")
     except Exception:
         pass
     return result
+
+
+@api.get("/api/admin/broadcast/history")
+async def admin_broadcast_history(_: dict = Depends(_require_admin)):
+    from src.db import execute as _db_execute
+    r = await _db_execute(
+        "SELECT id, message, has_image, sent, failed, sent_at FROM broadcast_history ORDER BY sent_at DESC LIMIT 50"
+    )
+    return [
+        {"id": row[0], "message": row[1], "has_image": bool(row[2]),
+         "sent": row[3], "failed": row[4], "sent_at": row[5]}
+        for row in r.rows
+    ]
 
 
 class DirectMessageBody(BaseModel):

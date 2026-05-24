@@ -9,7 +9,7 @@ import {
   adminFetchTickets, adminFetchTicket, adminReplyTicket, adminUpdateTicketStatus,
   adminFetchPayments, adminApprovePayment, adminDeclinePayment,
   adminFetchCodes, adminCreateCode, adminDeleteCode,
-  adminBroadcast,
+  adminBroadcast, adminFetchBroadcastHistory,
   adminToggleBlock,
   adminSendUserMessage,
   adminFetchUserHistory,
@@ -1799,40 +1799,176 @@ function SettingsTab() {
 }
 
 function BroadcastTab() {
-  return <BroadcastSection />
-}
+  const [msg, setMsg]             = useState('')
+  const [imageb64, setImageb64]   = useState('')
+  const [preview, setPreview]     = useState('')
+  const [sending, setSending]     = useState(false)
+  const [history, setHistory]     = useState(null)
+  const [viewing, setViewing]     = useState(null)
+  const fileRef                   = useRef()
 
-function BroadcastSection() {
-  const [msg, setMsg] = useState('')
-  const [sending, setSending] = useState(false)
+  async function loadHistory() {
+    try { setHistory(await adminFetchBroadcastHistory()) } catch { setHistory([]) }
+  }
+
+  useEffect(() => { loadHistory() }, [])
+
+  function handleFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const canvas = document.createElement('canvas')
+    const img = new Image()
+    img.onload = () => {
+      const MAX = 1200
+      let w = img.width, h = img.height
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h * MAX / w); w = MAX }
+        else        { w = Math.round(w * MAX / h); h = MAX }
+      }
+      canvas.width = w; canvas.height = h
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h)
+      const b64 = canvas.toDataURL('image/jpeg', 0.82)
+      setImageb64(b64)
+      setPreview(b64)
+    }
+    img.src = URL.createObjectURL(file)
+  }
+
+  function clearImage() { setImageb64(''); setPreview(''); if (fileRef.current) fileRef.current.value = '' }
 
   async function send() {
     if (!msg.trim()) return
-    window.Telegram?.WebApp?.showConfirm(`לשלוח הודעה לכל המשתמשים?\n\n"${msg.slice(0, 80)}"`, async ok => {
-      if (!ok) return
-      setSending(true)
-      try {
-        const res = await adminBroadcast(msg.trim())
-        window.Telegram?.WebApp?.showAlert(`✅ נשלח ל-${res.sent} משתמשים${res.failed ? `, נכשל: ${res.failed}` : ''}`)
-        setMsg('')
-      } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
-      setSending(false)
-    })
+    window.Telegram?.WebApp?.showConfirm(
+      `לשלוח הודעה לכל המשתמשים?\n\n"${msg.slice(0, 80)}"`,
+      async ok => {
+        if (!ok) return
+        setSending(true)
+        try {
+          const res = await adminBroadcast(msg.trim(), imageb64)
+          window.Telegram?.WebApp?.showAlert(`✅ נשלח ל-${res.sent} משתמשים${res.failed ? `, נכשל: ${res.failed}` : ''}`)
+          setMsg(''); clearImage()
+          await loadHistory()
+        } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+        setSending(false)
+      }
+    )
+  }
+
+  function fmtDate(s) {
+    if (!s) return ''
+    const d = new Date(s.replace(' ', 'T') + 'Z')
+    return d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
   }
 
   return (
     <div>
+      <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 14 }}>📢 שידור הודעה לכולם</div>
+
+      {/* Message input */}
       <textarea
         className="input"
         rows={4}
-        placeholder="כתוב הודעה לכל המשתמשים..."
+        placeholder="כתוב הודעה לכל המשתמשים... (תומך Markdown)"
         value={msg}
         onChange={e => setMsg(e.target.value)}
-        style={{ resize: 'vertical' }}
+        style={{ resize: 'vertical', fontFamily: 'inherit' }}
       />
-      <button className="btn" disabled={sending || !msg.trim()} onClick={send}>
+
+      {/* Image picker */}
+      <div style={{ marginTop: 8, marginBottom: 12 }}>
+        {preview ? (
+          <div style={{ position: 'relative', display: 'inline-block' }}>
+            <img src={preview} alt="" style={{ maxWidth: '100%', maxHeight: 180, borderRadius: 10, display: 'block' }} />
+            <button
+              onClick={clearImage}
+              style={{
+                position: 'absolute', top: 6, right: 6,
+                background: 'rgba(0,0,0,0.55)', color: '#fff',
+                border: 'none', borderRadius: '50%', width: 26, height: 26,
+                cursor: 'pointer', fontSize: 14, lineHeight: '26px', textAlign: 'center',
+              }}
+            >✕</button>
+          </div>
+        ) : (
+          <button
+            onClick={() => fileRef.current?.click()}
+            style={{
+              padding: '7px 14px', borderRadius: 8, fontSize: 13,
+              border: '1.5px dashed var(--border, rgba(255,255,255,0.2))',
+              background: 'var(--bg2)', color: 'var(--hint)', cursor: 'pointer',
+            }}
+          >
+            🖼 הוסף תמונה (אופציונלי)
+          </button>
+        )}
+        <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
+      </div>
+
+      <button className="btn" disabled={sending || !msg.trim()} onClick={send} style={{ marginBottom: 0 }}>
         {sending ? '⏳ שולח...' : '📢 שלח לכולם'}
       </button>
+
+      {/* History */}
+      <div style={{ marginTop: 28, fontWeight: 600, fontSize: 14, marginBottom: 10 }}>📋 היסטוריית שידורים</div>
+      {history === null && <div className="loading"></div>}
+      {history && history.length === 0 && (
+        <div style={{ fontSize: 13, color: 'var(--hint)' }}>אין שידורים עדיין</div>
+      )}
+      {history && history.map(h => (
+        <div
+          key={h.id}
+          onClick={() => setViewing(h)}
+          style={{
+            padding: '10px 12px', marginBottom: 8, borderRadius: 10,
+            background: 'var(--bg2)', cursor: 'pointer',
+            border: '1px solid var(--border, rgba(255,255,255,0.08))',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+            <div style={{ fontSize: 13, flex: 1, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', color: 'var(--text)' }}>
+              {h.has_image ? '🖼 ' : ''}{h.message}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--hint)', whiteSpace: 'nowrap' }}>{fmtDate(h.sent_at)}</div>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--hint)', marginTop: 4 }}>
+            ✅ {h.sent}{h.failed ? ` · ❌ ${h.failed}` : ''}
+          </div>
+        </div>
+      ))}
+
+      {/* Viewer overlay */}
+      {viewing && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
+            display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+            zIndex: 1000,
+          }}
+          onClick={() => setViewing(null)}
+        >
+          <div
+            style={{
+              background: 'var(--bg)', borderRadius: '16px 16px 0 0',
+              padding: 20, width: '100%', maxWidth: 480, maxHeight: '75vh',
+              overflowY: 'auto',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>📢 הודעת שידור</div>
+            <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 12 }}>
+              {fmtDate(viewing.sent_at)} · ✅ {viewing.sent}{viewing.failed ? ` · ❌ ${viewing.failed}` : ''}
+              {viewing.has_image ? ' · 🖼 כלל תמונה' : ''}
+            </div>
+            <div style={{
+              background: 'var(--bg2)', borderRadius: 10, padding: '12px 14px',
+              fontSize: 14, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+            }}>
+              {viewing.message}
+            </div>
+            <button className="btn" style={{ marginTop: 14 }} onClick={() => setViewing(null)}>סגור</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
