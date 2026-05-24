@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { fetchVehicle, fetchMarketPrice } from '../api.js'
-import { MAKE_EN, MODEL_EN } from '../vehicleNames.js'
+import { MAKE_EN, MODEL_EN, KOMO_MAKE_ID } from '../vehicleNames.js'
 import LicensePlate from '../components/LicensePlate.jsx'
 import BackButton from '../components/BackButton.jsx'
 
@@ -418,6 +418,24 @@ export default function ReportPage({ plate, onBack, user }) {
                 fontWeight: 700, cursor: 'not-allowed',
               }}>חפש ב-Yad2</div>
             )}
+            {/* Komo button */}
+            {(() => {
+              const COUNTRY_SUFFIXES = [' יפן',' קוריאה',' גרמניה',' צרפת',' איטליה',' שוודיה',' אמריקה',' אנגליה',' בריטניה',' הודו',' סין',' צ\'כיה',' ספרד',' רומניה']
+              const baseMake = COUNTRY_SUFFIXES.reduce((m, s) => m.endsWith(s) ? m.slice(0, -s.length) : m, make.trim())
+              const komoId = KOMO_MAKE_ID[baseMake] || KOMO_MAKE_ID[make]
+              const params = new URLSearchParams()
+              if (komoId) params.set('yazranNumH', komoId)
+              if (year) { params.set('fromYear', year); params.set('toYear', year) }
+              const komoUrl = `https://www.komo.co.il/code/cars/private.asp${params.toString() ? '?' + params.toString() : ''}`
+              return (
+                <a href={komoUrl} target="_blank" rel="noopener noreferrer" style={{
+                  display: 'block', marginTop: 8, padding: '8px 0',
+                  background: '#e8001c', color: '#fff',
+                  borderRadius: 10, textAlign: 'center', fontSize: 13,
+                  fontWeight: 700, textDecoration: 'none',
+                }}>חפש בקומו</a>
+              )
+            })()}
             {/* Facebook Marketplace button — always active, search in English */}
             {(() => {
               const COUNTRY_SUFFIXES = [' יפן',' קוריאה',' גרמניה',' צרפת',' איטליה',' שוודיה',' אמריקה',' אנגליה',' בריטניה',' הודו',' סין',' צ\'כיה',' ספרד',' רומניה']
