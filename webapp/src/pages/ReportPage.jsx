@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { fetchVehicle, fetchMarketPrice } from '../api.js'
+import { MAKE_EN, MODEL_EN } from '../vehicleNames.js'
 import LicensePlate from '../components/LicensePlate.jsx'
 import BackButton from '../components/BackButton.jsx'
 
@@ -417,9 +418,11 @@ export default function ReportPage({ plate, onBack, user }) {
                 fontWeight: 700, cursor: 'not-allowed',
               }}>חפש ב-Yad2</div>
             )}
-            {/* Facebook Marketplace button — always active */}
+            {/* Facebook Marketplace button — always active, search in English */}
             {(() => {
-              const query = [make, model, year].filter(Boolean).join(' ')
+              const makeEn  = MAKE_EN[make]  || make
+              const modelEn = MODEL_EN[model] || model
+              const query = [makeEn, modelEn, year].filter(Boolean).join(' ')
               if (!query) return null
               const fbUrl = `https://www.facebook.com/marketplace/search/?query=${encodeURIComponent(query)}&category_id=vehicles`
               return (
