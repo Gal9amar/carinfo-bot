@@ -259,19 +259,22 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     if is_new and ADMIN_ID:
         try:
+            from telegram.helpers import escape_markdown
             stats = await admin_stats()
             uname = f"@{user.username}" if user.username else f"id:{user_id}"
+            uname_esc    = escape_markdown(uname, version=2)
+            fullname_esc = escape_markdown(user.full_name or '', version=2)
             await context.bot.send_message(
                 ADMIN_ID,
-                f"👋 *משתמש חדש הצטרף!*\n\n"
-                f"👤 {uname}\n"
-                f"📛 {user.full_name or ''}\n"
+                f"👋 *משתמש חדש הצטרף\\!*\n\n"
+                f"👤 {uname_esc}\n"
+                f"📛 {fullname_esc}\n"
                 f"🆔 `{user_id}`\n\n"
                 f"👥 סה\"כ משתמשים: *{stats['total_users']}*",
-                parse_mode="Markdown",
+                parse_mode=ParseMode.MARKDOWN_V2,
             )
         except Exception as e:
-            logger.debug("Failed to notify admin of new user: %s", e)
+            logger.warning("Failed to notify admin of new user: %s", e)
         try:
             from src.activity import log as _log
             uname = f"@{user.username}" if user.username else str(user_id)
