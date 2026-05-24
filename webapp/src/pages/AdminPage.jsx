@@ -1798,6 +1798,10 @@ function SettingsTab() {
   )
 }
 
+function BroadcastTab() {
+  return <BroadcastSection />
+}
+
 function BroadcastSection() {
   const [msg, setMsg] = useState('')
   const [sending, setSending] = useState(false)
