@@ -353,9 +353,9 @@ export async function fetchReferrals() {
 }
 
 // Gift searches to all users
-export async function adminGiftAll(searches, message, image_b64 = '') {
+export async function adminGiftAll(searches, message, image_b64 = '', gift_type = 'searches') {
   const r = await fetch(`${BASE}/api/admin/gift-all`, {
-    method: 'POST', headers: headers(), body: JSON.stringify({ searches, message, image_b64 }),
+    method: 'POST', headers: headers(), body: JSON.stringify({ searches, message, image_b64, gift_type }),
   })
   if (!r.ok) throw new Error('Failed')
   return r.json()

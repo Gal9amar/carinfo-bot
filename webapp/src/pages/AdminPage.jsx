@@ -828,6 +828,7 @@ function CodesSection() {
 }
 
 function GiftAllSection({ onDone }) {
+  const [giftType, setGiftType] = useState('searches')
   const [searches, setSearches] = useState(10)
   const [message, setMessage] = useState('')
   const [imageb64, setImageb64] = useState('')
@@ -859,16 +860,19 @@ function GiftAllSection({ onDone }) {
   }
 
   async function send() {
-    if (!searches || searches < 1) return
-    const preview = `להוסיף ${searches} חיפושים לכל המשתמשים${message.trim() ? ' ולשלוח הודעה' : ''}?`
+    if (giftType === 'searches' && (!searches || searches < 1)) return
+    const preview = giftType === 'monthly'
+      ? `להעניק מנוי חופשי חודשי לכל המשתמשים${message.trim() ? ' ולשלוח הודעה' : ''}?`
+      : `להוסיף ${searches} חיפושים לכל המשתמשים${message.trim() ? ' ולשלוח הודעה' : ''}?`
     window.Telegram?.WebApp?.showConfirm(preview, async ok => {
       if (!ok) return
       setSending(true)
       try {
-        const res = await adminGiftAll(searches, message.trim(), imageb64)
-        window.Telegram?.WebApp?.showAlert(
-          `🎁 הושלם!\n✅ ${searches} חיפושים נוספו לכולם${res.notified ? `\n📤 הודעה נשלחה ל-${res.notified} משתמשים` : ''}`
-        )
+        const res = await adminGiftAll(searches, message.trim(), imageb64, giftType)
+        const successMsg = giftType === 'monthly'
+          ? `🎁 הושלם!\n✅ מנוי חופשי חודשי הוענק לכולם${res.notified ? `\n📤 הודעה נשלחה ל-${res.notified} משתמשים` : ''}`
+          : `🎁 הושלם!\n✅ ${searches} חיפושים נוספו לכולם${res.notified ? `\n📤 הודעה נשלחה ל-${res.notified} משתמשים` : ''}`
+        window.Telegram?.WebApp?.showAlert(successMsg)
         setMessage('')
         setImageb64('')
         onDone()
@@ -877,22 +881,51 @@ function GiftAllSection({ onDone }) {
     })
   }
 
+  const typeBtn = (type, label) => (
+    <button
+      type="button"
+      onClick={() => setGiftType(type)}
+      style={{
+        flex: 1, padding: '8px 0', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600,
+        background: giftType === type ? 'var(--button-color, #2196F3)' : 'var(--secondary-bg, rgba(255,255,255,0.08))',
+        color: giftType === type ? '#fff' : 'var(--hint)',
+        transition: 'all 0.15s',
+      }}
+    >{label}</button>
+  )
+
   return (
     <div style={{ marginTop: 12 }}>
-      <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8 }}>כמות חיפושים לכל משתמש:</div>
-      <input
-        className="input"
-        type="number"
-        min="1"
-        value={searches}
-        onChange={e => setSearches(parseInt(e.target.value) || 1)}
-        style={{ marginBottom: 10 }}
-      />
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        {typeBtn('searches', '🔢 כמות חיפושים')}
+        {typeBtn('monthly', '♾️ מנוי חודשי')}
+      </div>
+
+      {giftType === 'searches' && (
+        <>
+          <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8 }}>כמות חיפושים לכל משתמש:</div>
+          <input
+            className="input"
+            type="number"
+            min="1"
+            value={searches}
+            onChange={e => setSearches(parseInt(e.target.value) || 1)}
+            style={{ marginBottom: 10 }}
+          />
+        </>
+      )}
+
+      {giftType === 'monthly' && (
+        <div style={{ background: 'rgba(33,150,243,0.1)', border: '1px solid rgba(33,150,243,0.3)', borderRadius: 10, padding: '10px 14px', marginBottom: 10, fontSize: 13, color: 'var(--hint)' }}>
+          ♾️ כל המשתמשים יקבלו גישה ללא הגבלת חיפושים ל-30 יום ויצורפו לקבוצת מנויים.
+        </div>
+      )}
+
       <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8 }}>הודעה למשתמשים (אופציונלי):</div>
       <textarea
         className="input"
         rows={3}
-        placeholder="לדוגמה: 🎉 חגיגת שנה! קיבלת 10 חיפושים במתנה"
+        placeholder={giftType === 'monthly' ? 'לדוגמה: 🎉 חגיגת שנה! קיבלת מנוי חופשי חודשי' : 'לדוגמה: 🎉 חגיגת שנה! קיבלת 10 חיפושים במתנה'}
         value={message}
         onChange={e => setMessage(e.target.value)}
         style={{ resize: 'vertical', fontFamily: 'inherit', marginBottom: 10 }}
@@ -929,11 +962,11 @@ function GiftAllSection({ onDone }) {
       <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
       <button
         className="btn"
-        disabled={sending || !searches || searches < 1}
+        disabled={sending || (giftType === 'searches' && (!searches || searches < 1))}
         onClick={send}
         style={{ marginTop: 0, background: 'linear-gradient(135deg,#f5a623,#f76b1c)', border: 'none' }}
       >
-        {sending ? '⏳ מעבד...' : `🎁 הענק ${searches || ''} חיפושים לכולם`}
+        {sending ? '⏳ מעבד...' : giftType === 'monthly' ? '🎁 הענק מנוי חודשי לכולם' : `🎁 הענק ${searches || ''} חיפושים לכולם`}
       </button>
     </div>
   )

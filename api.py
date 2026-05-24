@@ -924,23 +924,46 @@ async def admin_toggle_block(user_id: int, _: dict = Depends(_require_admin)):
 
 
 class GiftAllBody(BaseModel):
-    searches: int
+    searches: int = 0
     message: str = ""
     image_b64: str = ""
+    gift_type: str = "searches"  # "searches" | "monthly"
 
 
 @api.post("/api/admin/gift-all")
 async def admin_gift_all(body: GiftAllBody, _: dict = Depends(_require_admin)):
+    import datetime
     from src.db import execute
-    if body.searches < 1:
-        raise HTTPException(status_code=400, detail="searches must be >= 1")
     msg = body.message.strip()[:500]
-    await execute(
-        "UPDATE users SET searches_quota = searches_quota + ? WHERE searches_quota >= 0 AND blocked = 0",
-        [body.searches],
-    )
+
+    if body.gift_type == "monthly":
+        expires = (datetime.datetime.utcnow() + datetime.timedelta(days=30)).strftime('%Y-%m-%dT%H:%M:%S')
+        await execute(
+            "UPDATE users SET searches_quota = -1, quota_expires = ? WHERE blocked = 0",
+            [expires],
+        )
+        # Add all non-blocked users to מנויים group
+        grp = await execute("SELECT id FROM user_groups WHERE name='מנויים' LIMIT 1")
+        if grp.rows:
+            group_id = grp.rows[0][0]
+            await execute(
+                "INSERT OR IGNORE INTO user_group_members (group_id, user_id) "
+                "SELECT ?, user_id FROM users WHERE blocked = 0",
+                [group_id],
+            )
+        gift_text = "🎁 *קיבלת מנוי חופשי חודשי!*\n\nגישה ללא הגבלת חיפושים ל\\-30 ימים 🎉" + (f"\n\n{msg}" if msg else "")
+        log_desc = f"מתנה לכולם: מנוי חופשי חודשי. הודעה: {msg[:60]}"
+    else:
+        if body.searches < 1:
+            raise HTTPException(status_code=400, detail="searches must be >= 1")
+        await execute(
+            "UPDATE users SET searches_quota = searches_quota + ? WHERE searches_quota >= 0 AND blocked = 0",
+            [body.searches],
+        )
+        gift_text = f"🎁 *קיבלת {body.searches} חיפושים במתנה!*" + (f"\n\n{msg}" if msg else "")
+        log_desc = f"מתנה לכולם: +{body.searches} חיפושים. הודעה: {msg[:60]}"
+
     notified = 0
-    gift_text = f"🎁 *קיבלת {body.searches} חיפושים במתנה!*" + (f"\n\n{msg}" if msg else "")
     try:
         if body.image_b64:
             from src.notifier import notify_broadcast_photo
@@ -953,10 +976,10 @@ async def admin_gift_all(body: GiftAllBody, _: dict = Depends(_require_admin)):
         pass
     try:
         from src.activity import log as _log
-        await _log("grant", f"מתנה לכולם: +{body.searches} חיפושים. הודעה: {msg[:60]}")
+        await _log("grant", log_desc)
     except Exception:
         pass
-    return {"ok": True, "searches": body.searches, "notified": notified}
+    return {"ok": True, "gift_type": body.gift_type, "searches": body.searches, "notified": notified}
 
 
 @api.get("/api/admin/activity")
