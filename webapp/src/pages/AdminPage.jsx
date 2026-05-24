@@ -32,6 +32,7 @@ const TABS = [
   { id: 'grants',   icon: '🎁', label: 'הטבות מנהל' },
   { id: 'users',    icon: '👥', label: 'משתמשים' },
   { id: 'groups',   icon: '👥', label: 'קבוצות' },
+  { id: 'features', icon: '⭐', label: 'פיצ\'רים' },
   { id: 'promo',    icon: '🎉', label: 'מבצע' },
   { id: 'broadcast',icon: '📢', label: 'שידור' },
   { id: 'settings', icon: '⚙️', label: 'הגדרות' },
@@ -76,6 +77,7 @@ export default function AdminPage({ user, onBack }) {
       {tab === 'grants'   && <AdminGrantsTab />}
       {tab === 'users'     && <UsersTab />}
       {tab === 'groups'    && <GroupsTab />}
+      {tab === 'features'  && <FeaturesTab />}
       {tab === 'promo'     && <PromoTab />}
       {tab === 'broadcast' && <BroadcastTab />}
       {tab === 'settings'  && <SettingsTab />}
@@ -1589,6 +1591,131 @@ function PromoTab() {
   )
 }
 
+function FeaturesTab() {
+  const [settings, setSettings]                 = useState(null)
+  const [allGroups, setAllGroups]               = useState(null)
+  const [yad2Enabled, setYad2Enabled]           = useState(false)
+  const [yad2Groups, setYad2Groups]             = useState([])
+  const [yad2Public, setYad2Public]             = useState(false)
+  const [yad2PublicStart, setYad2PublicStart]   = useState('')
+  const [yad2PublicEnd, setYad2PublicEnd]       = useState('')
+  const [yad2PublicLabel, setYad2PublicLabel]   = useState('')
+  const [yad2Saving, setYad2Saving]             = useState(false)
+
+  useEffect(() => {
+    adminFetchGroups().then(setAllGroups).catch(() => setAllGroups([]))
+    adminFetchSettings().then(s => {
+      setSettings(s)
+      setYad2Enabled(!!s.yad2_market_enabled)
+      setYad2Groups(s.yad2_market_groups || [])
+      setYad2Public(!!s.yad2_market_public)
+      setYad2PublicStart(s.yad2_market_public_start || '')
+      setYad2PublicEnd(s.yad2_market_public_end || '')
+      setYad2PublicLabel(s.yad2_market_public_label || '')
+    }).catch(() => {})
+  }, [])
+
+  async function saveYad2() {
+    setYad2Saving(true)
+    try {
+      await adminUpdateSettings({
+        yad2_market_enabled:      yad2Enabled,
+        yad2_market_groups:       yad2Groups,
+        yad2_market_public:        yad2Public,
+        yad2_market_public_start:  yad2PublicStart,
+        yad2_market_public_end:    yad2PublicEnd,
+        yad2_market_public_label:  yad2PublicLabel,
+      })
+      window.Telegram?.WebApp?.showAlert('✅ הגדרות עודכנו')
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    setYad2Saving(false)
+  }
+
+  function toggleYad2Group(id) {
+    setYad2Groups(prev => prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id])
+  }
+
+  if (!settings) return <div className="loading"></div>
+
+  return (
+    <div>
+      <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>⭐ פיצ'רים למנויים</div>
+      <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 18 }}>
+        הגדרות גישה לפיצ'רים המיועדים למנויים בלבד.
+      </div>
+
+      {/* Yad2 market price */}
+      <div style={{ border: '1.5px solid var(--border, rgba(255,255,255,0.12))', borderRadius: 14, padding: 16 }}>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14 }}>💰 שווי שוק Yad2</div>
+
+        <div className="toggle-row">
+          <span className="toggle-label">הפעל הצגת שווי שוק</span>
+          <button className={`toggle ${yad2Enabled ? 'on' : ''}`} onClick={() => setYad2Enabled(v => !v)} />
+        </div>
+
+        {yad2Enabled && (
+          <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+            {/* Public mode */}
+            <div style={{ background: 'var(--bg2)', borderRadius: 10, padding: 12 }}>
+              <div className="toggle-row" style={{ paddingTop: 0 }}>
+                <span className="toggle-label" style={{ fontSize: 14 }}>🌐 פתוח לכולם</span>
+                <button className={`toggle ${yad2Public ? 'on' : ''}`} onClick={() => setYad2Public(v => !v)} />
+              </div>
+              {yad2Public && (
+                <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ fontSize: 12, color: 'var(--hint)' }}>טקסט תצוגה למשתמש</div>
+                  <input type="text" className="input" style={{ marginBottom: 0 }}
+                    placeholder='לדוגמה: פתוח לכולם עד 01/07/2026'
+                    value={yad2PublicLabel} onChange={e => setYad2PublicLabel(e.target.value)} />
+                  <div style={{ fontSize: 12, color: 'var(--hint)' }}>תאריך התחלה (אופציונלי)</div>
+                  <input type="date" className="input" style={{ marginBottom: 0 }}
+                    value={yad2PublicStart} onChange={e => setYad2PublicStart(e.target.value)} />
+                  <div style={{ fontSize: 12, color: 'var(--hint)' }}>תאריך סיום (אופציונלי)</div>
+                  <input type="date" className="input" style={{ marginBottom: 0 }}
+                    value={yad2PublicEnd} onChange={e => setYad2PublicEnd(e.target.value)} />
+                  {(() => {
+                    const today = new Date().toISOString().slice(0, 10)
+                    const inWindow = (!yad2PublicStart || today >= yad2PublicStart) &&
+                                     (!yad2PublicEnd   || today <= yad2PublicEnd)
+                    return (
+                      <div style={{ fontSize: 12, fontWeight: 600, color: inWindow ? '#38a169' : '#d69e2e' }}>
+                        {inWindow ? '🟢 פעיל כעת לכולם' : '🟡 לא פעיל (מחוץ לטווח התאריכים)'}
+                      </div>
+                    )
+                  })()}
+                </div>
+              )}
+            </div>
+
+            {/* Groups mode */}
+            <div>
+              <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8 }}>
+                הגבלה לקבוצות <span style={{ fontSize: 11 }}>(בנוסף למצב פתוח לכולם)</span>
+              </div>
+              {allGroups === null && <div style={{ fontSize: 13, color: 'var(--hint)' }}>⏳ טוען קבוצות...</div>}
+              {allGroups && allGroups.length === 0 && (
+                <div style={{ fontSize: 13, color: 'var(--hint)' }}>אין קבוצות — צור קבוצות בטאב קבוצות</div>
+              )}
+              {allGroups && allGroups.map(g => (
+                <label key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 14, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={yad2Groups.includes(g.id)}
+                    onChange={() => toggleYad2Group(g.id)} style={{ width: 16, height: 16 }} />
+                  {g.name} <span style={{ fontSize: 12, color: 'var(--hint)' }}>({g.member_ids.length} חברים)</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <button className="btn btn-success" style={{ marginTop: 14 }} disabled={yad2Saving} onClick={saveYad2}>
+          {yad2Saving ? '...' : '💾 שמור'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function SettingsTab() {
   const [settings, setSettings]     = useState(null)
   const [saving, setSaving]         = useState(false)
@@ -1633,51 +1760,6 @@ function SettingsTab() {
     setSaving(false)
   }
 
-  // Yad2 market price state
-  const [yad2Enabled, setYad2Enabled]           = useState(false)
-  const [yad2Groups, setYad2Groups]             = useState([])
-  const [allGroups, setAllGroups]               = useState(null)
-  const [yad2Public, setYad2Public]             = useState(false)
-  const [yad2PublicStart, setYad2PublicStart]   = useState('')
-  const [yad2PublicEnd, setYad2PublicEnd]       = useState('')
-  const [yad2PublicLabel, setYad2PublicLabel]   = useState('')
-  const [yad2Saving, setYad2Saving]             = useState(false)
-
-  useEffect(() => {
-    adminFetchGroups().then(setAllGroups).catch(() => setAllGroups([]))
-  }, [])
-
-  useEffect(() => {
-    if (settings) {
-      setYad2Enabled(!!settings.yad2_market_enabled)
-      setYad2Groups(settings.yad2_market_groups || [])
-      setYad2Public(!!settings.yad2_market_public)
-      setYad2PublicStart(settings.yad2_market_public_start || '')
-      setYad2PublicEnd(settings.yad2_market_public_end || '')
-      setYad2PublicLabel(settings.yad2_market_public_label || '')
-    }
-  }, [settings])
-
-  async function saveYad2() {
-    setYad2Saving(true)
-    try {
-      await adminUpdateSettings({
-        yad2_market_enabled:      yad2Enabled,
-        yad2_market_groups:       yad2Groups,
-        yad2_market_public:        yad2Public,
-        yad2_market_public_start:  yad2PublicStart,
-        yad2_market_public_end:    yad2PublicEnd,
-        yad2_market_public_label:  yad2PublicLabel,
-      })
-      window.Telegram?.WebApp?.showAlert('✅ הגדרות Yad2 עודכנו')
-    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
-    setYad2Saving(false)
-  }
-
-  function toggleYad2Group(id) {
-    setYad2Groups(prev => prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id])
-  }
-
   if (!settings) return <div className="loading"></div>
 
   return (
@@ -1685,11 +1767,7 @@ function SettingsTab() {
       {/* Maintenance */}
       <div className="toggle-row">
         <span className="toggle-label">🔧 מצב תחזוקה</span>
-        <button
-          className={`toggle ${settings.maintenance ? 'on' : ''}`}
-          onClick={toggleMaintenance}
-          disabled={saving}
-        />
+        <button className={`toggle ${settings.maintenance ? 'on' : ''}`} onClick={toggleMaintenance} disabled={saving} />
       </div>
 
       {/* Free searches */}
@@ -1704,107 +1782,6 @@ function SettingsTab() {
         <div className="toggle-label" style={{ marginBottom: 8 }}>🤝 חיפושים לבונוס הפניה</div>
         <input className="input" type="number" min="1" value={referralInput} onChange={e => setReferralInput(e.target.value)} />
         <button className="btn" disabled={saving} onClick={saveReferral}>{saving ? '...' : 'שמור'}</button>
-      </div>
-
-
-      {/* Yad2 market price feature flag */}
-      <div style={{ marginTop: 24, border: '1.5px solid var(--border, rgba(255,255,255,0.12))', borderRadius: 14, padding: 16 }}>
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14 }}>💰 מחיר שוק Yad2 — הצגה בדוח</div>
-
-        <div className="toggle-row">
-          <span className="toggle-label">הפעל הצגת מחיר שוק</span>
-          <button
-            className={`toggle ${yad2Enabled ? 'on' : ''}`}
-            onClick={() => setYad2Enabled(v => !v)}
-          />
-        </div>
-
-        {yad2Enabled && (
-          <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-            {/* Public mode */}
-            <div style={{ background: 'var(--bg2)', borderRadius: 10, padding: 12 }}>
-              <div className="toggle-row" style={{ paddingTop: 0 }}>
-                <span className="toggle-label" style={{ fontSize: 14 }}>🌐 פתוח לכולם</span>
-                <button
-                  className={`toggle ${yad2Public ? 'on' : ''}`}
-                  onClick={() => setYad2Public(v => !v)}
-                />
-              </div>
-              {yad2Public && (
-                <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ fontSize: 12, color: 'var(--hint)' }}>טקסט תצוגה למשתמש</div>
-                  <input
-                    type="text"
-                    className="input"
-                    style={{ marginBottom: 0 }}
-                    placeholder='לדוגמה: פתוח לכולם עד 01/07/2026'
-                    value={yad2PublicLabel}
-                    onChange={e => setYad2PublicLabel(e.target.value)}
-                  />
-                  <div style={{ fontSize: 12, color: 'var(--hint)' }}>תאריך התחלה (אופציונלי)</div>
-                  <input
-                    type="date"
-                    className="input"
-                    style={{ marginBottom: 0 }}
-                    value={yad2PublicStart}
-                    onChange={e => setYad2PublicStart(e.target.value)}
-                  />
-                  <div style={{ fontSize: 12, color: 'var(--hint)' }}>תאריך סיום (אופציונלי)</div>
-                  <input
-                    type="date"
-                    className="input"
-                    style={{ marginBottom: 0 }}
-                    value={yad2PublicEnd}
-                    onChange={e => setYad2PublicEnd(e.target.value)}
-                  />
-                  {/* Status indicator */}
-                  {(() => {
-                    const today = new Date().toISOString().slice(0, 10)
-                    const inWindow = (!yad2PublicStart || today >= yad2PublicStart) &&
-                                     (!yad2PublicEnd   || today <= yad2PublicEnd)
-                    return (
-                      <div style={{ fontSize: 12, fontWeight: 600, color: inWindow ? '#38a169' : '#d69e2e' }}>
-                        {inWindow ? '🟢 פעיל כעת לכולם' : '🟡 לא פעיל (מחוץ לטווח התאריכים)'}
-                      </div>
-                    )
-                  })()}
-                </div>
-              )}
-            </div>
-
-            {/* Groups mode */}
-            <div>
-              <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8 }}>
-                הגבלה לקבוצות <span style={{ fontSize: 11 }}>(בנוסף למצב פתוח לכולם)</span>
-              </div>
-              {allGroups === null && <div style={{ fontSize: 13, color: 'var(--hint)' }}>⏳ טוען קבוצות...</div>}
-              {allGroups && allGroups.length === 0 && (
-                <div style={{ fontSize: 13, color: 'var(--hint)' }}>אין קבוצות — צור קבוצות בטאב קבוצות</div>
-              )}
-              {allGroups && allGroups.map(g => (
-                <label key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 14, cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={yad2Groups.includes(g.id)}
-                    onChange={() => toggleYad2Group(g.id)}
-                    style={{ width: 16, height: 16 }}
-                  />
-                  {g.name} <span style={{ fontSize: 12, color: 'var(--hint)' }}>({g.member_ids.length} חברים)</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <button
-          className="btn btn-success"
-          style={{ marginTop: 14 }}
-          disabled={yad2Saving}
-          onClick={saveYad2}
-        >
-          {yad2Saving ? '...' : '💾 שמור הגדרות Yad2'}
-        </button>
       </div>
     </div>
   )
