@@ -294,9 +294,9 @@ export async function adminDeleteCode(code) {
 }
 
 // Broadcast
-export async function adminBroadcast(message) {
+export async function adminBroadcast(message, image_b64 = '') {
   const r = await fetch(`${BASE}/api/admin/broadcast`, {
-    method: 'POST', headers: headers(), body: JSON.stringify({ message }),
+    method: 'POST', headers: headers(), body: JSON.stringify({ message, image_b64 }),
   })
   if (!r.ok) throw new Error('Failed')
   return r.json()

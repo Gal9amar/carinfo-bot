@@ -814,15 +814,20 @@ async def admin_delete_code(code: str, _: dict = Depends(_require_admin)):
 
 class BroadcastBody(BaseModel):
     message: str
+    image_b64: str = ""
 
 
 @api.post("/api/admin/broadcast")
 async def admin_broadcast(body: BroadcastBody, _: dict = Depends(_require_admin)):
-    from src.notifier import notify_broadcast
     msg = body.message.strip()[:2000]
     if not msg:
         raise HTTPException(status_code=400, detail="Empty message")
-    result = await notify_broadcast(msg)
+    if body.image_b64:
+        from src.notifier import notify_broadcast_photo
+        result = await notify_broadcast_photo(msg, body.image_b64)
+    else:
+        from src.notifier import notify_broadcast
+        result = await notify_broadcast(msg)
     try:
         from src.activity import log as _log
         await _log("broadcast", f"שידור נשלח: {msg[:80]}{'...' if len(msg) > 80 else ''}")

@@ -1727,7 +1727,33 @@ function SettingsTab() {
 
 function BroadcastSection() {
   const [msg, setMsg] = useState('')
+  const [imageb64, setImageb64] = useState('')
+  const [compressing, setCompressing] = useState(false)
   const [sending, setSending] = useState(false)
+  const fileRef = useRef(null)
+
+  function handleFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setCompressing(true)
+    const reader = new FileReader()
+    reader.onload = ev => {
+      const img = new Image()
+      img.onload = () => {
+        const MAX = 800
+        const ratio = Math.min(MAX / img.width, MAX / img.height, 1)
+        const canvas = document.createElement('canvas')
+        canvas.width  = Math.round(img.width  * ratio)
+        canvas.height = Math.round(img.height * ratio)
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+        setImageb64(canvas.toDataURL('image/jpeg', 0.82))
+        setCompressing(false)
+      }
+      img.src = ev.target.result
+    }
+    reader.readAsDataURL(file)
+    e.target.value = ''
+  }
 
   async function send() {
     if (!msg.trim()) return
@@ -1735,9 +1761,10 @@ function BroadcastSection() {
       if (!ok) return
       setSending(true)
       try {
-        const res = await adminBroadcast(msg.trim())
+        const res = await adminBroadcast(msg.trim(), imageb64)
         window.Telegram?.WebApp?.showAlert(`✅ נשלח ל-${res.sent} משתמשים${res.failed ? `, נכשל: ${res.failed}` : ''}`)
         setMsg('')
+        setImageb64('')
       } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
       setSending(false)
     })
@@ -1751,8 +1778,28 @@ function BroadcastSection() {
         placeholder="כתוב הודעה לכל המשתמשים..."
         value={msg}
         onChange={e => setMsg(e.target.value)}
-        style={{ resize: 'vertical' }}
+        style={{ resize: 'vertical', marginBottom: 10 }}
       />
+      <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8 }}>תמונה מצורפת (אופציונלי):</div>
+      {imageb64 ? (
+        <div style={{ position: 'relative', marginBottom: 10 }}>
+          <img src={imageb64} alt="תצוגה מקדימה"
+            style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 10, display: 'block' }} />
+          <button onClick={() => setImageb64('')} style={{
+            position: 'absolute', top: 6, left: 6,
+            background: 'rgba(0,0,0,0.6)', color: '#fff',
+            border: 'none', borderRadius: '50%', width: 28, height: 28,
+            fontSize: 14, cursor: 'pointer', lineHeight: 1,
+          }}>✕</button>
+        </div>
+      ) : (
+        <button type="button" className="btn btn-secondary"
+          style={{ marginTop: 0, marginBottom: 10, fontSize: 13 }}
+          disabled={compressing} onClick={() => fileRef.current?.click()}>
+          {compressing ? '⏳ מכווץ...' : '📷 הוסף תמונה'}
+        </button>
+      )}
+      <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
       <button className="btn" disabled={sending || !msg.trim()} onClick={send}>
         {sending ? '⏳ שולח...' : '📢 שלח לכולם'}
       </button>
