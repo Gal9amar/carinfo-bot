@@ -158,6 +158,19 @@ async def init_db() -> None:
             pass
     conn.commit()
 
+    indexes = [
+        "CREATE INDEX IF NOT EXISTS idx_ugm_user   ON user_group_members(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_ugm_group  ON user_group_members(group_id)",
+        "CREATE INDEX IF NOT EXISTS idx_sh_user    ON search_history(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_users_exp  ON users(quota_expires) WHERE quota_expires IS NOT NULL",
+    ]
+    for sql in indexes:
+        try:
+            conn.execute(sql)
+        except Exception:
+            pass
+    conn.commit()
+
     conn.execute("""
         CREATE TABLE IF NOT EXISTS bot_settings (
             key   TEXT PRIMARY KEY,

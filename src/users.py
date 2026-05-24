@@ -266,6 +266,7 @@ async def apply_code(user_id: int, code: str, username: str = "") -> tuple[bool,
                 "UPDATE users SET searches_quota = -1, quota_expires = ? WHERE user_id = ?",
                 [expires_iso, user_id],
             )
+            await add_to_subscribers(user_id)
             exp_str = expires_dt.strftime("%d/%m/%Y")
             result_msg = f"✅ גישה חופשית לחודש הופעלה\\!\nתוקף עד: *{exp_str}*"
         else:
@@ -273,6 +274,7 @@ async def apply_code(user_id: int, code: str, username: str = "") -> tuple[bool,
                 "UPDATE users SET searches_quota = -1, quota_expires = NULL WHERE user_id = ?",
                 [user_id],
             )
+            await add_to_subscribers(user_id)
             result_msg = "✅ גישה בלתי מוגבלת הופעלה"
     else:
         r2 = await execute(
@@ -325,6 +327,7 @@ async def admin_grant(admin_id: int, target_id: int, searches: int, note: str = 
             "UPDATE users SET searches_quota = -1, searches_done = 0, quota_expires = NULL WHERE user_id = ?",
             [target_id],
         )
+        await add_to_subscribers(target_id)
         msg = "גישה חופשית ללא הגבלת זמן"
     elif searches == -1:
         from datetime import timedelta
@@ -333,16 +336,18 @@ async def admin_grant(admin_id: int, target_id: int, searches: int, note: str = 
             "UPDATE users SET searches_quota = -1, searches_done = 0, quota_expires = ? WHERE user_id = ?",
             [expires, target_id],
         )
+        await add_to_subscribers(target_id)
         msg = f"מנוי חודשי עד {expires[:10]}"
     elif quota == -1:
         msg = "כבר יש לו גישה בלתי מוגבלת"
     else:
-        new_q = quota + searches
+        # Base new quota on searches_done so the user gets exactly `searches` new searches
+        new_q = done + searches
         await execute(
             "UPDATE users SET searches_quota = ? WHERE user_id = ?",
             [new_q, target_id],
         )
-        msg = f"נוספו {searches} בדיקות \\(סה\"כ {max(0, new_q - done)} נותרו\\)"
+        msg = f"נוספו {searches} בדיקות \\(סה\"כ {searches} נותרו\\)"
 
     await execute(
         "INSERT INTO grants (user_id, granted_by, searches, note) VALUES (?, ?, ?, ?)",

@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { fetchPackages, fetchUser } from './api.js'
 import HomePage from './pages/HomePage.jsx'
 import PackagesPage from './pages/PackagesPage.jsx'
 import PaymentPage from './pages/PaymentPage.jsx'
-import AdminPage from './pages/AdminPage.jsx'
+const AdminPage = lazy(() => import('./pages/AdminPage.jsx'))
 import ReportPage from './pages/ReportPage.jsx'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage.jsx'
 import TicketPage from './pages/TicketPage.jsx'
@@ -133,7 +133,9 @@ export default function App() {
   if (screen === 'admin') {
     return (
       <div key="admin" className="page-enter">
-        <AdminPage user={user} onBack={() => setScreen('home')} />
+        <Suspense fallback={<div className="loading"></div>}>
+          <AdminPage user={user} onBack={() => setScreen('home')} />
+        </Suspense>
       </div>
     )
   }
