@@ -295,6 +295,9 @@ async def admin_get_settings(_: dict = Depends(_require_admin)):
         "promo_searches":      _u.PROMO_SEARCHES,
         "promo_start":         _u.PROMO_START,
         "promo_end":           _u.PROMO_END,
+        "promo_duration_days": _u.PROMO_DURATION_DAYS,
+        "promo_is_subscriber": _u.PROMO_IS_SUBSCRIBER,
+        "promo_label":         _u.PROMO_LABEL,
         "yad2_market_enabled":       (await get_bot_setting("yad2_market_enabled")) == "1",
         "yad2_market_groups":        json.loads((await get_bot_setting("yad2_market_groups")) or "[]"),
         "yad2_market_public":        (await get_bot_setting("yad2_market_public")) == "1",
@@ -311,6 +314,9 @@ class SettingsUpdate(BaseModel):
     promo_searches:      int          | None = None
     promo_start:         str          | None = None
     promo_end:           str          | None = None
+    promo_duration_days: int          | None = None
+    promo_is_subscriber: bool         | None = None
+    promo_label:         str          | None = None
     yad2_market_enabled:       bool         | None = None
     yad2_market_groups:        Optional[list]      = None
     yad2_market_public:        bool         | None = None
@@ -343,6 +349,15 @@ async def admin_update_settings(body: SettingsUpdate, _: dict = Depends(_require
     if body.promo_end is not None:
         _u.PROMO_END = body.promo_end.strip()
         await set_bot_setting("promo_end", _u.PROMO_END)
+    if body.promo_duration_days is not None:
+        _u.PROMO_DURATION_DAYS = max(0, body.promo_duration_days)
+        await set_bot_setting("promo_duration_days", str(_u.PROMO_DURATION_DAYS))
+    if body.promo_is_subscriber is not None:
+        _u.PROMO_IS_SUBSCRIBER = body.promo_is_subscriber
+        await set_bot_setting("promo_is_subscriber", "1" if _u.PROMO_IS_SUBSCRIBER else "0")
+    if body.promo_label is not None:
+        _u.PROMO_LABEL = body.promo_label.strip()
+        await set_bot_setting("promo_label", _u.PROMO_LABEL)
     if body.yad2_market_enabled is not None:
         await set_bot_setting("yad2_market_enabled", "1" if body.yad2_market_enabled else "0")
     if body.yad2_market_groups is not None:
