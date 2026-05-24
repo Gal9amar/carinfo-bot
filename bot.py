@@ -153,9 +153,6 @@ def build_result_keyboard(
             web_app=WebAppInfo(url=f"{webapp_url}/?plate={plate}"),
         ))
     rows = [first_row]
-    if yad2_link and record:
-        label = yad2_label(record)
-        rows.append([InlineKeyboardButton(f"🔍 {label} ב-Yad2", url=yad2_link)])
     rows.extend(_persistent_rows(is_admin))
     return InlineKeyboardMarkup(rows)
 
