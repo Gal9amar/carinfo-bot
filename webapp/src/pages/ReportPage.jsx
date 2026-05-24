@@ -417,6 +417,20 @@ export default function ReportPage({ plate, onBack, user }) {
                 fontWeight: 700, cursor: 'not-allowed',
               }}>חפש ב-Yad2</div>
             )}
+            {/* Facebook Marketplace button — always active */}
+            {(() => {
+              const query = [make, model, year].filter(Boolean).join(' ')
+              if (!query) return null
+              const fbUrl = `https://www.facebook.com/marketplace/search/?query=${encodeURIComponent(query)}&category_id=vehicles`
+              return (
+                <a href={fbUrl} target="_blank" rel="noopener noreferrer" style={{
+                  display: 'block', marginTop: 8, padding: '8px 0',
+                  background: '#1877F2', color: '#fff',
+                  borderRadius: 10, textAlign: 'center', fontSize: 13,
+                  fontWeight: 700, textDecoration: 'none',
+                }}>חפש ב-Facebook Marketplace</a>
+              )
+            })()}
           </div>
         )
       })()}
