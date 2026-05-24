@@ -25,16 +25,17 @@ import {
 import BackButton from '../components/BackButton.jsx'
 
 const TABS = [
-  { id: 'stats',    icon: '📊', label: 'סטטיסטיקות' },
-  { id: 'activity', icon: '🕐', label: 'לוג פעילות' },
-  { id: 'payments', icon: '💳', label: 'תשלומים' },
-  { id: 'codes',    icon: '🔑', label: 'קודים' },
-  { id: 'packages', icon: '⭐', label: 'מנויים' },
-  { id: 'grants',   icon: '🎁', label: 'הטבות מנהל' },
-  { id: 'users',    icon: '👥', label: 'משתמשים' },
-  { id: 'groups',   icon: '👥', label: 'קבוצות' },
-  { id: 'settings', icon: '⚙️', label: 'הגדרות' },
-  { id: 'tickets',  icon: '🎫', label: 'טיקטים' },
+  { id: 'stats',     icon: '📊', label: 'סטטיסטיקות' },
+  { id: 'activity',  icon: '🕐', label: 'לוג פעילות' },
+  { id: 'payments',  icon: '💳', label: 'תשלומים' },
+  { id: 'codes',     icon: '🔑', label: 'קודים' },
+  { id: 'packages',  icon: '⭐', label: 'מנויים' },
+  { id: 'grants',    icon: '🎁', label: 'הטבות מנהל' },
+  { id: 'users',     icon: '👥', label: 'משתמשים' },
+  { id: 'groups',    icon: '👥', label: 'קבוצות' },
+  { id: 'broadcast', icon: '📢', label: 'שידור' },
+  { id: 'settings',  icon: '⚙️', label: 'הגדרות' },
+  { id: 'tickets',   icon: '🎫', label: 'טיקטים' },
 ]
 
 export default function AdminPage({ user, onBack }) {
@@ -68,16 +69,17 @@ export default function AdminPage({ user, onBack }) {
           </button>
         ))}
       </div>
-      {tab === 'stats'    && <StatsTab />}
-      {tab === 'activity' && <ActivityTab />}
-      {tab === 'payments' && <PaymentsTab />}
-      {tab === 'codes'    && <CodesTab />}
-      {tab === 'packages' && <PackagesTab />}
-      {tab === 'grants'   && <AdminGrantsTab />}
-      {tab === 'users'    && <UsersTab />}
-      {tab === 'groups'   && <GroupsTab />}
-      {tab === 'settings' && <SettingsTab />}
-      {tab === 'tickets'  && <TicketsTab />}
+      {tab === 'stats'      && <StatsTab />}
+      {tab === 'activity'   && <ActivityTab />}
+      {tab === 'payments'   && <PaymentsTab />}
+      {tab === 'codes'      && <CodesTab />}
+      {tab === 'packages'   && <PackagesTab />}
+      {tab === 'grants'     && <AdminGrantsTab />}
+      {tab === 'users'      && <UsersTab />}
+      {tab === 'groups'     && <GroupsTab />}
+      {tab === 'broadcast'  && <BroadcastTab />}
+      {tab === 'settings'   && <SettingsTab />}
+      {tab === 'tickets'    && <TicketsTab />}
     </div>
   )
 }
@@ -1616,12 +1618,6 @@ function SettingsTab() {
         </div>
       </div>
 
-      {/* Broadcast */}
-      <div style={{ marginTop: 24 }}>
-        <div className="toggle-label" style={{ marginBottom: 8 }}>📢 שידור הודעה לכל המשתמשים</div>
-        <BroadcastSection />
-      </div>
-
       {/* Yad2 market price feature flag */}
       <div style={{ marginTop: 24, border: '1.5px solid var(--border, rgba(255,255,255,0.12))', borderRadius: 14, padding: 16 }}>
         <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14 }}>💰 מחיר שוק Yad2 — הצגה בדוח</div>
@@ -1721,6 +1717,15 @@ function SettingsTab() {
           {yad2Saving ? '...' : '💾 שמור הגדרות Yad2'}
         </button>
       </div>
+    </div>
+  )
+}
+
+function BroadcastTab() {
+  return (
+    <div>
+      <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 16 }}>📢 שידור הודעה לכל המשתמשים</div>
+      <BroadcastSection />
     </div>
   )
 }
