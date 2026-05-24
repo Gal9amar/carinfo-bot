@@ -28,7 +28,6 @@ const TABS = [
   { id: 'stats',    icon: '📊', label: 'סטטיסטיקות' },
   { id: 'activity', icon: '🕐', label: 'לוג פעילות' },
   { id: 'payments', icon: '💳', label: 'תשלומים' },
-  { id: 'codes',    icon: '🔑', label: 'קודים' },
   { id: 'packages', icon: '⭐', label: 'מנויים' },
   { id: 'grants',   icon: '🎁', label: 'הטבות מנהל' },
   { id: 'users',    icon: '👥', label: 'משתמשים' },
@@ -73,7 +72,6 @@ export default function AdminPage({ user, onBack }) {
       {tab === 'stats'    && <StatsTab />}
       {tab === 'activity' && <ActivityTab />}
       {tab === 'payments' && <PaymentsTab />}
-      {tab === 'codes'    && <CodesTab />}
       {tab === 'packages' && <PackagesTab />}
       {tab === 'grants'   && <AdminGrantsTab />}
       {tab === 'users'     && <UsersTab />}
@@ -515,6 +513,8 @@ function AdminGrantsTab() {
   const [saving, setSaving] = useState(false)
   const [dragIdx, setDragIdx] = useState(null)
   const [reordering, setReordering] = useState(false)
+  const [codesOpen, setCodesOpen] = useState(false)
+  const [giftOpen, setGiftOpen]   = useState(false)
 
   useEffect(() => { adminFetchGrants().then(setGrants).catch(() => {}) }, [])
 
@@ -613,6 +613,31 @@ function AdminGrantsTab() {
       <button className="btn btn-success" onClick={() => { setAdding(true); setForm({ label: '', searches: '' }) }}>
         ➕ הוסף הטבה
       </button>
+
+      {/* Gift all section */}
+      <div style={{ marginTop: 16, borderTop: '1px solid var(--border, rgba(255,255,255,0.1))', paddingTop: 16 }}>
+        <button
+          onClick={() => setGiftOpen(o => !o)}
+          style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 0, color: 'var(--text)' }}
+        >
+          <span style={{ fontSize: 15, fontWeight: 700 }}>🎁 הענק מתנה לכל המשתמשים</span>
+          <span style={{ fontSize: 12, color: 'var(--hint)' }}>{giftOpen ? '▲' : '▼'}</span>
+        </button>
+        {giftOpen && <GiftAllSection onDone={() => setGiftOpen(false)} />}
+      </div>
+
+      {/* Codes section */}
+      <div style={{ marginTop: 16, borderTop: '1px solid var(--border, rgba(255,255,255,0.1))', paddingTop: 16 }}>
+        <button
+          onClick={() => setCodesOpen(o => !o)}
+          style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 0, color: 'var(--text)' }}
+        >
+          <span style={{ fontSize: 15, fontWeight: 700 }}>🔑 קודי הפעלה</span>
+          <span style={{ fontSize: 12, color: 'var(--hint)' }}>{codesOpen ? '▲' : '▼'}</span>
+        </button>
+        {codesOpen && <CodesSection />}
+      </div>
+
       {editing && (
         <AdminGrantModal title="✏️ עריכת הטבה" form={form} setForm={setForm} saving={saving} onSave={saveEdit} onClose={() => setEditing(null)} />
       )}
@@ -701,11 +726,10 @@ function PaymentsTab() {
   )
 }
 
-function CodesTab() {
+function CodesSection() {
   const [codes, setCodes] = useState(null)
   const [form, setForm] = useState({ searches: 50, unlimited: false, single_use: true, monthly: false })
   const [creating, setCreating] = useState(false)
-  const [giftOpen, setGiftOpen] = useState(false)
 
   function load() { adminFetchCodes().then(setCodes).catch(() => {}) }
   useEffect(() => { load() }, [])
@@ -736,19 +760,7 @@ function CodesTab() {
   if (!codes) return <div className="loading"></div>
 
   return (
-    <div>
-      {/* Gift all section */}
-      <div style={{ background: 'var(--card-bg, rgba(255,255,255,0.05))', borderRadius: 12, padding: '12px 14px', marginBottom: 14 }}>
-        <button
-          onClick={() => setGiftOpen(o => !o)}
-          style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'right', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 0, color: 'var(--text)' }}
-        >
-          <span style={{ fontSize: 15, fontWeight: 700 }}>🎁 הענק מתנה לכל המשתמשים</span>
-          <span style={{ fontSize: 12, color: 'var(--hint)' }}>{giftOpen ? '▲' : '▼'}</span>
-        </button>
-        {giftOpen && <GiftAllSection onDone={() => setGiftOpen(false)} />}
-      </div>
-
+    <div style={{ marginTop: 14 }}>
       {/* Create code */}
       <div style={{ background: 'var(--card-bg, rgba(255,255,255,0.05))', borderRadius: 12, padding: '12px 14px', marginBottom: 14 }}>
         <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>➕ צור קוד חדש</div>
