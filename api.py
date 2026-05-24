@@ -931,6 +931,7 @@ class GiftAllBody(BaseModel):
 
 @api.post("/api/admin/gift-all")
 async def admin_gift_all(body: GiftAllBody, _: dict = Depends(_require_admin)):
+    from src.db import execute
     if body.searches < 1:
         raise HTTPException(status_code=400, detail="searches must be >= 1")
     msg = body.message.strip()[:500]
