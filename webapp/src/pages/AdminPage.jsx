@@ -33,7 +33,7 @@ const TABS = [
   { id: 'users',    icon: '👥', label: 'משתמשים' },
   { id: 'groups',   icon: '👥', label: 'קבוצות' },
   { id: 'features', icon: '⭐', label: 'פיצ\'רים' },
-  { id: 'promo',    icon: '🎉', label: 'מבצע' },
+  { id: 'promo',    icon: '🎉', label: 'מבצעי הצטרפות' },
   { id: 'broadcast',icon: '📢', label: 'שידור' },
   { id: 'settings', icon: '⚙️', label: 'הגדרות' },
   { id: 'tickets',  icon: '🎫', label: 'טיקטים' },
