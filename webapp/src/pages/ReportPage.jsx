@@ -420,9 +420,7 @@ export default function ReportPage({ plate, onBack, user }) {
             )}
             {/* Facebook Marketplace button — always active, search in English */}
             {(() => {
-              const COUNTRY_SUFFIXES = [' יפן',' קוריאה',' גרמניה',' צרפת',' איטליה',' שוודיה',' אמריקה',' אנגליה',' בריטניה',' הודו',' סין',' צ\'כיה',' ספרד',' רומניה']
-              const baseMake = COUNTRY_SUFFIXES.reduce((m, s) => m.endsWith(s) ? m.slice(0, -s.length) : m, make.trim())
-              const makeEn  = MAKE_EN[baseMake]  || MAKE_EN[make]  || baseMake
+              const makeEn  = MAKE_EN[make]  || make
               const modelEn = MODEL_EN[model] || model
               const query = [makeEn, modelEn, year].filter(Boolean).join(' ')
               if (!query) return null

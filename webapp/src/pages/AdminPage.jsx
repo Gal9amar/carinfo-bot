@@ -25,17 +25,18 @@ import {
 import BackButton from '../components/BackButton.jsx'
 
 const TABS = [
-  { id: 'stats',     icon: '📊', label: 'סטטיסטיקות' },
-  { id: 'activity',  icon: '🕐', label: 'לוג פעילות' },
-  { id: 'payments',  icon: '💳', label: 'תשלומים' },
-  { id: 'codes',     icon: '🔑', label: 'קודים' },
-  { id: 'packages',  icon: '⭐', label: 'מנויים' },
-  { id: 'grants',    icon: '🎁', label: 'הטבות מנהל' },
-  { id: 'users',     icon: '👥', label: 'משתמשים' },
-  { id: 'groups',    icon: '👥', label: 'קבוצות' },
-  { id: 'broadcast', icon: '📢', label: 'שידור' },
-  { id: 'settings',  icon: '⚙️', label: 'הגדרות' },
-  { id: 'tickets',   icon: '🎫', label: 'טיקטים' },
+  { id: 'stats',    icon: '📊', label: 'סטטיסטיקות' },
+  { id: 'activity', icon: '🕐', label: 'לוג פעילות' },
+  { id: 'payments', icon: '💳', label: 'תשלומים' },
+  { id: 'codes',    icon: '🔑', label: 'קודים' },
+  { id: 'packages', icon: '⭐', label: 'מנויים' },
+  { id: 'grants',   icon: '🎁', label: 'הטבות מנהל' },
+  { id: 'users',    icon: '👥', label: 'משתמשים' },
+  { id: 'groups',   icon: '👥', label: 'קבוצות' },
+  { id: 'promo',    icon: '🎉', label: 'מבצע' },
+  { id: 'broadcast',icon: '📢', label: 'שידור' },
+  { id: 'settings', icon: '⚙️', label: 'הגדרות' },
+  { id: 'tickets',  icon: '🎫', label: 'טיקטים' },
 ]
 
 export default function AdminPage({ user, onBack }) {
@@ -69,17 +70,18 @@ export default function AdminPage({ user, onBack }) {
           </button>
         ))}
       </div>
-      {tab === 'stats'      && <StatsTab />}
-      {tab === 'activity'   && <ActivityTab />}
-      {tab === 'payments'   && <PaymentsTab />}
-      {tab === 'codes'      && <CodesTab />}
-      {tab === 'packages'   && <PackagesTab />}
-      {tab === 'grants'     && <AdminGrantsTab />}
-      {tab === 'users'      && <UsersTab />}
-      {tab === 'groups'     && <GroupsTab />}
-      {tab === 'broadcast'  && <BroadcastTab />}
-      {tab === 'settings'   && <SettingsTab />}
-      {tab === 'tickets'    && <TicketsTab />}
+      {tab === 'stats'    && <StatsTab />}
+      {tab === 'activity' && <ActivityTab />}
+      {tab === 'payments' && <PaymentsTab />}
+      {tab === 'codes'    && <CodesTab />}
+      {tab === 'packages' && <PackagesTab />}
+      {tab === 'grants'   && <AdminGrantsTab />}
+      {tab === 'users'     && <UsersTab />}
+      {tab === 'groups'    && <GroupsTab />}
+      {tab === 'promo'     && <PromoTab />}
+      {tab === 'broadcast' && <BroadcastTab />}
+      {tab === 'settings'  && <SettingsTab />}
+      {tab === 'tickets'   && <TicketsTab />}
     </div>
   )
 }
@@ -1355,30 +1357,237 @@ function SendMessageModal({ user, onClose }) {
   )
 }
 
-function SettingsTab() {
-  const [settings, setSettings]     = useState(null)
-  const [saving, setSaving]         = useState(false)
-  const [freeInput, setFreeInput]   = useState('')
-  const [referralInput, setReferralInput] = useState('')
-
-  // promo state
-  const [promoSearches, setPromoSearches] = useState('0')
-  const [promoUnlimited, setPromoUnlimited] = useState(false)
-  const [promoNoEnd, setPromoNoEnd]         = useState(false)
-  const [promoStart, setPromoStart]         = useState('')
-  const [promoEnd, setPromoEnd]             = useState('')
+function PromoTab() {
+  const [settings, setSettings]               = useState(null)
+  const [saving, setSaving]                   = useState(false)
+  const [promoSearches, setPromoSearches]     = useState('0')
+  const [promoUnlimited, setPromoUnlimited]   = useState(false)
+  const [promoNoEnd, setPromoNoEnd]           = useState(false)
+  const [promoStart, setPromoStart]           = useState('')
+  const [promoEnd, setPromoEnd]               = useState('')
+  const [promoDurationDays, setPromoDurationDays] = useState('30')
+  const [promoIsSubscriber, setPromoIsSubscriber] = useState(false)
+  const [promoLabel, setPromoLabel]           = useState('')
+  const [promoPackages, setPromoPackages]     = useState(null)
 
   useEffect(() => {
+    adminFetchPackages().then(setPromoPackages).catch(() => setPromoPackages([]))
     adminFetchSettings().then(s => {
       setSettings(s)
-      setFreeInput(String(s.free_searches ?? 10))
-      setReferralInput(String(s.referral_bonus ?? 10))
       const ps = s.promo_searches ?? 0
       setPromoUnlimited(ps === -1)
       setPromoSearches(ps === -1 ? '' : String(ps))
       setPromoStart(s.promo_start || '')
       setPromoEnd(s.promo_end || '')
       setPromoNoEnd(!s.promo_end)
+      setPromoDurationDays(String(s.promo_duration_days ?? 30))
+      setPromoIsSubscriber(!!s.promo_is_subscriber)
+      setPromoLabel(s.promo_label || '')
+    }).catch(() => {})
+  }, [])
+
+  async function savePromo() {
+    setSaving(true)
+    try {
+      const ps  = promoUnlimited ? -1 : (parseInt(promoSearches) || 0)
+      const dur = parseInt(promoDurationDays) || 0
+      await adminUpdateSettings({
+        promo_searches:      ps,
+        promo_start:         promoStart,
+        promo_end:           promoNoEnd ? '' : promoEnd,
+        promo_duration_days: dur,
+        promo_is_subscriber: promoIsSubscriber,
+        promo_label:         promoLabel,
+      })
+      setSettings(s => ({
+        ...s,
+        promo_searches: ps, promo_start: promoStart,
+        promo_end: promoNoEnd ? '' : promoEnd,
+        promo_duration_days: dur,
+        promo_is_subscriber: promoIsSubscriber,
+        promo_label: promoLabel,
+      }))
+      window.Telegram?.WebApp?.showAlert('✅ מבצע עודכן')
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    setSaving(false)
+  }
+
+  async function clearPromo() {
+    setSaving(true)
+    try {
+      await adminUpdateSettings({
+        promo_searches: 0, promo_start: '', promo_end: '',
+        promo_duration_days: 30, promo_is_subscriber: false, promo_label: '',
+      })
+      setSettings(s => ({ ...s, promo_searches: 0, promo_start: '', promo_end: '', promo_duration_days: 30, promo_is_subscriber: false, promo_label: '' }))
+      setPromoSearches('0'); setPromoUnlimited(false); setPromoStart(''); setPromoEnd('')
+      setPromoNoEnd(false); setPromoDurationDays('30'); setPromoIsSubscriber(false); setPromoLabel('')
+      window.Telegram?.WebApp?.showAlert('✅ המבצע בוטל')
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    setSaving(false)
+  }
+
+  function promoStatus() {
+    if (!settings) return null
+    const ps = settings.promo_searches ?? 0
+    if (ps === 0) return null
+    const today = new Date().toISOString().slice(0, 10)
+    const start = settings.promo_start || ''
+    const end   = settings.promo_end   || ''
+    const startOk = !start || today >= start
+    const endOk   = !end   || today <= end
+    if (startOk && endOk) return 'active'
+    if (start && today < start) return 'upcoming'
+    return 'expired'
+  }
+
+  if (!settings) return <div className="loading"></div>
+
+  const STATUS_COLORS = { active: '#38a169', upcoming: '#d69e2e', expired: '#e53e3e' }
+  const STATUS_LABELS = { active: '🟢 פעיל כעת', upcoming: '🟡 טרם התחיל', expired: '🔴 הסתיים' }
+  const pStatus = promoStatus()
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+        <div style={{ fontWeight: 700, fontSize: 17 }}>🎉 מבצע הצטרפות</div>
+        {pStatus && (
+          <span style={{ fontSize: 13, fontWeight: 600, color: STATUS_COLORS[pStatus] }}>
+            {STATUS_LABELS[pStatus]}
+          </span>
+        )}
+      </div>
+
+      {/* Benefit selector */}
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8 }}>הטבה למצטרף חדש במבצע</div>
+
+        {promoPackages && promoPackages.length > 0 && (
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 6 }}>בחר חבילה קיימת:</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {promoPackages.map(pkg => {
+                const isMatch = pkg.searches === -1
+                  ? promoUnlimited
+                  : (!promoUnlimited && String(pkg.searches) === promoSearches)
+                return (
+                  <button
+                    key={pkg.id}
+                    onClick={() => {
+                      if (pkg.searches === -1) { setPromoUnlimited(true); setPromoSearches('') }
+                      else { setPromoUnlimited(false); setPromoSearches(String(pkg.searches)) }
+                      setPromoLabel(pkg.label || '')
+                    }}
+                    style={{
+                      padding: '5px 10px', borderRadius: 8, fontSize: 12,
+                      border: isMatch ? '1.5px solid var(--btn)' : '1px solid var(--border, rgba(255,255,255,0.15))',
+                      background: isMatch ? 'var(--btn)' : 'var(--bg2)',
+                      color: isMatch ? 'var(--btn-text)' : 'var(--text)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {pkg.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 6 }}>או בחר הטבת מנהל:</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+          {[
+            { label: '♾️ ללא הגבלה לצמיתות', searches: -2 },
+            { label: '📅 מנוי חודשי (30 יום)', searches: -1 },
+          ].map(opt => (
+            <button
+              key={opt.searches}
+              onClick={() => { setPromoUnlimited(true); setPromoSearches(''); setPromoLabel(opt.label) }}
+              style={{
+                padding: '5px 10px', borderRadius: 8, fontSize: 12,
+                border: (promoUnlimited && promoLabel === opt.label)
+                  ? '1.5px solid var(--btn)' : '1px solid var(--border, rgba(255,255,255,0.15))',
+                background: (promoUnlimited && promoLabel === opt.label) ? 'var(--btn)' : 'var(--bg2)',
+                color: (promoUnlimited && promoLabel === opt.label) ? 'var(--btn-text)' : 'var(--text)',
+                cursor: 'pointer',
+              }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 14 }}>
+          <input type="checkbox" checked={promoUnlimited} onChange={e => setPromoUnlimited(e.target.checked)} style={{ width: 16, height: 16 }} />
+          ללא הגבלת כמות חיפושים
+        </label>
+        {!promoUnlimited && (
+          <input className="input" type="number" min="0" placeholder="0 = בטל מבצע" value={promoSearches} onChange={e => setPromoSearches(e.target.value)} style={{ marginBottom: 8 }} />
+        )}
+      </div>
+
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, fontSize: 14, cursor: 'pointer' }}>
+        <input type="checkbox" checked={promoIsSubscriber} onChange={e => setPromoIsSubscriber(e.target.checked)} style={{ width: 16, height: 16 }} />
+        <span>הוסף לקבוצת <b>מנויים</b> (מנוי פעיל)</span>
+      </label>
+
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 6 }}>תוקף ההטבה מיום ההצטרפות (ימים, 0 = ללא תפוגה)</div>
+        <input className="input" type="number" min="0" placeholder="30" value={promoDurationDays} onChange={e => setPromoDurationDays(e.target.value)} style={{ marginBottom: 0 }} />
+      </div>
+
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 6 }}>תיאור ההטבה להודעת ברוכים הבאים</div>
+        <input className="input" type="text" placeholder='לדוגמה: ♾️ מנוי חודשי ללא הגבלה' value={promoLabel} onChange={e => setPromoLabel(e.target.value)} style={{ marginBottom: 0 }} />
+      </div>
+
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 6 }}>תאריך תחילת המבצע</div>
+        <input className="input" type="date" value={promoStart} onChange={e => setPromoStart(e.target.value)} style={{ marginBottom: 0 }} />
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 6 }}>תאריך סיום המבצע</div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 14 }}>
+          <input type="checkbox" checked={promoNoEnd} onChange={e => setPromoNoEnd(e.target.checked)} style={{ width: 16, height: 16 }} />
+          ללא תאריך סיום
+        </label>
+        {!promoNoEnd && (
+          <input className="input" type="date" value={promoEnd} onChange={e => setPromoEnd(e.target.value)} style={{ marginBottom: 0 }} />
+        )}
+      </div>
+
+      <div style={{ background: 'var(--bg2)', borderRadius: 10, padding: '10px 12px', fontSize: 12, color: 'var(--hint)', marginBottom: 14, lineHeight: 1.5 }}>
+        כל מי שיצטרף בתקופת המבצע יקבל את ההטבה שהוגדרה למעלה.
+        תוקף ההטבה מתחיל ביום ההצטרפות של כל משתמש בנפרד.
+        ביום האחרון של ההטבה המשתמש יקבל הודעת תזכורת.
+      </div>
+
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button className="btn btn-success" style={{ flex: 1, marginTop: 0 }} disabled={saving} onClick={savePromo}>
+          {saving ? '...' : '💾 שמור מבצע'}
+        </button>
+        {(settings.promo_searches ?? 0) !== 0 && (
+          <button className="btn" style={{ flex: 1, marginTop: 0, background: 'var(--btn-danger, #e53e3e)', color: '#fff' }} disabled={saving} onClick={clearPromo}>
+            🗑️ בטל מבצע
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function SettingsTab() {
+  const [settings, setSettings]     = useState(null)
+  const [saving, setSaving]         = useState(false)
+  const [freeInput, setFreeInput]   = useState('')
+  const [referralInput, setReferralInput] = useState('')
+
+  useEffect(() => {
+    adminFetchSettings().then(s => {
+      setSettings(s)
+      setFreeInput(String(s.free_searches ?? 10))
+      setReferralInput(String(s.referral_bonus ?? 10))
     }).catch(() => {})
   }, [])
 
@@ -1408,32 +1617,6 @@ function SettingsTab() {
       await adminUpdateSettings({ referral_bonus: parseInt(referralInput) })
       setSettings(s => ({ ...s, referral_bonus: parseInt(referralInput) }))
       window.Telegram?.WebApp?.showAlert('✅ עודכן')
-    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
-    setSaving(false)
-  }
-
-  async function savePromo() {
-    setSaving(true)
-    try {
-      const ps = promoUnlimited ? -1 : (parseInt(promoSearches) || 0)
-      await adminUpdateSettings({
-        promo_searches: ps,
-        promo_start:    promoStart,
-        promo_end:      promoNoEnd ? '' : promoEnd,
-      })
-      setSettings(s => ({ ...s, promo_searches: ps, promo_start: promoStart, promo_end: promoNoEnd ? '' : promoEnd }))
-      window.Telegram?.WebApp?.showAlert('✅ מבצע עודכן')
-    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
-    setSaving(false)
-  }
-
-  async function clearPromo() {
-    setSaving(true)
-    try {
-      await adminUpdateSettings({ promo_searches: 0, promo_start: '', promo_end: '' })
-      setSettings(s => ({ ...s, promo_searches: 0, promo_start: '', promo_end: '' }))
-      setPromoSearches('0'); setPromoUnlimited(false); setPromoStart(''); setPromoEnd(''); setPromoNoEnd(false)
-      window.Telegram?.WebApp?.showAlert('✅ המבצע בוטל')
     } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
     setSaving(false)
   }
@@ -1483,26 +1666,7 @@ function SettingsTab() {
     setYad2Groups(prev => prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id])
   }
 
-  // Is the promo currently active?
-  function promoStatus() {
-    if (!settings) return null
-    const ps = settings.promo_searches ?? 0
-    if (ps === 0) return null
-    const today = new Date().toISOString().slice(0, 10)
-    const start = settings.promo_start || ''
-    const end   = settings.promo_end   || ''
-    const startOk = !start || today >= start
-    const endOk   = !end   || today <= end
-    if (startOk && endOk) return 'active'
-    if (start && today < start) return 'upcoming'
-    return 'expired'
-  }
-
   if (!settings) return <div className="loading"></div>
-
-  const STATUS_COLORS = { active: '#38a169', upcoming: '#d69e2e', expired: '#e53e3e' }
-  const STATUS_LABELS = { active: '🟢 פעיל כעת', upcoming: '🟡 טרם התחיל', expired: '🔴 הסתיים' }
-  const pStatus = promoStatus()
 
   return (
     <div>
@@ -1530,93 +1694,6 @@ function SettingsTab() {
         <button className="btn" disabled={saving} onClick={saveReferral}>{saving ? '...' : 'שמור'}</button>
       </div>
 
-      {/* Join promotion */}
-      <div style={{ marginTop: 24, border: '1.5px solid var(--border, rgba(255,255,255,0.12))', borderRadius: 14, padding: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>🎉 מבצע הצטרפות</div>
-          {pStatus && (
-            <span style={{ fontSize: 12, fontWeight: 600, color: STATUS_COLORS[pStatus] }}>
-              {STATUS_LABELS[pStatus]}
-            </span>
-          )}
-        </div>
-
-        {/* Promo searches */}
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 6 }}>חיפושים שיקבל מצטרף חדש במבצע</div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 14 }}>
-            <input
-              type="checkbox"
-              checked={promoUnlimited}
-              onChange={e => setPromoUnlimited(e.target.checked)}
-              style={{ width: 16, height: 16 }}
-            />
-            ללא הגבלה (גישה מלאה)
-          </label>
-          {!promoUnlimited && (
-            <input
-              className="input"
-              type="number"
-              min="0"
-              placeholder="0 = בטל מבצע"
-              value={promoSearches}
-              onChange={e => setPromoSearches(e.target.value)}
-              style={{ marginBottom: 0 }}
-            />
-          )}
-        </div>
-
-        {/* Date range */}
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 6 }}>תאריך תחילת המבצע</div>
-          <input
-            className="input"
-            type="date"
-            value={promoStart}
-            onChange={e => setPromoStart(e.target.value)}
-            style={{ marginBottom: 0 }}
-          />
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 6 }}>תאריך סיום המבצע</div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 14 }}>
-            <input
-              type="checkbox"
-              checked={promoNoEnd}
-              onChange={e => setPromoNoEnd(e.target.checked)}
-              style={{ width: 16, height: 16 }}
-            />
-            ללא תאריך סיום
-          </label>
-          {!promoNoEnd && (
-            <input
-              className="input"
-              type="date"
-              value={promoEnd}
-              onChange={e => setPromoEnd(e.target.value)}
-              style={{ marginBottom: 0 }}
-            />
-          )}
-        </div>
-
-        {/* Info note */}
-        <div style={{ background: 'var(--bg2)', borderRadius: 10, padding: '10px 12px', fontSize: 12, color: 'var(--hint)', marginBottom: 14, lineHeight: 1.5 }}>
-          כל מי שיצטרף בתקופת המבצע יקבל את כמות חיפושי המבצע במקום {settings.free_searches ?? 10} הרגילים.
-          בסיום התקופה המערכת חוזרת אוטומטית לברירת המחדל.
-        </div>
-
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-success" style={{ flex: 1, marginTop: 0 }} disabled={saving} onClick={savePromo}>
-            {saving ? '...' : '💾 שמור מבצע'}
-          </button>
-          {(settings.promo_searches ?? 0) !== 0 && (
-            <button className="btn" style={{ flex: 1, marginTop: 0, background: 'var(--btn-danger, #e53e3e)', color: '#fff' }} disabled={saving} onClick={clearPromo}>
-              🗑️ בטל מבצע
-            </button>
-          )}
-        </div>
-      </div>
 
       {/* Yad2 market price feature flag */}
       <div style={{ marginTop: 24, border: '1.5px solid var(--border, rgba(255,255,255,0.12))', borderRadius: 14, padding: 16 }}>
@@ -1721,44 +1798,9 @@ function SettingsTab() {
   )
 }
 
-function BroadcastTab() {
-  return (
-    <div>
-      <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 16 }}>📢 שידור הודעה לכל המשתמשים</div>
-      <BroadcastSection />
-    </div>
-  )
-}
-
 function BroadcastSection() {
   const [msg, setMsg] = useState('')
-  const [imageb64, setImageb64] = useState('')
-  const [compressing, setCompressing] = useState(false)
   const [sending, setSending] = useState(false)
-  const fileRef = useRef(null)
-
-  function handleFile(e) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setCompressing(true)
-    const reader = new FileReader()
-    reader.onload = ev => {
-      const img = new Image()
-      img.onload = () => {
-        const MAX = 800
-        const ratio = Math.min(MAX / img.width, MAX / img.height, 1)
-        const canvas = document.createElement('canvas')
-        canvas.width  = Math.round(img.width  * ratio)
-        canvas.height = Math.round(img.height * ratio)
-        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
-        setImageb64(canvas.toDataURL('image/jpeg', 0.82))
-        setCompressing(false)
-      }
-      img.src = ev.target.result
-    }
-    reader.readAsDataURL(file)
-    e.target.value = ''
-  }
 
   async function send() {
     if (!msg.trim()) return
@@ -1766,10 +1808,9 @@ function BroadcastSection() {
       if (!ok) return
       setSending(true)
       try {
-        const res = await adminBroadcast(msg.trim(), imageb64)
+        const res = await adminBroadcast(msg.trim())
         window.Telegram?.WebApp?.showAlert(`✅ נשלח ל-${res.sent} משתמשים${res.failed ? `, נכשל: ${res.failed}` : ''}`)
         setMsg('')
-        setImageb64('')
       } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
       setSending(false)
     })
@@ -1783,28 +1824,8 @@ function BroadcastSection() {
         placeholder="כתוב הודעה לכל המשתמשים..."
         value={msg}
         onChange={e => setMsg(e.target.value)}
-        style={{ resize: 'vertical', marginBottom: 10 }}
+        style={{ resize: 'vertical' }}
       />
-      <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8 }}>תמונה מצורפת (אופציונלי):</div>
-      {imageb64 ? (
-        <div style={{ position: 'relative', marginBottom: 10 }}>
-          <img src={imageb64} alt="תצוגה מקדימה"
-            style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 10, display: 'block' }} />
-          <button onClick={() => setImageb64('')} style={{
-            position: 'absolute', top: 6, left: 6,
-            background: 'rgba(0,0,0,0.6)', color: '#fff',
-            border: 'none', borderRadius: '50%', width: 28, height: 28,
-            fontSize: 14, cursor: 'pointer', lineHeight: 1,
-          }}>✕</button>
-        </div>
-      ) : (
-        <button type="button" className="btn btn-secondary"
-          style={{ marginTop: 0, marginBottom: 10, fontSize: 13 }}
-          disabled={compressing} onClick={() => fileRef.current?.click()}>
-          {compressing ? '⏳ מכווץ...' : '📷 הוסף תמונה'}
-        </button>
-      )}
-      <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
       <button className="btn" disabled={sending || !msg.trim()} onClick={send}>
         {sending ? '⏳ שולח...' : '📢 שלח לכולם'}
       </button>

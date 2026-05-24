@@ -9,10 +9,13 @@ from typing import Optional
 
 from src.db import execute
 
-FREE_SEARCHES   = 10   # base welcome quota (loaded from DB at startup)
-PROMO_SEARCHES  = 0    # 0 = inactive, -1 = unlimited, >0 = specific count
-PROMO_START     = ''   # 'YYYY-MM-DD' or '' (no restriction)
-PROMO_END       = ''   # 'YYYY-MM-DD' or '' (no expiry)
+FREE_SEARCHES       = 10   # base welcome quota (loaded from DB at startup)
+PROMO_SEARCHES      = 0    # 0 = inactive, -1 = unlimited, >0 = specific count
+PROMO_START         = ''   # 'YYYY-MM-DD' or '' (no restriction)
+PROMO_END           = ''   # 'YYYY-MM-DD' or '' (no expiry)
+PROMO_DURATION_DAYS = 30   # days from join date (0 = no expiry)
+PROMO_IS_SUBSCRIBER = False
+PROMO_LABEL         = ''   # display label for welcome message
 
 _SUBSCRIBERS_GROUP = "מנויים"
 
@@ -45,21 +48,50 @@ async def remove_from_subscribers(user_id: int) -> None:
         )
 
 
+def is_promo_active() -> bool:
+    """Returns True if the join promo is currently active."""
+    if PROMO_SEARCHES == 0:
+        return False
+    from datetime import date
+    today = date.today().isoformat()
+    start_ok = (not PROMO_START) or (today >= PROMO_START)
+    end_ok   = (not PROMO_END)   or (today <= PROMO_END)
+    return start_ok and end_ok
+
+
 def get_current_welcome_quota() -> int:
     """Returns the quota a new user should receive right now."""
-    from datetime import date
-    if PROMO_SEARCHES != 0:
-        today = date.today().isoformat()
-        start_ok = (not PROMO_START) or (today >= PROMO_START)
-        end_ok   = (not PROMO_END)   or (today <= PROMO_END)
-        if start_ok and end_ok:
-            return PROMO_SEARCHES
+    if is_promo_active():
+        return PROMO_SEARCHES
     return FREE_SEARCHES
+
+
+def get_promo_welcome_info() -> dict | None:
+    """Returns promo info dict for welcome message, or None if no active promo."""
+    if not is_promo_active():
+        return None
+    expires_str = None
+    if PROMO_DURATION_DAYS > 0:
+        from datetime import date, timedelta
+        exp = date.today() + timedelta(days=PROMO_DURATION_DAYS)
+        expires_str = exp.strftime("%d/%m/%Y")
+    searches = PROMO_SEARCHES
+    label = PROMO_LABEL or (
+        "גישה ללא הגבלה" if searches == -1 else f"{searches} חיפושים"
+    )
+    return {
+        "label": label,
+        "searches": searches,
+        "duration_days": PROMO_DURATION_DAYS,
+        "expires_str": expires_str,
+        "is_subscriber": PROMO_IS_SUBSCRIBER,
+    }
 
 
 async def load_welcome_settings() -> None:
     """Load welcome/promo settings from DB into module-level vars."""
     global FREE_SEARCHES, PROMO_SEARCHES, PROMO_START, PROMO_END
+    global PROMO_DURATION_DAYS, PROMO_IS_SUBSCRIBER, PROMO_LABEL
     from src.db import get_bot_setting
     try:
         fs = await get_bot_setting("free_searches")
@@ -69,6 +101,11 @@ async def load_welcome_settings() -> None:
         PROMO_SEARCHES = int(ps) if ps else 0
         PROMO_START = (await get_bot_setting("promo_start")) or ''
         PROMO_END   = (await get_bot_setting("promo_end"))   or ''
+        pd = await get_bot_setting("promo_duration_days")
+        PROMO_DURATION_DAYS = int(pd) if pd else 30
+        pi = await get_bot_setting("promo_is_subscriber")
+        PROMO_IS_SUBSCRIBER = pi == "1"
+        PROMO_LABEL = (await get_bot_setting("promo_label")) or ''
     except Exception:
         pass
 
@@ -88,16 +125,28 @@ def _rows(result) -> list[dict]:
 
 
 async def _ensure_user(user_id: int, username: str = "", full_name: str = "") -> None:
+    exists = await execute("SELECT 1 FROM users WHERE user_id=?", [user_id])
+    is_new = not bool(exists.rows)
+
+    if is_new:
+        quota = get_current_welcome_quota()
+        expires = None
+        if is_promo_active() and PROMO_SEARCHES != 0 and PROMO_DURATION_DAYS > 0:
+            expires = (datetime.now() + timedelta(days=PROMO_DURATION_DAYS)).isoformat()
+        await execute(
+            "INSERT OR IGNORE INTO users (user_id, username, full_name, searches_quota, quota_expires) VALUES (?, ?, ?, ?, ?)",
+            [user_id, username, full_name, quota, expires],
+        )
+        if is_promo_active() and PROMO_IS_SUBSCRIBER:
+            await add_to_subscribers(user_id)
+
     await execute(
-        """
-        INSERT INTO users (user_id, username, full_name, searches_quota)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(user_id) DO UPDATE SET
-            username  = CASE WHEN excluded.username  != '' THEN excluded.username  ELSE users.username  END,
-            full_name = CASE WHEN excluded.full_name != '' THEN excluded.full_name ELSE users.full_name END,
+        """UPDATE users SET
+            username  = CASE WHEN ? != '' THEN ? ELSE username  END,
+            full_name = CASE WHEN ? != '' THEN ? ELSE full_name END,
             last_seen = datetime('now')
-        """,
-        [user_id, username, full_name, get_current_welcome_quota()],
+           WHERE user_id=?""",
+        [username, username, full_name, full_name, user_id],
     )
 
 
@@ -543,3 +592,12 @@ async def admin_stats() -> dict:
         "tickets_open":     _row(tickets_open_r)["c"],
         "top_users":        top_users,
     }
+
+
+async def get_users_expiring_today() -> list[int]:
+    """Returns user_ids whose promo expires today (for last-day notification)."""
+    r = await execute(
+        "SELECT user_id FROM users WHERE date(quota_expires) = date('now') AND searches_quota = -1",
+        [],
+    )
+    return [row[0] for row in r.rows]

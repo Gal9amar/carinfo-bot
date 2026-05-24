@@ -31,7 +31,7 @@ from src.users import (
     block_user, unblock_user, is_blocked,
     get_last_plate, set_last_plate, get_search_history,
     check_new_user, record_referral, get_referral_count, get_referrals,
-    load_welcome_settings,
+    load_welcome_settings, get_promo_welcome_info, get_users_expiring_today,
 )
 from src.formatter import (
     format_error,
@@ -281,6 +281,31 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await _log("new_user", f"משתמש חדש: {uname} ({user.full_name or ''})", user_id, uname)
         except Exception:
             pass
+
+    if is_new:
+        from src.users import get_promo_welcome_info
+        promo_info = get_promo_welcome_info()
+        if promo_info:
+            try:
+                from telegram.helpers import escape_markdown as _esc
+                label_esc    = _esc(promo_info['label'], version=2)
+                duration     = promo_info['duration_days']
+                expires_str  = promo_info.get('expires_str', '')
+                if duration and duration > 0:
+                    duration_text = f"לתקופה של {duration} ימים"
+                else:
+                    duration_text = "ללא הגבלת זמן"
+                expires_text = f" \\(עד {_esc(expires_str, version=2)}\\)" if expires_str else ""
+                await context.bot.send_message(
+                    user_id,
+                    f"🎉 *ברוכים הבאים למבצע ההצטרפות\\!*\n\n"
+                    f"בהתאם למבצע הצטרפות הפעיל — מגיע לך:\n"
+                    f"✨ *{label_esc}*\n"
+                    f"⏱ {duration_text}{expires_text}",
+                    parse_mode=ParseMode.MARKDOWN_V2,
+                )
+            except Exception as e:
+                logger.warning("Failed to send promo welcome: %s", e)
 
     if not is_new and referrer_id:
         try:
@@ -2265,6 +2290,32 @@ def main() -> None:
         handle_admin_message,
     ))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_plate))
+
+    async def _daily_expiry_notify(context):
+        from src.users import get_users_expiring_today
+        try:
+            user_ids = await get_users_expiring_today()
+            for uid in user_ids:
+                try:
+                    await context.bot.send_message(
+                        uid,
+                        "⏰ *תזכורת: ההטבה שלך פגה היום\\!*\n\n"
+                        "ההטבה שקיבלת בהצטרפות תפוג היום\\. "
+                        "כדי להמשיך ליהנות מהשירות, ניתן לרכוש חבילת חיפושים\\.",
+                        parse_mode=ParseMode.MARKDOWN_V2,
+                    )
+                except Exception:
+                    pass
+        except Exception as e:
+            logger.warning("Daily expiry job error: %s", e)
+
+    if app.job_queue:
+        import datetime as _dt
+        app.job_queue.run_daily(
+            _daily_expiry_notify,
+            time=_dt.time(hour=9, minute=0, tzinfo=_dt.timezone.utc),
+            name="daily_expiry_notify",
+        )
 
     logger.info("Bot is starting (polling mode)...")
     app.run_polling(drop_pending_updates=True)
