@@ -158,6 +158,8 @@ async def init_db() -> None:
 )""",
     ]
     migrations.append("ALTER TABLE pending_payments ADD COLUMN paypal_order_id TEXT DEFAULT ''")
+    migrations.append("ALTER TABLE pending_payments ADD COLUMN duration_months INTEGER DEFAULT 1")
+    migrations.append("ALTER TABLE paypal_transactions ADD COLUMN duration_months INTEGER DEFAULT 1")
     migrations.append("""CREATE TABLE IF NOT EXISTS paypal_transactions (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     ref             TEXT NOT NULL,
