@@ -926,20 +926,19 @@ def generate_pdf(
 
     # ── Personal Notes ─────────────────────────────────────────────────────────
     if notes and notes.strip():
-        s_notes_title = sty("notes_h", size=11, bold=True,  color=navy,      align=TA_RTL)
-        s_notes_body  = sty("notes_b", size=10, bold=False, color=text_body,  align=TA_RTL, leading=16)
+        s_notes_body = sty("notes_b", size=10, bold=False, color=text_body, align=TA_RTL, leading=16)
+        note_bg = colors.HexColor("#f4f0ff")
         notes_tbl = _tbl(
             [[Paragraph(_b(line), s_notes_body)] for line in notes.strip().splitlines() if line.strip()],
             [_USABLE_W],
             [
-                ("BACKGROUND",    (0, 0), (-1, -1), HexColor("#f8f4ff")),
+                ("BACKGROUND",    (0, 0), (-1, -1), note_bg),
                 ("LEFTPADDING",   (0, 0), (-1, -1), 10),
                 ("RIGHTPADDING",  (0, 0), (-1, -1), 10),
                 ("TOPPADDING",    (0, 0), (-1, 0),  8),
                 ("BOTTOMPADDING", (0, -1),(-1, -1), 8),
                 ("TOPPADDING",    (0, 1), (-1, -1), 3),
                 ("BOTTOMPADDING", (0, 0), (-1, -2), 3),
-                ("ROUNDEDCORNERS", [6, 6, 6, 6]),
             ],
         )
         story.extend(_section([

@@ -545,7 +545,10 @@ async def get_vehicle_pdf(plate: str, user: dict = Depends(_get_user)):
 
     from src.pdf_report import generate_pdf
     from src.db import get_vehicle_note as _get_note
-    note = await _get_note(user_id, plate)
+    try:
+        note = await _get_note(user_id, plate)
+    except Exception:
+        note = ""
     pdf_bytes = await _asyncio.to_thread(
         generate_pdf, record,
         tg_link=f"t.me/{BOT_USERNAME}",
