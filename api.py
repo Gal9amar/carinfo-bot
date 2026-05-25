@@ -200,11 +200,6 @@ async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_u
     # Generate custom order ID: {member_id}-{5-digit-sequence}
     from src.db import set_bot_setting, get_bot_setting, execute as _dbexec
     uid = int(user["id"])
-    # Clean up stale pending orders for this user (older than 2 hours)
-    await execute(
-        "DELETE FROM pending_payments WHERE phone=? AND created_at < datetime('now', '-2 hours')",
-        [str(uid)],
-    )
     mid_r = await _dbexec("SELECT member_id FROM users WHERE user_id=?", [uid])
     member_id = mid_r.rows[0][0] if mid_r.rows and mid_r.rows[0][0] else uid
     seq_str = await get_bot_setting("order_sequence")
