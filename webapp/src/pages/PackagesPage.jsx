@@ -165,10 +165,10 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
             <div style={{ padding: '12px 16px', fontSize: 13, color: 'var(--hint)', lineHeight: 1.9 }}>
               <div>✅ נתוני רכב בסיסיים — שנה, דגם, בעלות, טסט, ק״מ</div>
               <div>✅ היסטוריית חיפושים אישית</div>
-              <div style={{ color: 'rgba(255,255,255,0.28)', marginTop: 6 }}>✗ מחיר שוק Yad2</div>
-              <div style={{ color: 'rgba(255,255,255,0.28)' }}>✗ הורדת דוח PDF מפורט</div>
-              <div style={{ color: 'rgba(255,255,255,0.28)' }}>✗ העתקת דוח לשיתוף</div>
-              <div style={{ color: 'rgba(255,255,255,0.28)' }}>✗ הערות אישיות לכל רכב</div>
+              <div style={{ marginTop: 6 }}><span style={{ color: '#e53e3e' }}>✗</span> מחיר שוק Yad2</div>
+              <div><span style={{ color: '#e53e3e' }}>✗</span> הורדת דוח PDF מפורט</div>
+              <div><span style={{ color: '#e53e3e' }}>✗</span> העתקת דוח לשיתוף</div>
+              <div><span style={{ color: '#e53e3e' }}>✗</span> הערות אישיות לכל רכב</div>
             </div>
 
             {/* CTA */}
