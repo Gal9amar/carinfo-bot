@@ -43,7 +43,6 @@ async def create_order(amount: str, currency: str, custom_id: str, description: 
                 "application_context": {
                     "brand_name": "CarInfo",
                     "user_action": "PAY_NOW",
-                    "landing_page": "GUEST_CHECKOUT",
                     "return_url": f"{webapp_url}/",
                     "cancel_url": f"{webapp_url}/",
                 },
