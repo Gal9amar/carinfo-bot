@@ -28,7 +28,7 @@ import BackButton from '../components/BackButton.jsx'
 const TABS = [
   { id: 'stats',    icon: '📊', label: 'סטטיסטיקות' },
   { id: 'activity', icon: '🕐', label: 'לוג פעילות' },
-  { id: 'payments', icon: '💳', label: 'תשלומים' },
+  { id: 'payments', icon: '💳', label: 'הזמנות' },
   { id: 'packages', icon: '⭐', label: 'מנויים' },
   { id: 'grants',   icon: '🎁', label: 'הטבות מנהל' },
   { id: 'users',    icon: '👥', label: 'משתמשים' },
