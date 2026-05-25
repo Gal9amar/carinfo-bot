@@ -1071,6 +1071,7 @@ function UsersTab() {
             {/* Info */}
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                {u.member_id && <span style={{ fontSize: 10, color: 'var(--hint)', fontFamily: 'monospace', flexShrink: 0 }}>#{u.member_id}</span>}
                 <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{name}</span>
                 <span style={{
                   fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 20,

@@ -133,9 +133,11 @@ async def _ensure_user(user_id: int, username: str = "", full_name: str = "") ->
         expires = None
         if is_promo_active() and PROMO_SEARCHES != 0 and PROMO_DURATION_DAYS > 0:
             expires = (datetime.now() + timedelta(days=PROMO_DURATION_DAYS)).isoformat()
+        mid_r = await execute("SELECT COALESCE(MAX(member_id), 0) + 1 FROM users")
+        next_member_id = mid_r.rows[0][0] if mid_r.rows else 1
         await execute(
-            "INSERT OR IGNORE INTO users (user_id, username, full_name, searches_quota, quota_expires) VALUES (?, ?, ?, ?, ?)",
-            [user_id, username, full_name, quota, expires],
+            "INSERT OR IGNORE INTO users (user_id, username, full_name, searches_quota, quota_expires, member_id) VALUES (?, ?, ?, ?, ?, ?)",
+            [user_id, username, full_name, quota, expires, next_member_id],
         )
         if is_promo_active() and PROMO_IS_SUBSCRIBER:
             await add_to_subscribers(user_id)
@@ -435,7 +437,7 @@ async def get_referrals(referrer_id: int) -> list[dict]:
 async def get_all_users() -> list[dict]:
     r = await execute(
         "SELECT u.user_id, u.username, u.full_name, u.searches_done, u.searches_quota, "
-        "u.first_seen, u.last_seen, u.blocked, u.channel, u.quota_expires, "
+        "u.first_seen, u.last_seen, u.blocked, u.channel, u.quota_expires, u.member_id, "
         "CASE WHEN ugm.user_id IS NOT NULL THEN 1 ELSE 0 END as is_subscriber "
         "FROM users u "
         "LEFT JOIN user_group_members ugm ON ugm.user_id = u.user_id "

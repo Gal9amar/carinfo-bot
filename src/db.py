@@ -157,6 +157,7 @@ async def init_db() -> None:
     sent_at   TEXT    DEFAULT (datetime('now'))
 )""",
     ]
+    migrations.append("ALTER TABLE users ADD COLUMN member_id INTEGER DEFAULT NULL")
     migrations.append("ALTER TABLE pending_payments ADD COLUMN paypal_order_id TEXT DEFAULT ''")
     migrations.append("ALTER TABLE pending_payments ADD COLUMN duration_months INTEGER DEFAULT 1")
     migrations.append("ALTER TABLE paypal_transactions ADD COLUMN duration_months INTEGER DEFAULT 1")
@@ -221,6 +222,18 @@ async def init_db() -> None:
     conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('yad2_market_public_label', '')")
     conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('order_sequence', '0')")
     conn.commit()
+
+    # Backfill member_id for existing users that don't have one yet
+    rows = conn.execute(
+        "SELECT user_id FROM users WHERE member_id IS NULL ORDER BY first_seen ASC, user_id ASC"
+    ).fetchall()
+    if rows:
+        max_row = conn.execute("SELECT COALESCE(MAX(member_id), 0) FROM users").fetchone()
+        next_id = (max_row[0] or 0) + 1
+        for (uid,) in rows:
+            conn.execute("UPDATE users SET member_id=? WHERE user_id=?", (next_id, uid))
+            next_id += 1
+        conn.commit()
 
     # Seed the "מנהלים" group and add admin as member
     admin_id = int(os.environ.get("ADMIN_TELEGRAM_ID", "0"))
