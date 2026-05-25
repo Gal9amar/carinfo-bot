@@ -1,42 +1,10 @@
-import paypalLogo from '../assets/paypal-logo.png'
+import paypalLogo   from '../assets/paypal-logo.png'
+import visaLogo      from '../assets/visa.svg'
+import mastercardLogo from '../assets/mastercard.svg'
+import amexLogo      from '../assets/amex.svg'
+import isracardLogo  from '../assets/isracard.svg'
 
-function VisaLogo() {
-  return (
-    <svg viewBox="0 0 60 38" width="36" height="23" style={{ borderRadius: 4, display: 'block' }}>
-      <rect width="60" height="38" rx="4" fill="#1a1f71"/>
-      <text x="30" y="27" textAnchor="middle" fill="white" fontSize="20" fontFamily="Arial,sans-serif" fontStyle="italic" fontWeight="bold">VISA</text>
-    </svg>
-  )
-}
-
-function MastercardLogo() {
-  return (
-    <svg viewBox="0 0 60 38" width="36" height="23" style={{ borderRadius: 4, display: 'block' }}>
-      <rect width="60" height="38" rx="4" fill="#252525"/>
-      <circle cx="22" cy="19" r="11" fill="#EB001B"/>
-      <circle cx="38" cy="19" r="11" fill="#F79E1B"/>
-      <path d="M30 9.7 a11 11 0 0 1 0 18.6 a11 11 0 0 1 0-18.6z" fill="#FF5F00"/>
-    </svg>
-  )
-}
-
-function AmexLogo() {
-  return (
-    <svg viewBox="0 0 60 38" width="36" height="23" style={{ borderRadius: 4, display: 'block' }}>
-      <rect width="60" height="38" rx="4" fill="#2E77BC"/>
-      <text x="30" y="26" textAnchor="middle" fill="white" fontSize="13" fontFamily="Arial,sans-serif" fontWeight="bold" letterSpacing="1">AMEX</text>
-    </svg>
-  )
-}
-
-function IsracardLogo() {
-  return (
-    <svg viewBox="0 0 60 38" width="36" height="23" style={{ borderRadius: 4, display: 'block' }}>
-      <rect width="60" height="38" rx="4" fill="#e85d00"/>
-      <text x="30" y="24" textAnchor="middle" fill="white" fontSize="10" fontFamily="Arial,sans-serif" fontWeight="bold">ישראכרט</text>
-    </svg>
-  )
-}
+const CARD_STYLE = { height: 24, width: 'auto', borderRadius: 4, display: 'block', objectFit: 'contain' }
 
 export default function PaymentPage({ pkg, paymentData, onBack }) {
   const desc = pkg.searches === -1 ? 'ללא הגבלה' : `${pkg.searches} חיפושים`
@@ -87,12 +55,12 @@ export default function PaymentPage({ pkg, paymentData, onBack }) {
         }}
       >
         <img src={paypalLogo} alt="PayPal" style={{ height: 28, objectFit: 'contain' }} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 11, color: '#666', letterSpacing: 0.5 }}>או שלם עם כרטיס:</span>
-          <VisaLogo />
-          <MastercardLogo />
-          <AmexLogo />
-          <IsracardLogo />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 11, color: '#666' }}>או שלם עם כרטיס:</span>
+          <img src={visaLogo}       alt="Visa"       style={CARD_STYLE} />
+          <img src={mastercardLogo} alt="Mastercard" style={CARD_STYLE} />
+          <img src={amexLogo}       alt="Amex"       style={CARD_STYLE} />
+          <img src={isracardLogo}   alt="Isracard"   style={CARD_STYLE} />
         </div>
       </button>
 
