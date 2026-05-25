@@ -3,6 +3,8 @@ PayPal Orders API v2 + Webhook verification.
 Env vars: PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET, PAYPAL_WEBHOOK_ID, PAYPAL_MODE (live|sandbox)
 """
 import os
+import logging as _logging
+_log = _logging.getLogger("paypal")
 import httpx
 
 _MODE   = os.environ.get("PAYPAL_MODE", "live")
@@ -48,6 +50,7 @@ async def create_order(amount: str, currency: str, custom_id: str, description: 
             },
         )
         if not r.is_success:
+            _log.error("PayPal create_order %s: %s", r.status_code, r.text)
             raise Exception(f"PayPal {r.status_code}: {r.text}")
         return r.json()
 
