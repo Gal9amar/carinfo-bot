@@ -58,7 +58,7 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
           display: 'flex', alignItems: 'center', gap: 8,
         }}>
           <span style={{ fontSize: 16 }}>✅</span>
-          <span>כל רכישה מוכנסת לחשבונך תוך שעות ספורות לאחר אישור ידני ע"י המפעיל</span>
+          <span>כל רכישה מוכנסת לחשבונך תוך שניות לאחר השלמת התשלום</span>
         </div>
       </div>
 
@@ -260,7 +260,16 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
 
             <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 14px' }} />
 
-            {/* ── Quantity ── */}
+            {/* ── Features ── */}
+            <div style={{ padding: '12px 16px', fontSize: 13, color: 'var(--hint)', lineHeight: 1.8 }}>
+              <div>✅ נתוני רכב מלאים — שנה, דגם, בעלות, טסט, ק״מ</div>
+              <div>✅ מחיר שוק — השוואת מחירים עדכנית</div>
+              <div>✅ דוח PDF מפורט להורדה</div>
+              <div>✅ היסטוריית חיפושים אישית</div>
+              <div>✅ גישה לכל תכונות המנוי הקיימות והעתידיות</div>
+            </div>
+
+            <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 14px' }} />
             {!isUnlimited && (
               <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',

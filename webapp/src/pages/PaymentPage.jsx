@@ -63,7 +63,7 @@ export default function PaymentPage({ pkg, onBack }) {
         <div style={{ fontSize: 14, lineHeight: 1.8 }}>
           <div>1️⃣ לחץ על הלחצן למטה</div>
           <div>2️⃣ שלם עם <strong>PayPal</strong> או <strong>כרטיס אשראי</strong></div>
-          <div>3️⃣ הגישה תעודכן <strong>אוטומטית</strong> תוך שניות</div>
+          <div>3️⃣ הגישה תתעדכן <strong>אוטומטית</strong> תוך שניות</div>
         </div>
       </div>
 

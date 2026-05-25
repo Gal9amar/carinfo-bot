@@ -67,7 +67,7 @@ export default function HowItWorksPage({ onBack, freeSearches = 10, onPrivacy })
         <Row icon="💳" text="תשלום חד-פעמי בלבד — אין חיוב חוזר, אין מנוי אוטומטי" />
         <Row icon="🔓" text="המנוי תקף עד גמר יתרת החיפושים, ניתן לרכוש שוב ולצבור" />
         <p style={{ fontSize: 13, color: 'var(--hint)', margin: '8px 0 0', lineHeight: 1.5 }}>
-          התשלום מתבצע דרך PayPal ומאושר ידנית ע"י המפעיל — החיפושים מתווספים לאחר האישור.
+          התשלום מתבצע דרך PayPal ומעובד אוטומטית — החיפושים מתווספים לחשבונך תוך שניות.
         </p>
       </Section>
 
