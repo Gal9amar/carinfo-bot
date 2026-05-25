@@ -147,13 +147,13 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
               {isFreeUser ? (
                 <>
                   <Chip accent={freeAccent}>🔍 {searchesLeft} חיפושים נותרו</Chip>
-                  <Chip accent={freeAccent}>🤝 +חיפושים על הפנות</Chip>
+                  <Chip accent={freeAccent}>🤝 +חיפושים על הפניות</Chip>
                   <Chip accent={freeAccent}>🔓 ללא תפוגה</Chip>
                 </>
               ) : (
                 <>
                   <Chip accent={freeAccent}>🔍 חיפושים בהצטרפות</Chip>
-                  <Chip accent={freeAccent}>🤝 +חיפושים על הפנות</Chip>
+                  <Chip accent={freeAccent}>🤝 +חיפושים על הפניות</Chip>
                   <Chip accent={freeAccent}>🔓 ללא תפוגה</Chip>
                 </>
               )}
