@@ -4,7 +4,7 @@ import { fmtDate } from '../utils/time.js'
 const menuItems = [
   { id: 'packages',   icon: '⭐', label: 'רכישת מנוי',    sub: 'חיפושים + תכונות מנוי' },
   { id: 'orders',     icon: '📦', label: 'הזמנות שלי',   sub: 'היסטוריית רכישות' },
-  { id: 'history',    icon: '📋', label: 'היסטוריה',      sub: 'חיפושים קודמים' },
+  { id: 'history',    icon: '📋', label: 'חיפושים שלי',    sub: 'חיפושים קודמים' },
   { id: 'referral',   icon: '🤝', label: 'הפנה חבר',      sub: 'קבל חיפושים בחינם' },
   { id: 'ticket',     icon: '🎫', label: 'תמיכה',          sub: 'פתח פנייה' },
   { id: 'howItWorks', icon: 'ℹ️', label: 'איך זה עובד',   sub: 'מדריך שימוש' },
