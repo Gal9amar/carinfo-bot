@@ -638,6 +638,7 @@ export default function ReportPage({ plate, onBack, user }) {
         async function handleDownload() {
           setPdfLoading(true)
           try {
+            if (note.trim()) await saveNote(plateNum, note)
             await requestPdfReport(plateNum)
             setPdfSent(true)
           } catch {
