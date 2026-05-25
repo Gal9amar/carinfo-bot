@@ -72,11 +72,23 @@ async def _startup():
     except Exception:
         pass
     try:
+        # Fetch 'created' orders about to be expired (notify admin before expiring)
+        stale_r = await _dbexec(
+            "SELECT ref FROM paypal_transactions WHERE status='created' "
+            "AND created_at < datetime('now', '-30 minutes')"
+        )
+        stale_refs = [row[0] for row in (stale_r.rows or [])]
         # Mark stale 'created'/'intent' transactions (> 30 min) as expired
         await _dbexec(
             "UPDATE paypal_transactions SET status='expired', updated_at=datetime('now') "
             "WHERE status IN ('created','intent') AND created_at < datetime('now', '-30 minutes')"
         )
+        # Notify admin for each expired 'created' order
+        for ref in stale_refs:
+            try:
+                await _order_notify(ref, "expired")
+            except Exception:
+                pass
         # Delete matching stale pending_payments
         await _dbexec(
             "DELETE FROM pending_payments WHERE created_at < datetime('now', '-30 minutes')"
@@ -916,14 +928,18 @@ async def admin_list_payments(_: dict = Depends(_require_admin)):
 async def admin_approve_payment(ref: str, admin: dict = Depends(_require_admin)):
     from src.db import execute
     from src.users import admin_grant
-    r = await execute("SELECT phone, searches, label FROM pending_payments WHERE ref=?", [ref])
+    r = await execute("SELECT phone, searches, label, COALESCE(duration_months,1) FROM pending_payments WHERE ref=?", [ref])
     if not r.rows:
         raise HTTPException(status_code=404, detail="Payment not found")
-    user_id, searches, label = int(r.rows[0][0]), r.rows[0][1], r.rows[0][2]
-    await admin_grant(int(admin["id"]), user_id, searches)
+    user_id, searches, label, duration_months = int(r.rows[0][0]), r.rows[0][1], r.rows[0][2], int(r.rows[0][3])
+    await admin_grant(int(admin["id"]), user_id, searches, duration_months=duration_months)
     from src.users import add_to_subscribers
     await add_to_subscribers(user_id)
     await execute("DELETE FROM pending_payments WHERE ref=?", [ref])
+    await execute(
+        "UPDATE paypal_transactions SET status='completed', updated_at=datetime('now') WHERE ref=?", [ref]
+    )
+    await _order_notify(ref, "completed")
     try:
         from src.notifier import notify_user_payment_approved
         await notify_user_payment_approved(user_id, label, searches)
@@ -962,6 +978,10 @@ async def admin_decline_payment(ref: str, _: dict = Depends(_require_admin)):
         raise HTTPException(status_code=404, detail="Payment not found")
     user_id, label = int(r.rows[0][0]), r.rows[0][1]
     await execute("DELETE FROM pending_payments WHERE ref=?", [ref])
+    await execute(
+        "UPDATE paypal_transactions SET status='declined', updated_at=datetime('now') WHERE ref=?", [ref]
+    )
+    await _order_notify(ref, "declined")
     try:
         from src.notifier import notify_user_payment_declined
         await notify_user_payment_declined(user_id, label)

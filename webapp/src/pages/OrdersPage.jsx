@@ -9,6 +9,7 @@ const STATUS_META = {
   completed: { label: 'הושלם',         color: '#4caf50', icon: '✅' },
   failed:    { label: 'נכשל',          color: '#f44336', icon: '❌' },
   expired:   { label: 'מבוטלת',        color: '#ff9800', icon: '🚫' },
+  declined:  { label: 'נדחה',          color: '#f44336', icon: '🚫' },
 }
 
 function OrderRow({ order }) {

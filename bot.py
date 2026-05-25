@@ -2243,6 +2243,7 @@ def main() -> None:
         'completed': '🎉 הושלם',
         'failed':    '❌ נכשל',
         'expired':   '🚫 פג תוקף',
+        'declined':  '🚫 נדחה',
     }
 
     async def _notify_admin_order(ref, status, label, amount, username, member_id):
