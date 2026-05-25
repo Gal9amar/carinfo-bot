@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { createTicket, fetchMyTickets, fetchTicket, replyTicket } from '../api.js'
+import { fmtDateTime, fmtDate } from '../utils/time.js'
 import BackButton from '../components/BackButton.jsx'
 
 const STATUS_LABEL = { open: 'פתוח', in_progress: 'בטיפול', closed: 'סגור' }
@@ -85,7 +86,7 @@ export default function TicketPage({ onBack }) {
               {STATUS_ICON[t.status]} {STATUS_LABEL[t.status]}
             </span>
           </div>
-          <div className="card-subtitle" style={{ marginTop: 4 }}>#{t.id} · {t.created_at?.slice(0, 10)}</div>
+          <div className="card-subtitle" style={{ marginTop: 4 }}>#{t.id} · {fmtDate(t.created_at)}</div>
         </div>
       ))}
     </div>
@@ -207,7 +208,7 @@ function ThreadView({ ticket, onBack, onRefresh }) {
             {msg.message}
           </div>
           <div style={{ fontSize: 11, color: 'var(--hint)', marginTop: 3 }}>
-            {msg.is_admin ? '🛠 תמיכה' : 'אתה'} · {msg.created_at?.slice(0, 16).replace('T', ' ')}
+            {msg.is_admin ? '🛠 תמיכה' : 'אתה'} · {fmtDateTime(msg.created_at)}
           </div>
         </div>
       ))}

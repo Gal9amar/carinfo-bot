@@ -1,4 +1,5 @@
 import { } from 'react'
+import { fmtDate } from '../utils/time.js'
 
 const menuItems = [
   { id: 'packages',   icon: '⭐', label: 'רכישת מנוי',    sub: 'חיפושים + תכונות מנוי' },
@@ -19,13 +20,7 @@ export default function HomePage({ user, onNavigate }) {
   const subLabel     = user?.subscription_label || null
   const quotaExpires = user?.quota_expires || null
 
-  // Format expiry: "31/12/2025" or null
-  function fmtExpiry(iso) {
-    if (!iso) return null
-    const d = new Date(iso)
-    if (isNaN(d)) return null
-    return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`
-  }
+  function fmtExpiry(iso) { return fmtDate(iso) || null }
 
   // Status text for subscriber row
   function subStatusText() {

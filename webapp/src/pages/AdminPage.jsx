@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { fmtDateTime, fmtDate as fmtDateIL, fmtTimeShort } from '../utils/time.js'
 import {
   adminFetchStats, adminFetchUsers, adminFetchSettings,
   adminUpdateSettings, adminFetchPackages,
@@ -182,14 +183,7 @@ function ActivityTab() {
     return () => clearInterval(id)
   }, [autoRefresh])
 
-  function fmtTime(ts) {
-    if (!ts) return ''
-    try {
-      const d = new Date(ts.replace(' ', 'T') + (ts.includes('+') ? '' : 'Z'))
-      return d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) +
-             ' ' + d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' })
-    } catch { return ts.slice(0, 16) }
-  }
+  function fmtTime(ts) { return fmtTimeShort(ts) }
 
   return (
     <div>
@@ -708,14 +702,14 @@ function PaypalTransactionRow({ tx }) {
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3, fontSize: 11, color: 'var(--hint)' }}>
           <span>{tx.username ? `@${tx.username}` : tx.full_name || `משתמש ${tx.user_id}`}</span>
-          <span>{tx.created_at?.slice(0, 16).replace('T', ' ')}</span>
+          <span>{fmtDateTime(tx.created_at)}</span>
         </div>
       </div>
       {open && (
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', padding: '10px 14px', fontSize: 12 }} onClick={e => e.stopPropagation()}>
           <div style={{ marginBottom: 4 }}><span style={{ color: 'var(--hint)' }}>PayPal Order ID: </span><span style={{ fontFamily: 'monospace', wordBreak: 'break-all', fontSize: 11 }}>{tx.paypal_order_id || '—'}</span></div>
           <div style={{ marginBottom: 4 }}><span style={{ color: 'var(--hint)' }}>חיפושים: </span>{tx.searches === -1 ? '♾️ ללא הגבלה' : tx.searches}</div>
-          <div style={{ marginBottom: 4 }}><span style={{ color: 'var(--hint)' }}>עדכון אחרון: </span>{tx.updated_at?.slice(0, 16).replace('T', ' ')}</div>
+          <div style={{ marginBottom: 4 }}><span style={{ color: 'var(--hint)' }}>עדכון אחרון: </span>{fmtDateTime(tx.updated_at)}</div>
           {tx.error && <div style={{ marginTop: 6, color: '#f44336', wordBreak: 'break-all' }}>⚠️ {tx.error}</div>}
         </div>
       )}
@@ -1891,11 +1885,7 @@ function BroadcastTab() {
     )
   }
 
-  function fmtDate(s) {
-    if (!s) return ''
-    const d = new Date(s.replace(' ', 'T') + 'Z')
-    return d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
-  }
+  function fmtDate(s) { return fmtDateTime(s) }
 
   return (
     <div>
@@ -2064,7 +2054,7 @@ function TicketsTab() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
                 <div className="card-title" style={{ fontSize: 14 }}>#{t.id} · {t.subject}</div>
-                <div className="card-subtitle">{name} · {t.created_at?.slice(0, 10)}</div>
+                <div className="card-subtitle">{name} · {fmtDateIL(t.created_at)}</div>
               </div>
               <span style={{
                 fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10,
@@ -2166,7 +2156,7 @@ function AdminTicketThread({ ticketId, onBack }) {
             {msg.message}
           </div>
           <div style={{ fontSize: 11, color: 'var(--hint)', marginTop: 3 }}>
-            {msg.is_admin ? '🛠 תמיכה' : name} · {msg.created_at?.slice(0, 16).replace('T', ' ')}
+            {msg.is_admin ? '🛠 תמיכה' : name} · {fmtDateTime(msg.created_at)}
           </div>
         </div>
       ))}

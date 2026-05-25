@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { fetchUserOrders } from '../api.js'
+import { fmtDateTime } from '../utils/time.js'
 
 const STATUS_META = {
   created:   { label: 'ממתין לתשלום', color: '#888',    icon: '⏳' },
@@ -14,7 +15,7 @@ function OrderRow({ order }) {
   const [open, setOpen] = useState(false)
   const meta = STATUS_META[order.status] || { label: order.status, color: '#888', icon: '❓' }
   const isExpired = order.status === 'expired'
-  const date = order.created_at?.slice(0, 16).replace('T', ' ')
+  const date = fmtDateTime(order.created_at)
 
   return (
     <div

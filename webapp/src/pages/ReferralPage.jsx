@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { fetchReferral, fetchReferrals } from '../api.js'
+import { fmtDate as fmtDateIL } from '../utils/time.js'
 import BackButton from '../components/BackButton.jsx'
 
 export default function ReferralPage({ onBack }) {
@@ -27,13 +28,7 @@ export default function ReferralPage({ onBack }) {
     window.Telegram?.WebApp?.openTelegramLink?.(`https://t.me/share/url?url=${url}&text=${text}`)
   }
 
-  function fmtDate(ts) {
-    if (!ts) return ''
-    try {
-      const d = new Date(ts.replace(' ', 'T') + (ts.includes('+') ? '' : 'Z'))
-      return d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' })
-    } catch { return ts.slice(0, 10) }
-  }
+  function fmtDate(ts) { return fmtDateIL(ts) }
 
   const totalBonus = (referrals || []).reduce((s, r) => s + r.bonus, 0)
 
