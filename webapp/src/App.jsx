@@ -145,9 +145,7 @@ export default function App() {
       <div key="payment" className="page-enter">
         <PaymentPage
           pkg={selectedPkg}
-          paymentData={paymentData}
           onBack={() => setScreen('packages')}
-          onDone={() => setScreen('success')}
         />
       </div>
     )
@@ -177,9 +175,9 @@ export default function App() {
           <PackagesPage
             packages={packages}
             user={user}
-            onSelect={(pkg, pData) => {
+            onSelect={(pkg) => {
               setSelectedPkg(pkg)
-              setPaymentData(pData)
+              setPaymentData(null)
               setScreen('payment')
             }}
             onPrivacy={() => setScreen('privacy')}

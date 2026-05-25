@@ -1,27 +1,15 @@
 import { useState } from 'react'
-import { initiatePayment } from '../api.js'
 import BackButton from '../components/BackButton.jsx'
 
 export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSupport, onReferral, onBack }) {
   const [quantities, setQuantities] = useState({})
-  const [loading, setLoading] = useState(null)
-
   function getQty(id) { return quantities[id] ?? 1 }
   function setQty(id, val) {
     setQuantities(q => ({ ...q, [id]: Math.max(1, Math.min(10, val)) }))
   }
 
-  async function handleSelect(pkg) {
-    const qty = getQty(pkg.id)
-    setLoading(pkg.id)
-    try {
-      const data = await initiatePayment(pkg.id, qty)
-      onSelect(data, data)
-    } catch {
-      window.Telegram?.WebApp?.showAlert('שגיאה, נסה שוב.')
-    } finally {
-      setLoading(null)
-    }
+  function handleSelect(pkg) {
+    onSelect(pkg)
   }
 
   return (
@@ -201,16 +189,15 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
               </div>
               <button
                 onClick={() => handleSelect(pkg)}
-                disabled={loading === pkg.id}
                 style={{
                   width: '100%', padding: '14px 0', border: 'none', borderRadius: 14,
                   background: grad,
                   color: '#fff', fontSize: 16, fontWeight: 700,
-                  cursor: 'pointer', opacity: loading === pkg.id ? 0.6 : 1,
+                  cursor: 'pointer',
                   boxShadow: `0 4px 14px rgba(0,0,0,0.25)`,
                   letterSpacing: 0.4,
                 }}
-              >{loading === pkg.id ? '⏳ מעבד...' : '🛒 רכישת מנוי'}</button>
+              >🛒 רכישת מנוי</button>
             </div>
           </div>
         )

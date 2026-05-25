@@ -1,4 +1,6 @@
-import paypalLogo   from '../assets/paypal-logo.png'
+import { useState } from 'react'
+import { initiatePayment } from '../api.js'
+import paypalLogo    from '../assets/paypal-logo.png'
 import visaLogo      from '../assets/visa.svg'
 import mastercardLogo from '../assets/mastercard.svg'
 import amexLogo      from '../assets/amex.svg'
@@ -6,15 +8,25 @@ import isracardLogo  from '../assets/isracard.png'
 
 const CARD_STYLE = { height: 24, width: 'auto', borderRadius: 4, display: 'block', objectFit: 'contain' }
 
-export default function PaymentPage({ pkg, paymentData, onBack }) {
+export default function PaymentPage({ pkg, onBack }) {
+  const [loading, setLoading] = useState(false)
   const desc = pkg.searches === -1 ? 'ללא הגבלה' : `${pkg.searches} חיפושים`
 
-  function openPayPal() {
-    const url = paymentData.approval_url
-    if (window.Telegram?.WebApp?.openLink) {
-      window.Telegram.WebApp.openLink(url)
-    } else {
-      window.open(url, '_blank')
+  async function openPayPal() {
+    if (loading) return
+    setLoading(true)
+    try {
+      const data = await initiatePayment(pkg.id, 1)
+      const url = data.approval_url
+      if (window.Telegram?.WebApp?.openLink) {
+        window.Telegram.WebApp.openLink(url)
+      } else {
+        window.open(url, '_blank')
+      }
+    } catch {
+      window.Telegram?.WebApp?.showAlert('שגיאה, נסה שוב.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -33,7 +45,7 @@ export default function PaymentPage({ pkg, paymentData, onBack }) {
       <div className="card">
         <div className="card-title">{pkg.label}</div>
         <div className="card-subtitle">{desc}</div>
-        <div className="price-badge">₪{paymentData.price}</div>
+        <div className="price-badge">₪{pkg.price}</div>
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
@@ -46,22 +58,29 @@ export default function PaymentPage({ pkg, paymentData, onBack }) {
 
       <button
         onClick={openPayPal}
+        disabled={loading}
         style={{
           width: '100%', display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center', gap: 5,
           background: '#ffffff', border: '2px solid #003087', borderRadius: 12,
-          padding: '10px 12px', cursor: 'pointer',
+          padding: '10px 12px', cursor: loading ? 'default' : 'pointer',
           boxShadow: '0 2px 12px rgba(0,0,0,0.18)',
+          opacity: loading ? 0.7 : 1,
         }}
       >
-        <img src={paypalLogo} alt="PayPal" style={{ height: 28, objectFit: 'contain' }} />
-        <span style={{ fontSize: 11, color: '#666' }}>או שלם באמצעות אשראי:</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <img src={visaLogo}       alt="Visa"       style={CARD_STYLE} />
-          <img src={mastercardLogo} alt="Mastercard" style={CARD_STYLE} />
-          <img src={amexLogo}       alt="Amex"       style={CARD_STYLE} />
-          <img src={isracardLogo}   alt="Isracard"   style={CARD_STYLE} />
-        </div>
+        {loading
+          ? <span style={{ fontSize: 14, color: '#003087' }}>⏳ מתחבר לפייפאל...</span>
+          : <>
+              <img src={paypalLogo} alt="PayPal" style={{ height: 28, objectFit: 'contain' }} />
+              <span style={{ fontSize: 11, color: '#666' }}>או שלם באמצעות אשראי:</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <img src={visaLogo}        alt="Visa"       style={CARD_STYLE} />
+                <img src={mastercardLogo}  alt="Mastercard" style={CARD_STYLE} />
+                <img src={amexLogo}        alt="Amex"       style={CARD_STYLE} />
+                <img src={isracardLogo}    alt="Isracard"   style={CARD_STYLE} />
+              </div>
+            </>
+        }
       </button>
 
       <div style={{ marginTop: 14, fontSize: 12, color: 'var(--hint)', textAlign: 'center' }}>
