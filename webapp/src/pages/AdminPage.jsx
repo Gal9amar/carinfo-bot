@@ -686,6 +686,7 @@ const STATUS_META = {
   captured:  { label: 'נגבה',    color: '#00bcd4' },
   completed: { label: 'הושלם',   color: '#4caf50' },
   failed:    { label: 'נכשל',    color: '#f44336' },
+  expired:   { label: 'פג תוקף', color: '#ff9800' },
 }
 
 function PaypalTransactionRow({ tx }) {

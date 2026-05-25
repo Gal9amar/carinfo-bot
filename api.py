@@ -66,8 +66,21 @@ async def _require_admin(user: dict = Depends(_get_user)) -> dict:
 @api.on_event("startup")
 async def _startup():
     from src.users import load_welcome_settings
+    from src.db import execute as _dbexec
     try:
         await load_welcome_settings()
+    except Exception:
+        pass
+    try:
+        # Mark stale 'created' transactions (> 2 hours) as expired
+        await _dbexec(
+            "UPDATE paypal_transactions SET status='expired', updated_at=datetime('now') "
+            "WHERE status='created' AND created_at < datetime('now', '-2 hours')"
+        )
+        # Delete matching stale pending_payments
+        await _dbexec(
+            "DELETE FROM pending_payments WHERE created_at < datetime('now', '-2 hours')"
+        )
     except Exception:
         pass
 
@@ -187,6 +200,11 @@ async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_u
     # Generate custom order ID: {member_id}-{5-digit-sequence}
     from src.db import set_bot_setting, get_bot_setting, execute as _dbexec
     uid = int(user["id"])
+    # Clean up stale pending orders for this user (older than 2 hours)
+    await execute(
+        "DELETE FROM pending_payments WHERE phone=? AND created_at < datetime('now', '-2 hours')",
+        [str(uid)],
+    )
     mid_r = await _dbexec("SELECT member_id FROM users WHERE user_id=?", [uid])
     member_id = mid_r.rows[0][0] if mid_r.rows and mid_r.rows[0][0] else uid
     seq_str = await get_bot_setting("order_sequence")
