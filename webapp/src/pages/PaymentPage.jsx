@@ -48,9 +48,9 @@ export default function PaymentPage({ pkg, paymentData, onBack }) {
         onClick={openPayPal}
         style={{
           width: '100%', display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center', gap: 10,
+          alignItems: 'center', justifyContent: 'center', gap: 5,
           background: '#ffffff', border: '2px solid #003087', borderRadius: 12,
-          padding: '16px 12px', cursor: 'pointer',
+          padding: '10px 12px', cursor: 'pointer',
           boxShadow: '0 2px 12px rgba(0,0,0,0.18)',
         }}
       >
