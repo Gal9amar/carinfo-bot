@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { initiatePayment } from '../api.js'
 import paypalLogo    from '../assets/paypal-logo.png'
 import visaLogo      from '../assets/visa.svg'
@@ -9,36 +9,30 @@ import isracardLogo  from '../assets/isracard.png'
 const CARD_STYLE = { height: 24, width: 'auto', borderRadius: 4, display: 'block', objectFit: 'contain' }
 
 export default function PaymentPage({ pkg, onBack }) {
-  const [loading, setLoading] = useState(false)
+  const [paymentUrl, setPaymentUrl] = useState(null)
+  const [preparing, setPreparing] = useState(true)
   const desc = pkg.searches === -1 ? 'ללא הגבלה' : `${pkg.searches} חיפושים`
 
-  async function openPayPal() {
-    if (loading) return
-    setLoading(true)
-    let url = null
-    try {
-      const data = await initiatePayment(pkg.id, 1)
-      url = data.approval_url
-    } catch (err) {
-      console.error('payment initiate error:', err)
-      setLoading(false)
-      window.Telegram?.WebApp?.showAlert('שגיאה ביצירת הזמנה, נסה שוב.')
-      return
-    }
-    setLoading(false)
-    if (!url) {
-      window.Telegram?.WebApp?.showAlert('שגיאה: לא התקבל קישור תשלום.')
-      return
-    }
-    try {
-      if (window.Telegram?.WebApp?.openLink) {
-        window.Telegram.WebApp.openLink(url)
-      } else {
-        window.open(url, '_blank')
-      }
-    } catch (err) {
-      console.error('openLink error:', err)
-      window.open(url, '_blank')
+  useEffect(() => {
+    initiatePayment(pkg.id, 1)
+      .then(data => {
+        setPaymentUrl(data.approval_url)
+        setPreparing(false)
+      })
+      .catch(err => {
+        console.error('payment initiate error:', err)
+        setPreparing(false)
+        window.Telegram?.WebApp?.showAlert('שגיאה ביצירת הזמנה, נסה שוב.')
+      })
+  }, [pkg.id])
+
+  function openPayPal() {
+    if (!paymentUrl) return
+    // Synchronous call within user gesture — no await before openLink
+    if (window.Telegram?.WebApp?.openLink) {
+      window.Telegram.WebApp.openLink(paymentUrl)
+    } else {
+      window.open(paymentUrl, '_blank')
     }
   }
 
@@ -70,18 +64,18 @@ export default function PaymentPage({ pkg, onBack }) {
 
       <button
         onClick={openPayPal}
-        disabled={loading}
+        disabled={preparing || !paymentUrl}
         style={{
           width: '100%', display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center', gap: 5,
           background: '#ffffff', border: '2px solid #003087', borderRadius: 12,
-          padding: '10px 12px', cursor: loading ? 'default' : 'pointer',
+          padding: '10px 12px', cursor: (preparing || !paymentUrl) ? 'default' : 'pointer',
           boxShadow: '0 2px 12px rgba(0,0,0,0.18)',
-          opacity: loading ? 0.7 : 1,
+          opacity: (preparing || !paymentUrl) ? 0.7 : 1,
         }}
       >
-        {loading
-          ? <span style={{ fontSize: 14, color: '#003087' }}>⏳ מתחבר לפייפאל...</span>
+        {preparing
+          ? <span style={{ fontSize: 14, color: '#003087' }}>⏳ מכין קישור תשלום...</span>
           : <>
               <img src={paypalLogo} alt="PayPal" style={{ height: 28, objectFit: 'contain' }} />
               <span style={{ fontSize: 11, color: '#666' }}>או שלם באמצעות אשראי:</span>
