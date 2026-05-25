@@ -217,6 +217,7 @@ async def init_db() -> None:
     conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('yad2_market_public_start', '')")
     conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('yad2_market_public_end', '')")
     conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('yad2_market_public_label', '')")
+    conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('order_sequence', '0')")
     conn.commit()
 
     # Seed the "מנהלים" group and add admin as member

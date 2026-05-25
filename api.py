@@ -183,7 +183,13 @@ async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_u
     total_price = price * qty
     total_searches = -1 if searches == -1 else searches * qty
     qty_label = f"{label} ×{qty}" if qty > 1 else label
-    ref = _secrets.token_hex(8)
+    # Generate custom order ID: {user_id}-{5-digit-sequence}
+    from src.db import set_bot_setting, get_bot_setting
+    uid = int(user["id"])
+    seq_str = await get_bot_setting("order_sequence")
+    seq = int(seq_str) + 1 if seq_str else 1
+    await set_bot_setting("order_sequence", str(seq))
+    ref = f"{uid}-{seq:05d}"
     try:
         order = await create_order(
             amount=f"{total_price:.2f}",
@@ -198,7 +204,6 @@ async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_u
         paypal_order_id = order.get("id", "")
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"PayPal error: {e}")
-    uid = int(user["id"])
     await execute(
         "INSERT OR IGNORE INTO pending_payments (ref, phone, searches, price, label, paypal_order_id) VALUES (?,?,?,?,?,?)",
         [ref, str(uid), total_searches, total_price, qty_label, paypal_order_id],
