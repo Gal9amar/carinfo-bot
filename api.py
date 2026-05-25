@@ -16,10 +16,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
-BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-ADMIN_ID   = int(os.environ.get("ADMIN_TELEGRAM_ID", "594206475"))
-PAYPAL_ME  = os.environ.get("PAYPAL_ME", "https://www.paypal.me/G9ST")
-PAYBOX_URL = os.environ.get("PAYBOX_URL", "https://links.payboxapp.com/xjZpYBP2n3b")
+BOT_TOKEN    = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+ADMIN_ID     = int(os.environ.get("ADMIN_TELEGRAM_ID", "594206475"))
+PAYPAL_ME    = os.environ.get("PAYPAL_ME", "https://www.paypal.me/G9ST")
+PAYBOX_URL   = os.environ.get("PAYBOX_URL", "https://links.payboxapp.com/xjZpYBP2n3b")
+BOT_USERNAME = os.environ.get("BOT_USERNAME", "israelcarinfobot")
+WEBAPP_URL   = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
 
 api = FastAPI()
 
@@ -229,6 +231,8 @@ async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_u
                 currency="ILS",
                 custom_id=ref,
                 description=qty_label,
+                return_url=f"{WEBAPP_URL}/api/payment/return/{ref}",
+                cancel_url=f"{WEBAPP_URL}/api/payment/cancel/{ref}",
             )
             approval_url = next(
                 (lnk["href"] for lnk in order.get("links", []) if lnk.get("rel") == "approve"),
@@ -290,6 +294,27 @@ async def promote_payment(body: dict, user: dict = Depends(_get_user)):
     except Exception:
         pass
     return {"ok": True}
+
+
+@api.get("/api/payment/cancel/{ref}")
+async def payment_cancel(ref: str):
+    """PayPal cancel_url — user pressed Cancel on PayPal. Mark order cancelled and send back to Telegram."""
+    from src.db import execute as _dbexec
+    from fastapi.responses import RedirectResponse
+    await _dbexec(
+        "UPDATE paypal_transactions SET status='cancelled', updated_at=datetime('now') "
+        "WHERE ref=? AND status IN ('intent','created')",
+        [ref],
+    )
+    await _order_notify(ref, "cancelled")
+    return RedirectResponse(url=f"https://t.me/{BOT_USERNAME}", status_code=302)
+
+
+@api.get("/api/payment/return/{ref}")
+async def payment_return(ref: str):
+    """PayPal return_url — user completed checkout flow. Webhook handles approval; just send back to Telegram."""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url=f"https://t.me/{BOT_USERNAME}", status_code=302)
 
 
 class PaymentConfirmRequest(BaseModel):

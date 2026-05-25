@@ -682,6 +682,7 @@ const STATUS_META = {
   failed:    { label: 'נכשל',    color: '#f44336' },
   expired:   { label: 'פג תוקף', color: '#ff9800' },
   declined:  { label: 'נדחה',    color: '#f44336' },
+  cancelled: { label: 'בוטל',   color: '#9e9e9e' },
 }
 
 function PaypalTransactionRow({ tx }) {

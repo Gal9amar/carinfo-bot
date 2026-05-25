@@ -26,7 +26,8 @@ async def get_access_token() -> str:
         return r.json()["access_token"]
 
 
-async def create_order(amount: str, currency: str, custom_id: str, description: str) -> dict:
+async def create_order(amount: str, currency: str, custom_id: str, description: str,
+                       return_url: str = "", cancel_url: str = "") -> dict:
     webapp_url = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
     token = await get_access_token()
     async with httpx.AsyncClient() as c:
@@ -43,8 +44,8 @@ async def create_order(amount: str, currency: str, custom_id: str, description: 
                 "application_context": {
                     "brand_name": "CarInfo",
                     "user_action": "PAY_NOW",
-                    "return_url": f"{webapp_url}/",
-                    "cancel_url": f"{webapp_url}/",
+                    "return_url": return_url or f"{webapp_url}/",
+                    "cancel_url": cancel_url or f"{webapp_url}/",
                 },
             },
         )
