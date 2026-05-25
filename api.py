@@ -183,10 +183,9 @@ class PaymentInitRequest(BaseModel):
 
 @api.post("/api/payment/initiate")
 async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_user)):
+    import os as _os
     from src.packages import get_packages
-    import secrets as _secrets
-    from src.db import execute
-    from src.paypal import create_order
+    from src.db import execute, set_bot_setting, get_bot_setting, execute as _dbexec
     pkgs = await get_packages()
     pkg = next((p for p in pkgs if p[0] == body.package_id), None)
     if not pkg:
@@ -197,8 +196,6 @@ async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_u
     total_price = price * qty
     total_searches = -1 if searches == -1 else searches * qty
     qty_label = f"{label} ×{qty}" if qty > 1 else label
-    # Generate custom order ID: {member_id}-{5-digit-sequence}
-    from src.db import set_bot_setting, get_bot_setting, execute as _dbexec
     uid = int(user["id"])
     mid_r = await _dbexec("SELECT member_id FROM users WHERE user_id=?", [uid])
     member_id = mid_r.rows[0][0] if mid_r.rows and mid_r.rows[0][0] else uid
@@ -206,20 +203,32 @@ async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_u
     seq = int(seq_str) + 1 if seq_str else 1
     await set_bot_setting("order_sequence", str(seq))
     ref = f"{member_id}-{seq:05d}"
-    try:
-        order = await create_order(
-            amount=f"{total_price:.2f}",
-            currency="ILS",
-            custom_id=ref,
-            description=qty_label,
-        )
-        approval_url = next(
-            (lnk["href"] for lnk in order.get("links", []) if lnk.get("rel") == "approve"),
-            None,
-        )
-        paypal_order_id = order.get("id", "")
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"PayPal error: {e}")
+
+    paypal_client_id = _os.environ.get("PAYPAL_CLIENT_ID", "")
+    paypal_client_secret = _os.environ.get("PAYPAL_CLIENT_SECRET", "")
+    use_api = bool(paypal_client_id and paypal_client_secret)
+
+    if use_api:
+        from src.paypal import create_order
+        try:
+            order = await create_order(
+                amount=f"{total_price:.2f}",
+                currency="ILS",
+                custom_id=ref,
+                description=qty_label,
+            )
+            approval_url = next(
+                (lnk["href"] for lnk in order.get("links", []) if lnk.get("rel") == "approve"),
+                None,
+            )
+            paypal_order_id = order.get("id", "")
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"PayPal error: {e}")
+    else:
+        # Fallback to PayPal.me link when API credentials are not configured
+        approval_url = f"{PAYPAL_ME}/{total_price:.0f}ILS"
+        paypal_order_id = ""
+
     await execute(
         "INSERT OR IGNORE INTO pending_payments (ref, phone, searches, price, label, paypal_order_id, duration_months) VALUES (?,?,?,?,?,?,?)",
         [ref, str(uid), total_searches, total_price, qty_label, paypal_order_id, duration_months],

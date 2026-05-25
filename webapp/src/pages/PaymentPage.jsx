@@ -19,7 +19,8 @@ export default function PaymentPage({ pkg, onBack }) {
     try {
       const data = await initiatePayment(pkg.id, 1)
       url = data.approval_url
-    } catch {
+    } catch (err) {
+      console.error('payment initiate error:', err)
       setLoading(false)
       window.Telegram?.WebApp?.showAlert('שגיאה ביצירת הזמנה, נסה שוב.')
       return
@@ -29,9 +30,14 @@ export default function PaymentPage({ pkg, onBack }) {
       window.Telegram?.WebApp?.showAlert('שגיאה: לא התקבל קישור תשלום.')
       return
     }
-    if (window.Telegram?.WebApp?.openLink) {
-      window.Telegram.WebApp.openLink(url)
-    } else {
+    try {
+      if (window.Telegram?.WebApp?.openLink) {
+        window.Telegram.WebApp.openLink(url)
+      } else {
+        window.open(url, '_blank')
+      }
+    } catch (err) {
+      console.error('openLink error:', err)
       window.open(url, '_blank')
     }
   }
