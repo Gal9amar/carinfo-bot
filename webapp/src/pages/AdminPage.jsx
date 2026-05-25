@@ -683,7 +683,7 @@ const STATUS_META = {
   failed:    { label: 'נכשל',    color: '#f44336' },
   expired:   { label: 'פג תוקף', color: '#ff9800' },
   declined:  { label: 'נדחה',    color: '#f44336' },
-  cancelled:      { label: 'בוטל',         color: '#9e9e9e' },
+  cancelled:      { label: 'בוטל',         color: '#ff9800' },
   admin_approved: { label: 'אושר ידנית',   color: '#8bc34a' },
 }
 
