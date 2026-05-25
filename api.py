@@ -127,8 +127,8 @@ async def get_user_info(user: dict = Depends(_get_user)):
     _today = str(_date.today())
 
     async def _check_feature(key_prefix: str) -> bool:
-        if (await get_bot_setting(f"{key_prefix}_enabled")) != "1":
-            return False
+        if (await get_bot_setting(f"{key_prefix}_enabled")) == "0":
+            return False  # explicitly disabled
         if (await get_bot_setting(f"{key_prefix}_public")) == "1":
             ps = (await get_bot_setting(f"{key_prefix}_public_start")) or ""
             pe = (await get_bot_setting(f"{key_prefix}_public_end"))   or ""
@@ -509,9 +509,9 @@ async def get_vehicle_pdf(plate: str, user: dict = Depends(_get_user)):
     plate = plate.replace("-", "").replace(" ", "")
     user_id = int(user["id"])
 
-    # Check pdf_report feature gate
+    # Check pdf_report feature gate — "0" = explicitly disabled, "" or "1" = enabled
     authorized = False
-    if (await get_bot_setting("pdf_report_enabled")) == "1":
+    if (await get_bot_setting("pdf_report_enabled")) != "0":
         if (await get_bot_setting("pdf_report_public")) == "1":
             from datetime import date as _d
             _t = str(_d.today())
