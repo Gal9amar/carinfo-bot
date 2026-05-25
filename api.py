@@ -134,15 +134,14 @@ async def get_user_info(user: dict = Depends(_get_user)):
             pe = (await get_bot_setting(f"{key_prefix}_public_end"))   or ""
             if (not ps or _today >= ps) and (not pe or _today <= pe):
                 return True
-        groups_json = (await get_bot_setting(f"{key_prefix}_groups")) or "[]"
-        allowed = json.loads(groups_json)
-        if not allowed:
-            return False
-        r2 = await execute(
-            f"SELECT 1 FROM user_group_members WHERE user_id=? AND group_id IN ({','.join('?' * len(allowed))})",
-            [user_id, *allowed]
+        # Feature enabled + not public → subscribers only
+        sub_r = await execute(
+            "SELECT 1 FROM user_group_members ugm "
+            "JOIN user_groups ug ON ug.id = ugm.group_id "
+            "WHERE ugm.user_id=? AND ug.name='מנויים'",
+            [user_id]
         )
-        return len(r2.rows) > 0
+        return len(sub_r.rows) > 0
 
     show_market = await _check_feature("yad2_market")
     show_pdf    = await _check_feature("pdf_report")
@@ -522,13 +521,14 @@ async def get_vehicle_pdf(plate: str, user: dict = Depends(_get_user)):
             if (not ps or _t >= ps) and (not pe or _t <= pe):
                 authorized = True
         if not authorized:
-            ag = json.loads((await get_bot_setting("pdf_report_groups")) or "[]")
-            if ag:
-                r2 = await _ex(
-                    f"SELECT 1 FROM user_group_members WHERE user_id=? AND group_id IN ({','.join('?' * len(ag))})",
-                    [user_id, *ag]
-                )
-                authorized = len(r2.rows) > 0
+            # Feature enabled + not public → subscribers only
+            sub_r = await _ex(
+                "SELECT 1 FROM user_group_members ugm "
+                "JOIN user_groups ug ON ug.id = ugm.group_id "
+                "WHERE ugm.user_id=? AND ug.name='מנויים'",
+                [user_id]
+            )
+            authorized = len(sub_r.rows) > 0
 
     if not authorized:
         raise HTTPException(status_code=403, detail="PDF report requires subscription")
