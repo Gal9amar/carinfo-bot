@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { initiatePayment } from '../api.js'
+import { initiatePayment, promotePayment } from '../api.js'
 import paypalLogo    from '../assets/paypal-logo.png'
 import visaLogo      from '../assets/visa.svg'
 import mastercardLogo from '../assets/mastercard.svg'
@@ -10,13 +10,16 @@ const CARD_STYLE = { height: 24, width: 'auto', borderRadius: 4, display: 'block
 
 export default function PaymentPage({ pkg, onBack }) {
   const [paymentUrl, setPaymentUrl] = useState(null)
+  const [paymentRef, setPaymentRef] = useState(null)
   const [preparing, setPreparing] = useState(true)
   const desc = pkg.searches === -1 ? 'ללא הגבלה' : `${pkg.searches} חיפושים`
 
   useEffect(() => {
-    initiatePayment(pkg.id, 1)
+    // intent_only=true: creates PayPal order silently (no admin notification, not in history)
+    initiatePayment(pkg.id, 1, true)
       .then(data => {
         setPaymentUrl(data.approval_url)
+        setPaymentRef(data.ref)
         setPreparing(false)
       })
       .catch(err => {
@@ -28,7 +31,9 @@ export default function PaymentPage({ pkg, onBack }) {
 
   function openPayPal() {
     if (!paymentUrl) return
-    // Synchronous call within user gesture — no await before openLink
+    // Fire-and-forget: promotes order to 'created', notifies admin, adds to history
+    promotePayment(paymentRef)
+    // Synchronous openLink — no await before this call
     if (window.Telegram?.WebApp?.openLink) {
       window.Telegram.WebApp.openLink(paymentUrl)
     } else {

@@ -26,14 +26,22 @@ export async function fetchUserOrders() {
   return r.json()
 }
 
-export async function initiatePayment(packageId, quantity = 1) {
+export async function initiatePayment(packageId, quantity = 1, intentOnly = false) {
   const r = await fetch(`${BASE}/api/payment/initiate`, {
     method: 'POST',
     headers: headers(),
-    body: JSON.stringify({ package_id: packageId, quantity }),
+    body: JSON.stringify({ package_id: packageId, quantity, intent_only: intentOnly }),
   })
   if (!r.ok) throw new Error('Payment init failed')
   return r.json()
+}
+
+export function promotePayment(ref) {
+  fetch(`${BASE}/api/payment/promote`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ ref }),
+  }).catch(() => {})
 }
 
 export async function confirmPayment(ref, packageId) {

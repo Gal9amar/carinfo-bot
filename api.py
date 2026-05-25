@@ -72,10 +72,10 @@ async def _startup():
     except Exception:
         pass
     try:
-        # Mark stale 'created' transactions (> 2 hours) as expired
+        # Mark stale 'created'/'intent' transactions (> 30 min) as expired
         await _dbexec(
             "UPDATE paypal_transactions SET status='expired', updated_at=datetime('now') "
-            "WHERE status='created' AND created_at < datetime('now', '-30 minutes')"
+            "WHERE status IN ('created','intent') AND created_at < datetime('now', '-30 minutes')"
         )
         # Delete matching stale pending_payments
         await _dbexec(
@@ -179,6 +179,7 @@ async def get_user_info(user: dict = Depends(_get_user)):
 class PaymentInitRequest(BaseModel):
     package_id: int
     quantity: int = 1
+    intent_only: bool = False
 
 
 @api.post("/api/payment/initiate")
@@ -229,21 +230,54 @@ async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_u
         approval_url = f"{PAYPAL_ME}/{total_price:.0f}ILS"
         paypal_order_id = ""
 
+    init_status = "intent" if body.intent_only else "created"
     await execute(
         "INSERT OR IGNORE INTO pending_payments (ref, phone, searches, price, label, paypal_order_id, duration_months) VALUES (?,?,?,?,?,?,?)",
         [ref, str(uid), total_searches, total_price, qty_label, paypal_order_id, duration_months],
     )
     await execute(
         "INSERT INTO paypal_transactions (ref, paypal_order_id, user_id, amount, currency, label, searches, status, duration_months) VALUES (?,?,?,?,?,?,?,?,?)",
-        [ref, paypal_order_id, uid, total_price, "ILS", qty_label, total_searches, "created", duration_months],
+        [ref, paypal_order_id, uid, total_price, "ILS", qty_label, total_searches, init_status, duration_months],
+    )
+    if not body.intent_only:
+        try:
+            from src.notifier import notify_admin_order
+            username = user.get("username", "") or ""
+            await notify_admin_order(ref, "created", qty_label, total_price, username, member_id)
+        except Exception:
+            pass
+    return {"ref": ref, "approval_url": approval_url, "label": qty_label, "price": total_price, "searches": total_searches}
+
+
+@api.post("/api/payment/promote")
+async def promote_payment(body: dict, user: dict = Depends(_get_user)):
+    """Promote an 'intent' order to 'created' and notify admin. Called fire-and-forget on PayPal button click."""
+    from src.db import execute as _dbexec
+    ref = body.get("ref", "")
+    if not ref:
+        raise HTTPException(status_code=400, detail="ref required")
+    uid = int(user["id"])
+    r = await _dbexec(
+        "SELECT pt.label, pt.amount, pt.status, u.username, u.member_id "
+        "FROM paypal_transactions pt JOIN users u ON u.user_id=pt.user_id "
+        "WHERE pt.ref=? AND pt.user_id=?",
+        [ref, uid],
+    )
+    if not r.rows:
+        raise HTTPException(status_code=404, detail="Order not found")
+    label, amount, status, username, member_id = r.rows[0]
+    if status not in ("intent",):
+        return {"ok": True}  # already promoted
+    await _dbexec(
+        "UPDATE paypal_transactions SET status='created', updated_at=datetime('now') WHERE ref=? AND user_id=?",
+        [ref, uid],
     )
     try:
         from src.notifier import notify_admin_order
-        username = user.get("username", "") or ""
-        await notify_admin_order(ref, "created", qty_label, total_price, username, member_id)
+        await notify_admin_order(ref, "created", label, amount, username or "", member_id)
     except Exception:
         pass
-    return {"ref": ref, "approval_url": approval_url, "label": qty_label, "price": total_price, "searches": total_searches}
+    return {"ok": True}
 
 
 class PaymentConfirmRequest(BaseModel):
@@ -367,7 +401,7 @@ async def get_user_orders(user: dict = Depends(_get_user)):
     uid = int(user["id"])
     r = await _dbexec(
         "SELECT id, ref, amount, currency, label, searches, status, created_at "
-        "FROM paypal_transactions WHERE user_id=? ORDER BY created_at DESC LIMIT 50",
+        "FROM paypal_transactions WHERE user_id=? AND status != 'intent' ORDER BY created_at DESC LIMIT 50",
         [uid],
     )
     orders = []
