@@ -15,18 +15,24 @@ export default function PaymentPage({ pkg, onBack }) {
   async function openPayPal() {
     if (loading) return
     setLoading(true)
+    let url = null
     try {
       const data = await initiatePayment(pkg.id, 1)
-      const url = data.approval_url
-      if (window.Telegram?.WebApp?.openLink) {
-        window.Telegram.WebApp.openLink(url)
-      } else {
-        window.open(url, '_blank')
-      }
+      url = data.approval_url
     } catch {
-      window.Telegram?.WebApp?.showAlert('שגיאה, נסה שוב.')
-    } finally {
       setLoading(false)
+      window.Telegram?.WebApp?.showAlert('שגיאה ביצירת הזמנה, נסה שוב.')
+      return
+    }
+    setLoading(false)
+    if (!url) {
+      window.Telegram?.WebApp?.showAlert('שגיאה: לא התקבל קישור תשלום.')
+      return
+    }
+    if (window.Telegram?.WebApp?.openLink) {
+      window.Telegram.WebApp.openLink(url)
+    } else {
+      window.open(url, '_blank')
     }
   }
 
