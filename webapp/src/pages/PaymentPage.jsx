@@ -32,8 +32,8 @@ export default function PaymentPage({ pkg, paymentData, onBack }) {
 
       <div className="card" style={{ marginBottom: 16 }}>
         <div style={{ fontSize: 14, lineHeight: 1.8 }}>
-          <div>1️⃣ לחץ על לחצן PayPal למטה</div>
-          <div>2️⃣ השלם את התשלום בדף PayPal</div>
+          <div>1️⃣ לחץ על הלחצן למטה</div>
+          <div>2️⃣ שלם עם <strong>PayPal</strong> או <strong>כרטיס אשראי</strong></div>
           <div>3️⃣ הגישה תעודכן <strong>אוטומטית</strong> תוך שניות</div>
         </div>
       </div>
@@ -41,17 +41,29 @@ export default function PaymentPage({ pkg, paymentData, onBack }) {
       <button
         onClick={openPayPal}
         style={{
-          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: '100%', display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', gap: 10,
           background: '#ffffff', border: '2px solid #003087', borderRadius: 12,
-          padding: '16px 8px', cursor: 'pointer',
+          padding: '16px 12px', cursor: 'pointer',
           boxShadow: '0 2px 12px rgba(0,0,0,0.18)',
         }}
       >
-        <img src={paypalLogo} alt="PayPal" style={{ height: 32, objectFit: 'contain' }} />
+        <img src={paypalLogo} alt="PayPal" style={{ height: 28, objectFit: 'contain' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 11, color: '#666', letterSpacing: 0.5 }}>או שלם עם כרטיס:</span>
+          <span style={{ fontSize: 18 }}>💳</span>
+          {['VISA', 'MC', 'AMEX'].map(c => (
+            <span key={c} style={{
+              fontSize: 9, fontWeight: 800, color: '#fff', padding: '2px 5px', borderRadius: 3,
+              background: c === 'VISA' ? '#1a1f71' : c === 'MC' ? '#eb001b' : '#2e77bc',
+              letterSpacing: 0.5,
+            }}>{c}</span>
+          ))}
+        </div>
       </button>
 
       <div style={{ marginTop: 14, fontSize: 12, color: 'var(--hint)', textAlign: 'center' }}>
-        לאחר השלמת התשלום ב-PayPal, הגישה תתעדכן אוטומטית ותקבל הודעה בצ'אט
+        לאחר השלמת התשלום הגישה תתעדכן אוטומטית ותגיע הודעה בצ'אט
       </div>
     </div>
   )
