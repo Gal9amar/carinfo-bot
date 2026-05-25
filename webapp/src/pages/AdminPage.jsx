@@ -282,6 +282,7 @@ function PackagesTab() {
         searches: parseInt(form.searches),
         price: parseInt(form.price),
         image_url: form.image_url || '',
+        duration_months: parseInt(form.duration_months) || 1,
       })
       const fresh = await adminFetchPackages()
       setPkgs(fresh)
@@ -298,6 +299,7 @@ function PackagesTab() {
         searches: parseInt(form.searches),
         price: parseInt(form.price),
         image_url: form.image_url || '',
+        duration_months: parseInt(form.duration_months) || 1,
       })
       setPkgs(fresh)
       setAdding(false)
@@ -369,7 +371,7 @@ function PackagesTab() {
                   title="הזז למטה"
                 >↓</button>
                 <button className="btn" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
-                  onClick={() => { setEditing(pkg); setForm({ label: pkg.label, searches: String(pkg.searches), price: String(pkg.price), image_url: pkg.image_url || '' }) }}>
+                  onClick={() => { setEditing(pkg); setForm({ label: pkg.label, searches: String(pkg.searches), price: String(pkg.price), image_url: pkg.image_url || '', duration_months: String(pkg.duration_months ?? 1) }) }}>
                   ✏️
                 </button>
                 <button className="btn btn-danger" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
@@ -381,7 +383,7 @@ function PackagesTab() {
           </div>
         )
       })}
-      <button className="btn btn-success" onClick={() => { setAdding(true); setForm({ label: '', searches: '', price: '', image_url: '' }) }}>
+      <button className="btn btn-success" onClick={() => { setAdding(true); setForm({ label: '', searches: '', price: '', image_url: '', duration_months: '1' }) }}>
         ➕ הוסף מנוי
       </button>
 
@@ -453,6 +455,16 @@ function PackageModal({ title, form, setForm, saving, onSave, onClose }) {
           value={form.price}
           onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
         />
+        {parseInt(form.searches) === -1 && (
+          <input
+            className="input"
+            placeholder="משך בחודשים (ברירת מחדל: 1)"
+            type="number"
+            min="1"
+            value={form.duration_months ?? '1'}
+            onChange={e => setForm(f => ({ ...f, duration_months: e.target.value }))}
+          />
+        )}
 
         {form.image_url ? (
           <div style={{ position: 'relative', marginBottom: 8 }}>

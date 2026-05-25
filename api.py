@@ -83,7 +83,7 @@ async def health():
 async def list_packages():
     from src.packages import get_packages
     pkgs = await get_packages()
-    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4], "display_order": p[5]} for p in pkgs]
+    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4], "display_order": p[5], "duration_months": p[6] if len(p) > 6 else 1} for p in pkgs]
 
 
 @api.get("/api/user")
@@ -178,7 +178,8 @@ async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_u
     pkg = next((p for p in pkgs if p[0] == body.package_id), None)
     if not pkg:
         raise HTTPException(status_code=404, detail="Package not found")
-    pid, label, searches, price, _img, _order = pkg
+    pid, label, searches, price, _img, _order = pkg[:6]
+    duration_months = pkg[6] if len(pkg) > 6 else 1
     qty = max(1, min(10, body.quantity))
     total_price = price * qty
     total_searches = -1 if searches == -1 else searches * qty
@@ -205,12 +206,12 @@ async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_u
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"PayPal error: {e}")
     await execute(
-        "INSERT OR IGNORE INTO pending_payments (ref, phone, searches, price, label, paypal_order_id) VALUES (?,?,?,?,?,?)",
-        [ref, str(uid), total_searches, total_price, qty_label, paypal_order_id],
+        "INSERT OR IGNORE INTO pending_payments (ref, phone, searches, price, label, paypal_order_id, duration_months) VALUES (?,?,?,?,?,?,?)",
+        [ref, str(uid), total_searches, total_price, qty_label, paypal_order_id, duration_months],
     )
     await execute(
-        "INSERT INTO paypal_transactions (ref, paypal_order_id, user_id, amount, currency, label, searches, status) VALUES (?,?,?,?,?,?,?,?)",
-        [ref, paypal_order_id, uid, total_price, "ILS", qty_label, total_searches, "created"],
+        "INSERT INTO paypal_transactions (ref, paypal_order_id, user_id, amount, currency, label, searches, status, duration_months) VALUES (?,?,?,?,?,?,?,?,?)",
+        [ref, paypal_order_id, uid, total_price, "ILS", qty_label, total_searches, "created", duration_months],
     )
     return {"ref": ref, "approval_url": approval_url, "label": qty_label, "price": total_price, "searches": total_searches}
 
@@ -281,11 +282,11 @@ async def paypal_webhook(request: Request):
 async def _auto_approve_payment(ref: str) -> None:
     from src.db import execute
     from src.users import admin_grant, add_to_subscribers
-    r = await execute("SELECT phone, searches, label FROM pending_payments WHERE ref=?", [ref])
+    r = await execute("SELECT phone, searches, label, COALESCE(duration_months,1) FROM pending_payments WHERE ref=?", [ref])
     if not r.rows:
         return  # already processed
-    user_id, searches, label = int(r.rows[0][0]), r.rows[0][1], r.rows[0][2]
-    await admin_grant(0, user_id, searches)
+    user_id, searches, label, duration_months = int(r.rows[0][0]), r.rows[0][1], r.rows[0][2], int(r.rows[0][3])
+    await admin_grant(0, user_id, searches, duration_months=duration_months)
     await add_to_subscribers(user_id)
     await execute("DELETE FROM pending_payments WHERE ref=?", [ref])
     await execute(
@@ -548,7 +549,7 @@ async def admin_remove_group_member(group_id: int, user_id: int, _: dict = Depen
 async def admin_list_packages(_: dict = Depends(_require_admin)):
     from src.packages import get_packages
     pkgs = await get_packages(force_reload=True)
-    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4], "display_order": p[5]} for p in pkgs]
+    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4], "display_order": p[5], "duration_months": p[6] if len(p) > 6 else 1} for p in pkgs]
 
 
 class PackageBody(BaseModel):
@@ -556,6 +557,7 @@ class PackageBody(BaseModel):
     searches: int
     price: int
     image_url: str = ""
+    duration_months: int = 1
 
 
 class PackageReorderBody(BaseModel):
@@ -569,21 +571,21 @@ async def admin_reorder_packages(body: PackageReorderBody, _: dict = Depends(_re
         raise HTTPException(status_code=400, detail="Order list required")
     await reorder_packages(body.order)
     pkgs = await get_packages(force_reload=True)
-    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4], "display_order": p[5]} for p in pkgs]
+    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4], "display_order": p[5], "duration_months": p[6] if len(p) > 6 else 1} for p in pkgs]
 
 
 @api.post("/api/admin/packages")
 async def admin_add_package(body: PackageBody, _: dict = Depends(_require_admin)):
     from src.packages import add_package, get_packages
-    await add_package(body.label, body.searches, body.price, body.image_url)
+    await add_package(body.label, body.searches, body.price, body.image_url, body.duration_months)
     pkgs = await get_packages(force_reload=True)
-    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4], "display_order": p[5]} for p in pkgs]
+    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4], "display_order": p[5], "duration_months": p[6] if len(p) > 6 else 1} for p in pkgs]
 
 
 @api.put("/api/admin/packages/{pkg_id}")
 async def admin_update_package(pkg_id: int, body: PackageBody, _: dict = Depends(_require_admin)):
     from src.packages import update_package
-    await update_package(pkg_id, body.label, body.searches, body.price, body.image_url)
+    await update_package(pkg_id, body.label, body.searches, body.price, body.image_url, body.duration_months)
     return {"ok": True}
 
 
