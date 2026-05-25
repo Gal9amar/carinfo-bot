@@ -8,9 +8,10 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
     setQuantities(q => ({ ...q, [id]: Math.max(1, Math.min(10, val)) }))
   }
 
-  function handleSelect(pkg) {
-    onSelect(pkg)
-  }
+  function handleSelect(pkg) { onSelect(pkg) }
+
+  const isFreeUser = user && !user.is_subscriber
+  const subLabel   = user?.subscription_label || null
 
   return (
     <div className="page" style={{ paddingBottom: 16 }}>
@@ -85,6 +86,105 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
         </div>
       </button>
 
+      {/* ── FREE card ── */}
+      {(() => {
+        const freeAccent = '#52b788'
+        const freeGrad   = 'linear-gradient(135deg,#1b4332,#2d6a4f)'
+        const searchesLeft = user?.searches_left ?? 0
+        return (
+          <div style={{
+            borderRadius: 20, overflow: 'hidden', marginBottom: 22,
+            boxShadow: isFreeUser
+              ? '0 6px 28px rgba(0,0,0,0.18), 0 0 0 2px #4caf50'
+              : '0 6px 28px rgba(0,0,0,0.18), 0 0 0 1px rgba(255,255,255,0.07)',
+            background: 'var(--bg2)',
+          }}>
+            {isFreeUser && (
+              <div style={{
+                background: 'linear-gradient(90deg,#4caf50,#2e7d32)',
+                padding: '6px 14px', fontSize: 12, fontWeight: 700, color: '#fff',
+                display: 'flex', alignItems: 'center', gap: 6,
+              }}>✓ המנוי שלך כרגע</div>
+            )}
+
+            {/* Hero */}
+            <div style={{
+              position: 'relative', height: 150, background: freeGrad,
+              display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}>
+              {isFreeUser ? (
+                <>
+                  <span style={{ fontSize: 52, fontWeight: 900, color: '#fff', lineHeight: 1 }}>
+                    {searchesLeft}
+                  </span>
+                  <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 600 }}>
+                    חיפושים נותרו
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span style={{ fontSize: 52, lineHeight: 1 }}>🆓</span>
+                  <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 600 }}>
+                    גישה חינמית
+                  </span>
+                </>
+              )}
+              <div style={{
+                position: 'absolute', inset: 0,
+                background: 'linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 55%)',
+                display: 'flex', alignItems: 'flex-end', padding: '12px 14px',
+              }}>
+                <span style={{
+                  fontSize: 13, fontWeight: 400, padding: '4px 12px',
+                  background: freeAccent, color: '#000', borderRadius: 20, whiteSpace: 'nowrap',
+                }}>🆓 מסלול FREE</span>
+              </div>
+            </div>
+
+            {/* Chips */}
+            <div style={{ display: 'flex', gap: 7, padding: '14px 14px 10px', flexWrap: 'wrap' }}>
+              {isFreeUser ? (
+                <>
+                  <Chip accent={freeAccent}>🔍 {searchesLeft} חיפושים נותרו</Chip>
+                  <Chip accent={freeAccent}>🤝 +חיפושים על הפנות</Chip>
+                  <Chip accent={freeAccent}>🔓 ללא תפוגה</Chip>
+                </>
+              ) : (
+                <>
+                  <Chip accent={freeAccent}>🔍 חיפושים בהצטרפות</Chip>
+                  <Chip accent={freeAccent}>🤝 +חיפושים על הפנות</Chip>
+                  <Chip accent={freeAccent}>🔓 ללא תפוגה</Chip>
+                </>
+              )}
+            </div>
+
+            <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 14px' }} />
+
+            {/* Info */}
+            <div style={{ padding: '12px 16px', fontSize: 13, color: 'var(--hint)', lineHeight: 1.7 }}>
+              <div>✅ נתוני רכב בסיסיים — שנה, דגם, בעלות, טסט, ק״מ</div>
+              <div>✅ היסטוריית חיפושים אישית</div>
+              <div style={{ color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>
+                ✗ תכונות מנוי — מחיר שוק, PDF, ועוד תכונות עתידיות
+              </div>
+            </div>
+
+            {/* CTA */}
+            <div style={{ padding: '10px 14px 16px' }}>
+              <button
+                onClick={onReferral}
+                style={{
+                  width: '100%', padding: '14px 0', border: 'none', borderRadius: 14,
+                  background: freeGrad, color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(0,0,0,0.25)',
+                }}
+              >🤝 קבל עוד חיפושים חינם</button>
+            </div>
+          </div>
+        )
+      })()}
+
       {packages.length === 0 && (
         <div className="card" style={{ textAlign: 'center', color: 'var(--hint)', fontSize: 14 }}>
           אין מנויים זמינים כרגע
@@ -100,12 +200,25 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
         const grad   = 'linear-gradient(135deg,#1e40af,#0ea5e9)'
         const accent = '#38bdf8'
 
+        const isCurrentPlan = user?.is_subscriber && subLabel &&
+          (subLabel === pkg.label || subLabel.startsWith(pkg.label + ' ×'))
+
         return (
           <div key={pkg.id} style={{
             borderRadius: 20, overflow: 'hidden', marginBottom: 22,
-            boxShadow: `0 6px 28px rgba(0,0,0,0.18), 0 0 0 1px rgba(255,255,255,0.07)`,
+            boxShadow: isCurrentPlan
+              ? '0 6px 28px rgba(0,0,0,0.18), 0 0 0 2px #4caf50'
+              : '0 6px 28px rgba(0,0,0,0.18), 0 0 0 1px rgba(255,255,255,0.07)',
             background: 'var(--bg2)',
           }}>
+
+          {isCurrentPlan && (
+            <div style={{
+              background: 'linear-gradient(90deg,#4caf50,#2e7d32)',
+              padding: '6px 14px', fontSize: 12, fontWeight: 700, color: '#fff',
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}>✓ המנוי שלך כרגע</div>
+          )}
 
             {/* ── Hero ── */}
             <div style={{ position: 'relative', height: pkg.image_url ? 170 : 150 }}>
