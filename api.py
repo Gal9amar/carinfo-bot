@@ -872,11 +872,22 @@ async def admin_decline_payment(ref: str, _: dict = Depends(_require_admin)):
 async def admin_paypal_transactions(_: dict = Depends(_require_admin)):
     from src.db import execute
     r = await execute(
-        "SELECT id, ref, paypal_order_id, user_id, amount, currency, label, searches, status, error, created_at, updated_at "
-        "FROM paypal_transactions ORDER BY created_at DESC LIMIT 200"
+        "SELECT pt.id, pt.ref, pt.paypal_order_id, pt.user_id, "
+        "COALESCE(u.username, ''), COALESCE(u.full_name, ''), "
+        "pt.amount, pt.currency, pt.label, pt.searches, pt.status, pt.error, pt.created_at, pt.updated_at "
+        "FROM paypal_transactions pt "
+        "LEFT JOIN users u ON u.user_id = pt.user_id "
+        "ORDER BY pt.created_at DESC LIMIT 200"
     )
-    cols = [c.name for c in r.columns]
-    return [dict(zip(cols, row)) for row in r.rows]
+    results = []
+    for row in r.rows:
+        results.append({
+            "id": row[0], "ref": row[1], "paypal_order_id": row[2], "user_id": row[3],
+            "username": row[4], "full_name": row[5],
+            "amount": row[6], "currency": row[7], "label": row[8], "searches": row[9],
+            "status": row[10], "error": row[11], "created_at": row[12], "updated_at": row[13],
+        })
+    return results
 
 
 @api.get("/api/admin/codes")

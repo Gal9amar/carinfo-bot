@@ -706,7 +706,7 @@ function PaypalTransactionRow({ tx }) {
           <span style={{ color: '#4caf50', fontWeight: 700 }}>₪{tx.amount}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3, fontSize: 11, color: 'var(--hint)' }}>
-          <span>משתמש {tx.user_id}</span>
+          <span>{tx.username ? `@${tx.username}` : tx.full_name || `משתמש ${tx.user_id}`}</span>
           <span>{tx.created_at?.slice(0, 16).replace('T', ' ')}</span>
         </div>
       </div>
