@@ -123,33 +123,29 @@ async def get_user_info(user: dict = Depends(_get_user)):
     left = db_user.get("searches_left", 0) if db_user else 0
     quota = db_user.get("searches_quota", 0) if db_user else 0
 
-    # Determine show_market_price based on feature flag, public mode, and group membership
-    yad2_enabled = (await get_bot_setting("yad2_market_enabled")) == "1"
-    show_market = False
-    if yad2_enabled:
-        # Check public (open-to-all) mode with optional date window
-        public_on    = (await get_bot_setting("yad2_market_public")) == "1"
-        public_start = (await get_bot_setting("yad2_market_public_start")) or ""
-        public_end   = (await get_bot_setting("yad2_market_public_end"))   or ""
-        if public_on:
-            from datetime import date as _date
-            today = str(_date.today())
-            in_window = (not public_start or today >= public_start) and \
-                        (not public_end   or today <= public_end)
-            show_market = in_window
+    from datetime import date as _date
+    _today = str(_date.today())
 
-        # If not shown via public, check group membership
-        if not show_market:
-            groups_json = (await get_bot_setting("yad2_market_groups")) or "[]"
-            allowed_groups = json.loads(groups_json)
-            if not allowed_groups:
-                pass  # no groups configured = groups mode inactive
-            else:
-                r = await execute(
-                    f"SELECT 1 FROM user_group_members WHERE user_id=? AND group_id IN ({','.join('?' * len(allowed_groups))})",
-                    [user_id, *allowed_groups]
-                )
-                show_market = len(r.rows) > 0
+    async def _check_feature(key_prefix: str) -> bool:
+        if (await get_bot_setting(f"{key_prefix}_enabled")) != "1":
+            return False
+        if (await get_bot_setting(f"{key_prefix}_public")) == "1":
+            ps = (await get_bot_setting(f"{key_prefix}_public_start")) or ""
+            pe = (await get_bot_setting(f"{key_prefix}_public_end"))   or ""
+            if (not ps or _today >= ps) and (not pe or _today <= pe):
+                return True
+        groups_json = (await get_bot_setting(f"{key_prefix}_groups")) or "[]"
+        allowed = json.loads(groups_json)
+        if not allowed:
+            return False
+        r2 = await execute(
+            f"SELECT 1 FROM user_group_members WHERE user_id=? AND group_id IN ({','.join('?' * len(allowed))})",
+            [user_id, *allowed]
+        )
+        return len(r2.rows) > 0
+
+    show_market = await _check_feature("yad2_market")
+    show_pdf    = await _check_feature("pdf_report")
 
     # Check if user is in the 'מנויים' group
     sub_r = await execute(
@@ -185,6 +181,7 @@ async def get_user_info(user: dict = Depends(_get_user)):
         "quota_expires": quota_expires,
         "maintenance": maintenance,
         "show_market_price": show_market,
+        "show_pdf_report": show_pdf,
         "is_subscriber": is_subscriber,
         "subscription_label": subscription_label,
     }
@@ -506,6 +503,62 @@ async def get_vehicle(plate: str, user: dict = Depends(_get_user)):
     return record
 
 
+@api.get("/api/vehicle/{plate}/pdf")
+async def get_vehicle_pdf(plate: str, user: dict = Depends(_get_user)):
+    from src.db import get_bot_setting, execute as _ex
+    from fastapi.responses import Response
+    import asyncio as _asyncio
+    plate = plate.replace("-", "").replace(" ", "")
+    user_id = int(user["id"])
+
+    # Check pdf_report feature gate
+    authorized = False
+    if (await get_bot_setting("pdf_report_enabled")) == "1":
+        if (await get_bot_setting("pdf_report_public")) == "1":
+            from datetime import date as _d
+            _t = str(_d.today())
+            ps = (await get_bot_setting("pdf_report_public_start")) or ""
+            pe = (await get_bot_setting("pdf_report_public_end")) or ""
+            if (not ps or _t >= ps) and (not pe or _t <= pe):
+                authorized = True
+        if not authorized:
+            ag = json.loads((await get_bot_setting("pdf_report_groups")) or "[]")
+            if ag:
+                r2 = await _ex(
+                    f"SELECT 1 FROM user_group_members WHERE user_id=? AND group_id IN ({','.join('?' * len(ag))})",
+                    [user_id, *ag]
+                )
+                authorized = len(r2.rows) > 0
+
+    if not authorized:
+        raise HTTPException(status_code=403, detail="PDF report requires subscription")
+
+    from src.api.gov_api import fetch_vehicle_data
+    from src.cache import cache
+    record = cache.get(plate)
+    if record is None:
+        record = await fetch_vehicle_data(plate)
+        if record:
+            cache.set(plate, record)
+    if not record:
+        raise HTTPException(status_code=404, detail="Vehicle not found")
+
+    from src.pdf_report import generate_pdf
+    pdf_bytes = await _asyncio.to_thread(
+        generate_pdf, record,
+        tg_link=f"t.me/{BOT_USERNAME}",
+        wa_link="",
+        logo_path=os.environ.get("LOGO_PATH", ""),
+        cover_path=os.environ.get("COVER_PATH", ""),
+        channel="telegram",
+    )
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=car_{plate}.pdf"},
+    )
+
+
 # ── Admin ────────────────────────────────────────────────────────────────────
 @api.get("/api/admin/stats")
 async def admin_stats_api(_: dict = Depends(_require_admin)):
@@ -539,6 +592,12 @@ async def admin_get_settings(_: dict = Depends(_require_admin)):
         "yad2_market_public_start":  (await get_bot_setting("yad2_market_public_start")) or "",
         "yad2_market_public_end":    (await get_bot_setting("yad2_market_public_end"))   or "",
         "yad2_market_public_label":  (await get_bot_setting("yad2_market_public_label")) or "",
+        "pdf_report_enabled":        (await get_bot_setting("pdf_report_enabled")) == "1",
+        "pdf_report_groups":         json.loads((await get_bot_setting("pdf_report_groups")) or "[]"),
+        "pdf_report_public":         (await get_bot_setting("pdf_report_public")) == "1",
+        "pdf_report_public_start":   (await get_bot_setting("pdf_report_public_start")) or "",
+        "pdf_report_public_end":     (await get_bot_setting("pdf_report_public_end"))   or "",
+        "pdf_report_public_label":   (await get_bot_setting("pdf_report_public_label")) or "",
     }
 
 
@@ -558,6 +617,12 @@ class SettingsUpdate(BaseModel):
     yad2_market_public_start:  str          | None = None
     yad2_market_public_end:    str          | None = None
     yad2_market_public_label:  str          | None = None
+    pdf_report_enabled:        bool         | None = None
+    pdf_report_groups:         Optional[list]      = None
+    pdf_report_public:         bool         | None = None
+    pdf_report_public_start:   str          | None = None
+    pdf_report_public_end:     str          | None = None
+    pdf_report_public_label:   str          | None = None
 
 
 @api.post("/api/admin/settings")
@@ -605,6 +670,18 @@ async def admin_update_settings(body: SettingsUpdate, _: dict = Depends(_require
         await set_bot_setting("yad2_market_public_end", body.yad2_market_public_end.strip())
     if body.yad2_market_public_label is not None:
         await set_bot_setting("yad2_market_public_label", body.yad2_market_public_label.strip())
+    if body.pdf_report_enabled is not None:
+        await set_bot_setting("pdf_report_enabled", "1" if body.pdf_report_enabled else "0")
+    if body.pdf_report_groups is not None:
+        await set_bot_setting("pdf_report_groups", json.dumps(body.pdf_report_groups))
+    if body.pdf_report_public is not None:
+        await set_bot_setting("pdf_report_public", "1" if body.pdf_report_public else "0")
+    if body.pdf_report_public_start is not None:
+        await set_bot_setting("pdf_report_public_start", body.pdf_report_public_start.strip())
+    if body.pdf_report_public_end is not None:
+        await set_bot_setting("pdf_report_public_end", body.pdf_report_public_end.strip())
+    if body.pdf_report_public_label is not None:
+        await set_bot_setting("pdf_report_public_label", body.pdf_report_public_label.strip())
     return {"ok": True}
 
 

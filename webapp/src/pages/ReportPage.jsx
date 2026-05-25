@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { fetchVehicle, fetchMarketPrice } from '../api.js'
+import { fetchVehicle, fetchMarketPrice, downloadPdfReport } from '../api.js'
 import { MAKE_EN, MODEL_EN } from '../vehicleNames.js'
 import LicensePlate from '../components/LicensePlate.jsx'
 import BackButton from '../components/BackButton.jsx'
@@ -226,6 +226,7 @@ export default function ReportPage({ plate, onBack, user }) {
   const [error, setError] = useState(null)
   const [copied, setCopied] = useState(false)
   const [marketData, setMarketData] = useState(undefined) // undefined=loading, null=disabled/error
+  const [pdfLoading, setPdfLoading] = useState(false)
 
   useEffect(() => {
     if (!plate) { setError('לא צוין מספר רכב'); return }
@@ -626,6 +627,54 @@ export default function ReportPage({ plate, onBack, user }) {
           </div>
         ))}
       </div>
+
+      {/* ── PDF Report ── */}
+      {(() => {
+        const authorized = !!user?.show_pdf_report
+        async function handleDownload() {
+          setPdfLoading(true)
+          try { await downloadPdfReport(plateNum) }
+          catch { window.Telegram?.WebApp?.showAlert('שגיאה בהורדת הדוח. ייתכן שהמנוי אינו פעיל.') }
+          finally { setPdfLoading(false) }
+        }
+        return (
+          <div className="card" style={{ marginBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+              <div>
+                <div style={{
+                  display: 'inline-block', fontSize: 11, fontWeight: 700,
+                  background: '#8b5cf6', color: '#fff',
+                  borderRadius: 20, padding: '4px 10px', marginBottom: 6,
+                }}>למנויים בלבד</div>
+                <div style={{ fontWeight: 700, fontSize: 15 }}>📄 דוח PDF מפורט</div>
+              </div>
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 12, lineHeight: 1.6 }}>
+              דוח מלא מעוצב הכולל את כל נתוני הרכב, היסטוריית בעלויות, מפרט טכני ועוד — להורדה ולשיתוף.
+            </div>
+            {authorized ? (
+              <button
+                onClick={handleDownload}
+                disabled={pdfLoading}
+                style={{
+                  width: '100%', padding: '10px 0', border: 'none', borderRadius: 10,
+                  background: pdfLoading ? '#444' : 'linear-gradient(135deg,#4c1d95,#7c3aed)',
+                  color: '#fff', fontSize: 14, fontWeight: 700, cursor: pdfLoading ? 'default' : 'pointer',
+                }}
+              >
+                {pdfLoading ? '⏳ מכין דוח...' : '📥 הורד דוח PDF'}
+              </button>
+            ) : (
+              <div style={{
+                width: '100%', padding: '10px 0', borderRadius: 10,
+                background: '#55555544', color: 'var(--hint)',
+                textAlign: 'center', fontSize: 14, fontWeight: 700, cursor: 'not-allowed',
+                filter: 'blur(0)',
+              }}>📥 הורד דוח PDF</div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* ── Actions ── */}
       <button className="btn btn-secondary" style={{ marginBottom: 10 }} onClick={handleCopy}>

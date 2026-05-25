@@ -1683,6 +1683,13 @@ function FeaturesTab() {
   const [yad2PublicEnd, setYad2PublicEnd]       = useState('')
   const [yad2PublicLabel, setYad2PublicLabel]   = useState('')
   const [yad2Saving, setYad2Saving]             = useState(false)
+  const [pdfEnabled, setPdfEnabled]             = useState(false)
+  const [pdfGroups, setPdfGroups]               = useState([])
+  const [pdfPublic, setPdfPublic]               = useState(false)
+  const [pdfPublicStart, setPdfPublicStart]     = useState('')
+  const [pdfPublicEnd, setPdfPublicEnd]         = useState('')
+  const [pdfPublicLabel, setPdfPublicLabel]     = useState('')
+  const [pdfSaving, setPdfSaving]               = useState(false)
 
   useEffect(() => {
     adminFetchGroups().then(setAllGroups).catch(() => setAllGroups([]))
@@ -1694,6 +1701,12 @@ function FeaturesTab() {
       setYad2PublicStart(s.yad2_market_public_start || '')
       setYad2PublicEnd(s.yad2_market_public_end || '')
       setYad2PublicLabel(s.yad2_market_public_label || '')
+      setPdfEnabled(!!s.pdf_report_enabled)
+      setPdfGroups(s.pdf_report_groups || [])
+      setPdfPublic(!!s.pdf_report_public)
+      setPdfPublicStart(s.pdf_report_public_start || '')
+      setPdfPublicEnd(s.pdf_report_public_end || '')
+      setPdfPublicLabel(s.pdf_report_public_label || '')
     }).catch(() => {})
   }, [])
 
@@ -1715,6 +1728,26 @@ function FeaturesTab() {
 
   function toggleYad2Group(id) {
     setYad2Groups(prev => prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id])
+  }
+
+  async function savePdf() {
+    setPdfSaving(true)
+    try {
+      await adminUpdateSettings({
+        pdf_report_enabled:      pdfEnabled,
+        pdf_report_groups:       pdfGroups,
+        pdf_report_public:       pdfPublic,
+        pdf_report_public_start: pdfPublicStart,
+        pdf_report_public_end:   pdfPublicEnd,
+        pdf_report_public_label: pdfPublicLabel,
+      })
+      window.Telegram?.WebApp?.showAlert('✅ הגדרות עודכנו')
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    setPdfSaving(false)
+  }
+
+  function togglePdfGroup(id) {
+    setPdfGroups(prev => prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id])
   }
 
   if (!settings) return <div className="loading"></div>
@@ -1792,6 +1825,75 @@ function FeaturesTab() {
 
         <button className="btn btn-success" style={{ marginTop: 14 }} disabled={yad2Saving} onClick={saveYad2}>
           {yad2Saving ? '...' : '💾 שמור'}
+        </button>
+      </div>
+
+      {/* PDF report */}
+      <div style={{ border: '1.5px solid var(--border, rgba(255,255,255,0.12))', borderRadius: 14, padding: 16, marginTop: 16 }}>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14 }}>📄 הורדת דוח PDF</div>
+
+        <div className="toggle-row">
+          <span className="toggle-label">הפעל הורדת PDF למנויים</span>
+          <button className={`toggle ${pdfEnabled ? 'on' : ''}`} onClick={() => setPdfEnabled(v => !v)} />
+        </div>
+
+        {pdfEnabled && (
+          <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+            {/* Public mode */}
+            <div style={{ background: 'var(--bg2)', borderRadius: 10, padding: 12 }}>
+              <div className="toggle-row" style={{ paddingTop: 0 }}>
+                <span className="toggle-label" style={{ fontSize: 14 }}>🌐 פתוח לכולם</span>
+                <button className={`toggle ${pdfPublic ? 'on' : ''}`} onClick={() => setPdfPublic(v => !v)} />
+              </div>
+              {pdfPublic && (
+                <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ fontSize: 12, color: 'var(--hint)' }}>טקסט תצוגה למשתמש</div>
+                  <input type="text" className="input" style={{ marginBottom: 0 }}
+                    placeholder='לדוגמה: פתוח לכולם עד 01/07/2026'
+                    value={pdfPublicLabel} onChange={e => setPdfPublicLabel(e.target.value)} />
+                  <div style={{ fontSize: 12, color: 'var(--hint)' }}>תאריך התחלה (אופציונלי)</div>
+                  <input type="date" className="input" style={{ marginBottom: 0 }}
+                    value={pdfPublicStart} onChange={e => setPdfPublicStart(e.target.value)} />
+                  <div style={{ fontSize: 12, color: 'var(--hint)' }}>תאריך סיום (אופציונלי)</div>
+                  <input type="date" className="input" style={{ marginBottom: 0 }}
+                    value={pdfPublicEnd} onChange={e => setPdfPublicEnd(e.target.value)} />
+                  {(() => {
+                    const today = new Date().toISOString().slice(0, 10)
+                    const inWindow = (!pdfPublicStart || today >= pdfPublicStart) &&
+                                     (!pdfPublicEnd   || today <= pdfPublicEnd)
+                    return (
+                      <div style={{ fontSize: 12, fontWeight: 600, color: inWindow ? '#38a169' : '#d69e2e' }}>
+                        {inWindow ? '🟢 פעיל כעת לכולם' : '🟡 לא פעיל (מחוץ לטווח התאריכים)'}
+                      </div>
+                    )
+                  })()}
+                </div>
+              )}
+            </div>
+
+            {/* Groups mode */}
+            <div>
+              <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8 }}>
+                הגבלה לקבוצות <span style={{ fontSize: 11 }}>(בנוסף למצב פתוח לכולם)</span>
+              </div>
+              {allGroups === null && <div style={{ fontSize: 13, color: 'var(--hint)' }}>⏳ טוען קבוצות...</div>}
+              {allGroups && allGroups.length === 0 && (
+                <div style={{ fontSize: 13, color: 'var(--hint)' }}>אין קבוצות — צור קבוצות בטאב קבוצות</div>
+              )}
+              {allGroups && allGroups.map(g => (
+                <label key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 14, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={pdfGroups.includes(g.id)}
+                    onChange={() => togglePdfGroup(g.id)} style={{ width: 16, height: 16 }} />
+                  {g.name} <span style={{ fontSize: 12, color: 'var(--hint)' }}>({g.member_ids.length} חברים)</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <button className="btn btn-success" style={{ marginTop: 14 }} disabled={pdfSaving} onClick={savePdf}>
+          {pdfSaving ? '...' : '💾 שמור'}
         </button>
       </div>
     </div>
