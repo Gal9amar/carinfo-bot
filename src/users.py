@@ -327,6 +327,7 @@ async def admin_grant(admin_id: int, target_id: int, searches: int, note: str = 
             "UPDATE users SET searches_quota = -1, searches_done = 0, quota_expires = NULL WHERE user_id = ?",
             [target_id],
         )
+        await add_to_subscribers(target_id)
         msg = "גישה חופשית ללא הגבלת זמן"
     elif searches == -1:
         from datetime import timedelta
@@ -336,6 +337,7 @@ async def admin_grant(admin_id: int, target_id: int, searches: int, note: str = 
             "UPDATE users SET searches_quota = -1, searches_done = 0, quota_expires = ? WHERE user_id = ?",
             [expires, target_id],
         )
+        await add_to_subscribers(target_id)
         months_label = f"{duration_months} חודש" if duration_months == 1 else f"{duration_months} חודשים"
         msg = f"מנוי {months_label} עד {expires[:10]}"
     elif quota == -1:
