@@ -55,7 +55,7 @@ export default function PaymentPage({ pkg, paymentData, onBack }) {
         }}
       >
         <img src={paypalLogo} alt="PayPal" style={{ height: 28, objectFit: 'contain' }} />
-        <span style={{ fontSize: 11, color: '#666' }}>או שלם עם כרטיס:</span>
+        <span style={{ fontSize: 11, color: '#666' }}>או שלם באמצעות אשראי:</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <img src={visaLogo}       alt="Visa"       style={CARD_STYLE} />
           <img src={mastercardLogo} alt="Mastercard" style={CARD_STYLE} />
