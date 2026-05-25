@@ -184,13 +184,15 @@ async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_u
     total_price = price * qty
     total_searches = -1 if searches == -1 else searches * qty
     qty_label = f"{label} ×{qty}" if qty > 1 else label
-    # Generate custom order ID: {user_id}-{5-digit-sequence}
-    from src.db import set_bot_setting, get_bot_setting
+    # Generate custom order ID: {member_id}-{5-digit-sequence}
+    from src.db import set_bot_setting, get_bot_setting, execute as _dbexec
     uid = int(user["id"])
+    mid_r = await _dbexec("SELECT member_id FROM users WHERE user_id=?", [uid])
+    member_id = mid_r.rows[0][0] if mid_r.rows and mid_r.rows[0][0] else uid
     seq_str = await get_bot_setting("order_sequence")
     seq = int(seq_str) + 1 if seq_str else 1
     await set_bot_setting("order_sequence", str(seq))
-    ref = f"{uid}-{seq:05d}"
+    ref = f"{member_id}-{seq:05d}"
     try:
         order = await create_order(
             amount=f"{total_price:.2f}",
