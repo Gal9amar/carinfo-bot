@@ -257,6 +257,13 @@ export async function adminUpdateTicketStatus(id, status) {
   return r.json()
 }
 
+// PayPal transactions admin
+export async function adminFetchPaypalTransactions() {
+  const r = await fetch(`${BASE}/api/admin/paypal/transactions`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
 // Payments admin
 export async function adminFetchPayments() {
   const r = await fetch(`${BASE}/api/admin/payments`, { headers: headers() })

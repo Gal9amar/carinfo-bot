@@ -21,6 +21,7 @@ import {
   adminDeleteGroup,
   adminAddGroupMember,
   adminRemoveGroupMember,
+  adminFetchPaypalTransactions,
 } from '../api.js'
 import BackButton from '../components/BackButton.jsx'
 
@@ -667,11 +668,56 @@ function AdminGrantModal({ title, form, setForm, saving, onSave, onClose }) {
   )
 }
 
-function PaymentsTab() {
-  const [payments, setPayments] = useState(null)
-  const [acting, setActing] = useState(null) // ref being acted on
+const STATUS_META = {
+  created:   { label: 'נוצר',    color: '#888' },
+  approved:  { label: 'אושר',    color: '#2196F3' },
+  captured:  { label: 'נגבה',    color: '#00bcd4' },
+  completed: { label: 'הושלם',   color: '#4caf50' },
+  failed:    { label: 'נכשל',    color: '#f44336' },
+}
 
-  function load() { adminFetchPayments().then(setPayments).catch(() => {}) }
+function PaypalTransactionRow({ tx }) {
+  const [open, setOpen] = useState(false)
+  const meta = STATUS_META[tx.status] || { label: tx.status, color: '#888' }
+  return (
+    <div
+      style={{ background: 'var(--card-bg, rgba(255,255,255,0.05))', borderRadius: 12, marginBottom: 8, overflow: 'hidden', cursor: 'pointer' }}
+      onClick={() => setOpen(o => !o)}
+    >
+      <div style={{ padding: '10px 14px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontWeight: 700, fontSize: 14 }}>{tx.label}</span>
+          <span style={{ background: meta.color, color: '#fff', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{meta.label}</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 12, color: 'var(--hint)' }}>
+          <span>משתמש {tx.user_id} · ₪{tx.amount}</span>
+          <span>{tx.created_at?.slice(0, 16).replace('T', ' ')}</span>
+        </div>
+      </div>
+      {open && (
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', padding: '10px 14px', fontSize: 12 }} onClick={e => e.stopPropagation()}>
+          <div style={{ marginBottom: 4 }}><span style={{ color: 'var(--hint)' }}>Ref: </span><span style={{ fontFamily: 'monospace' }}>{tx.ref}</span></div>
+          <div style={{ marginBottom: 4 }}><span style={{ color: 'var(--hint)' }}>Order ID: </span><span style={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>{tx.paypal_order_id || '—'}</span></div>
+          <div style={{ marginBottom: 4 }}><span style={{ color: 'var(--hint)' }}>חיפושים: </span>{tx.searches === -1 ? '♾️ ללא הגבלה' : tx.searches}</div>
+          <div style={{ marginBottom: 4 }}><span style={{ color: 'var(--hint)' }}>מטבע: </span>{tx.currency}</div>
+          <div style={{ marginBottom: 4 }}><span style={{ color: 'var(--hint)' }}>עדכון: </span>{tx.updated_at?.slice(0, 16).replace('T', ' ')}</div>
+          {tx.error && <div style={{ marginTop: 6, color: '#f44336', wordBreak: 'break-all' }}>⚠️ {tx.error}</div>}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PaymentsTab() {
+  const [txs, setTxs]         = useState(null)
+  const [payments, setPayments] = useState(null)
+  const [acting, setActing]   = useState(null)
+  const [section, setSection] = useState('paypal')
+
+  function load() {
+    adminFetchPaypalTransactions().then(setTxs).catch(() => setTxs([]))
+    adminFetchPayments().then(setPayments).catch(() => setPayments([]))
+  }
   useEffect(() => { load() }, [])
 
   async function act(ref, action) {
@@ -679,51 +725,58 @@ function PaymentsTab() {
     try {
       if (action === 'approve') await adminApprovePayment(ref)
       else await adminDeclinePayment(ref)
-      load()
+      adminFetchPayments().then(setPayments).catch(() => {})
     } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
     setActing(null)
   }
 
-  if (!payments) return <div className="loading"></div>
+  const tabBtn = (id, label, count) => (
+    <button onClick={() => setSection(id)} style={{
+      flex: 1, padding: '7px 0', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 600,
+      background: section === id ? 'var(--button-color,#2196F3)' : 'var(--secondary-bg,rgba(255,255,255,0.08))',
+      color: section === id ? '#fff' : 'var(--hint)',
+    }}>{label}{count != null ? ` (${count})` : ''}</button>
+  )
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <div style={{ fontSize: 13, color: 'var(--hint)' }}>{payments.length} ממתינים</div>
-        <button className="btn" style={{ width: 'auto', padding: '4px 12px', marginTop: 0, fontSize: 12 }} onClick={load}>🔄</button>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        {tabBtn('paypal', '💳 PayPal', txs?.length)}
+        {tabBtn('pending', '⏳ ממתין', payments?.length)}
+        <button className="btn" style={{ width: 'auto', padding: '4px 10px', marginTop: 0, fontSize: 12, flexShrink: 0 }} onClick={load}>🔄</button>
       </div>
-      {payments.length === 0 && (
-        <div style={{ color: 'var(--hint)', textAlign: 'center', padding: 24 }}>אין תשלומים ממתינים ✅</div>
-      )}
-      {payments.map(p => (
-        <div key={p.ref} style={{ background: 'var(--card-bg, rgba(255,255,255,0.05))', borderRadius: 12, padding: '12px 14px', marginBottom: 10 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-            <span style={{ fontWeight: 700 }}>{p.label}</span>
-            <span style={{ color: '#4caf50', fontWeight: 700 }}>₪{p.price}</span>
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 8 }}>
-            משתמש {p.user_id} · {p.created_at?.slice(0, 16).replace('T', ' ')}
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              className="btn btn-success"
-              style={{ flex: 1, marginTop: 0, padding: '6px', fontSize: 13 }}
-              disabled={acting === p.ref}
-              onClick={() => act(p.ref, 'approve')}
-            >
-              ✅ אשר
-            </button>
-            <button
-              className="btn btn-danger"
-              style={{ flex: 1, marginTop: 0, padding: '6px', fontSize: 13 }}
-              disabled={acting === p.ref}
-              onClick={() => act(p.ref, 'decline')}
-            >
-              ❌ דחה
-            </button>
-          </div>
+
+      {section === 'paypal' && (
+        <div>
+          {!txs && <div className="loading"></div>}
+          {txs?.length === 0 && <div style={{ color: 'var(--hint)', textAlign: 'center', padding: 24 }}>אין עסקאות עדיין</div>}
+          {txs?.map(tx => <PaypalTransactionRow key={tx.id} tx={tx} />)}
         </div>
-      ))}
+      )}
+
+      {section === 'pending' && (
+        <div>
+          {!payments && <div className="loading"></div>}
+          {payments?.length === 0 && <div style={{ color: 'var(--hint)', textAlign: 'center', padding: 24 }}>אין תשלומים ממתינים ✅</div>}
+          {payments?.map(p => (
+            <div key={p.ref} style={{ background: 'var(--card-bg, rgba(255,255,255,0.05))', borderRadius: 12, padding: '12px 14px', marginBottom: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                <span style={{ fontWeight: 700 }}>{p.label}</span>
+                <span style={{ color: '#4caf50', fontWeight: 700 }}>₪{p.price}</span>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 8 }}>
+                משתמש {p.user_id} · {p.created_at?.slice(0, 16).replace('T', ' ')}
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-success" style={{ flex: 1, marginTop: 0, padding: '6px', fontSize: 13 }}
+                  disabled={acting === p.ref} onClick={() => act(p.ref, 'approve')}>✅ אשר</button>
+                <button className="btn btn-danger" style={{ flex: 1, marginTop: 0, padding: '6px', fontSize: 13 }}
+                  disabled={acting === p.ref} onClick={() => act(p.ref, 'decline')}>❌ דחה</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

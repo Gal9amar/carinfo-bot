@@ -198,9 +198,14 @@ async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_u
         paypal_order_id = order.get("id", "")
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"PayPal error: {e}")
+    uid = int(user["id"])
     await execute(
         "INSERT OR IGNORE INTO pending_payments (ref, phone, searches, price, label, paypal_order_id) VALUES (?,?,?,?,?,?)",
-        [ref, str(user["id"]), total_searches, total_price, qty_label, paypal_order_id],
+        [ref, str(uid), total_searches, total_price, qty_label, paypal_order_id],
+    )
+    await execute(
+        "INSERT INTO paypal_transactions (ref, paypal_order_id, user_id, amount, currency, label, searches, status) VALUES (?,?,?,?,?,?,?,?)",
+        [ref, paypal_order_id, uid, total_price, "ILS", qty_label, total_searches, "created"],
     )
     return {"ref": ref, "approval_url": approval_url, "label": qty_label, "price": total_price, "searches": total_searches}
 
@@ -236,19 +241,29 @@ async def paypal_webhook(request: Request):
         custom_id = (resource.get("purchase_units") or [{}])[0].get("custom_id", "")
         if not order_id:
             return {"ok": True}
+        await execute(
+            "UPDATE paypal_transactions SET status='approved', updated_at=datetime('now') WHERE paypal_order_id=?",
+            [order_id],
+        )
         try:
             capture = await capture_order(order_id)
-            # If custom_id wasn't in the APPROVED event, pull it from capture response
             if not custom_id:
                 custom_id = (capture.get("purchase_units") or [{}])[0].get("custom_id", "")
+            await execute(
+                "UPDATE paypal_transactions SET status='captured', updated_at=datetime('now') WHERE paypal_order_id=?",
+                [order_id],
+            )
         except Exception as e:
             _log.warning("Failed to capture order %s: %s", order_id, e)
+            await execute(
+                "UPDATE paypal_transactions SET status='failed', error=?, updated_at=datetime('now') WHERE paypal_order_id=?",
+                [str(e), order_id],
+            )
             return {"ok": True}
         if custom_id:
             await _auto_approve_payment(custom_id)
 
     elif event_type == "PAYMENT.CAPTURE.COMPLETED":
-        # Backup path: look up by paypal_order_id from supplementary_data
         order_id = resource.get("supplementary_data", {}).get("related_ids", {}).get("order_id", "")
         if order_id:
             r = await execute("SELECT ref FROM pending_payments WHERE paypal_order_id=?", [order_id])
@@ -268,6 +283,10 @@ async def _auto_approve_payment(ref: str) -> None:
     await admin_grant(0, user_id, searches)
     await add_to_subscribers(user_id)
     await execute("DELETE FROM pending_payments WHERE ref=?", [ref])
+    await execute(
+        "UPDATE paypal_transactions SET status='completed', updated_at=datetime('now') WHERE ref=?",
+        [ref],
+    )
     try:
         from src.notifier import notify_user_payment_approved
         await notify_user_payment_approved(user_id, label, searches)
@@ -840,6 +859,17 @@ async def admin_decline_payment(ref: str, _: dict = Depends(_require_admin)):
     except Exception:
         pass
     return {"ok": True}
+
+
+@api.get("/api/admin/paypal/transactions")
+async def admin_paypal_transactions(_: dict = Depends(_require_admin)):
+    from src.db import execute
+    r = await execute(
+        "SELECT id, ref, paypal_order_id, user_id, amount, currency, label, searches, status, error, created_at, updated_at "
+        "FROM paypal_transactions ORDER BY created_at DESC LIMIT 200"
+    )
+    cols = [c.name for c in r.columns]
+    return [dict(zip(cols, row)) for row in r.rows]
 
 
 @api.get("/api/admin/codes")
