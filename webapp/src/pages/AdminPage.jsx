@@ -676,7 +676,8 @@ function AdminGrantModal({ title, form, setForm, saving, onSave, onClose }) {
 }
 
 const STATUS_META = {
-  created:   { label: 'נוצר',    color: '#888' },
+  intent:    { label: 'ממתין לתשלום', color: '#888' },
+  created:   { label: 'ממתין לתשלום', color: '#888' },
   approved:  { label: 'אושר',    color: '#2196F3' },
   captured:  { label: 'נגבה',    color: '#00bcd4' },
   completed: { label: 'הושלם',   color: '#4caf50' },
@@ -692,7 +693,7 @@ function PaypalTransactionRow({ tx, onRefresh }) {
   const [open, setOpen] = useState(false)
   const [working, setWorking] = useState(false)
   const meta = STATUS_META[tx.status] || { label: tx.status, color: '#888' }
-  const canAct = tx.status === 'created' || tx.status === 'cancelled'
+  const canAct = ['intent', 'created', 'cancelled'].includes(tx.status)
 
   async function approve(e) {
     e.stopPropagation()
