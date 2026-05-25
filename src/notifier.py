@@ -135,3 +135,17 @@ def register_admin_order_notifier(fn) -> None:
 async def notify_admin_order(ref: str, status: str, label: str, amount, username: str, member_id) -> None:
     if _notify_admin_order_fn:
         await _notify_admin_order_fn(ref, status, label, amount, username, member_id)
+
+
+_send_user_document_fn: Optional[Callable[..., Awaitable[None]]] = None
+
+
+def register_user_document_sender(fn: Callable[..., Awaitable[None]]) -> None:
+    global _send_user_document_fn
+    _send_user_document_fn = fn
+
+
+async def send_user_document(user_id: int, pdf_bytes: bytes, filename: str, caption: str = "") -> bool:
+    if _send_user_document_fn is None:
+        return False
+    return await _send_user_document_fn(user_id, pdf_bytes, filename, caption)

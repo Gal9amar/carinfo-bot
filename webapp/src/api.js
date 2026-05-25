@@ -420,16 +420,10 @@ export async function saveNote(plate, note) {
   })
 }
 
-export async function downloadPdfReport(plate) {
+export async function requestPdfReport(plate) {
   const r = await fetch(`${BASE}/api/vehicle/${encodeURIComponent(plate)}/pdf`, { headers: headers() })
   if (!r.ok) throw new Error('PDF not available')
-  const blob = await r.blob()
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `car_${plate}.pdf`
-  a.click()
-  URL.revokeObjectURL(url)
+  return r.json()
 }
 
 // Groups admin

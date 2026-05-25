@@ -505,7 +505,6 @@ async def get_vehicle(plate: str, user: dict = Depends(_get_user)):
 @api.get("/api/vehicle/{plate}/pdf")
 async def get_vehicle_pdf(plate: str, user: dict = Depends(_get_user)):
     from src.db import get_bot_setting, execute as _ex
-    from fastapi.responses import Response
     import asyncio as _asyncio
     plate = plate.replace("-", "").replace(" ", "")
     user_id = int(user["id"])
@@ -521,7 +520,6 @@ async def get_vehicle_pdf(plate: str, user: dict = Depends(_get_user)):
             if (not ps or _t >= ps) and (not pe or _t <= pe):
                 authorized = True
         if not authorized:
-            # Feature enabled + not public → subscribers only
             sub_r = await _ex(
                 "SELECT 1 FROM user_group_members ugm "
                 "JOIN user_groups ug ON ug.id = ugm.group_id "
@@ -558,11 +556,16 @@ async def get_vehicle_pdf(plate: str, user: dict = Depends(_get_user)):
         channel="telegram",
         notes=note,
     )
-    return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=car_{plate}.pdf"},
+
+    from src.notifier import send_user_document
+    sent = await send_user_document(
+        user_id, pdf_bytes,
+        filename=f"car_{plate}.pdf",
+        caption=f"📄 דוח רכב {plate}",
     )
+    if not sent:
+        raise HTTPException(status_code=500, detail="Failed to send PDF")
+    return {"ok": True, "sent_to_chat": True}
 
 
 class NoteBody(BaseModel):

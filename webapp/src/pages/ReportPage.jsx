@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { fetchVehicle, fetchMarketPrice, downloadPdfReport, fetchNote, saveNote } from '../api.js'
+import { fetchVehicle, fetchMarketPrice, requestPdfReport, fetchNote, saveNote } from '../api.js'
 import { MAKE_EN, MODEL_EN } from '../vehicleNames.js'
 import LicensePlate from '../components/LicensePlate.jsx'
 import BackButton from '../components/BackButton.jsx'
@@ -227,6 +227,7 @@ export default function ReportPage({ plate, onBack, user }) {
   const [copied, setCopied] = useState(false)
   const [marketData, setMarketData] = useState(undefined) // undefined=loading, null=disabled/error
   const [pdfLoading, setPdfLoading] = useState(false)
+  const [pdfSent, setPdfSent] = useState(false)
   const [note, setNote] = useState('')
   const [noteSaved, setNoteSaved] = useState(false)
 
@@ -636,9 +637,14 @@ export default function ReportPage({ plate, onBack, user }) {
         const authorized = !!user?.show_pdf_report
         async function handleDownload() {
           setPdfLoading(true)
-          try { await downloadPdfReport(plateNum) }
-          catch { window.Telegram?.WebApp?.showAlert('שגיאה בהורדת הדוח. ייתכן שהמנוי אינו פעיל.') }
-          finally { setPdfLoading(false) }
+          try {
+            await requestPdfReport(plateNum)
+            setPdfSent(true)
+          } catch {
+            window.Telegram?.WebApp?.showAlert('שגיאה ביצירת הדוח. נסה שוב.')
+          } finally {
+            setPdfLoading(false)
+          }
         }
         async function handleNoteBlur(val) {
           try {
@@ -703,21 +709,29 @@ export default function ReportPage({ plate, onBack, user }) {
 
             {/* Download */}
             <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8, lineHeight: 1.5 }}>
-              דוח PDF מלא כולל הערות אישיות — להורדה ולשיתוף.
+              דוח PDF מלא כולל הערות אישיות — יישלח לצ'אט שלך לשמירה ולשיתוף.
             </div>
             {authorized ? (
-              <button
-                onClick={handleDownload}
-                disabled={pdfLoading}
-                style={{
-                  width: '100%', padding: '10px 0', border: 'none', borderRadius: 10,
-                  background: pdfLoading ? '#444' : 'linear-gradient(135deg,#4c1d95,#7c3aed)',
-                  color: '#fff', fontSize: 14, fontWeight: 700, cursor: pdfLoading ? 'default' : 'pointer',
-                  marginBottom: 8,
-                }}
-              >
-                {pdfLoading ? '⏳ מכין דוח...' : '📥 הורד דוח PDF'}
-              </button>
+              pdfSent ? (
+                <div style={{
+                  width: '100%', padding: '10px 0', borderRadius: 10,
+                  background: '#1a4731', color: '#38a169',
+                  textAlign: 'center', fontSize: 14, fontWeight: 700, marginBottom: 8,
+                }}>✅ הדוח נשלח לצ'אט שלך!</div>
+              ) : (
+                <button
+                  onClick={handleDownload}
+                  disabled={pdfLoading}
+                  style={{
+                    width: '100%', padding: '10px 0', border: 'none', borderRadius: 10,
+                    background: pdfLoading ? '#444' : 'linear-gradient(135deg,#4c1d95,#7c3aed)',
+                    color: '#fff', fontSize: 14, fontWeight: 700, cursor: pdfLoading ? 'default' : 'pointer',
+                    marginBottom: 8,
+                  }}
+                >
+                  {pdfLoading ? '⏳ מכין דוח...' : '📤 שלח דוח PDF לצ\'אט'}
+                </button>
+              )
             ) : (
               <div style={{
                 width: '100%', padding: '10px 0', borderRadius: 10,

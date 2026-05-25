@@ -2270,6 +2270,22 @@ def main() -> None:
     from src.notifier import register_admin_order_notifier
     register_admin_order_notifier(_notify_admin_order)
 
+    async def _send_user_document(user_id: int, pdf_bytes: bytes, filename: str, caption: str = "") -> bool:
+        import io as _io
+        try:
+            await app.bot.send_document(
+                chat_id=user_id,
+                document=_io.BytesIO(pdf_bytes),
+                filename=filename,
+                caption=caption,
+            )
+            return True
+        except Exception:
+            return False
+
+    from src.notifier import register_user_document_sender
+    register_user_document_sender(_send_user_document)
+
     app.add_handler(CommandHandler("myid",   cmd_myid))
     app.add_handler(CommandHandler("start",  cmd_start))
     app.add_handler(CommandHandler("help",   cmd_help))
