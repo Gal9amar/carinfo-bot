@@ -122,3 +122,16 @@ async def notify_broadcast_photo(message: str, image_b64: str) -> dict:
     if _broadcast_photo_fn is None:
         return {"ok": False, "sent": 0, "failed": 0}
     return await _broadcast_photo_fn(message, image_b64)
+
+
+_notify_admin_order_fn = None
+
+
+def register_admin_order_notifier(fn) -> None:
+    global _notify_admin_order_fn
+    _notify_admin_order_fn = fn
+
+
+async def notify_admin_order(ref: str, status: str, label: str, amount, username: str, member_id) -> None:
+    if _notify_admin_order_fn:
+        await _notify_admin_order_fn(ref, status, label, amount, username, member_id)

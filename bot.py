@@ -2236,6 +2236,35 @@ def main() -> None:
     from src.notifier import register_broadcast_photo_notifier
     register_broadcast_photo_notifier(_do_broadcast_photo)
 
+    STATUS_HE = {
+        'created':   '🆕 הזמנה חדשה',
+        'approved':  '✅ אושר בפייפאל',
+        'captured':  '💳 חיוב בוצע',
+        'completed': '🎉 הושלם',
+        'failed':    '❌ נכשל',
+        'expired':   '🚫 פג תוקף',
+    }
+
+    async def _notify_admin_order(ref, status, label, amount, username, member_id):
+        if not ADMIN_ID:
+            return
+        status_txt = STATUS_HE.get(status, status)
+        user_txt = f"@{username}" if username else f"חבר #{member_id}" if member_id else ref.split('-')[0]
+        text = (
+            f"{status_txt}\n"
+            f"🔖 הזמנה: `{ref}`\n"
+            f"👤 משתמש: {user_txt}  #{member_id or '—'}\n"
+            f"📦 מוצר: {label}\n"
+            f"💰 סכום: ₪{amount}"
+        )
+        try:
+            await app.bot.send_message(ADMIN_ID, text, parse_mode="Markdown")
+        except Exception:
+            pass
+
+    from src.notifier import register_admin_order_notifier
+    register_admin_order_notifier(_notify_admin_order)
+
     app.add_handler(CommandHandler("myid",   cmd_myid))
     app.add_handler(CommandHandler("start",  cmd_start))
     app.add_handler(CommandHandler("help",   cmd_help))

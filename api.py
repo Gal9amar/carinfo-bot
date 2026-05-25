@@ -75,11 +75,11 @@ async def _startup():
         # Mark stale 'created' transactions (> 2 hours) as expired
         await _dbexec(
             "UPDATE paypal_transactions SET status='expired', updated_at=datetime('now') "
-            "WHERE status='created' AND created_at < datetime('now', '-2 hours')"
+            "WHERE status='created' AND created_at < datetime('now', '-30 minutes')"
         )
         # Delete matching stale pending_payments
         await _dbexec(
-            "DELETE FROM pending_payments WHERE created_at < datetime('now', '-2 hours')"
+            "DELETE FROM pending_payments WHERE created_at < datetime('now', '-30 minutes')"
         )
     except Exception:
         pass
@@ -228,6 +228,12 @@ async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_u
         "INSERT INTO paypal_transactions (ref, paypal_order_id, user_id, amount, currency, label, searches, status, duration_months) VALUES (?,?,?,?,?,?,?,?,?)",
         [ref, paypal_order_id, uid, total_price, "ILS", qty_label, total_searches, "created", duration_months],
     )
+    try:
+        from src.notifier import notify_admin_order
+        username = user.get("username", "") or ""
+        await notify_admin_order(ref, "created", qty_label, total_price, username, member_id)
+    except Exception:
+        pass
     return {"ref": ref, "approval_url": approval_url, "label": qty_label, "price": total_price, "searches": total_searches}
 
 
@@ -266,6 +272,8 @@ async def paypal_webhook(request: Request):
             "UPDATE paypal_transactions SET status='approved', updated_at=datetime('now') WHERE paypal_order_id=?",
             [order_id],
         )
+        if custom_id:
+            await _order_notify(custom_id, "approved")
         try:
             capture = await capture_order(order_id)
             if not custom_id:
@@ -274,12 +282,16 @@ async def paypal_webhook(request: Request):
                 "UPDATE paypal_transactions SET status='captured', updated_at=datetime('now') WHERE paypal_order_id=?",
                 [order_id],
             )
+            if custom_id:
+                await _order_notify(custom_id, "captured")
         except Exception as e:
             _log.warning("Failed to capture order %s: %s", order_id, e)
             await execute(
                 "UPDATE paypal_transactions SET status='failed', error=?, updated_at=datetime('now') WHERE paypal_order_id=?",
                 [str(e), order_id],
             )
+            if custom_id:
+                await _order_notify(custom_id, "failed")
             return {"ok": True}
         if custom_id:
             await _auto_approve_payment(custom_id)
@@ -292,6 +304,24 @@ async def paypal_webhook(request: Request):
                 await _auto_approve_payment(r.rows[0][0])
 
     return {"ok": True}
+
+
+async def _order_notify(ref: str, status: str, label: str = "", amount=None) -> None:
+    """Lookup user info and send admin order notification."""
+    try:
+        from src.notifier import notify_admin_order
+        from src.db import execute as _dbexec
+        r = await _dbexec(
+            "SELECT pt.user_id, pt.label, pt.amount, u.username, u.member_id "
+            "FROM paypal_transactions pt LEFT JOIN users u ON u.user_id=pt.user_id "
+            "WHERE pt.ref=?", [ref]
+        )
+        if r.rows:
+            uid, lbl, amt, username, member_id = r.rows[0]
+            await notify_admin_order(ref, status, label or lbl, amount if amount is not None else amt,
+                                     username or "", member_id)
+    except Exception:
+        pass
 
 
 async def _auto_approve_payment(ref: str) -> None:
@@ -308,6 +338,7 @@ async def _auto_approve_payment(ref: str) -> None:
         "UPDATE paypal_transactions SET status='completed', updated_at=datetime('now') WHERE ref=?",
         [ref],
     )
+    await _order_notify(ref, "completed")
     try:
         from src.notifier import notify_user_payment_approved
         await notify_user_payment_approved(user_id, label, searches)
