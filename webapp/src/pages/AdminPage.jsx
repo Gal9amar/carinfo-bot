@@ -1675,16 +1675,13 @@ function PromoTab() {
 
 function FeaturesTab() {
   const [settings, setSettings]                 = useState(null)
-  const [allGroups, setAllGroups]               = useState(null)
   const [yad2Enabled, setYad2Enabled]           = useState(false)
-  const [yad2Groups, setYad2Groups]             = useState([])
   const [yad2Public, setYad2Public]             = useState(false)
   const [yad2PublicStart, setYad2PublicStart]   = useState('')
   const [yad2PublicEnd, setYad2PublicEnd]       = useState('')
   const [yad2PublicLabel, setYad2PublicLabel]   = useState('')
   const [yad2Saving, setYad2Saving]             = useState(false)
   const [pdfEnabled, setPdfEnabled]             = useState(false)
-  const [pdfGroups, setPdfGroups]               = useState([])
   const [pdfPublic, setPdfPublic]               = useState(false)
   const [pdfPublicStart, setPdfPublicStart]     = useState('')
   const [pdfPublicEnd, setPdfPublicEnd]         = useState('')
@@ -1692,17 +1689,14 @@ function FeaturesTab() {
   const [pdfSaving, setPdfSaving]               = useState(false)
 
   useEffect(() => {
-    adminFetchGroups().then(setAllGroups).catch(() => setAllGroups([]))
     adminFetchSettings().then(s => {
       setSettings(s)
       setYad2Enabled(!!s.yad2_market_enabled)
-      setYad2Groups(s.yad2_market_groups || [])
       setYad2Public(!!s.yad2_market_public)
       setYad2PublicStart(s.yad2_market_public_start || '')
       setYad2PublicEnd(s.yad2_market_public_end || '')
       setYad2PublicLabel(s.yad2_market_public_label || '')
       setPdfEnabled(!!s.pdf_report_enabled)
-      setPdfGroups(s.pdf_report_groups || [])
       setPdfPublic(!!s.pdf_report_public)
       setPdfPublicStart(s.pdf_report_public_start || '')
       setPdfPublicEnd(s.pdf_report_public_end || '')
@@ -1715,7 +1709,6 @@ function FeaturesTab() {
     try {
       await adminUpdateSettings({
         yad2_market_enabled:      yad2Enabled,
-        yad2_market_groups:       yad2Groups,
         yad2_market_public:        yad2Public,
         yad2_market_public_start:  yad2PublicStart,
         yad2_market_public_end:    yad2PublicEnd,
@@ -1726,16 +1719,11 @@ function FeaturesTab() {
     setYad2Saving(false)
   }
 
-  function toggleYad2Group(id) {
-    setYad2Groups(prev => prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id])
-  }
-
   async function savePdf() {
     setPdfSaving(true)
     try {
       await adminUpdateSettings({
         pdf_report_enabled:      pdfEnabled,
-        pdf_report_groups:       pdfGroups,
         pdf_report_public:       pdfPublic,
         pdf_report_public_start: pdfPublicStart,
         pdf_report_public_end:   pdfPublicEnd,
@@ -1744,10 +1732,6 @@ function FeaturesTab() {
       window.Telegram?.WebApp?.showAlert('✅ הגדרות עודכנו')
     } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
     setPdfSaving(false)
-  }
-
-  function togglePdfGroup(id) {
-    setPdfGroups(prev => prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id])
   }
 
   if (!settings) return <div className="loading"></div>
@@ -1803,23 +1787,6 @@ function FeaturesTab() {
               )}
             </div>
 
-            {/* Groups mode */}
-            <div>
-              <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8 }}>
-                הגבלה לקבוצות <span style={{ fontSize: 11 }}>(בנוסף למצב פתוח לכולם)</span>
-              </div>
-              {allGroups === null && <div style={{ fontSize: 13, color: 'var(--hint)' }}>⏳ טוען קבוצות...</div>}
-              {allGroups && allGroups.length === 0 && (
-                <div style={{ fontSize: 13, color: 'var(--hint)' }}>אין קבוצות — צור קבוצות בטאב קבוצות</div>
-              )}
-              {allGroups && allGroups.map(g => (
-                <label key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 14, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={yad2Groups.includes(g.id)}
-                    onChange={() => toggleYad2Group(g.id)} style={{ width: 16, height: 16 }} />
-                  {g.name} <span style={{ fontSize: 12, color: 'var(--hint)' }}>({g.member_ids.length} חברים)</span>
-                </label>
-              ))}
-            </div>
           </div>
         )}
 
@@ -1872,23 +1839,6 @@ function FeaturesTab() {
               )}
             </div>
 
-            {/* Groups mode */}
-            <div>
-              <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8 }}>
-                הגבלה לקבוצות <span style={{ fontSize: 11 }}>(בנוסף למצב פתוח לכולם)</span>
-              </div>
-              {allGroups === null && <div style={{ fontSize: 13, color: 'var(--hint)' }}>⏳ טוען קבוצות...</div>}
-              {allGroups && allGroups.length === 0 && (
-                <div style={{ fontSize: 13, color: 'var(--hint)' }}>אין קבוצות — צור קבוצות בטאב קבוצות</div>
-              )}
-              {allGroups && allGroups.map(g => (
-                <label key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 14, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={pdfGroups.includes(g.id)}
-                    onChange={() => togglePdfGroup(g.id)} style={{ width: 16, height: 16 }} />
-                  {g.name} <span style={{ fontSize: 12, color: 'var(--hint)' }}>({g.member_ids.length} חברים)</span>
-                </label>
-              ))}
-            </div>
           </div>
         )}
 

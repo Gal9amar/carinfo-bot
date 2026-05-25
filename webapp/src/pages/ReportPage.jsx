@@ -660,6 +660,7 @@ export default function ReportPage({ plate, onBack, user }) {
                   width: '100%', padding: '10px 0', border: 'none', borderRadius: 10,
                   background: pdfLoading ? '#444' : 'linear-gradient(135deg,#4c1d95,#7c3aed)',
                   color: '#fff', fontSize: 14, fontWeight: 700, cursor: pdfLoading ? 'default' : 'pointer',
+                  marginBottom: 8,
                 }}
               >
                 {pdfLoading ? '⏳ מכין דוח...' : '📥 הורד דוח PDF'}
@@ -669,17 +670,21 @@ export default function ReportPage({ plate, onBack, user }) {
                 width: '100%', padding: '10px 0', borderRadius: 10,
                 background: '#55555544', color: 'var(--hint)',
                 textAlign: 'center', fontSize: 14, fontWeight: 700, cursor: 'not-allowed',
-                filter: 'blur(0)',
+                marginBottom: 8,
               }}>📥 הורד דוח PDF</div>
             )}
+            <button
+              className="btn btn-secondary"
+              style={{ width: '100%', marginTop: 0 }}
+              onClick={handleCopy}
+            >
+              {copied ? '✅ הועתק!' : '📋 העתק דוח'}
+            </button>
           </div>
         )
       })()}
 
       {/* ── Actions ── */}
-      <button className="btn btn-secondary" style={{ marginBottom: 10 }} onClick={handleCopy}>
-        {copied ? '✅ הועתק!' : '📋 העתק דוח'}
-      </button>
       <button className="btn btn-secondary" style={{ marginBottom: 20 }}
         onClick={() => window.Telegram?.WebApp?.close()}>
         סגור
