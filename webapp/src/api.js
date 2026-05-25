@@ -295,6 +295,17 @@ export async function adminDeclinePayment(ref) {
   return r.json()
 }
 
+export async function adminOrderApprove(ref) {
+  const r = await fetch(`${BASE}/api/admin/orders/${ref}/approve`, { method: 'POST', headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+export async function adminOrderCancel(ref) {
+  const r = await fetch(`${BASE}/api/admin/orders/${ref}/cancel`, { method: 'POST', headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
 // Codes admin
 export async function adminFetchCodes() {
   const r = await fetch(`${BASE}/api/admin/codes`, { headers: headers() })

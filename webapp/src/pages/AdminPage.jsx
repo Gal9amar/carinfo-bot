@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { fmtDateTime, fmtDate as fmtDateIL, fmtTimeShort } from '../utils/time.js'
+import { adminOrderApprove, adminOrderCancel } from '../api.js'
 import {
   adminFetchStats, adminFetchUsers, adminFetchSettings,
   adminUpdateSettings, adminFetchPackages,
@@ -682,12 +683,32 @@ const STATUS_META = {
   failed:    { label: 'נכשל',    color: '#f44336' },
   expired:   { label: 'פג תוקף', color: '#ff9800' },
   declined:  { label: 'נדחה',    color: '#f44336' },
-  cancelled: { label: 'בוטל',   color: '#9e9e9e' },
+  cancelled:      { label: 'בוטל',         color: '#9e9e9e' },
+  admin_approved: { label: 'אושר ידנית',   color: '#8bc34a' },
 }
 
-function PaypalTransactionRow({ tx }) {
+function PaypalTransactionRow({ tx, onRefresh }) {
   const [open, setOpen] = useState(false)
+  const [working, setWorking] = useState(false)
   const meta = STATUS_META[tx.status] || { label: tx.status, color: '#888' }
+  const canAct = tx.status === 'created' || tx.status === 'cancelled'
+
+  async function approve(e) {
+    e.stopPropagation()
+    if (working) return
+    setWorking(true)
+    try { await adminOrderApprove(tx.ref); onRefresh?.() } catch { alert('שגיאה') }
+    setWorking(false)
+  }
+
+  async function cancel(e) {
+    e.stopPropagation()
+    if (working) return
+    setWorking(true)
+    try { await adminOrderCancel(tx.ref); onRefresh?.() } catch { alert('שגיאה') }
+    setWorking(false)
+  }
+
   return (
     <div
       style={{ background: 'var(--card-bg, rgba(255,255,255,0.05))', borderRadius: 12, marginBottom: 8, overflow: 'hidden', cursor: 'pointer' }}
@@ -713,6 +734,20 @@ function PaypalTransactionRow({ tx }) {
           <div style={{ marginBottom: 4 }}><span style={{ color: 'var(--hint)' }}>חיפושים: </span>{tx.searches === -1 ? '♾️ ללא הגבלה' : tx.searches}</div>
           <div style={{ marginBottom: 4 }}><span style={{ color: 'var(--hint)' }}>עדכון אחרון: </span>{fmtDateTime(tx.updated_at)}</div>
           {tx.error && <div style={{ marginTop: 6, color: '#f44336', wordBreak: 'break-all' }}>⚠️ {tx.error}</div>}
+          {canAct && (
+            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <button
+                onClick={approve}
+                disabled={working}
+                style={{ flex: 1, padding: '7px 0', background: '#4caf50', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: working ? 'default' : 'pointer', opacity: working ? 0.6 : 1 }}
+              >✅ אישור מנהל</button>
+              <button
+                onClick={cancel}
+                disabled={working}
+                style={{ flex: 1, padding: '7px 0', background: '#f44336', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: working ? 'default' : 'pointer', opacity: working ? 0.6 : 1 }}
+              >🚫 ביטול מנהל</button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -733,7 +768,7 @@ function PaymentsTab() {
       </div>
       {!txs && <div className="loading"></div>}
       {txs?.length === 0 && <div style={{ color: 'var(--hint)', textAlign: 'center', padding: 24 }}>אין עסקאות עדיין</div>}
-      {txs?.map(tx => <PaypalTransactionRow key={tx.id} tx={tx} />)}
+      {txs?.map(tx => <PaypalTransactionRow key={tx.id} tx={tx} onRefresh={load} />)}
     </div>
   )
 }

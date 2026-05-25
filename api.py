@@ -1020,6 +1020,60 @@ async def admin_decline_payment(ref: str, _: dict = Depends(_require_admin)):
     return {"ok": True}
 
 
+@api.post("/api/admin/orders/{ref}/approve")
+async def admin_order_approve(ref: str, admin: dict = Depends(_require_admin)):
+    """Admin manually approves an order regardless of PayPal status."""
+    from src.db import execute as _dbexec
+    from src.users import admin_grant, add_to_subscribers
+    r = await _dbexec(
+        "SELECT user_id, label, searches, COALESCE(duration_months,1) FROM paypal_transactions WHERE ref=?",
+        [ref],
+    )
+    if not r.rows:
+        raise HTTPException(status_code=404, detail="Order not found")
+    user_id, label, searches, duration_months = int(r.rows[0][0]), r.rows[0][1], r.rows[0][2], int(r.rows[0][3])
+    await admin_grant(int(admin["id"]), user_id, searches, duration_months=duration_months)
+    await add_to_subscribers(user_id)
+    await _dbexec("DELETE FROM pending_payments WHERE ref=?", [ref])
+    await _dbexec(
+        "UPDATE paypal_transactions SET status='admin_approved', updated_at=datetime('now') WHERE ref=?",
+        [ref],
+    )
+    await _order_notify(ref, "admin_approved")
+    try:
+        from src.notifier import notify_user_payment_approved
+        await notify_user_payment_approved(user_id, label, searches)
+    except Exception:
+        pass
+    try:
+        from src.activity import log as _alog
+        await _alog("payment_approved", f"אישור מנהל ידני: {label} למשתמש {user_id}")
+    except Exception:
+        pass
+    return {"ok": True}
+
+
+@api.post("/api/admin/orders/{ref}/cancel")
+async def admin_order_cancel(ref: str, _: dict = Depends(_require_admin)):
+    """Admin manually cancels an order immediately."""
+    from src.db import execute as _dbexec
+    r = await _dbexec("SELECT user_id, label FROM paypal_transactions WHERE ref=?", [ref])
+    if not r.rows:
+        raise HTTPException(status_code=404, detail="Order not found")
+    await _dbexec("DELETE FROM pending_payments WHERE ref=?", [ref])
+    await _dbexec(
+        "UPDATE paypal_transactions SET status='cancelled', updated_at=datetime('now') WHERE ref=?",
+        [ref],
+    )
+    await _order_notify(ref, "cancelled")
+    try:
+        from src.activity import log as _alog
+        await _alog("payment_declined", f"ביטול מנהל ידני: {ref}")
+    except Exception:
+        pass
+    return {"ok": True}
+
+
 @api.get("/api/admin/paypal/transactions")
 async def admin_paypal_transactions(_: dict = Depends(_require_admin)):
     from src.db import execute
