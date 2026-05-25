@@ -52,12 +52,16 @@ export default function PaymentPage({ pkg, paymentData, onBack }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ fontSize: 11, color: '#666', letterSpacing: 0.5 }}>או שלם עם כרטיס:</span>
           <span style={{ fontSize: 18 }}>💳</span>
-          {['VISA', 'MC', 'AMEX'].map(c => (
-            <span key={c} style={{
+          {[
+            { label: 'VISA',     bg: '#1a1f71' },
+            { label: 'MC',       bg: '#eb001b' },
+            { label: 'AMEX',     bg: '#2e77bc' },
+            { label: 'ישראכרט', bg: '#e85d00' },
+          ].map(c => (
+            <span key={c.label} style={{
               fontSize: 9, fontWeight: 800, color: '#fff', padding: '2px 5px', borderRadius: 3,
-              background: c === 'VISA' ? '#1a1f71' : c === 'MC' ? '#eb001b' : '#2e77bc',
-              letterSpacing: 0.5,
-            }}>{c}</span>
+              background: c.bg, letterSpacing: 0.3,
+            }}>{c.label}</span>
           ))}
         </div>
       </button>
