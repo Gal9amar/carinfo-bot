@@ -2244,7 +2244,8 @@ def main() -> None:
         'failed':    '❌ נכשל',
         'expired':   '🚫 פג תוקף',
         'declined':  '🚫 נדחה',
-        'cancelled':        '↩️ בוטל על ידי המשתמש',
+        'cancelled':        '↩️ בוטל',
+        'user_cancelled':   '↩️ בוטל על ידי המשתמש',
         'admin_approved':   '✅ אושר ע״י מנהל',
         'admin_cancelled':  '🚫 בוטל ע״י מנהל',
     }

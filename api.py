@@ -298,15 +298,16 @@ async def promote_payment(body: dict, user: dict = Depends(_get_user)):
 
 @api.get("/api/payment/cancel/{ref}")
 async def payment_cancel(ref: str):
-    """PayPal cancel_url — user pressed Cancel on PayPal. Mark order cancelled and send back to Telegram."""
+    """PayPal cancel_url — user pressed Cancel on PayPal. Mark order user_cancelled and send back to Telegram."""
     from src.db import execute as _dbexec
     from fastapi.responses import RedirectResponse
     await _dbexec(
-        "UPDATE paypal_transactions SET status='cancelled', updated_at=datetime('now') "
+        "UPDATE paypal_transactions SET status='user_cancelled', updated_at=datetime('now') "
         "WHERE ref=? AND status IN ('intent','created')",
         [ref],
     )
-    await _order_notify(ref, "cancelled")
+    await _dbexec("DELETE FROM pending_payments WHERE ref=?", [ref])
+    await _order_notify(ref, "user_cancelled")
     return RedirectResponse(url=f"https://t.me/{BOT_USERNAME}", status_code=302)
 
 

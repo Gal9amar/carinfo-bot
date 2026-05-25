@@ -552,7 +552,11 @@ async def admin_stats() -> dict:
         "SELECT COUNT(*) as c FROM search_history WHERE searched_at >= ?", [week_ago]
     )
 
-    pending_payments_r = await execute("SELECT COUNT(*) as c FROM pending_payments")
+    pending_payments_r = await execute(
+        "SELECT COUNT(*) as c FROM pending_payments pp "
+        "JOIN paypal_transactions pt ON pt.ref = pp.ref "
+        "WHERE pt.status IN ('created', 'intent')"
+    )
     approved_revenue_r = await execute(
         "SELECT COALESCE(SUM(price), 0) as c FROM pending_payments WHERE 1=0"  # approved are deleted
     )

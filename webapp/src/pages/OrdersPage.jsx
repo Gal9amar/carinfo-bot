@@ -10,7 +10,8 @@ const STATUS_META = {
   failed:    { label: 'נכשל',          color: '#f44336', icon: '❌' },
   expired:   { label: 'מבוטלת',        color: '#ff9800', icon: '🚫' },
   declined:  { label: 'נדחה',          color: '#f44336', icon: '🚫' },
-  cancelled:        { label: 'בוטל',           color: '#ff9800', icon: '🚫' },
+  cancelled:        { label: 'בוטל',              color: '#ff9800', icon: '🚫' },
+  user_cancelled:   { label: 'בוטל ע״י משתמש',   color: '#ff9800', icon: '🚫' },
   admin_approved:   { label: 'אושר ע״י מנהל',  color: '#4caf50', icon: '✅' },
   admin_cancelled:  { label: 'בוטל ע״י מנהל',  color: '#ff9800', icon: '🚫' },
 }
