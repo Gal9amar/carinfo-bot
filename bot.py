@@ -2244,8 +2244,9 @@ def main() -> None:
         'failed':    '❌ נכשל',
         'expired':   '🚫 פג תוקף',
         'declined':  '🚫 נדחה',
-        'cancelled':      '↩️ בוטל על ידי המשתמש',
-        'admin_approved': '✅ אושר ידנית על ידי מנהל',
+        'cancelled':        '↩️ בוטל על ידי המשתמש',
+        'admin_approved':   '✅ אושר ע״י מנהל',
+        'admin_cancelled':  '🚫 בוטל ע״י מנהל',
     }
 
     async def _notify_admin_order(ref, status, label, amount, username, member_id):

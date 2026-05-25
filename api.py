@@ -1062,10 +1062,10 @@ async def admin_order_cancel(ref: str, _: dict = Depends(_require_admin)):
         raise HTTPException(status_code=404, detail="Order not found")
     await _dbexec("DELETE FROM pending_payments WHERE ref=?", [ref])
     await _dbexec(
-        "UPDATE paypal_transactions SET status='cancelled', updated_at=datetime('now') WHERE ref=?",
+        "UPDATE paypal_transactions SET status='admin_cancelled', updated_at=datetime('now') WHERE ref=?",
         [ref],
     )
-    await _order_notify(ref, "cancelled")
+    await _order_notify(ref, "admin_cancelled")
     try:
         from src.activity import log as _alog
         await _alog("payment_declined", f"ביטול מנהל ידני: {ref}")
