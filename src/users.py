@@ -303,7 +303,7 @@ async def apply_code(user_id: int, code: str, username: str = "") -> tuple[bool,
     return True, result_msg
 
 
-async def admin_grant(admin_id: int, target_id: int, searches: int, note: str = "") -> str:
+async def admin_grant(admin_id: int, target_id: int, searches: int, note: str = "", duration_months: int = 1) -> str:
     await _ensure_user(target_id)
     r = await execute(
         "SELECT searches_quota, searches_done FROM users WHERE user_id = ?",
@@ -328,12 +328,14 @@ async def admin_grant(admin_id: int, target_id: int, searches: int, note: str = 
         msg = "גישה חופשית ללא הגבלת זמן"
     elif searches == -1:
         from datetime import timedelta
-        expires = (datetime.now() + timedelta(days=30)).isoformat()
+        days = max(1, duration_months) * 30
+        expires = (datetime.now() + timedelta(days=days)).isoformat()
         await execute(
             "UPDATE users SET searches_quota = -1, searches_done = 0, quota_expires = ? WHERE user_id = ?",
             [expires, target_id],
         )
-        msg = f"מנוי חודשי עד {expires[:10]}"
+        months_label = f"{duration_months} חודש" if duration_months == 1 else f"{duration_months} חודשים"
+        msg = f"מנוי {months_label} עד {expires[:10]}"
     elif quota == -1:
         msg = "כבר יש לו גישה בלתי מוגבלת"
     else:
