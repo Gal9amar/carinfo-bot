@@ -2,7 +2,7 @@ import paypalLogo   from '../assets/paypal-logo.png'
 import visaLogo      from '../assets/visa.svg'
 import mastercardLogo from '../assets/mastercard.svg'
 import amexLogo      from '../assets/amex.svg'
-import isracardLogo  from '../assets/isracard.svg'
+import isracardLogo  from '../assets/isracard.png'
 
 const CARD_STYLE = { height: 24, width: 'auto', borderRadius: 4, display: 'block', objectFit: 'contain' }
 
