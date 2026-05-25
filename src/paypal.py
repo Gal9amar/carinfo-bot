@@ -47,7 +47,8 @@ async def create_order(amount: str, currency: str, custom_id: str, description: 
                 },
             },
         )
-        r.raise_for_status()
+        if not r.is_success:
+            raise Exception(f"PayPal {r.status_code}: {r.text}")
         return r.json()
 
 
