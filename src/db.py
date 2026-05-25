@@ -157,6 +157,7 @@ async def init_db() -> None:
     sent_at   TEXT    DEFAULT (datetime('now'))
 )""",
     ]
+    migrations.append("ALTER TABLE pending_payments ADD COLUMN paypal_order_id TEXT DEFAULT ''")
     for sql in statements:
         conn.execute(sql)
     for sql in migrations:

@@ -173,6 +173,7 @@ async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_u
     from src.packages import get_packages
     import secrets as _secrets
     from src.db import execute
+    from src.paypal import create_order
     pkgs = await get_packages()
     pkg = next((p for p in pkgs if p[0] == body.package_id), None)
     if not pkg:
@@ -183,11 +184,25 @@ async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_u
     total_searches = -1 if searches == -1 else searches * qty
     qty_label = f"{label} ×{qty}" if qty > 1 else label
     ref = _secrets.token_hex(8)
+    try:
+        order = await create_order(
+            amount=f"{total_price:.2f}",
+            currency="ILS",
+            custom_id=ref,
+            description=qty_label,
+        )
+        approval_url = next(
+            (lnk["href"] for lnk in order.get("links", []) if lnk.get("rel") == "approve"),
+            None,
+        )
+        paypal_order_id = order.get("id", "")
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"PayPal error: {e}")
     await execute(
-        "INSERT OR IGNORE INTO pending_payments (ref, phone, searches, price, label) VALUES (?,?,?,?,?)",
-        [ref, str(user["id"]), total_searches, total_price, qty_label],
+        "INSERT OR IGNORE INTO pending_payments (ref, phone, searches, price, label, paypal_order_id) VALUES (?,?,?,?,?,?)",
+        [ref, str(user["id"]), total_searches, total_price, qty_label, paypal_order_id],
     )
-    return {"ref": ref, "paypal_url": f"{PAYPAL_ME}/{total_price}", "paybox_url": PAYBOX_URL, "label": qty_label, "price": total_price, "searches": total_searches}
+    return {"ref": ref, "approval_url": approval_url, "label": qty_label, "price": total_price, "searches": total_searches}
 
 
 class PaymentConfirmRequest(BaseModel):
@@ -195,24 +210,74 @@ class PaymentConfirmRequest(BaseModel):
     package_id: int
 
 
-@api.post("/api/payment/confirm")
-async def confirm_payment(body: PaymentConfirmRequest, user: dict = Depends(_get_user)):
-    """User clicked 'I paid' — notify admin via bot."""
-    from src.packages import get_packages
-    pkgs = await get_packages()
-    pkg = next((p for p in pkgs if p[0] == body.package_id), None)
-    if not pkg:
-        raise HTTPException(status_code=404, detail="Package not found")
-    pid, label, searches, price = pkg
-    # Trigger admin notification via shared notifier (avoids circular import with bot.py)
+@api.post("/api/webhooks/paypal")
+async def paypal_webhook(request: Request):
+    """PayPal webhook — auto-approve payments on CHECKOUT.ORDER.APPROVED."""
+    from src.paypal import verify_webhook, capture_order
+    from src.db import execute
+    import logging as _logging
+    _log = _logging.getLogger("paypal_webhook")
+
+    body_bytes = await request.body()
     try:
-        from src.notifier import notify_admin_payment
-        uid  = int(user["id"])
-        name = user.get("first_name", str(uid))
-        await notify_admin_payment(uid, name, label, searches, price, body.ref)
+        body_json = json.loads(body_bytes)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+
+    headers_lc = {k.lower(): v for k, v in request.headers.items()}
+    if not await verify_webhook(headers_lc, body_json):
+        raise HTTPException(status_code=400, detail="Webhook verification failed")
+
+    event_type = body_json.get("event_type", "")
+    resource   = body_json.get("resource", {})
+
+    if event_type == "CHECKOUT.ORDER.APPROVED":
+        order_id = resource.get("id")
+        custom_id = (resource.get("purchase_units") or [{}])[0].get("custom_id", "")
+        if not order_id:
+            return {"ok": True}
+        try:
+            capture = await capture_order(order_id)
+            # If custom_id wasn't in the APPROVED event, pull it from capture response
+            if not custom_id:
+                custom_id = (capture.get("purchase_units") or [{}])[0].get("custom_id", "")
+        except Exception as e:
+            _log.warning("Failed to capture order %s: %s", order_id, e)
+            return {"ok": True}
+        if custom_id:
+            await _auto_approve_payment(custom_id)
+
+    elif event_type == "PAYMENT.CAPTURE.COMPLETED":
+        # Backup path: look up by paypal_order_id from supplementary_data
+        order_id = resource.get("supplementary_data", {}).get("related_ids", {}).get("order_id", "")
+        if order_id:
+            r = await execute("SELECT ref FROM pending_payments WHERE paypal_order_id=?", [order_id])
+            if r.rows:
+                await _auto_approve_payment(r.rows[0][0])
+
+    return {"ok": True}
+
+
+async def _auto_approve_payment(ref: str) -> None:
+    from src.db import execute
+    from src.users import admin_grant, add_to_subscribers
+    r = await execute("SELECT phone, searches, label FROM pending_payments WHERE ref=?", [ref])
+    if not r.rows:
+        return  # already processed
+    user_id, searches, label = int(r.rows[0][0]), r.rows[0][1], r.rows[0][2]
+    await admin_grant(0, user_id, searches)
+    await add_to_subscribers(user_id)
+    await execute("DELETE FROM pending_payments WHERE ref=?", [ref])
+    try:
+        from src.notifier import notify_user_payment_approved
+        await notify_user_payment_approved(user_id, label, searches)
     except Exception:
         pass
-    return {"ok": True}
+    try:
+        from src.activity import log as _alog
+        await _alog("payment_approved", f"PayPal אוטומטי: {label} ({searches} חיפושים) למשתמש {user_id}")
+    except Exception:
+        pass
 
 
 # ── User history ─────────────────────────────────────────────────────────────

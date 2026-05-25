@@ -1,39 +1,24 @@
-import { useState } from 'react'
-import { confirmPayment } from '../api.js'
 import paypalLogo from '../assets/paypal-logo.png'
-import payboxLogo from '../assets/paybox-logo.webp'
 
-export default function PaymentPage({ pkg, paymentData, onBack, onDone }) {
-  const [confirming, setConfirming] = useState(false)
-  const [paid, setPaid] = useState(false)
-
+export default function PaymentPage({ pkg, paymentData, onBack }) {
   const desc = pkg.searches === -1 ? 'ללא הגבלה' : `${pkg.searches} חיפושים`
 
   function openPayPal() {
-    window.open(paymentData.paypal_url, '_blank')
-    setPaid(true)
-  }
-
-  function openPayBox() {
-    window.open(paymentData.paybox_url, '_blank')
-    setPaid(true)
-  }
-
-  async function handleConfirm() {
-    setConfirming(true)
-    try {
-      await confirmPayment(paymentData.ref, pkg.id)
-      onDone()
-    } catch {
-      window.Telegram?.WebApp?.showAlert('שגיאה בשליחת האישור. נסה שוב.')
-    } finally {
-      setConfirming(false)
+    const url = paymentData.approval_url
+    if (window.Telegram?.WebApp?.openLink) {
+      window.Telegram.WebApp.openLink(url)
+    } else {
+      window.open(url, '_blank')
     }
   }
 
   return (
     <div className="page">
-      <button className="btn btn-secondary" style={{ marginBottom: 16, width: 'auto', padding: '8px 16px' }} onClick={onBack}>
+      <button
+        className="btn btn-secondary"
+        style={{ marginBottom: 16, width: 'auto', padding: '8px 16px' }}
+        onClick={onBack}
+      >
         ← חזרה
       </button>
 
@@ -42,50 +27,32 @@ export default function PaymentPage({ pkg, paymentData, onBack, onDone }) {
       <div className="card">
         <div className="card-title">{pkg.label}</div>
         <div className="card-subtitle">{desc}</div>
-        <div className="price-badge">₪{pkg.price}</div>
+        <div className="price-badge">₪{paymentData.price}</div>
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 14, lineHeight: 1.6 }}>
-          <div>1️⃣ בחר שיטת תשלום למטה</div>
-          <div>2️⃣ השלם את התשלום</div>
-          <div>3️⃣ חזור ולחץ "שילמתי ✓"</div>
+        <div style={{ fontSize: 14, lineHeight: 1.8 }}>
+          <div>1️⃣ לחץ על לחצן PayPal למטה</div>
+          <div>2️⃣ השלם את התשלום בדף PayPal</div>
+          <div>3️⃣ הגישה תעודכן <strong>אוטומטית</strong> תוך שניות</div>
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button
-          onClick={openPayPal}
-          style={{
-            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: '#ffffff', border: '2px solid #003087', borderRadius: 12, padding: '14px 8px',
-            cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
-          }}
-        >
-          <img src={paypalLogo} alt="PayPal" style={{ height: 28, objectFit: 'contain' }} />
-        </button>
-        <button
-          onClick={openPayBox}
-          style={{
-            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: '#ffffff', border: '2px solid #29abe2', borderRadius: 12, padding: '14px 8px',
-            cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
-          }}
-        >
-          <img src={payboxLogo} alt="PayBox" style={{ height: 28, objectFit: 'contain' }} />
-        </button>
-      </div>
+      <button
+        onClick={openPayPal}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: '#ffffff', border: '2px solid #003087', borderRadius: 12,
+          padding: '16px 8px', cursor: 'pointer',
+          boxShadow: '0 2px 12px rgba(0,0,0,0.18)',
+        }}
+      >
+        <img src={paypalLogo} alt="PayPal" style={{ height: 32, objectFit: 'contain' }} />
+      </button>
 
-      {paid && (
-        <button
-          className="btn btn-success"
-          style={{ marginTop: 8 }}
-          disabled={confirming}
-          onClick={handleConfirm}
-        >
-          {confirming ? '...' : '✅ שילמתי — שלח אישור'}
-        </button>
-      )}
+      <div style={{ marginTop: 14, fontSize: 12, color: 'var(--hint)', textAlign: 'center' }}>
+        לאחר השלמת התשלום ב-PayPal, הגישה תתעדכן אוטומטית ותקבל הודעה בצ'אט
+      </div>
     </div>
   )
 }
