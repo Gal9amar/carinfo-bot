@@ -1,7 +1,7 @@
 const NAV = [
   { id: 'home',     icon: '🏠', label: 'בית' },
   { id: 'history',  icon: '📋', label: 'חיפושים שלי' },
-  { id: 'packages', icon: '⭐', label: 'מנויים' },
+  { id: 'packages', icon: '⭐', label: 'הזמנות שלי' },
   { id: 'ticket',   icon: '🎫', label: 'תמיכה' },
 ]
 
