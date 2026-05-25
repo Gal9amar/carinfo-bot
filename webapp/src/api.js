@@ -407,6 +407,19 @@ export async function fetchMarketPrice(plate) {
   return r.json()
 }
 
+export async function fetchNote(plate) {
+  const r = await fetch(`${BASE}/api/notes/${encodeURIComponent(plate)}`, { headers: headers() })
+  if (!r.ok) return ''
+  const d = await r.json()
+  return d.note || ''
+}
+
+export async function saveNote(plate, note) {
+  await fetch(`${BASE}/api/notes/${encodeURIComponent(plate)}`, {
+    method: 'POST', headers: headers(), body: JSON.stringify({ note }),
+  })
+}
+
 export async function downloadPdfReport(plate) {
   const r = await fetch(`${BASE}/api/vehicle/${encodeURIComponent(plate)}/pdf`, { headers: headers() })
   if (!r.ok) throw new Error('PDF not available')

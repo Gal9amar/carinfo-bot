@@ -175,6 +175,13 @@ async def init_db() -> None:
     created_at      TEXT DEFAULT (datetime('now')),
     updated_at      TEXT DEFAULT (datetime('now'))
 )""")
+    migrations.append("""CREATE TABLE IF NOT EXISTS vehicle_notes (
+    user_id    INTEGER NOT NULL,
+    plate      TEXT NOT NULL,
+    note       TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, plate)
+)""")
     for sql in statements:
         conn.execute(sql)
     for sql in migrations:
@@ -250,6 +257,21 @@ async def init_db() -> None:
     await init_packages()
     from src.admin_grants import init_admin_grants
     await init_admin_grants()
+
+
+async def get_vehicle_note(user_id: int, plate: str) -> str:
+    r = await execute(
+        "SELECT note FROM vehicle_notes WHERE user_id=? AND plate=?", [user_id, plate]
+    )
+    return r.rows[0][0] if r.rows else ""
+
+
+async def save_vehicle_note(user_id: int, plate: str, note: str) -> None:
+    await execute(
+        "INSERT INTO vehicle_notes (user_id, plate, note, updated_at) VALUES (?, ?, ?, datetime('now')) "
+        "ON CONFLICT(user_id, plate) DO UPDATE SET note=excluded.note, updated_at=excluded.updated_at",
+        [user_id, plate, note],
+    )
 
 
 async def get_bot_setting(key: str) -> str:

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { fetchVehicle, fetchMarketPrice, downloadPdfReport } from '../api.js'
+import { fetchVehicle, fetchMarketPrice, downloadPdfReport, fetchNote, saveNote } from '../api.js'
 import { MAKE_EN, MODEL_EN } from '../vehicleNames.js'
 import LicensePlate from '../components/LicensePlate.jsx'
 import BackButton from '../components/BackButton.jsx'
@@ -227,6 +227,8 @@ export default function ReportPage({ plate, onBack, user }) {
   const [copied, setCopied] = useState(false)
   const [marketData, setMarketData] = useState(undefined) // undefined=loading, null=disabled/error
   const [pdfLoading, setPdfLoading] = useState(false)
+  const [note, setNote] = useState('')
+  const [noteSaved, setNoteSaved] = useState(false)
 
   useEffect(() => {
     if (!plate) { setError('לא צוין מספר רכב'); return }
@@ -238,6 +240,7 @@ export default function ReportPage({ plate, onBack, user }) {
           .catch(() => setMarketData(null))
       })
       .catch(() => setError('הרכב לא נמצא או שגיאה בטעינה'))
+    fetchNote(plate).then(n => setNote(n || '')).catch(() => {})
   }, [plate])
 
   if (error) return (
@@ -628,7 +631,7 @@ export default function ReportPage({ plate, onBack, user }) {
         ))}
       </div>
 
-      {/* ── PDF Report ── */}
+      {/* ── PDF Report + Notes ── */}
       {(() => {
         const authorized = !!user?.show_pdf_report
         async function handleDownload() {
@@ -636,6 +639,13 @@ export default function ReportPage({ plate, onBack, user }) {
           try { await downloadPdfReport(plateNum) }
           catch { window.Telegram?.WebApp?.showAlert('שגיאה בהורדת הדוח. ייתכן שהמנוי אינו פעיל.') }
           finally { setPdfLoading(false) }
+        }
+        async function handleNoteBlur(val) {
+          try {
+            await saveNote(plateNum, val)
+            setNoteSaved(true)
+            setTimeout(() => setNoteSaved(false), 2000)
+          } catch { /* silent */ }
         }
         return (
           <div className="card" style={{ marginBottom: 12 }}>
@@ -646,11 +656,54 @@ export default function ReportPage({ plate, onBack, user }) {
                   background: '#8b5cf6', color: '#fff',
                   borderRadius: 20, padding: '4px 10px', marginBottom: 6,
                 }}>למנויים בלבד</div>
-                <div style={{ fontWeight: 700, fontSize: 15 }}>📄 דוח PDF מפורט</div>
+                <div style={{ fontWeight: 700, fontSize: 15 }}>📄 דוח PDF + הערות אישיות</div>
               </div>
             </div>
-            <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 12, lineHeight: 1.6 }}>
-              דוח מלא מעוצב הכולל את כל נתוני הרכב, היסטוריית בעלויות, מפרט טכני ועוד — להורדה ולשיתוף.
+
+            {/* Notes */}
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 6, fontWeight: 600 }}>
+                📝 הערות אישיות לרכב זה
+              </div>
+              {authorized ? (
+                <>
+                  <textarea
+                    value={note}
+                    onChange={e => setNote(e.target.value)}
+                    onBlur={e => handleNoteBlur(e.target.value)}
+                    rows={4}
+                    style={{
+                      width: '100%', boxSizing: 'border-box',
+                      background: 'var(--bg)', border: '1px solid rgba(255,255,255,0.12)',
+                      borderRadius: 10, padding: '10px 12px', color: 'var(--text)',
+                      fontSize: 14, lineHeight: 1.6, resize: 'vertical',
+                      fontFamily: 'inherit', direction: 'rtl',
+                    }}
+                    placeholder={'מחיר סגירה 70,000\nטלפון 052-12345678\nמול אמיר.'}
+                  />
+                  {noteSaved && (
+                    <div style={{ fontSize: 11, color: '#38a169', marginTop: 4 }}>✅ נשמר</div>
+                  )}
+                </>
+              ) : note ? (
+                <div style={{
+                  background: 'var(--bg)', borderRadius: 10, padding: '10px 12px',
+                  fontSize: 14, color: 'var(--hint)', lineHeight: 1.6, direction: 'rtl',
+                  whiteSpace: 'pre-wrap',
+                }}>{note}</div>
+              ) : (
+                <div style={{
+                  fontSize: 12, color: 'rgba(255,255,255,0.25)', fontStyle: 'italic',
+                  padding: '8px 0',
+                }}>🔒 הערות אישיות — זמין למנויים</div>
+              )}
+            </div>
+
+            <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '0 0 12px' }} />
+
+            {/* Download */}
+            <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8, lineHeight: 1.5 }}>
+              דוח PDF מלא כולל הערות אישיות — להורדה ולשיתוף.
             </div>
             {authorized ? (
               <button

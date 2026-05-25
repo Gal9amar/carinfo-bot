@@ -544,6 +544,8 @@ async def get_vehicle_pdf(plate: str, user: dict = Depends(_get_user)):
         raise HTTPException(status_code=404, detail="Vehicle not found")
 
     from src.pdf_report import generate_pdf
+    from src.db import get_vehicle_note as _get_note
+    note = await _get_note(user_id, plate)
     pdf_bytes = await _asyncio.to_thread(
         generate_pdf, record,
         tg_link=f"t.me/{BOT_USERNAME}",
@@ -551,12 +553,33 @@ async def get_vehicle_pdf(plate: str, user: dict = Depends(_get_user)):
         logo_path=os.environ.get("LOGO_PATH", ""),
         cover_path=os.environ.get("COVER_PATH", ""),
         channel="telegram",
+        notes=note,
     )
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=car_{plate}.pdf"},
     )
+
+
+class NoteBody(BaseModel):
+    note: str = ""
+
+
+@api.get("/api/notes/{plate}")
+async def get_note(plate: str, user: dict = Depends(_get_user)):
+    from src.db import get_vehicle_note
+    plate = plate.replace("-", "").replace(" ", "")
+    note = await get_vehicle_note(int(user["id"]), plate)
+    return {"note": note}
+
+
+@api.post("/api/notes/{plate}")
+async def save_note(plate: str, body: NoteBody, user: dict = Depends(_get_user)):
+    from src.db import save_vehicle_note
+    plate = plate.replace("-", "").replace(" ", "")
+    await save_vehicle_note(int(user["id"]), plate, body.note)
+    return {"ok": True}
 
 
 # ── Admin ────────────────────────────────────────────────────────────────────
