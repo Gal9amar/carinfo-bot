@@ -128,13 +128,16 @@ async def get_user_info(user: dict = Depends(_get_user)):
 
     async def _check_feature(key_prefix: str) -> bool:
         if (await get_bot_setting(f"{key_prefix}_enabled")) == "0":
-            return False  # explicitly disabled
+            return False  # explicitly disabled by admin
         if (await get_bot_setting(f"{key_prefix}_public")) == "1":
             ps = (await get_bot_setting(f"{key_prefix}_public_start")) or ""
             pe = (await get_bot_setting(f"{key_prefix}_public_end"))   or ""
             if (not ps or _today >= ps) and (not pe or _today <= pe):
                 return True
-        # Feature enabled + not public → subscribers only
+        # Unlimited quota (admin grants) also qualifies
+        if quota == -1:
+            return True
+        # Check "מנויים" group membership (payment-based subscriptions)
         sub_r = await execute(
             "SELECT 1 FROM user_group_members ugm "
             "JOIN user_groups ug ON ug.id = ugm.group_id "
@@ -518,6 +521,11 @@ async def get_vehicle_pdf(plate: str, user: dict = Depends(_get_user)):
             ps = (await get_bot_setting("pdf_report_public_start")) or ""
             pe = (await get_bot_setting("pdf_report_public_end")) or ""
             if (not ps or _t >= ps) and (not pe or _t <= pe):
+                authorized = True
+        if not authorized:
+            # Unlimited quota (admin grants) qualifies
+            db_u = await get_user_by_id(user_id)
+            if db_u and db_u.get("searches_quota") == -1:
                 authorized = True
         if not authorized:
             sub_r = await _ex(
