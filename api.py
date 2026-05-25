@@ -321,6 +321,24 @@ async def _auto_approve_payment(ref: str) -> None:
 
 
 # ── User history ─────────────────────────────────────────────────────────────
+@api.get("/api/user/orders")
+async def get_user_orders(user: dict = Depends(_get_user)):
+    from src.db import execute as _dbexec
+    uid = int(user["id"])
+    r = await _dbexec(
+        "SELECT id, ref, amount, currency, label, searches, status, created_at "
+        "FROM paypal_transactions WHERE user_id=? ORDER BY created_at DESC LIMIT 50",
+        [uid],
+    )
+    orders = []
+    for row in r.rows:
+        orders.append({
+            "id": row[0], "ref": row[1], "amount": row[2], "currency": row[3],
+            "label": row[4], "searches": row[5], "status": row[6], "created_at": row[7],
+        })
+    return orders
+
+
 @api.get("/api/user/history")
 async def get_user_history(user: dict = Depends(_get_user)):
     import asyncio

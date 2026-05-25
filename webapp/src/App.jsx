@@ -10,6 +10,7 @@ import TicketPage from './pages/TicketPage.jsx'
 import HowItWorksPage from './pages/HowItWorksPage.jsx'
 import HistoryPage from './pages/HistoryPage.jsx'
 import ReferralPage from './pages/ReferralPage.jsx'
+import OrdersPage from './pages/OrdersPage.jsx'
 import BottomNav from './components/BottomNav.jsx'
 
 export default function App() {
@@ -115,6 +116,14 @@ export default function App() {
         </div>
         <BottomNav screen={screen} onNavigate={navigate} />
       </>
+    )
+  }
+
+  if (screen === 'orders') {
+    return (
+      <div key="orders" className="page-enter">
+        <OrdersPage onBack={() => setScreen('home')} />
+      </div>
     )
   }
 

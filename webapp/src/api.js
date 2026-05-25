@@ -20,6 +20,12 @@ export async function fetchUser() {
   return r.json()
 }
 
+export async function fetchUserOrders() {
+  const r = await fetch(`${BASE}/api/user/orders`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
 export async function initiatePayment(packageId, quantity = 1) {
   const r = await fetch(`${BASE}/api/payment/initiate`, {
     method: 'POST',
