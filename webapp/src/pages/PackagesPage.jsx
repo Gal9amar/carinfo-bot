@@ -147,19 +147,14 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
 
             {/* Chips */}
             <div style={{ display: 'flex', gap: 7, padding: '14px 14px 10px', flexWrap: 'wrap' }}>
-              {isFreeUser ? (
-                <>
-                  <Chip accent={freeAccent}>🔍 {searchesLeft} חיפושים נותרו</Chip>
-                  <Chip accent={freeAccent}>🤝 +חיפושים על הפניות</Chip>
-                  <Chip accent={freeAccent}>🔓 ללא תפוגה</Chip>
-                </>
-              ) : (
-                <>
-                  <Chip accent={freeAccent}>🔍 חיפושים בהצטרפות</Chip>
-                  <Chip accent={freeAccent}>🤝 +חיפושים על הפניות</Chip>
-                  <Chip accent={freeAccent}>🔓 ללא תפוגה</Chip>
-                </>
-              )}
+              {isFreeUser
+                ? <Chip accent={freeAccent}>🔍 {searchesLeft} חיפושים נותרו</Chip>
+                : <Chip accent={freeAccent}>🔍 חיפושים בהצטרפות</Chip>
+              }
+              {(freePackage?.chips?.length
+                ? freePackage.chips
+                : ['🤝 +חיפושים על הפניות', '🔓 ללא תפוגה']
+              ).map((c, i) => <Chip key={i} accent={freeAccent}>{c}</Chip>)}
             </div>
 
             <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 14px' }} />
@@ -270,9 +265,14 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
             <div style={{
               display: 'flex', gap: 7, padding: '14px 14px 10px', flexWrap: 'wrap',
             }}>
-              <Chip accent={accent}>{isUnlimited ? '♾️ ללא הגבלה' : `🔍 ${pkg.searches} חיפושים`}</Chip>
-              <Chip accent={accent}>💳 חד-פעמי</Chip>
-              <Chip accent={accent}>{isUnlimited ? `📅 תוקף ${(pkg.duration_months ?? 1) > 1 ? `${pkg.duration_months} חודשים` : 'חודש'}` : '🔓 ללא תפוגה'}</Chip>
+              {pkg.chips?.length
+                ? pkg.chips.map((c, i) => <Chip key={i} accent={accent}>{c}</Chip>)
+                : <>
+                    <Chip accent={accent}>{isUnlimited ? '♾️ ללא הגבלה' : `🔍 ${pkg.searches} חיפושים`}</Chip>
+                    <Chip accent={accent}>💳 חד-פעמי</Chip>
+                    <Chip accent={accent}>{isUnlimited ? `📅 תוקף ${(pkg.duration_months ?? 1) > 1 ? `${pkg.duration_months} חודשים` : 'חודש'}` : '🔓 ללא תפוגה'}</Chip>
+                  </>
+              }
             </div>
 
             <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 14px' }} />

@@ -257,7 +257,7 @@ function PackagesTab() {
   const [pkgs, setPkgs] = useState(null)
   const [editing, setEditing] = useState(null)
   const [adding, setAdding] = useState(false)
-  const [form, setForm] = useState({ label: '', searches: '', price: '', image_url: '', features: normalizeFeatures([]) })
+  const [form, setForm] = useState({ label: '', searches: '', price: '', image_url: '', features: normalizeFeatures([]), chips: [] })
   const [saving, setSaving] = useState(false)
   const [dragIdx, setDragIdx] = useState(null)
   const [reordering, setReordering] = useState(false)
@@ -301,6 +301,7 @@ function PackagesTab() {
         image_url: form.image_url || '',
         duration_months: parseInt(form.duration_months) || 1,
         features: form.features || [],
+        chips: form.chips || [],
       })
       const fresh = await adminFetchPackages()
       setPkgs(fresh)
@@ -319,6 +320,7 @@ function PackagesTab() {
         image_url: form.image_url || '',
         duration_months: parseInt(form.duration_months) || 1,
         features: form.features || [],
+        chips: form.chips || [],
       })
       setPkgs(fresh)
       setAdding(false)
@@ -357,7 +359,7 @@ function PackagesTab() {
           <button
             className="btn"
             style={{ width: 'auto', padding: '6px 14px', marginTop: 0, fontSize: 13 }}
-            onClick={() => { setEditing(freePkg); setForm({ label: freePkg.label, searches: '0', price: '0', image_url: freePkg.image_url || '', duration_months: '1', features: normalizeFeatures(freePkg.features) }) }}
+            onClick={() => { setEditing(freePkg); setForm({ label: freePkg.label, searches: '0', price: '0', image_url: freePkg.image_url || '', duration_months: '1', features: normalizeFeatures(freePkg.features), chips: freePkg.chips || [] }) }}
           >✏️ ערוך</button>
         </div>
       )}
@@ -414,7 +416,7 @@ function PackagesTab() {
                   title="הזז למטה"
                 >↓</button>
                 <button className="btn" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
-                  onClick={() => { setEditing(pkg); setForm({ label: pkg.label, searches: String(pkg.searches), price: String(pkg.price), image_url: pkg.image_url || '', duration_months: String(pkg.duration_months ?? 1), features: normalizeFeatures(pkg.features) }) }}>
+                  onClick={() => { setEditing(pkg); setForm({ label: pkg.label, searches: String(pkg.searches), price: String(pkg.price), image_url: pkg.image_url || '', duration_months: String(pkg.duration_months ?? 1), features: normalizeFeatures(pkg.features), chips: pkg.chips || [] }) }}>
                   ✏️
                 </button>
                 <button className="btn btn-danger" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
@@ -426,7 +428,7 @@ function PackagesTab() {
           </div>
         )
       })}
-      <button className="btn btn-success" onClick={() => { setAdding(true); setForm({ label: '', searches: '', price: '', image_url: '', duration_months: '1', features: normalizeFeatures([]) }) }}>
+      <button className="btn btn-success" onClick={() => { setAdding(true); setForm({ label: '', searches: '', price: '', image_url: '', duration_months: '1', features: normalizeFeatures([]), chips: [] }) }}>
         ➕ הוסף מנוי
       </button>
 
@@ -444,6 +446,69 @@ function PackagesTab() {
           saving={saving} onSave={saveAdd} onClose={() => setAdding(false)}
         />
       )}
+    </div>
+  )
+}
+
+function ChipsEditor({ chips, onChange, isFree }) {
+  const [newChip, setNewChip] = useState('')
+
+  function addChip() {
+    const text = newChip.trim()
+    if (!text || chips.includes(text)) return
+    onChange([...chips, text])
+    setNewChip('')
+  }
+
+  function removeChip(text) {
+    onChange(chips.filter(c => c !== text))
+  }
+
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--hint)', marginBottom: 8 }}>
+        ציפים
+        {isFree && <span style={{ fontWeight: 400, marginRight: 6 }}>· הציפ "X חיפושים נותרו" מוצג אוטומטית</span>}
+      </div>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+        {chips.map(chip => (
+          <span key={chip} style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            fontSize: 12, padding: '4px 10px',
+            background: 'var(--btn)22', border: '1px solid var(--btn)44',
+            borderRadius: 20, color: 'var(--text)',
+          }}>
+            {chip}
+            <button
+              type="button"
+              onClick={() => removeChip(chip)}
+              style={{ background: 'none', border: 'none', color: 'var(--hint)', cursor: 'pointer', fontSize: 13, padding: 0, lineHeight: 1 }}
+            >✕</button>
+          </span>
+        ))}
+        {chips.length === 0 && (
+          <span style={{ fontSize: 12, color: 'var(--hint)', fontStyle: 'italic' }}>אין ציפים — יוצגו ברירות מחדל</span>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', gap: 6 }}>
+        <input
+          className="input"
+          style={{ flex: 1, marginBottom: 0, fontSize: 13 }}
+          placeholder='לדוגמה: 💳 חד-פעמי'
+          value={newChip}
+          onChange={e => setNewChip(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && addChip()}
+        />
+        <button
+          type="button"
+          className="btn"
+          style={{ width: 'auto', padding: '0 14px', marginTop: 0, fontSize: 13, flexShrink: 0 }}
+          disabled={!newChip.trim()}
+          onClick={addChip}
+        >+</button>
+      </div>
     </div>
   )
 }
@@ -584,6 +649,9 @@ function PackageModal({ title, form, setForm, saving, onSave, onClose }) {
           </div>
         )}
         <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
+
+        {/* Chips */}
+        <ChipsEditor chips={form.chips || []} onChange={chips => setForm(f => ({ ...f, chips }))} isFree={form.searches === '0'} />
 
         {/* Features */}
         <div style={{ marginTop: 4, marginBottom: 8 }}>
