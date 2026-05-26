@@ -521,17 +521,29 @@ function PackageModal({ title, form, setForm, saving, onSave, onClose }) {
   const features = form.features || []
 
   // 'included' | 'excluded' | 'off'
-  function getState(text) {
-    const item = features.find(f => f.text === text)
-    if (!item) return 'off'
-    return item.included ? 'included' : 'excluded'
-  }
+  // Active = in features array (included or excluded), in stored order
+  // Inactive = DEFAULT_PKG_FEATURES not yet in features array
+  const activeFeatures   = features  // already ordered
+  const inactiveDefaults = DEFAULT_PKG_FEATURES.filter(t => !features.find(f => f.text === t))
 
   function setFeatureState(text, state) {
     setForm(f => {
       const cur = (f.features || []).filter(x => x.text !== text)
       if (state === 'off') return { ...f, features: cur }
+      // if activating, keep existing position or append
+      const existing = (f.features || []).find(x => x.text === text)
+      if (existing) return { ...f, features: (f.features || []).map(x => x.text === text ? { ...x, included: state === 'included' } : x) }
       return { ...f, features: [...cur, { text, included: state === 'included' }] }
+    })
+  }
+
+  function moveFeature(idx, dir) {
+    setForm(f => {
+      const arr = [...(f.features || [])]
+      const to = idx + dir
+      if (to < 0 || to >= arr.length) return f
+      ;[arr[idx], arr[to]] = [arr[to], arr[idx]]
+      return { ...f, features: arr }
     })
   }
 
@@ -542,12 +554,9 @@ function PackageModal({ title, form, setForm, saving, onSave, onClose }) {
     setNewFeature('')
   }
 
-  function removeCustomFeature(text) {
+  function removeFeature(text) {
     setForm(f => ({ ...f, features: (f.features || []).filter(x => x.text !== text) }))
   }
-
-  // custom features = items not in the default list
-  const customFeatures = features.filter(f => !DEFAULT_PKG_FEATURES.includes(f.text))
 
   function handleFile(e) {
     const file = e.target.files?.[0]
@@ -660,85 +669,49 @@ function PackageModal({ title, form, setForm, saving, onSave, onClose }) {
             <span style={{ fontWeight: 400, marginRight: 6 }}>· ✅ קיים &nbsp; ✗ לא קיים &nbsp; ריק = מוסתר</span>
           </div>
 
-          {/* Default features — 3-state toggle */}
-          {DEFAULT_PKG_FEATURES.map(feat => {
-            const state = getState(feat)
+          {/* Active features — ordered list with ↑↓ */}
+          {activeFeatures.map((item, idx) => {
+            const state = item.included ? 'included' : 'excluded'
             return (
-              <div key={feat} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
-                <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
-                  <button
-                    type="button"
-                    onClick={() => setFeatureState(feat, state === 'included' ? 'off' : 'included')}
-                    style={{
-                      width: 28, height: 28, border: '1.5px solid',
-                      borderColor: state === 'included' ? '#38a169' : 'rgba(255,255,255,0.2)',
-                      borderRadius: 7, background: state === 'included' ? '#38a16922' : 'transparent',
-                      color: state === 'included' ? '#38a169' : 'var(--hint)',
-                      cursor: 'pointer', fontSize: 14, lineHeight: 1, fontWeight: 700,
-                    }}
-                    title="קיים"
-                  >✓</button>
-                  <button
-                    type="button"
-                    onClick={() => setFeatureState(feat, state === 'excluded' ? 'off' : 'excluded')}
-                    style={{
-                      width: 28, height: 28, border: '1.5px solid',
-                      borderColor: state === 'excluded' ? '#e53e3e' : 'rgba(255,255,255,0.2)',
-                      borderRadius: 7, background: state === 'excluded' ? '#e53e3e22' : 'transparent',
-                      color: state === 'excluded' ? '#e53e3e' : 'var(--hint)',
-                      cursor: 'pointer', fontSize: 14, lineHeight: 1, fontWeight: 700,
-                    }}
-                    title="לא קיים"
-                  >✗</button>
+              <div key={item.text} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 7 }}>
+                {/* Reorder */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 1, flexShrink: 0 }}>
+                  <button type="button" onClick={() => moveFeature(idx, -1)} disabled={idx === 0}
+                    style={{ width: 20, height: 18, border: '1px solid rgba(255,255,255,0.15)', borderRadius: 4, background: 'transparent', color: idx === 0 ? 'rgba(255,255,255,0.15)' : 'var(--hint)', cursor: idx === 0 ? 'default' : 'pointer', fontSize: 10, lineHeight: 1, padding: 0 }}>▲</button>
+                  <button type="button" onClick={() => moveFeature(idx, 1)} disabled={idx === activeFeatures.length - 1}
+                    style={{ width: 20, height: 18, border: '1px solid rgba(255,255,255,0.15)', borderRadius: 4, background: 'transparent', color: idx === activeFeatures.length - 1 ? 'rgba(255,255,255,0.15)' : 'var(--hint)', cursor: idx === activeFeatures.length - 1 ? 'default' : 'pointer', fontSize: 10, lineHeight: 1, padding: 0 }}>▼</button>
                 </div>
-                <span style={{
-                  fontSize: 13, lineHeight: 1.4, flex: 1,
-                  color: state === 'off' ? 'var(--hint)' : 'var(--text)',
-                  opacity: state === 'off' ? 0.45 : 1,
-                }}>{feat}</span>
+                {/* Toggle buttons */}
+                <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+                  <button type="button" onClick={() => setFeatureState(item.text, 'included')}
+                    style={{ width: 28, height: 28, border: '1.5px solid', borderColor: state === 'included' ? '#38a169' : 'rgba(255,255,255,0.2)', borderRadius: 7, background: state === 'included' ? '#38a16922' : 'transparent', color: state === 'included' ? '#38a169' : 'var(--hint)', cursor: 'pointer', fontSize: 14, lineHeight: 1, fontWeight: 700 }} title="קיים">✓</button>
+                  <button type="button" onClick={() => setFeatureState(item.text, 'excluded')}
+                    style={{ width: 28, height: 28, border: '1.5px solid', borderColor: state === 'excluded' ? '#e53e3e' : 'rgba(255,255,255,0.2)', borderRadius: 7, background: state === 'excluded' ? '#e53e3e22' : 'transparent', color: state === 'excluded' ? '#e53e3e' : 'var(--hint)', cursor: 'pointer', fontSize: 14, lineHeight: 1, fontWeight: 700 }} title="לא קיים">✗</button>
+                </div>
+                <span style={{ fontSize: 13, flex: 1, lineHeight: 1.4 }}>{item.text}</span>
+                <button type="button" onClick={() => removeFeature(item.text)}
+                  style={{ background: 'none', border: 'none', color: 'var(--hint)', cursor: 'pointer', fontSize: 15, padding: '0 2px', flexShrink: 0 }} title="הסר מהרשימה">✕</button>
               </div>
             )
           })}
 
-          {/* Custom features — same toggles + remove */}
-          {customFeatures.map(item => {
-            const state = item.included ? 'included' : 'excluded'
-            return (
-              <div key={item.text} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
-                <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
-                  <button
-                    type="button"
-                    onClick={() => setFeatureState(item.text, 'included')}
-                    style={{
-                      width: 28, height: 28, border: '1.5px solid',
-                      borderColor: state === 'included' ? '#38a169' : 'rgba(255,255,255,0.2)',
-                      borderRadius: 7, background: state === 'included' ? '#38a16922' : 'transparent',
-                      color: state === 'included' ? '#38a169' : 'var(--hint)',
-                      cursor: 'pointer', fontSize: 14, lineHeight: 1, fontWeight: 700,
-                    }}
-                  >✓</button>
-                  <button
-                    type="button"
-                    onClick={() => setFeatureState(item.text, 'excluded')}
-                    style={{
-                      width: 28, height: 28, border: '1.5px solid',
-                      borderColor: state === 'excluded' ? '#e53e3e' : 'rgba(255,255,255,0.2)',
-                      borderRadius: 7, background: state === 'excluded' ? '#e53e3e22' : 'transparent',
-                      color: state === 'excluded' ? '#e53e3e' : 'var(--hint)',
-                      cursor: 'pointer', fontSize: 14, lineHeight: 1, fontWeight: 700,
-                    }}
-                  >✗</button>
+          {/* Inactive defaults — click to add */}
+          {inactiveDefaults.length > 0 && (
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', marginTop: 8, paddingTop: 8 }}>
+              <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 6 }}>לחץ להוספה לרשימה:</div>
+              {inactiveDefaults.map(feat => (
+                <div key={feat} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                  <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+                    <button type="button" onClick={() => setFeatureState(feat, 'included')}
+                      style={{ width: 28, height: 28, border: '1.5px solid rgba(255,255,255,0.15)', borderRadius: 7, background: 'transparent', color: 'var(--hint)', cursor: 'pointer', fontSize: 14, lineHeight: 1, fontWeight: 700 }} title="הוסף כקיים">✓</button>
+                    <button type="button" onClick={() => setFeatureState(feat, 'excluded')}
+                      style={{ width: 28, height: 28, border: '1.5px solid rgba(255,255,255,0.15)', borderRadius: 7, background: 'transparent', color: 'var(--hint)', cursor: 'pointer', fontSize: 14, lineHeight: 1, fontWeight: 700 }} title="הוסף כלא קיים">✗</button>
+                  </div>
+                  <span style={{ fontSize: 13, color: 'var(--hint)', opacity: 0.5, flex: 1, lineHeight: 1.4 }}>{feat}</span>
                 </div>
-                <span style={{ fontSize: 13, flex: 1, lineHeight: 1.4 }}>{item.text}</span>
-                <button
-                  type="button"
-                  onClick={() => removeCustomFeature(item.text)}
-                  style={{ background: 'none', border: 'none', color: 'var(--hint)', cursor: 'pointer', fontSize: 15, padding: '0 2px', flexShrink: 0 }}
-                  title="הסר"
-                >✕</button>
-              </div>
-            )
-          })}
+              ))}
+            </div>
+          )}
 
           {/* Add new custom feature */}
           <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
