@@ -253,6 +253,15 @@ function normalizeFeatures(raw) {
   return raw.map(item => typeof item === 'string' ? { text: item, included: true } : item)
 }
 
+// Generate chips that PackagesPage auto-displays when a package has no chips saved
+function getDefaultChips(pkg) {
+  const s = typeof pkg.searches === 'number' ? pkg.searches : parseInt(pkg.searches)
+  const duration = typeof pkg.duration_months === 'number' ? pkg.duration_months : parseInt(pkg.duration_months) || 1
+  if (s === 0)  return ['🔍 חיפושים בהצטרפות', '🤝 +חיפושים על הפניות', '🔓 ללא תפוגה']
+  if (s === -1) return ['♾️ ללא הגבלה', '💳 חד-פעמי', `📅 תוקף ${duration > 1 ? `${duration} חודשים` : 'חודש'}`]
+  return [`🔍 ${s} חיפושים`, '💳 חד-פעמי', '🔓 ללא תפוגה']
+}
+
 function PackagesTab() {
   const [pkgs, setPkgs] = useState(null)
   const [editing, setEditing] = useState(null)
@@ -340,6 +349,7 @@ function PackagesTab() {
 
   const freePkg  = pkgs.find(p => p.searches === 0)
   const paidPkgs = pkgs.filter(p => p.searches !== 0)
+  const allChipsPool = [...new Set(pkgs.flatMap(p => p.chips || []))]
 
   return (
     <div>
@@ -359,7 +369,7 @@ function PackagesTab() {
           <button
             className="btn"
             style={{ width: 'auto', padding: '6px 14px', marginTop: 0, fontSize: 13 }}
-            onClick={() => { setEditing(freePkg); setForm({ label: freePkg.label, searches: '0', price: '0', image_url: freePkg.image_url || '', duration_months: '1', features: normalizeFeatures(freePkg.features), chips: freePkg.chips || [] }) }}
+            onClick={() => { setEditing(freePkg); setForm({ label: freePkg.label, searches: '0', price: '0', image_url: freePkg.image_url || '', duration_months: '1', features: normalizeFeatures(freePkg.features), chips: freePkg.chips?.length ? freePkg.chips : getDefaultChips(freePkg) }) }}
           >✏️ ערוך</button>
         </div>
       )}
@@ -416,7 +426,7 @@ function PackagesTab() {
                   title="הזז למטה"
                 >↓</button>
                 <button className="btn" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
-                  onClick={() => { setEditing(pkg); setForm({ label: pkg.label, searches: String(pkg.searches), price: String(pkg.price), image_url: pkg.image_url || '', duration_months: String(pkg.duration_months ?? 1), features: normalizeFeatures(pkg.features), chips: pkg.chips || [] }) }}>
+                  onClick={() => { setEditing(pkg); setForm({ label: pkg.label, searches: String(pkg.searches), price: String(pkg.price), image_url: pkg.image_url || '', duration_months: String(pkg.duration_months ?? 1), features: normalizeFeatures(pkg.features), chips: pkg.chips?.length ? pkg.chips : getDefaultChips(pkg) }) }}>
                   ✏️
                 </button>
                 <button className="btn btn-danger" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
@@ -437,6 +447,7 @@ function PackagesTab() {
           title="✏️ עריכת מנוי"
           form={form} setForm={setForm}
           saving={saving} onSave={saveEdit} onClose={() => setEditing(null)}
+          suggestions={allChipsPool}
         />
       )}
       {adding && (
@@ -444,13 +455,14 @@ function PackagesTab() {
           title="➕ מנוי חדש"
           form={form} setForm={setForm}
           saving={saving} onSave={saveAdd} onClose={() => setAdding(false)}
+          suggestions={allChipsPool}
         />
       )}
     </div>
   )
 }
 
-function ChipsEditor({ chips, onChange, isFree }) {
+function ChipsEditor({ chips, onChange, isFree, suggestions = [] }) {
   const [newChip, setNewChip] = useState('')
 
   function addChip() {
@@ -464,6 +476,8 @@ function ChipsEditor({ chips, onChange, isFree }) {
     onChange(chips.filter(c => c !== text))
   }
 
+  const availableSuggestions = suggestions.filter(s => !chips.includes(s))
+
   return (
     <div style={{ marginBottom: 10 }}>
       <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--hint)', marginBottom: 8 }}>
@@ -471,6 +485,7 @@ function ChipsEditor({ chips, onChange, isFree }) {
         {isFree && <span style={{ fontWeight: 400, marginRight: 6 }}>· הציפ "X חיפושים נותרו" מוצג אוטומטית</span>}
       </div>
 
+      {/* Current chips */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
         {chips.map(chip => (
           <span key={chip} style={{
@@ -487,11 +502,31 @@ function ChipsEditor({ chips, onChange, isFree }) {
             >✕</button>
           </span>
         ))}
-        {chips.length === 0 && (
-          <span style={{ fontSize: 12, color: 'var(--hint)', fontStyle: 'italic' }}>אין ציפים — יוצגו ברירות מחדל</span>
-        )}
       </div>
 
+      {/* Suggestions from other packages */}
+      {availableSuggestions.length > 0 && (
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 5 }}>בחר מהרשימה:</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+            {availableSuggestions.map(s => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => onChange([...chips, s])}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  fontSize: 12, padding: '3px 9px',
+                  background: 'transparent', border: '1px dashed var(--btn)66',
+                  borderRadius: 20, color: 'var(--hint)', cursor: 'pointer',
+                }}
+              >+ {s}</button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Add new */}
       <div style={{ display: 'flex', gap: 6 }}>
         <input
           className="input"
@@ -513,7 +548,7 @@ function ChipsEditor({ chips, onChange, isFree }) {
   )
 }
 
-function PackageModal({ title, form, setForm, saving, onSave, onClose }) {
+function PackageModal({ title, form, setForm, saving, onSave, onClose, suggestions = [] }) {
   const fileRef = useRef(null)
   const [compressing, setCompressing] = useState(false)
   const [newFeature, setNewFeature] = useState('')
@@ -660,7 +695,7 @@ function PackageModal({ title, form, setForm, saving, onSave, onClose }) {
         <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
 
         {/* Chips */}
-        <ChipsEditor chips={form.chips || []} onChange={chips => setForm(f => ({ ...f, chips }))} isFree={form.searches === '0'} />
+        <ChipsEditor chips={form.chips || []} onChange={chips => setForm(f => ({ ...f, chips }))} isFree={form.searches === '0'} suggestions={suggestions} />
 
         {/* Features */}
         <div style={{ marginTop: 4, marginBottom: 8 }}>
