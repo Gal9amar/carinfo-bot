@@ -112,27 +112,35 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
 
             {/* Hero */}
             <div style={{
-              position: 'relative', height: 150, background: freeGrad,
-              display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center', gap: 6,
+              position: 'relative', height: freePackage?.image_url ? 170 : 150,
             }}>
-              {isFreeUser ? (
-                <>
-                  <span style={{ fontSize: 52, fontWeight: 900, color: '#fff', lineHeight: 1 }}>
-                    {searchesLeft}
-                  </span>
-                  <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 600 }}>
-                    חיפושים נותרו
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span style={{ fontSize: 52, lineHeight: 1 }}>🆓</span>
-                  <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 600 }}>
-                    גישה חינמית
-                  </span>
-                </>
-              )}
+              {freePackage?.image_url
+                ? <img src={freePackage.image_url} alt="FREE"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                : <div style={{
+                    width: '100%', height: '100%', background: freeGrad,
+                    display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', justifyContent: 'center', gap: 6,
+                  }}>
+                    {isFreeUser ? (
+                      <>
+                        <span style={{ fontSize: 52, fontWeight: 900, color: '#fff', lineHeight: 1 }}>
+                          {searchesLeft}
+                        </span>
+                        <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 600 }}>
+                          חיפושים נותרו
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span style={{ fontSize: 52, lineHeight: 1 }}>🆓</span>
+                        <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 600 }}>
+                          גישה חינמית
+                        </span>
+                      </>
+                    )}
+                  </div>
+              }
               <div style={{
                 position: 'absolute', inset: 0,
                 background: 'linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 55%)',
@@ -141,7 +149,7 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
                 <span style={{
                   fontSize: 13, fontWeight: 400, padding: '4px 12px',
                   background: freeAccent, color: '#000', borderRadius: 20, whiteSpace: 'nowrap',
-                }}>🆓 מסלול FREE</span>
+                }}>🆓 {freePackage?.label || 'מסלול FREE'}</span>
               </div>
             </div>
 
