@@ -2096,16 +2096,16 @@ const STATUS_LABEL = { open: 'פתוח', in_progress: 'בטיפול', closed: '�
 const STATUS_COLOR = { open: '#e07b00', in_progress: '#2481cc', closed: '#38a169' }
 
 function TicketsTab() {
-  const [tickets, setTickets] = useState(null)
-  const [filter, setFilter] = useState('') // '' = all
+  const [allTickets, setAllTickets] = useState(null)
+  const [filter, setFilter] = useState('open')
   const [selected, setSelected] = useState(null)
 
   async function load() {
-    const data = await adminFetchTickets(filter || undefined)
-    setTickets(data)
+    const data = await adminFetchTickets()
+    setAllTickets(data)
   }
 
-  useEffect(() => { load().catch(() => {}) }, [filter])
+  useEffect(() => { load().catch(() => {}) }, [])
 
   if (selected) {
     return (
@@ -2116,10 +2116,19 @@ function TicketsTab() {
     )
   }
 
+  const counts = allTickets ? {
+    '': allTickets.length,
+    open: allTickets.filter(t => t.status === 'open').length,
+    in_progress: allTickets.filter(t => t.status === 'in_progress').length,
+    closed: allTickets.filter(t => t.status === 'closed').length,
+  } : {}
+
+  const visible = allTickets ? (filter ? allTickets.filter(t => t.status === filter) : allTickets) : null
+
   return (
     <div>
       <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
-        {[['', 'הכל'], ['open', 'פתוח'], ['in_progress', 'בטיפול'], ['closed', 'סגור']].map(([val, label]) => (
+        {[['open', 'פתוח'], ['in_progress', 'בטיפול'], ['closed', 'היסטוריה'], ['', 'הכל']].map(([val, label]) => (
           <button
             key={val}
             onClick={() => setFilter(val)}
@@ -2130,16 +2139,16 @@ function TicketsTab() {
               cursor: 'pointer',
             }}
           >
-            {label}
+            {label}{allTickets && counts[val] > 0 ? ` (${counts[val]})` : ''}
           </button>
         ))}
       </div>
 
-      {!tickets && <div className="loading"></div>}
-      {tickets && tickets.length === 0 && (
+      {!allTickets && <div className="loading"></div>}
+      {visible && visible.length === 0 && (
         <div style={{ textAlign: 'center', color: 'var(--hint)', fontSize: 14, padding: 20 }}>אין פניות</div>
       )}
-      {tickets && tickets.map(t => {
+      {visible && visible.map(t => {
         const name = t.username ? `@${t.username}` : t.full_name || `id:${t.user_id}`
         return (
           <div key={t.id} className="card" style={{ cursor: 'pointer' }} onClick={() => setSelected(t.id)}>
