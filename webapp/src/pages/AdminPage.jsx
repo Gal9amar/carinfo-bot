@@ -1294,10 +1294,175 @@ function userStatus(u) {
   return { label: 'אזל', color: '#d69e2e', bg: '#d69e2e18' }
 }
 
+function relativeTime(ts) {
+  if (!ts) return ''
+  try {
+    const s = String(ts).replace(' ', 'T')
+    const d = new Date(s.includes('+') || s.endsWith('Z') ? s : s + 'Z')
+    if (isNaN(d)) return ''
+    const diff = (Date.now() - d.getTime()) / 1000
+    if (diff < 60)          return 'הרגע'
+    if (diff < 3600)        return `לפני ${Math.floor(diff / 60)} דק׳`
+    if (diff < 86400)       return `לפני ${Math.floor(diff / 3600)} שע׳`
+    if (diff < 2 * 86400)   return 'אתמול'
+    if (diff < 7 * 86400)   return `לפני ${Math.floor(diff / 86400)} ימים`
+    if (diff < 30 * 86400)  return `לפני ${Math.floor(diff / (7 * 86400))} שב׳`
+    return `לפני ${Math.floor(diff / (30 * 86400))} חד׳`
+  } catch { return '' }
+}
+
+function getInitials(u) {
+  if (u.username) return u.username.slice(0, 2).toUpperCase()
+  if (u.full_name) {
+    const parts = u.full_name.trim().split(/\s+/)
+    if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+    return u.full_name.slice(0, 2).toUpperCase()
+  }
+  return String(u.user_id).slice(-2)
+}
+
+function UserCard({ u, onEdit, onMessage, onReload }) {
+  const [expanded, setExpanded] = useState(false)
+  const [blocking, setBlocking] = useState(false)
+  const st = userStatus(u)
+  const left = u.searches_left === -1 ? '∞' : u.searches_left
+  const displayName = u.username ? `@${u.username}` : u.full_name || `id:${u.user_id}`
+  const initials = getInitials(u)
+
+  async function toggleBlock(e) {
+    e.stopPropagation()
+    setBlocking(true)
+    try { await adminToggleBlock(u.user_id); onReload() }
+    catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    setBlocking(false)
+  }
+
+  return (
+    <div style={{
+      background: 'var(--bg2)', borderRadius: 14, marginBottom: 8, overflow: 'hidden',
+      border: u.blocked ? '1px solid #e53e3e33' : u.is_subscriber ? '1px solid #38bdf822' : '1px solid transparent',
+      transition: 'border-color 0.15s',
+    }}>
+      {/* Collapsed header */}
+      <div
+        style={{ display: 'flex', gap: 10, padding: '12px 13px', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}
+        onClick={() => setExpanded(e => !e)}
+      >
+        {/* Avatar */}
+        <div style={{
+          width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
+          background: `${st.color}18`,
+          border: `2.5px solid ${st.color}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 14, fontWeight: 800, color: st.color,
+        }}>
+          {initials}
+        </div>
+
+        {/* Main info */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
+            <span style={{
+              fontSize: 14, fontWeight: 700, color: 'var(--text)',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140,
+            }}>{displayName}</span>
+            <span style={{
+              fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, flexShrink: 0,
+              background: st.bg, color: st.color,
+            }}>{st.label}</span>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--hint)', display: 'flex', gap: 8 }}>
+            <span>🔍 {u.searches_done} נעשו</span>
+            <span>·</span>
+            <span style={{ color: u.searches_left === 0 ? '#d69e2e' : 'var(--hint)' }}>{left} נותרו</span>
+            {u.last_seen && <><span>·</span><span>{relativeTime(u.last_seen)}</span></>}
+          </div>
+        </div>
+
+        {/* Chevron */}
+        <span style={{ color: 'var(--hint)', fontSize: 11, flexShrink: 0, transition: 'transform 0.15s', display: 'inline-block', transform: expanded ? 'rotate(180deg)' : 'none' }}>▼</span>
+      </div>
+
+      {/* Expanded details */}
+      {expanded && (
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', padding: '12px 13px' }}>
+
+          {/* Stats mini-grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 7, marginBottom: 10 }}>
+            {[
+              { label: 'נעשו', value: u.searches_done, color: '#38bdf8' },
+              { label: 'נותרו', value: left, color: st.color },
+              { label: 'מזהה', value: u.user_id, mono: true },
+            ].map(({ label, value, color, mono }) => (
+              <div key={label} style={{
+                background: 'var(--bg)', borderRadius: 9, padding: '7px 6px', textAlign: 'center',
+              }}>
+                <div style={{
+                  fontWeight: 700,
+                  fontSize: mono ? 11 : 15,
+                  color: color || 'var(--text)',
+                  fontFamily: mono ? 'monospace' : undefined,
+                  wordBreak: 'break-all',
+                }}>{value}</div>
+                <div style={{ fontSize: 10, color: 'var(--hint)', marginTop: 2 }}>{label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Meta info */}
+          <div style={{
+            background: 'var(--bg)', borderRadius: 9, padding: '9px 11px',
+            fontSize: 11, color: 'var(--hint)', marginBottom: 12,
+            display: 'flex', flexDirection: 'column', gap: 4,
+          }}>
+            {u.member_id != null && (
+              <div>🏷 מס׳ חבר: <span style={{ fontFamily: 'monospace', color: 'var(--text)', fontWeight: 600 }}>#{u.member_id}</span></div>
+            )}
+            {u.first_seen && <div>📅 הצטרף: <span style={{ color: 'var(--text)' }}>{fmtDateIL(u.first_seen)}</span></div>}
+            {u.last_seen  && <div>👁 נראה לאחרונה: <span style={{ color: 'var(--text)' }}>{fmtDateTime(u.last_seen)}</span></div>}
+            {u.quota_expires && <div>⏰ פג תוקף: <span style={{ color: '#d69e2e', fontWeight: 600 }}>{u.quota_expires.slice(0, 10)}</span></div>}
+            {u.channel && <div>📡 ערוץ: <span style={{ color: 'var(--text)' }}>{u.channel}</span></div>}
+          </div>
+
+          {/* Action buttons */}
+          <div style={{ display: 'flex', gap: 7 }}>
+            <button
+              onClick={e => { e.stopPropagation(); onEdit(u) }}
+              style={{
+                flex: 1, padding: '9px 0', borderRadius: 9, border: 'none',
+                background: 'var(--bg)', color: 'var(--text)', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+              }}
+            >✏️ ערוך</button>
+            <button
+              onClick={e => { e.stopPropagation(); onMessage(u) }}
+              style={{
+                flex: 1, padding: '9px 0', borderRadius: 9, border: 'none',
+                background: 'var(--bg)', color: 'var(--text)', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+              }}
+            >💬 הודעה</button>
+            <button
+              onClick={toggleBlock}
+              disabled={blocking}
+              style={{
+                flex: 1, padding: '9px 0', borderRadius: 9, border: 'none',
+                background: u.blocked ? '#38a16918' : '#e53e3e18',
+                color: u.blocked ? '#38a169' : '#e53e3e',
+                cursor: blocking ? 'default' : 'pointer', fontSize: 12, fontWeight: 600,
+                opacity: blocking ? 0.6 : 1,
+              }}
+            >{u.blocked ? '🔓 בטל חסימה' : '🚫 חסום'}</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function UsersTab() {
-  const [users, setUsers]         = useState(null)
-  const [filter, setFilter]       = useState('all') // all | free | subscriber | empty | blocked
-  const [search, setSearch]       = useState('')
+  const [users, setUsers]               = useState(null)
+  const [filter, setFilter]             = useState('all')
+  const [search, setSearch]             = useState('')
+  const [sort, setSort]                 = useState('last_seen')
   const [editingUser, setEditingUser]   = useState(null)
   const [messagingUser, setMessagingUser] = useState(null)
 
@@ -1305,12 +1470,18 @@ function UsersTab() {
   useEffect(() => { load() }, [])
   if (!users) return <div className="loading"></div>
 
+  const FILTERS = [
+    ['all',        'הכל',     null],
+    ['subscriber', 'מנויים',  'מנוי'],
+    ['free',       'חינם',    'חינם'],
+    ['empty',      'אזל',     'אזל'],
+    ['blocked',    'חסום',    'חסום'],
+  ]
+
   const filtered = users.filter(u => {
     const st = userStatus(u)
-    if (filter === 'subscriber' && st.label !== 'מנוי') return false
-    if (filter === 'free'       && st.label !== 'חינם') return false
-    if (filter === 'empty'      && st.label !== 'אזל')  return false
-    if (filter === 'blocked'    && st.label !== 'חסום') return false
+    const [, , statusLabel] = FILTERS.find(([id]) => id === filter) || []
+    if (statusLabel && st.label !== statusLabel) return false
     if (search) {
       const q = search.toLowerCase()
       const name = (u.username || u.full_name || '').toLowerCase()
@@ -1319,12 +1490,18 @@ function UsersTab() {
     return true
   })
 
-  const FILTERS = [
-    ['all', 'הכל'],
-    ['subscriber', 'מנויים'],
-    ['free', 'חינם'],
-    ['empty', 'אזל'],
-    ['blocked', 'חסום'],
+  const sorted = [...filtered].sort((a, b) => {
+    if (sort === 'searches_done') return b.searches_done - a.searches_done
+    if (sort === 'member_id')     return (b.member_id || 0) - (a.member_id || 0)
+    if (!a.last_seen) return 1
+    if (!b.last_seen) return -1
+    return new Date(b.last_seen) - new Date(a.last_seen)
+  })
+
+  const SORTS = [
+    ['last_seen',     '🕐 פעיל'],
+    ['searches_done', '🔍 חיפושים'],
+    ['member_id',     '🏷 מס׳ חבר'],
   ]
 
   return (
@@ -1339,11 +1516,9 @@ function UsersTab() {
       />
 
       {/* Filter tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 12, background: 'var(--bg)', borderRadius: 10, padding: 3 }}>
-        {FILTERS.map(([id, label]) => {
-          const count = id === 'all' ? users.length : users.filter(u => userStatus(u).label === (
-            id === 'subscriber' ? 'מנוי' : id === 'free' ? 'חינם' : id === 'empty' ? 'אזל' : 'חסום'
-          )).length
+      <div style={{ display: 'flex', gap: 4, marginBottom: 8, background: 'var(--bg)', borderRadius: 10, padding: 3 }}>
+        {FILTERS.map(([id, label, statusLabel]) => {
+          const count = id === 'all' ? users.length : users.filter(u => userStatus(u).label === statusLabel).length
           return (
             <button key={id} onClick={() => setFilter(id)} style={{
               flex: 1, padding: '5px 2px', fontSize: 10, borderRadius: 7, border: 'none',
@@ -1351,56 +1526,37 @@ function UsersTab() {
               color: filter === id ? 'var(--text)' : 'var(--hint)',
               cursor: 'pointer', fontWeight: filter === id ? 600 : 400,
             }}>
-              {label}<br/>
+              {label}<br />
               <span style={{ fontSize: 11, opacity: 0.7 }}>{count}</span>
             </button>
           )
         })}
       </div>
 
-      <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 8 }}>{filtered.length} משתמשים</div>
+      {/* Sort + count row */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <span style={{ fontSize: 12, color: 'var(--hint)' }}>{sorted.length} משתמשים</span>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {SORTS.map(([id, label]) => (
+            <button key={id} onClick={() => setSort(id)} style={{
+              padding: '4px 9px', fontSize: 11, borderRadius: 7, border: 'none', cursor: 'pointer',
+              background: sort === id ? 'var(--btn)' : 'var(--bg)',
+              color: sort === id ? 'var(--btn-text)' : 'var(--hint)',
+              fontWeight: sort === id ? 600 : 400,
+            }}>{label}</button>
+          ))}
+        </div>
+      </div>
 
-      {filtered.map(u => {
-        const name = u.username ? `@${u.username}` : u.full_name || `id:${u.user_id}`
-        const st   = userStatus(u)
-        const left = u.searches_left === -1 ? '∞' : u.searches_left
-        const expiry = u.quota_expires ? u.quota_expires.slice(0,10) : null
-        return (
-          <div key={u.user_id} style={{
-            background: 'var(--bg2)', borderRadius: 12, padding: '10px 12px',
-            marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8,
-          }}>
-            {/* Info */}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-                {u.member_id && <span style={{ fontSize: 10, color: 'var(--hint)', fontFamily: 'monospace', flexShrink: 0 }}>#{u.member_id}</span>}
-                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{name}</span>
-                <span style={{
-                  fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 20,
-                  background: st.bg, color: st.color, flexShrink: 0,
-                }}>{st.label}</span>
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--hint)' }}>
-                {left} חיפושים נותרו
-                {expiry && <span> · עד {expiry}</span>}
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
-              <button style={{ padding: '5px 9px', borderRadius: 8, border: 'none', background: 'var(--bg)', cursor: 'pointer', fontSize: 13 }}
-                onClick={() => setEditingUser(u)}>✏️</button>
-              <button style={{ padding: '5px 9px', borderRadius: 8, border: 'none', background: 'var(--bg)', cursor: 'pointer', fontSize: 13 }}
-                onClick={() => setMessagingUser(u)}>💬</button>
-              <button style={{ padding: '5px 9px', borderRadius: 8, border: 'none', background: u.blocked ? '#38a16922' : '#e53e3e22', cursor: 'pointer', fontSize: 13 }}
-                onClick={async () => {
-                  try { await adminToggleBlock(u.user_id); load() }
-                  catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
-                }}>{u.blocked ? '🔓' : '🚫'}</button>
-            </div>
-          </div>
-        )
-      })}
+      {sorted.map(u => (
+        <UserCard
+          key={u.user_id}
+          u={u}
+          onEdit={setEditingUser}
+          onMessage={setMessagingUser}
+          onReload={load}
+        />
+      ))}
 
       {editingUser && (
         <GrantModal
