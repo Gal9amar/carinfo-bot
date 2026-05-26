@@ -13,6 +13,9 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
   const isFreeUser = user && !user.is_subscriber
   const subLabel   = user?.subscription_label || null
 
+  const freePackage  = packages.find(p => p.searches === 0)
+  const paidPackages = packages.filter(p => p.searches !== 0)
+
   return (
     <div className="page" style={{ paddingBottom: 16 }}>
       {onBack && <BackButton onClick={onBack} />}
@@ -144,31 +147,39 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
 
             {/* Chips */}
             <div style={{ display: 'flex', gap: 7, padding: '14px 14px 10px', flexWrap: 'wrap' }}>
-              {isFreeUser ? (
-                <>
-                  <Chip accent={freeAccent}>🔍 {searchesLeft} חיפושים נותרו</Chip>
-                  <Chip accent={freeAccent}>🤝 +חיפושים על הפניות</Chip>
-                  <Chip accent={freeAccent}>🔓 ללא תפוגה</Chip>
-                </>
-              ) : (
-                <>
-                  <Chip accent={freeAccent}>🔍 חיפושים בהצטרפות</Chip>
-                  <Chip accent={freeAccent}>🤝 +חיפושים על הפניות</Chip>
-                  <Chip accent={freeAccent}>🔓 ללא תפוגה</Chip>
-                </>
-              )}
+              {isFreeUser
+                ? <Chip accent={freeAccent}>🔍 {searchesLeft} חיפושים נותרו</Chip>
+                : <Chip accent={freeAccent}>🔍 חיפושים בהצטרפות</Chip>
+              }
+              {(freePackage?.chips?.length
+                ? freePackage.chips
+                : ['🤝 +חיפושים על הפניות', '🔓 ללא תפוגה']
+              ).map((c, i) => <Chip key={i} accent={freeAccent}>{c}</Chip>)}
             </div>
 
             <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 14px' }} />
 
-            {/* Info */}
-            <div style={{ padding: '12px 16px', fontSize: 13, color: 'var(--hint)', lineHeight: 1.9 }}>
-              <div>✅ נתוני רכב בסיסיים — שנה, דגם, בעלות, טסט, ק״מ</div>
-              <div>✅ היסטוריית חיפושים אישית</div>
-              <div style={{ marginTop: 6 }}><span style={{ color: '#e53e3e' }}>✗</span> מחיר שוק Yad2</div>
-              <div><span style={{ color: '#e53e3e' }}>✗</span> הורדת דוח PDF מפורט</div>
-              <div><span style={{ color: '#e53e3e' }}>✗</span> העתקת דוח לשיתוף</div>
-              <div><span style={{ color: '#e53e3e' }}>✗</span> הערות אישיות לכל רכב</div>
+            {/* Info — dynamic from DB, fallback to hardcoded */}
+            <div style={{ padding: '12px 16px', fontSize: 13, lineHeight: 1.9 }}>
+              {(freePackage?.features?.length
+                ? freePackage.features
+                : [
+                    { text: 'נתוני רכב בסיסיים — שנה, דגם, בעלות, טסט, ק״מ', included: true },
+                    { text: 'היסטוריית חיפושים אישית', included: true },
+                    { text: 'מחיר שוק Yad2', included: false },
+                    { text: 'הורדת דוח PDF מפורט', included: false },
+                    { text: 'העתקת דוח לשיתוף', included: false },
+                    { text: 'הערות אישיות לכל רכב', included: false },
+                  ]
+              ).map((f, i) => {
+                const text = typeof f === 'string' ? f : f.text
+                const included = typeof f === 'string' ? true : f.included
+                return (
+                  <div key={i} style={{ color: included ? 'var(--hint)' : '#e53e3e', opacity: included ? 1 : 0.75 }}>
+                    {included ? '✅' : '✗'} {text}
+                  </div>
+                )
+              })}
             </div>
 
             {/* CTA */}
@@ -186,13 +197,13 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
         )
       })()}
 
-      {packages.length === 0 && (
+      {paidPackages.length === 0 && (
         <div className="card" style={{ textAlign: 'center', color: 'var(--hint)', fontSize: 14 }}>
           אין מנויים זמינים כרגע
         </div>
       )}
 
-      {packages.map((pkg) => {
+      {paidPackages.map((pkg) => {
         const qty           = getQty(pkg.id)
         const isUnlimited   = pkg.searches === -1
         const totalPrice    = pkg.price * qty
@@ -254,9 +265,14 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
             <div style={{
               display: 'flex', gap: 7, padding: '14px 14px 10px', flexWrap: 'wrap',
             }}>
-              <Chip accent={accent}>{isUnlimited ? '♾️ ללא הגבלה' : `🔍 ${pkg.searches} חיפושים`}</Chip>
-              <Chip accent={accent}>💳 חד-פעמי</Chip>
-              <Chip accent={accent}>{isUnlimited ? `📅 תוקף ${(pkg.duration_months ?? 1) > 1 ? `${pkg.duration_months} חודשים` : 'חודש'}` : '🔓 ללא תפוגה'}</Chip>
+              {pkg.chips?.length
+                ? pkg.chips.map((c, i) => <Chip key={i} accent={accent}>{c}</Chip>)
+                : <>
+                    <Chip accent={accent}>{isUnlimited ? '♾️ ללא הגבלה' : `🔍 ${pkg.searches} חיפושים`}</Chip>
+                    <Chip accent={accent}>💳 חד-פעמי</Chip>
+                    <Chip accent={accent}>{isUnlimited ? `📅 תוקף ${(pkg.duration_months ?? 1) > 1 ? `${pkg.duration_months} חודשים` : 'חודש'}` : '🔓 ללא תפוגה'}</Chip>
+                  </>
+              }
             </div>
 
             <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 14px' }} />

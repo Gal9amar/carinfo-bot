@@ -110,7 +110,7 @@ async def health():
 async def list_packages():
     from src.packages import get_packages
     pkgs = await get_packages()
-    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4], "display_order": p[5], "duration_months": p[6] if len(p) > 6 else 1, "features": __import__('json').loads(p[7]) if len(p) > 7 and p[7] else []} for p in pkgs]
+    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4], "display_order": p[5], "duration_months": p[6] if len(p) > 6 else 1, "features": p[7] if len(p) > 7 else [], "chips": p[8] if len(p) > 8 else []} for p in pkgs]
 
 
 @api.get("/api/user")
@@ -808,7 +808,7 @@ async def admin_remove_group_member(group_id: int, user_id: int, _: dict = Depen
 async def admin_list_packages(_: dict = Depends(_require_admin)):
     from src.packages import get_packages
     pkgs = await get_packages(force_reload=True)
-    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4], "display_order": p[5], "duration_months": p[6] if len(p) > 6 else 1, "features": __import__('json').loads(p[7]) if len(p) > 7 and p[7] else []} for p in pkgs]
+    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4], "display_order": p[5], "duration_months": p[6] if len(p) > 6 else 1, "features": p[7] if len(p) > 7 else [], "chips": p[8] if len(p) > 8 else []} for p in pkgs]
 
 
 class PackageBody(BaseModel):
@@ -818,6 +818,7 @@ class PackageBody(BaseModel):
     image_url: str = ""
     duration_months: int = 1
     features: list = []
+    chips: list = []
 
 
 class PackageReorderBody(BaseModel):
@@ -831,21 +832,21 @@ async def admin_reorder_packages(body: PackageReorderBody, _: dict = Depends(_re
         raise HTTPException(status_code=400, detail="Order list required")
     await reorder_packages(body.order)
     pkgs = await get_packages(force_reload=True)
-    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4], "display_order": p[5], "duration_months": p[6] if len(p) > 6 else 1, "features": __import__('json').loads(p[7]) if len(p) > 7 and p[7] else []} for p in pkgs]
+    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4], "display_order": p[5], "duration_months": p[6] if len(p) > 6 else 1, "features": p[7] if len(p) > 7 else [], "chips": p[8] if len(p) > 8 else []} for p in pkgs]
 
 
 @api.post("/api/admin/packages")
 async def admin_add_package(body: PackageBody, _: dict = Depends(_require_admin)):
     from src.packages import add_package, get_packages
-    await add_package(body.label, body.searches, body.price, body.image_url, body.duration_months, body.features)
+    await add_package(body.label, body.searches, body.price, body.image_url, body.duration_months, body.features, body.chips)
     pkgs = await get_packages(force_reload=True)
-    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4], "display_order": p[5], "duration_months": p[6] if len(p) > 6 else 1, "features": __import__('json').loads(p[7]) if len(p) > 7 and p[7] else []} for p in pkgs]
+    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4], "display_order": p[5], "duration_months": p[6] if len(p) > 6 else 1, "features": p[7] if len(p) > 7 else [], "chips": p[8] if len(p) > 8 else []} for p in pkgs]
 
 
 @api.put("/api/admin/packages/{pkg_id}")
 async def admin_update_package(pkg_id: int, body: PackageBody, _: dict = Depends(_require_admin)):
     from src.packages import update_package
-    await update_package(pkg_id, body.label, body.searches, body.price, body.image_url, body.duration_months, body.features)
+    await update_package(pkg_id, body.label, body.searches, body.price, body.image_url, body.duration_months, body.features, body.chips)
     return {"ok": True}
 
 
