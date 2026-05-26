@@ -237,11 +237,27 @@ function ActivityTab() {
   )
 }
 
+const DEFAULT_PKG_FEATURES = [
+  'נתוני רכב מלאים — שנה, דגם, בעלות, טסט, ק״מ',
+  'מחיר שוק Yad2 — השוואת מחירים עדכנית',
+  'הורדת דוח PDF מפורט',
+  'העתקת דוח לשיתוף',
+  'הערות אישיות לכל רכב — נשמרות ומופיעות בדוח',
+  'היסטוריית חיפושים אישית',
+  'גישה לכל תכונות המנוי הקיימות והעתידיות',
+]
+
+// Normalize features array — handles both old string[] and new {text,included}[] formats
+function normalizeFeatures(raw) {
+  if (!raw || !raw.length) return DEFAULT_PKG_FEATURES.map(text => ({ text, included: true }))
+  return raw.map(item => typeof item === 'string' ? { text: item, included: true } : item)
+}
+
 function PackagesTab() {
   const [pkgs, setPkgs] = useState(null)
   const [editing, setEditing] = useState(null)
   const [adding, setAdding] = useState(false)
-  const [form, setForm] = useState({ label: '', searches: '', price: '', image_url: '' })
+  const [form, setForm] = useState({ label: '', searches: '', price: '', image_url: '', features: normalizeFeatures([]) })
   const [saving, setSaving] = useState(false)
   const [dragIdx, setDragIdx] = useState(null)
   const [reordering, setReordering] = useState(false)
@@ -278,6 +294,7 @@ function PackagesTab() {
         price: parseInt(form.price),
         image_url: form.image_url || '',
         duration_months: parseInt(form.duration_months) || 1,
+        features: form.features || [],
       })
       const fresh = await adminFetchPackages()
       setPkgs(fresh)
@@ -295,6 +312,7 @@ function PackagesTab() {
         price: parseInt(form.price),
         image_url: form.image_url || '',
         duration_months: parseInt(form.duration_months) || 1,
+        features: form.features || [],
       })
       setPkgs(fresh)
       setAdding(false)
@@ -366,7 +384,7 @@ function PackagesTab() {
                   title="הזז למטה"
                 >↓</button>
                 <button className="btn" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
-                  onClick={() => { setEditing(pkg); setForm({ label: pkg.label, searches: String(pkg.searches), price: String(pkg.price), image_url: pkg.image_url || '', duration_months: String(pkg.duration_months ?? 1) }) }}>
+                  onClick={() => { setEditing(pkg); setForm({ label: pkg.label, searches: String(pkg.searches), price: String(pkg.price), image_url: pkg.image_url || '', duration_months: String(pkg.duration_months ?? 1), features: normalizeFeatures(pkg.features) }) }}>
                   ✏️
                 </button>
                 <button className="btn btn-danger" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
@@ -378,7 +396,7 @@ function PackagesTab() {
           </div>
         )
       })}
-      <button className="btn btn-success" onClick={() => { setAdding(true); setForm({ label: '', searches: '', price: '', image_url: '', duration_months: '1' }) }}>
+      <button className="btn btn-success" onClick={() => { setAdding(true); setForm({ label: '', searches: '', price: '', image_url: '', duration_months: '1', features: normalizeFeatures([]) }) }}>
         ➕ הוסף מנוי
       </button>
 
@@ -403,6 +421,38 @@ function PackagesTab() {
 function PackageModal({ title, form, setForm, saving, onSave, onClose }) {
   const fileRef = useRef(null)
   const [compressing, setCompressing] = useState(false)
+  const [newFeature, setNewFeature] = useState('')
+
+  const features = form.features || []
+
+  // 'included' | 'excluded' | 'off'
+  function getState(text) {
+    const item = features.find(f => f.text === text)
+    if (!item) return 'off'
+    return item.included ? 'included' : 'excluded'
+  }
+
+  function setFeatureState(text, state) {
+    setForm(f => {
+      const cur = (f.features || []).filter(x => x.text !== text)
+      if (state === 'off') return { ...f, features: cur }
+      return { ...f, features: [...cur, { text, included: state === 'included' }] }
+    })
+  }
+
+  function addCustomFeature() {
+    const text = newFeature.trim()
+    if (!text || features.find(f => f.text === text)) return
+    setForm(f => ({ ...f, features: [...(f.features || []), { text, included: true }] }))
+    setNewFeature('')
+  }
+
+  function removeCustomFeature(text) {
+    setForm(f => ({ ...f, features: (f.features || []).filter(x => x.text !== text) }))
+  }
+
+  // custom features = items not in the default list
+  const customFeatures = features.filter(f => !DEFAULT_PKG_FEATURES.includes(f.text))
 
   function handleFile(e) {
     const file = e.target.files?.[0]
@@ -500,6 +550,113 @@ function PackageModal({ title, form, setForm, saving, onSave, onClose }) {
           </div>
         )}
         <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
+
+        {/* Features */}
+        <div style={{ marginTop: 4, marginBottom: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--hint)', marginBottom: 8 }}>
+            תכונות המנוי
+            <span style={{ fontWeight: 400, marginRight: 6 }}>· ✅ קיים &nbsp; ✗ לא קיים &nbsp; ריק = מוסתר</span>
+          </div>
+
+          {/* Default features — 3-state toggle */}
+          {DEFAULT_PKG_FEATURES.map(feat => {
+            const state = getState(feat)
+            return (
+              <div key={feat} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
+                <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+                  <button
+                    type="button"
+                    onClick={() => setFeatureState(feat, state === 'included' ? 'off' : 'included')}
+                    style={{
+                      width: 28, height: 28, border: '1.5px solid',
+                      borderColor: state === 'included' ? '#38a169' : 'rgba(255,255,255,0.2)',
+                      borderRadius: 7, background: state === 'included' ? '#38a16922' : 'transparent',
+                      color: state === 'included' ? '#38a169' : 'var(--hint)',
+                      cursor: 'pointer', fontSize: 14, lineHeight: 1, fontWeight: 700,
+                    }}
+                    title="קיים"
+                  >✓</button>
+                  <button
+                    type="button"
+                    onClick={() => setFeatureState(feat, state === 'excluded' ? 'off' : 'excluded')}
+                    style={{
+                      width: 28, height: 28, border: '1.5px solid',
+                      borderColor: state === 'excluded' ? '#e53e3e' : 'rgba(255,255,255,0.2)',
+                      borderRadius: 7, background: state === 'excluded' ? '#e53e3e22' : 'transparent',
+                      color: state === 'excluded' ? '#e53e3e' : 'var(--hint)',
+                      cursor: 'pointer', fontSize: 14, lineHeight: 1, fontWeight: 700,
+                    }}
+                    title="לא קיים"
+                  >✗</button>
+                </div>
+                <span style={{
+                  fontSize: 13, lineHeight: 1.4, flex: 1,
+                  color: state === 'off' ? 'var(--hint)' : 'var(--text)',
+                  opacity: state === 'off' ? 0.45 : 1,
+                }}>{feat}</span>
+              </div>
+            )
+          })}
+
+          {/* Custom features — same toggles + remove */}
+          {customFeatures.map(item => {
+            const state = item.included ? 'included' : 'excluded'
+            return (
+              <div key={item.text} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
+                <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+                  <button
+                    type="button"
+                    onClick={() => setFeatureState(item.text, 'included')}
+                    style={{
+                      width: 28, height: 28, border: '1.5px solid',
+                      borderColor: state === 'included' ? '#38a169' : 'rgba(255,255,255,0.2)',
+                      borderRadius: 7, background: state === 'included' ? '#38a16922' : 'transparent',
+                      color: state === 'included' ? '#38a169' : 'var(--hint)',
+                      cursor: 'pointer', fontSize: 14, lineHeight: 1, fontWeight: 700,
+                    }}
+                  >✓</button>
+                  <button
+                    type="button"
+                    onClick={() => setFeatureState(item.text, 'excluded')}
+                    style={{
+                      width: 28, height: 28, border: '1.5px solid',
+                      borderColor: state === 'excluded' ? '#e53e3e' : 'rgba(255,255,255,0.2)',
+                      borderRadius: 7, background: state === 'excluded' ? '#e53e3e22' : 'transparent',
+                      color: state === 'excluded' ? '#e53e3e' : 'var(--hint)',
+                      cursor: 'pointer', fontSize: 14, lineHeight: 1, fontWeight: 700,
+                    }}
+                  >✗</button>
+                </div>
+                <span style={{ fontSize: 13, flex: 1, lineHeight: 1.4 }}>{item.text}</span>
+                <button
+                  type="button"
+                  onClick={() => removeCustomFeature(item.text)}
+                  style={{ background: 'none', border: 'none', color: 'var(--hint)', cursor: 'pointer', fontSize: 15, padding: '0 2px', flexShrink: 0 }}
+                  title="הסר"
+                >✕</button>
+              </div>
+            )
+          })}
+
+          {/* Add new custom feature */}
+          <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+            <input
+              className="input"
+              style={{ flex: 1, marginBottom: 0, fontSize: 13 }}
+              placeholder="הוסף תכונה חדשה..."
+              value={newFeature}
+              onChange={e => setNewFeature(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addCustomFeature()}
+            />
+            <button
+              type="button"
+              className="btn"
+              style={{ width: 'auto', padding: '0 14px', marginTop: 0, fontSize: 13, flexShrink: 0 }}
+              disabled={!newFeature.trim()}
+              onClick={addCustomFeature}
+            >+</button>
+          </div>
+        </div>
 
         <button className="btn" disabled={saving} onClick={onSave}>{saving ? '...' : 'שמור'}</button>
         <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={onClose}>ביטול</button>
@@ -2096,16 +2253,16 @@ const STATUS_LABEL = { open: 'פתוח', in_progress: 'בטיפול', closed: '�
 const STATUS_COLOR = { open: '#e07b00', in_progress: '#2481cc', closed: '#38a169' }
 
 function TicketsTab() {
-  const [tickets, setTickets] = useState(null)
-  const [filter, setFilter] = useState('') // '' = all
+  const [allTickets, setAllTickets] = useState(null)
+  const [filter, setFilter] = useState('open')
   const [selected, setSelected] = useState(null)
 
   async function load() {
-    const data = await adminFetchTickets(filter || undefined)
-    setTickets(data)
+    const data = await adminFetchTickets()
+    setAllTickets(data)
   }
 
-  useEffect(() => { load().catch(() => {}) }, [filter])
+  useEffect(() => { load().catch(() => {}) }, [])
 
   if (selected) {
     return (
@@ -2116,10 +2273,19 @@ function TicketsTab() {
     )
   }
 
+  const counts = allTickets ? {
+    '': allTickets.length,
+    open: allTickets.filter(t => t.status === 'open').length,
+    in_progress: allTickets.filter(t => t.status === 'in_progress').length,
+    closed: allTickets.filter(t => t.status === 'closed').length,
+  } : {}
+
+  const visible = allTickets ? (filter ? allTickets.filter(t => t.status === filter) : allTickets) : null
+
   return (
     <div>
       <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
-        {[['', 'הכל'], ['open', 'פתוח'], ['in_progress', 'בטיפול'], ['closed', 'סגור']].map(([val, label]) => (
+        {[['open', 'פתוח'], ['in_progress', 'בטיפול'], ['closed', 'היסטוריה'], ['', 'הכל']].map(([val, label]) => (
           <button
             key={val}
             onClick={() => setFilter(val)}
@@ -2130,16 +2296,16 @@ function TicketsTab() {
               cursor: 'pointer',
             }}
           >
-            {label}
+            {label}{allTickets && counts[val] > 0 ? ` (${counts[val]})` : ''}
           </button>
         ))}
       </div>
 
-      {!tickets && <div className="loading"></div>}
-      {tickets && tickets.length === 0 && (
+      {!allTickets && <div className="loading"></div>}
+      {visible && visible.length === 0 && (
         <div style={{ textAlign: 'center', color: 'var(--hint)', fontSize: 14, padding: 20 }}>אין פניות</div>
       )}
-      {tickets && tickets.map(t => {
+      {visible && visible.map(t => {
         const name = t.username ? `@${t.username}` : t.full_name || `id:${t.user_id}`
         return (
           <div key={t.id} className="card" style={{ cursor: 'pointer' }} onClick={() => setSelected(t.id)}>
