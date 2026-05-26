@@ -264,11 +264,15 @@ function PackagesTab() {
 
   useEffect(() => { adminFetchPackages().then(setPkgs).catch(() => {}) }, [])
 
-  async function applyReorder(next) {
-    setPkgs(next)
+  async function applyReorder(nextPaid) {
+    // keep the free card in pkgs but reorder only paid packages
+    setPkgs(prev => {
+      const free = prev.filter(p => p.searches === 0)
+      return [...free, ...nextPaid]
+    })
     setReordering(true)
     try {
-      const fresh = await adminReorderPackages(next.map(p => p.id))
+      const fresh = await adminReorderPackages(nextPaid.map(p => p.id))
       setPkgs(fresh)
     } catch {
       window.Telegram?.WebApp?.showAlert('שגיאה בעדכון הסדר')
@@ -278,8 +282,10 @@ function PackagesTab() {
   }
 
   function movePackage(fromIdx, toIdx) {
-    if (fromIdx === toIdx || fromIdx < 0 || toIdx < 0 || !pkgs) return
-    const next = [...pkgs]
+    if (!pkgs) return
+    const paid = pkgs.filter(p => p.searches !== 0)
+    if (fromIdx === toIdx || fromIdx < 0 || toIdx < 0 || fromIdx >= paid.length || toIdx >= paid.length) return
+    const next = [...paid]
     const [moved] = next.splice(fromIdx, 1)
     next.splice(toIdx, 0, moved)
     applyReorder(next)
@@ -330,12 +336,36 @@ function PackagesTab() {
 
   if (!pkgs) return <div className="loading"></div>
 
+  const freePkg  = pkgs.find(p => p.searches === 0)
+  const paidPkgs = pkgs.filter(p => p.searches !== 0)
+
   return (
     <div>
+      {/* FREE card row */}
+      {freePkg && (
+        <div style={{
+          background: 'linear-gradient(135deg,#1b433218,#2d6a4f18)',
+          border: '1.5px solid #52b78840',
+          borderRadius: 14, padding: '10px 14px', marginBottom: 14,
+          display: 'flex', alignItems: 'center', gap: 10,
+        }}>
+          <span style={{ fontSize: 22, flexShrink: 0 }}>🆓</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: '#52b788' }}>{freePkg.label}</div>
+            <div style={{ fontSize: 12, color: 'var(--hint)' }}>כרטיס FREE · {freePkg.features?.length ?? 0} תכונות</div>
+          </div>
+          <button
+            className="btn"
+            style={{ width: 'auto', padding: '6px 14px', marginTop: 0, fontSize: 13 }}
+            onClick={() => { setEditing(freePkg); setForm({ label: freePkg.label, searches: '0', price: '0', image_url: freePkg.image_url || '', duration_months: '1', features: normalizeFeatures(freePkg.features) }) }}
+          >✏️ ערוך</button>
+        </div>
+      )}
+
       <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 10 }}>
         גרור ⠿ לשינוי סדר תצוגה · 1 = ראשון
       </div>
-      {pkgs.map((pkg, idx) => {
+      {paidPkgs.map((pkg, idx) => {
         const desc = pkg.searches === -1 ? 'ללא הגבלה' : `${pkg.searches} חיפושים`
         const isDragging = dragIdx === idx
         return (
@@ -379,7 +409,7 @@ function PackagesTab() {
                 <button
                   className="btn"
                   style={{ width: 'auto', padding: '4px 8px', marginTop: 0, fontSize: 12 }}
-                  disabled={idx === pkgs.length - 1 || reordering}
+                  disabled={idx === paidPkgs.length - 1 || reordering}
                   onClick={() => movePackage(idx, idx + 1)}
                   title="הזז למטה"
                 >↓</button>
@@ -486,20 +516,24 @@ function PackageModal({ title, form, setForm, saving, onSave, onClose }) {
           value={form.label}
           onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
         />
-        <input
-          className="input"
-          placeholder="חיפושים (-1 לבלתי מוגבל)"
-          type="number"
-          value={form.searches}
-          onChange={e => setForm(f => ({ ...f, searches: e.target.value }))}
-        />
-        <input
-          className="input"
-          placeholder="מחיר (₪)"
-          type="number"
-          value={form.price}
-          onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
-        />
+        {form.searches !== '0' && (
+          <>
+            <input
+              className="input"
+              placeholder="חיפושים (-1 לבלתי מוגבל)"
+              type="number"
+              value={form.searches}
+              onChange={e => setForm(f => ({ ...f, searches: e.target.value }))}
+            />
+            <input
+              className="input"
+              placeholder="מחיר (₪)"
+              type="number"
+              value={form.price}
+              onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
+            />
+          </>
+        )}
         {parseInt(form.searches) === -1 && (
           <input
             className="input"

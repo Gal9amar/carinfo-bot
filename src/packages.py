@@ -14,6 +14,15 @@ _DEFAULT_PACKAGES = [
     (4, "♾️ מנוי חודשי",   -1,  25, "", 4, 1),
 ]
 
+_DEFAULT_FREE_FEATURES = [
+    {"text": "נתוני רכב בסיסיים — שנה, דגם, בעלות, טסט, ק״מ", "included": True},
+    {"text": "היסטוריית חיפושים אישית", "included": True},
+    {"text": "מחיר שוק Yad2", "included": False},
+    {"text": "הורדת דוח PDF מפורט", "included": False},
+    {"text": "העתקת דוח לשיתוף", "included": False},
+    {"text": "הערות אישיות לכל רכב", "included": False},
+]
+
 _cache: list[tuple] | None = None  # (id, label, searches, price, image_url, display_order, duration_months, features)
 
 
@@ -47,6 +56,13 @@ async def init_packages() -> None:
                 [pid, label, searches, price, image_url, display_order, duration_months],
             )
     await execute("UPDATE packages SET display_order = id WHERE display_order = 0 OR display_order IS NULL")
+    # Seed the FREE card (searches=0) if not present
+    r_free = await execute("SELECT COUNT(*) FROM packages WHERE searches=0")
+    if (r_free.rows[0][0] if r_free.rows else 0) == 0:
+        await execute(
+            "INSERT INTO packages (label, searches, price, image_url, display_order, duration_months, features) VALUES (?,?,?,?,?,?,?)",
+            ["🆓 מסלול FREE", 0, 0, "", 0, 1, json.dumps(_DEFAULT_FREE_FEATURES, ensure_ascii=False)],
+        )
     await get_packages(force_reload=True)
 
 
