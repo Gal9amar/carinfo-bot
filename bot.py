@@ -1033,25 +1033,22 @@ def _grant_description(amount: int) -> str:
 
 def _format_grant_message(searches: int, expires: str = "") -> str:
     from datetime import datetime
-    today = datetime.now().strftime("%d.%m.%Y")
-    footer = "\n\nלפרטים המלאים אודות הפיצרים למנוי שלך ניתן להיכנס לתפריט *רכישת מנויים*\."
+    today = datetime.now().strftime("%d/%m/%Y")
+    footer = "\n\nלפרטים המלאים אודות הפיצרים למנוי שלך ניתן להיכנס לתפריט *רכישת מנויים*."
 
     if searches == 0:
-        plan = "מסלול FREE"
-        return f"🔔 *המנוי שלך עודכן\!*\n\n📦 מסוג: {plan}\n📅 החל מ: {today}{footer}"
+        return f"🔔 *המנוי שלך עודכן!*\n\n📦 מסוג: מסלול FREE\n📅 החל מ: {today}{footer}"
     if searches == -2:
-        plan = "גישה חופשית ♾️"
-        return f"🔔 *המנוי שלך עודכן\!*\n\n📦 מסוג: {plan}\n📅 החל מ: {today}\n⏰ בתוקף: ללא הגבלת זמן{footer}"
+        return f"🔔 *המנוי שלך עודכן!*\n\n📦 מסוג: גישה חופשית ♾️\n📅 החל מ: {today}\n⏰ בתוקף: ללא הגבלת זמן{footer}"
     if searches == -1:
-        plan = "מנוי חודשי"
         end_str = ""
         if expires:
             try:
-                end_str = f"\n⏰ בתוקף עד: {datetime.fromisoformat(expires).strftime('%d.%m.%Y')}"
+                end_str = f"\n⏰ בתוקף עד: {datetime.fromisoformat(expires).strftime('%d/%m/%Y')}"
             except Exception:
                 pass
-        return f"🔔 *המנוי שלך עודכן\!*\n\n📦 מסוג: {plan}\n📅 החל מ: {today}{end_str}{footer}"
-    return f"🔔 *המנוי שלך עודכן\!*\n\n📦 נוספו: {searches} חיפושים 🔍\n📅 החל מ: {today}{footer}"
+        return f"🔔 *המנוי שלך עודכן!*\n\n📦 מסוג: מנוי חודשי\n📅 החל מ: {today}{end_str}{footer}"
+    return f"🔔 *המנוי שלך עודכן!*\n\n📦 נוספו: {searches} חיפושים 🔍\n📅 החל מ: {today}{footer}"
 
 
 async def handle_user_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1107,7 +1104,7 @@ async def handle_user_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         try:
             from src.users import get_quota_expires
             expires = await get_quota_expires(uid) or ""
-            await context.bot.send_message(uid, _format_grant_message(amount, expires), parse_mode="MarkdownV2")
+            await context.bot.send_message(uid, _format_grant_message(amount, expires), parse_mode="Markdown")
         except Exception:
             pass
         # Refresh user view
@@ -2191,7 +2188,7 @@ def main() -> None:
             await app.bot.send_message(
                 user_id,
                 _format_grant_message(searches, expires),
-                parse_mode="MarkdownV2",
+                parse_mode="Markdown",
             )
         except Exception:
             pass
