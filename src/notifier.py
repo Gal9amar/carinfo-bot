@@ -77,9 +77,9 @@ def register_admin_grant_notifier(fn: Callable[..., Awaitable[None]]) -> None:
     _notify_user_admin_grant_fn = fn
 
 
-async def notify_user_admin_grant(user_id: int, searches: int) -> None:
+async def notify_user_admin_grant(user_id: int, searches: int, expires: str = "") -> None:
     if _notify_user_admin_grant_fn:
-        await _notify_user_admin_grant_fn(user_id, searches)
+        await _notify_user_admin_grant_fn(user_id, searches, expires)
 
 
 _broadcast_fn: Optional[Callable[..., Awaitable[None]]] = None

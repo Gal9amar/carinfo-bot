@@ -1027,18 +1027,31 @@ def _grant_description(amount: int) -> str:
     if amount == -1:
         return "מנוי חודשי"
     if amount == 0:
-        return "מנוי חינם"
+        return "מסלול FREE"
     return f"{amount} בדיקות"
 
 
-def _grant_user_message(amount: int, msg: str) -> str:
-    if amount == -2:
-        return "🎖️ קיבלת גישה חופשית ללא הגבלת זמן! תוכל לחפש רכבים ללא הגבלה."
-    if amount == -1:
-        return f"🎉 המנוי החודשי שלך אושר!\n{msg}\n\nתוכל לחפש ללא הגבלה!"
-    if amount == 0:
-        return f"🆓 הוגדרת למנוי חינם.\n{msg}"
-    return f"🎉 נוספו לך {amount} בדיקות רכב!"
+def _format_grant_message(searches: int, expires: str = "") -> str:
+    from datetime import datetime
+    today = datetime.now().strftime("%d.%m.%Y")
+    footer = "\n\nלפרטים המלאים אודות הפיצרים למנוי שלך ניתן להיכנס לתפריט *רכישת מנויים*\."
+
+    if searches == 0:
+        plan = "מסלול FREE"
+        return f"🔔 *המנוי שלך עודכן\!*\n\n📦 מסוג: {plan}\n📅 החל מ: {today}{footer}"
+    if searches == -2:
+        plan = "גישה חופשית ♾️"
+        return f"🔔 *המנוי שלך עודכן\!*\n\n📦 מסוג: {plan}\n📅 החל מ: {today}\n⏰ בתוקף: ללא הגבלת זמן{footer}"
+    if searches == -1:
+        plan = "מנוי חודשי"
+        end_str = ""
+        if expires:
+            try:
+                end_str = f"\n⏰ בתוקף עד: {datetime.fromisoformat(expires).strftime('%d.%m.%Y')}"
+            except Exception:
+                pass
+        return f"🔔 *המנוי שלך עודכן\!*\n\n📦 מסוג: {plan}\n📅 החל מ: {today}{end_str}{footer}"
+    return f"🔔 *המנוי שלך עודכן\!*\n\n📦 נוספו: {searches} חיפושים 🔍\n📅 החל מ: {today}{footer}"
 
 
 async def handle_user_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1087,12 +1100,14 @@ async def handle_user_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     if parts[0] == "ugrant":
         uid     = int(parts[1])
         amount  = int(parts[2])
-        msg     = await admin_grant(ADMIN_ID, uid, amount, "granted via admin panel")
+        await admin_grant(ADMIN_ID, uid, amount, "granted via admin panel")
         desc    = _grant_description(amount)
         await query.answer(f"✅ הוענקו {desc}", show_alert=True)
-        # Notify user
+        # Notify user with rich subscription update message
         try:
-            await context.bot.send_message(uid, _grant_user_message(amount, msg))
+            from src.users import get_quota_expires
+            expires = await get_quota_expires(uid) or ""
+            await context.bot.send_message(uid, _format_grant_message(amount, expires), parse_mode="MarkdownV2")
         except Exception:
             pass
         # Refresh user view
@@ -2171,18 +2186,12 @@ def main() -> None:
                 failed += 1
         return {"ok": True, "sent": sent, "failed": failed}
 
-    async def _notify_admin_grant(user_id: int, searches: int):
+    async def _notify_admin_grant(user_id: int, searches: int, expires: str = ""):
         try:
-            if searches == -2:
-                desc = "גישה ללא הגבלת חיפושים לצמיתות ♾️"
-            elif searches == -1:
-                desc = "מנוי חודשי — 30 יום גישה ללא הגבלה ♾️"
-            else:
-                desc = f"{searches} חיפושים 🔍"
             await app.bot.send_message(
                 user_id,
-                f"🎁 *קיבלת הטבה מהמנהל!*\n\n{desc} נוספו לחשבונך.",
-                parse_mode="Markdown",
+                _format_grant_message(searches, expires),
+                parse_mode="MarkdownV2",
             )
         except Exception:
             pass

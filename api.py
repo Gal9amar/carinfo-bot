@@ -927,7 +927,9 @@ async def admin_grant_user(user_id: int, body: GrantBody, admin: dict = Depends(
         pass
     try:
         from src.notifier import notify_user_admin_grant
-        await notify_user_admin_grant(user_id, body.searches)
+        from src.users import get_quota_expires
+        expires = await get_quota_expires(user_id) or ""
+        await notify_user_admin_grant(user_id, body.searches, expires)
     except Exception:
         pass
     return {"ok": True, "msg": msg}
