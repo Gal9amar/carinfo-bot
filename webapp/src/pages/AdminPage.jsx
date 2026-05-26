@@ -1321,8 +1321,7 @@ function getInitials(u) {
   return String(u.user_id).slice(-2)
 }
 
-function UserCard({ u, onEdit, onMessage, onReload }) {
-  const [expanded, setExpanded] = useState(false)
+function UserCard({ u, expanded, onToggle, onEdit, onMessage, onReload }) {
   const [blocking, setBlocking] = useState(false)
   const st = userStatus(u)
   const left = u.searches_left === -1 ? '∞' : u.searches_left
@@ -1346,7 +1345,7 @@ function UserCard({ u, onEdit, onMessage, onReload }) {
       {/* Collapsed header */}
       <div
         style={{ display: 'flex', gap: 10, padding: '12px 13px', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}
-        onClick={() => setExpanded(e => !e)}
+        onClick={() => onToggle(u.user_id)}
       >
         {/* Avatar */}
         <div style={{
@@ -1463,6 +1462,7 @@ function UsersTab() {
   const [filter, setFilter]             = useState('all')
   const [search, setSearch]             = useState('')
   const [sort, setSort]                 = useState('last_seen')
+  const [expandedId, setExpandedId]     = useState(null)
   const [editingUser, setEditingUser]   = useState(null)
   const [messagingUser, setMessagingUser] = useState(null)
 
@@ -1552,6 +1552,8 @@ function UsersTab() {
         <UserCard
           key={u.user_id}
           u={u}
+          expanded={expandedId === u.user_id}
+          onToggle={id => setExpandedId(prev => prev === id ? null : id)}
           onEdit={setEditingUser}
           onMessage={setMessagingUser}
           onReload={load}
