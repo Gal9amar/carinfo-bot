@@ -247,11 +247,17 @@ const DEFAULT_PKG_FEATURES = [
   'גישה לכל תכונות המנוי הקיימות והעתידיות',
 ]
 
+// Normalize features array — handles both old string[] and new {text,included}[] formats
+function normalizeFeatures(raw) {
+  if (!raw || !raw.length) return DEFAULT_PKG_FEATURES.map(text => ({ text, included: true }))
+  return raw.map(item => typeof item === 'string' ? { text: item, included: true } : item)
+}
+
 function PackagesTab() {
   const [pkgs, setPkgs] = useState(null)
   const [editing, setEditing] = useState(null)
   const [adding, setAdding] = useState(false)
-  const [form, setForm] = useState({ label: '', searches: '', price: '', image_url: '', features: DEFAULT_PKG_FEATURES })
+  const [form, setForm] = useState({ label: '', searches: '', price: '', image_url: '', features: normalizeFeatures([]) })
   const [saving, setSaving] = useState(false)
   const [dragIdx, setDragIdx] = useState(null)
   const [reordering, setReordering] = useState(false)
@@ -378,7 +384,7 @@ function PackagesTab() {
                   title="הזז למטה"
                 >↓</button>
                 <button className="btn" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
-                  onClick={() => { setEditing(pkg); setForm({ label: pkg.label, searches: String(pkg.searches), price: String(pkg.price), image_url: pkg.image_url || '', duration_months: String(pkg.duration_months ?? 1), features: pkg.features?.length ? pkg.features : DEFAULT_PKG_FEATURES }) }}>
+                  onClick={() => { setEditing(pkg); setForm({ label: pkg.label, searches: String(pkg.searches), price: String(pkg.price), image_url: pkg.image_url || '', duration_months: String(pkg.duration_months ?? 1), features: normalizeFeatures(pkg.features) }) }}>
                   ✏️
                 </button>
                 <button className="btn btn-danger" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
@@ -390,7 +396,7 @@ function PackagesTab() {
           </div>
         )
       })}
-      <button className="btn btn-success" onClick={() => { setAdding(true); setForm({ label: '', searches: '', price: '', image_url: '', duration_months: '1', features: DEFAULT_PKG_FEATURES }) }}>
+      <button className="btn btn-success" onClick={() => { setAdding(true); setForm({ label: '', searches: '', price: '', image_url: '', duration_months: '1', features: normalizeFeatures([]) }) }}>
         ➕ הוסף מנוי
       </button>
 
@@ -419,26 +425,34 @@ function PackageModal({ title, form, setForm, saving, onSave, onClose }) {
 
   const features = form.features || []
 
-  function toggleFeature(text) {
+  // 'included' | 'excluded' | 'off'
+  function getState(text) {
+    const item = features.find(f => f.text === text)
+    if (!item) return 'off'
+    return item.included ? 'included' : 'excluded'
+  }
+
+  function setFeatureState(text, state) {
     setForm(f => {
-      const cur = f.features || []
-      return { ...f, features: cur.includes(text) ? cur.filter(x => x !== text) : [...cur, text] }
+      const cur = (f.features || []).filter(x => x.text !== text)
+      if (state === 'off') return { ...f, features: cur }
+      return { ...f, features: [...cur, { text, included: state === 'included' }] }
     })
   }
 
   function addCustomFeature() {
     const text = newFeature.trim()
-    if (!text || features.includes(text)) return
-    setForm(f => ({ ...f, features: [...(f.features || []), text] }))
+    if (!text || features.find(f => f.text === text)) return
+    setForm(f => ({ ...f, features: [...(f.features || []), { text, included: true }] }))
     setNewFeature('')
   }
 
-  function removeFeature(text) {
-    setForm(f => ({ ...f, features: (f.features || []).filter(x => x !== text) }))
+  function removeCustomFeature(text) {
+    setForm(f => ({ ...f, features: (f.features || []).filter(x => x.text !== text) }))
   }
 
-  // features not in the default list (custom added)
-  const customFeatures = features.filter(f => !DEFAULT_PKG_FEATURES.includes(f))
+  // custom features = items not in the default list
+  const customFeatures = features.filter(f => !DEFAULT_PKG_FEATURES.includes(f.text))
 
   function handleFile(e) {
     const file = e.target.files?.[0]
@@ -539,37 +553,93 @@ function PackageModal({ title, form, setForm, saving, onSave, onClose }) {
 
         {/* Features */}
         <div style={{ marginTop: 4, marginBottom: 8 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--hint)', marginBottom: 8 }}>תכונות המנוי</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--hint)', marginBottom: 8 }}>
+            תכונות המנוי
+            <span style={{ fontWeight: 400, marginRight: 6 }}>· ✅ קיים &nbsp; ✗ לא קיים &nbsp; ריק = מוסתר</span>
+          </div>
 
-          {/* Default features — checkboxes */}
-          {DEFAULT_PKG_FEATURES.map(feat => (
-            <label key={feat} style={{
-              display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 7, cursor: 'pointer',
-            }}>
-              <input
-                type="checkbox"
-                checked={features.includes(feat)}
-                onChange={() => toggleFeature(feat)}
-                style={{ marginTop: 2, flexShrink: 0, accentColor: 'var(--btn)' }}
-              />
-              <span style={{ fontSize: 13, lineHeight: 1.4 }}>{feat}</span>
-            </label>
-          ))}
+          {/* Default features — 3-state toggle */}
+          {DEFAULT_PKG_FEATURES.map(feat => {
+            const state = getState(feat)
+            return (
+              <div key={feat} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
+                <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+                  <button
+                    type="button"
+                    onClick={() => setFeatureState(feat, state === 'included' ? 'off' : 'included')}
+                    style={{
+                      width: 28, height: 28, border: '1.5px solid',
+                      borderColor: state === 'included' ? '#38a169' : 'rgba(255,255,255,0.2)',
+                      borderRadius: 7, background: state === 'included' ? '#38a16922' : 'transparent',
+                      color: state === 'included' ? '#38a169' : 'var(--hint)',
+                      cursor: 'pointer', fontSize: 14, lineHeight: 1, fontWeight: 700,
+                    }}
+                    title="קיים"
+                  >✓</button>
+                  <button
+                    type="button"
+                    onClick={() => setFeatureState(feat, state === 'excluded' ? 'off' : 'excluded')}
+                    style={{
+                      width: 28, height: 28, border: '1.5px solid',
+                      borderColor: state === 'excluded' ? '#e53e3e' : 'rgba(255,255,255,0.2)',
+                      borderRadius: 7, background: state === 'excluded' ? '#e53e3e22' : 'transparent',
+                      color: state === 'excluded' ? '#e53e3e' : 'var(--hint)',
+                      cursor: 'pointer', fontSize: 14, lineHeight: 1, fontWeight: 700,
+                    }}
+                    title="לא קיים"
+                  >✗</button>
+                </div>
+                <span style={{
+                  fontSize: 13, lineHeight: 1.4, flex: 1,
+                  color: state === 'off' ? 'var(--hint)' : 'var(--text)',
+                  opacity: state === 'off' ? 0.45 : 1,
+                }}>{feat}</span>
+              </div>
+            )
+          })}
 
-          {/* Custom features */}
-          {customFeatures.map(feat => (
-            <div key={feat} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 7 }}>
-              <span style={{ fontSize: 13, flex: 1, lineHeight: 1.4 }}>⭐ {feat}</span>
-              <button
-                type="button"
-                onClick={() => removeFeature(feat)}
-                style={{ background: 'none', border: 'none', color: '#e53e3e', cursor: 'pointer', fontSize: 16, padding: '0 4px', flexShrink: 0 }}
-              >✕</button>
-            </div>
-          ))}
+          {/* Custom features — same toggles + remove */}
+          {customFeatures.map(item => {
+            const state = item.included ? 'included' : 'excluded'
+            return (
+              <div key={item.text} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
+                <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+                  <button
+                    type="button"
+                    onClick={() => setFeatureState(item.text, 'included')}
+                    style={{
+                      width: 28, height: 28, border: '1.5px solid',
+                      borderColor: state === 'included' ? '#38a169' : 'rgba(255,255,255,0.2)',
+                      borderRadius: 7, background: state === 'included' ? '#38a16922' : 'transparent',
+                      color: state === 'included' ? '#38a169' : 'var(--hint)',
+                      cursor: 'pointer', fontSize: 14, lineHeight: 1, fontWeight: 700,
+                    }}
+                  >✓</button>
+                  <button
+                    type="button"
+                    onClick={() => setFeatureState(item.text, 'excluded')}
+                    style={{
+                      width: 28, height: 28, border: '1.5px solid',
+                      borderColor: state === 'excluded' ? '#e53e3e' : 'rgba(255,255,255,0.2)',
+                      borderRadius: 7, background: state === 'excluded' ? '#e53e3e22' : 'transparent',
+                      color: state === 'excluded' ? '#e53e3e' : 'var(--hint)',
+                      cursor: 'pointer', fontSize: 14, lineHeight: 1, fontWeight: 700,
+                    }}
+                  >✗</button>
+                </div>
+                <span style={{ fontSize: 13, flex: 1, lineHeight: 1.4 }}>{item.text}</span>
+                <button
+                  type="button"
+                  onClick={() => removeCustomFeature(item.text)}
+                  style={{ background: 'none', border: 'none', color: 'var(--hint)', cursor: 'pointer', fontSize: 15, padding: '0 2px', flexShrink: 0 }}
+                  title="הסר"
+                >✕</button>
+              </div>
+            )
+          })}
 
           {/* Add new custom feature */}
-          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+          <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
             <input
               className="input"
               style={{ flex: 1, marginBottom: 0, fontSize: 13 }}

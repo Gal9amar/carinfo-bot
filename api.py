@@ -817,7 +817,7 @@ class PackageBody(BaseModel):
     price: int
     image_url: str = ""
     duration_months: int = 1
-    features: list[str] = []
+    features: list = []
 
 
 class PackageReorderBody(BaseModel):

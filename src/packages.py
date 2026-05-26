@@ -50,6 +50,22 @@ async def init_packages() -> None:
     await get_packages(force_reload=True)
 
 
+def _normalize_features(raw) -> list:
+    """Normalize features — handles old string[] and new {text,included}[] formats.
+    Accepts a JSON string (from DB) or a Python list (from API body)."""
+    try:
+        data = json.loads(raw) if isinstance(raw, str) else (raw or [])
+        result = []
+        for item in data:
+            if isinstance(item, str):
+                result.append({"text": item, "included": True})
+            elif isinstance(item, dict) and "text" in item:
+                result.append({"text": item["text"], "included": bool(item.get("included", True))})
+        return result
+    except Exception:
+        return []
+
+
 async def get_packages(force_reload: bool = False) -> list[tuple]:
     """Returns list of (id, label, searches, price, image_url, display_order, duration_months, features) sorted by display_order."""
     global _cache
@@ -58,12 +74,12 @@ async def get_packages(force_reload: bool = False) -> list[tuple]:
             "SELECT id, label, searches, price, COALESCE(image_url,''), display_order, COALESCE(duration_months,1), COALESCE(features,'[]') "
             "FROM packages ORDER BY display_order, id"
         )
-        _cache = [tuple(row) for row in r.rows]
+        _cache = [tuple(row[:7]) + (_normalize_features(row[7]),) for row in r.rows]
     return _cache
 
 
 async def update_package(pkg_id: int, label: str, searches: int, price: int, image_url: str = "", duration_months: int = 1, features: list | None = None) -> None:
-    features_json = json.dumps(features or [], ensure_ascii=False)
+    features_json = json.dumps(_normalize_features(features), ensure_ascii=False)
     await execute(
         "UPDATE packages SET label=?, searches=?, price=?, image_url=?, duration_months=?, features=? WHERE id=?",
         [label, searches, price, image_url, duration_months, features_json, pkg_id],
@@ -72,7 +88,7 @@ async def update_package(pkg_id: int, label: str, searches: int, price: int, ima
 
 
 async def add_package(label: str, searches: int, price: int, image_url: str = "", duration_months: int = 1, features: list | None = None) -> None:
-    features_json = json.dumps(features or [], ensure_ascii=False)
+    features_json = json.dumps(_normalize_features(features), ensure_ascii=False)
     r = await execute("SELECT COALESCE(MAX(id), 0) + 1 FROM packages")
     next_id = r.rows[0][0] if r.rows else 1
     r2 = await execute("SELECT COALESCE(MAX(display_order), 0) + 1 FROM packages")
