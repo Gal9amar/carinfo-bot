@@ -237,11 +237,21 @@ function ActivityTab() {
   )
 }
 
+const DEFAULT_PKG_FEATURES = [
+  'נתוני רכב מלאים — שנה, דגם, בעלות, טסט, ק״מ',
+  'מחיר שוק Yad2 — השוואת מחירים עדכנית',
+  'הורדת דוח PDF מפורט',
+  'העתקת דוח לשיתוף',
+  'הערות אישיות לכל רכב — נשמרות ומופיעות בדוח',
+  'היסטוריית חיפושים אישית',
+  'גישה לכל תכונות המנוי הקיימות והעתידיות',
+]
+
 function PackagesTab() {
   const [pkgs, setPkgs] = useState(null)
   const [editing, setEditing] = useState(null)
   const [adding, setAdding] = useState(false)
-  const [form, setForm] = useState({ label: '', searches: '', price: '', image_url: '' })
+  const [form, setForm] = useState({ label: '', searches: '', price: '', image_url: '', features: DEFAULT_PKG_FEATURES })
   const [saving, setSaving] = useState(false)
   const [dragIdx, setDragIdx] = useState(null)
   const [reordering, setReordering] = useState(false)
@@ -278,6 +288,7 @@ function PackagesTab() {
         price: parseInt(form.price),
         image_url: form.image_url || '',
         duration_months: parseInt(form.duration_months) || 1,
+        features: form.features || [],
       })
       const fresh = await adminFetchPackages()
       setPkgs(fresh)
@@ -295,6 +306,7 @@ function PackagesTab() {
         price: parseInt(form.price),
         image_url: form.image_url || '',
         duration_months: parseInt(form.duration_months) || 1,
+        features: form.features || [],
       })
       setPkgs(fresh)
       setAdding(false)
@@ -366,7 +378,7 @@ function PackagesTab() {
                   title="הזז למטה"
                 >↓</button>
                 <button className="btn" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
-                  onClick={() => { setEditing(pkg); setForm({ label: pkg.label, searches: String(pkg.searches), price: String(pkg.price), image_url: pkg.image_url || '', duration_months: String(pkg.duration_months ?? 1) }) }}>
+                  onClick={() => { setEditing(pkg); setForm({ label: pkg.label, searches: String(pkg.searches), price: String(pkg.price), image_url: pkg.image_url || '', duration_months: String(pkg.duration_months ?? 1), features: pkg.features?.length ? pkg.features : DEFAULT_PKG_FEATURES }) }}>
                   ✏️
                 </button>
                 <button className="btn btn-danger" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
@@ -378,7 +390,7 @@ function PackagesTab() {
           </div>
         )
       })}
-      <button className="btn btn-success" onClick={() => { setAdding(true); setForm({ label: '', searches: '', price: '', image_url: '', duration_months: '1' }) }}>
+      <button className="btn btn-success" onClick={() => { setAdding(true); setForm({ label: '', searches: '', price: '', image_url: '', duration_months: '1', features: DEFAULT_PKG_FEATURES }) }}>
         ➕ הוסף מנוי
       </button>
 
@@ -403,6 +415,30 @@ function PackagesTab() {
 function PackageModal({ title, form, setForm, saving, onSave, onClose }) {
   const fileRef = useRef(null)
   const [compressing, setCompressing] = useState(false)
+  const [newFeature, setNewFeature] = useState('')
+
+  const features = form.features || []
+
+  function toggleFeature(text) {
+    setForm(f => {
+      const cur = f.features || []
+      return { ...f, features: cur.includes(text) ? cur.filter(x => x !== text) : [...cur, text] }
+    })
+  }
+
+  function addCustomFeature() {
+    const text = newFeature.trim()
+    if (!text || features.includes(text)) return
+    setForm(f => ({ ...f, features: [...(f.features || []), text] }))
+    setNewFeature('')
+  }
+
+  function removeFeature(text) {
+    setForm(f => ({ ...f, features: (f.features || []).filter(x => x !== text) }))
+  }
+
+  // features not in the default list (custom added)
+  const customFeatures = features.filter(f => !DEFAULT_PKG_FEATURES.includes(f))
 
   function handleFile(e) {
     const file = e.target.files?.[0]
@@ -500,6 +536,57 @@ function PackageModal({ title, form, setForm, saving, onSave, onClose }) {
           </div>
         )}
         <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
+
+        {/* Features */}
+        <div style={{ marginTop: 4, marginBottom: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--hint)', marginBottom: 8 }}>תכונות המנוי</div>
+
+          {/* Default features — checkboxes */}
+          {DEFAULT_PKG_FEATURES.map(feat => (
+            <label key={feat} style={{
+              display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 7, cursor: 'pointer',
+            }}>
+              <input
+                type="checkbox"
+                checked={features.includes(feat)}
+                onChange={() => toggleFeature(feat)}
+                style={{ marginTop: 2, flexShrink: 0, accentColor: 'var(--btn)' }}
+              />
+              <span style={{ fontSize: 13, lineHeight: 1.4 }}>{feat}</span>
+            </label>
+          ))}
+
+          {/* Custom features */}
+          {customFeatures.map(feat => (
+            <div key={feat} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 7 }}>
+              <span style={{ fontSize: 13, flex: 1, lineHeight: 1.4 }}>⭐ {feat}</span>
+              <button
+                type="button"
+                onClick={() => removeFeature(feat)}
+                style={{ background: 'none', border: 'none', color: '#e53e3e', cursor: 'pointer', fontSize: 16, padding: '0 4px', flexShrink: 0 }}
+              >✕</button>
+            </div>
+          ))}
+
+          {/* Add new custom feature */}
+          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+            <input
+              className="input"
+              style={{ flex: 1, marginBottom: 0, fontSize: 13 }}
+              placeholder="הוסף תכונה חדשה..."
+              value={newFeature}
+              onChange={e => setNewFeature(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addCustomFeature()}
+            />
+            <button
+              type="button"
+              className="btn"
+              style={{ width: 'auto', padding: '0 14px', marginTop: 0, fontSize: 13, flexShrink: 0 }}
+              disabled={!newFeature.trim()}
+              onClick={addCustomFeature}
+            >+</button>
+          </div>
+        </div>
 
         <button className="btn" disabled={saving} onClick={onSave}>{saving ? '...' : 'שמור'}</button>
         <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={onClose}>ביטול</button>

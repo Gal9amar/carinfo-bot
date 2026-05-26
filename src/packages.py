@@ -4,6 +4,7 @@ Default packages are seeded on first init_packages() call.
 """
 
 import asyncio
+import json
 from src.db import execute
 
 _DEFAULT_PACKAGES = [
@@ -13,7 +14,7 @@ _DEFAULT_PACKAGES = [
     (4, "♾️ מנוי חודשי",   -1,  25, "", 4, 1),
 ]
 
-_cache: list[tuple] | None = None  # (id, label, searches, price, image_url, display_order, duration_months)
+_cache: list[tuple] | None = None  # (id, label, searches, price, image_url, display_order, duration_months, features)
 
 
 async def init_packages() -> None:
@@ -28,11 +29,15 @@ async def init_packages() -> None:
             duration_months INTEGER DEFAULT 1
         )
     """)
-    # Migration: add duration_months if missing
-    try:
-        await execute("ALTER TABLE packages ADD COLUMN duration_months INTEGER DEFAULT 1")
-    except Exception:
-        pass
+    # Migrations: add columns if missing
+    for migration in [
+        "ALTER TABLE packages ADD COLUMN duration_months INTEGER DEFAULT 1",
+        "ALTER TABLE packages ADD COLUMN features TEXT DEFAULT '[]'",
+    ]:
+        try:
+            await execute(migration)
+        except Exception:
+            pass
     r = await execute("SELECT COUNT(*) FROM packages")
     count = r.rows[0][0] if r.rows else 0
     if count == 0:
@@ -46,33 +51,35 @@ async def init_packages() -> None:
 
 
 async def get_packages(force_reload: bool = False) -> list[tuple]:
-    """Returns list of (id, label, searches, price, image_url, display_order, duration_months) sorted by display_order."""
+    """Returns list of (id, label, searches, price, image_url, display_order, duration_months, features) sorted by display_order."""
     global _cache
     if _cache is None or force_reload:
         r = await execute(
-            "SELECT id, label, searches, price, COALESCE(image_url,''), display_order, COALESCE(duration_months,1) "
+            "SELECT id, label, searches, price, COALESCE(image_url,''), display_order, COALESCE(duration_months,1), COALESCE(features,'[]') "
             "FROM packages ORDER BY display_order, id"
         )
         _cache = [tuple(row) for row in r.rows]
     return _cache
 
 
-async def update_package(pkg_id: int, label: str, searches: int, price: int, image_url: str = "", duration_months: int = 1) -> None:
+async def update_package(pkg_id: int, label: str, searches: int, price: int, image_url: str = "", duration_months: int = 1, features: list | None = None) -> None:
+    features_json = json.dumps(features or [], ensure_ascii=False)
     await execute(
-        "UPDATE packages SET label=?, searches=?, price=?, image_url=?, duration_months=? WHERE id=?",
-        [label, searches, price, image_url, duration_months, pkg_id],
+        "UPDATE packages SET label=?, searches=?, price=?, image_url=?, duration_months=?, features=? WHERE id=?",
+        [label, searches, price, image_url, duration_months, features_json, pkg_id],
     )
     await get_packages(force_reload=True)
 
 
-async def add_package(label: str, searches: int, price: int, image_url: str = "", duration_months: int = 1) -> None:
+async def add_package(label: str, searches: int, price: int, image_url: str = "", duration_months: int = 1, features: list | None = None) -> None:
+    features_json = json.dumps(features or [], ensure_ascii=False)
     r = await execute("SELECT COALESCE(MAX(id), 0) + 1 FROM packages")
     next_id = r.rows[0][0] if r.rows else 1
     r2 = await execute("SELECT COALESCE(MAX(display_order), 0) + 1 FROM packages")
     next_order = r2.rows[0][0] if r2.rows else 1
     await execute(
-        "INSERT INTO packages (id, label, searches, price, image_url, display_order, duration_months) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        [next_id, label, searches, price, image_url, next_order, duration_months],
+        "INSERT INTO packages (id, label, searches, price, image_url, display_order, duration_months, features) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        [next_id, label, searches, price, image_url, next_order, duration_months, features_json],
     )
     await get_packages(force_reload=True)
 

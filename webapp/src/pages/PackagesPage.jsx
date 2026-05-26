@@ -262,15 +262,11 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
             <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 14px' }} />
 
             {/* ── Features ── */}
-            <div style={{ padding: '12px 16px', fontSize: 13, color: 'var(--hint)', lineHeight: 1.9 }}>
-              <div>✅ נתוני רכב מלאים — שנה, דגם, בעלות, טסט, ק״מ</div>
-              <div>✅ מחיר שוק Yad2 — השוואת מחירים עדכנית</div>
-              <div>✅ הורדת דוח PDF מפורט</div>
-              <div>✅ העתקת דוח לשיתוף</div>
-              <div>✅ הערות אישיות לכל רכב — נשמרות ומופיעות בדוח</div>
-              <div>✅ היסטוריית חיפושים אישית</div>
-              <div>✅ גישה לכל תכונות המנוי הקיימות והעתידיות</div>
-            </div>
+            {pkg.features && pkg.features.length > 0 && (
+              <div style={{ padding: '12px 16px', fontSize: 13, color: 'var(--hint)', lineHeight: 1.9 }}>
+                {pkg.features.map((f, i) => <div key={i}>✅ {f}</div>)}
+              </div>
+            )}
 
             <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 14px' }} />
             {!isUnlimited && (
