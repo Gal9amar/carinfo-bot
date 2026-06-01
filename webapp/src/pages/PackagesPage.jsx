@@ -271,7 +271,7 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
                   fontSize: 13, fontWeight: 400, padding: '4px 12px',
                   background: accent, color: '#000',
                   borderRadius: 20, whiteSpace: 'nowrap',
-                }}>⭐ חבילת {pkg.label}</span>
+                }}>⭐ {pkg.label}</span>
               </div>
             </div>
 

@@ -34,7 +34,7 @@ const TABS = [
   { id: 'stats',    icon: '📊', label: 'סטטיסטיקות' },
   { id: 'activity', icon: '🕐', label: 'לוג פעילות' },
   { id: 'payments', icon: '💳', label: 'הזמנות' },
-  { id: 'packages', icon: '⭐', label: 'מנויים' },
+  { id: 'packages', icon: '🛒', label: 'מוצרים' },
   { id: 'grants',   icon: '🎁', label: 'הטבות מנהל' },
   { id: 'users',    icon: '👥', label: 'משתמשים' },
   { id: 'groups',   icon: '👥', label: 'קבוצות' },
@@ -343,7 +343,7 @@ function PackagesTab() {
   }
 
   async function deletePkg(id) {
-    window.Telegram?.WebApp?.showConfirm('למחוק מנוי?', async (ok) => {
+    window.Telegram?.WebApp?.showConfirm('למחוק מוצר?', async (ok) => {
       if (!ok) return
       await adminDeletePackage(id)
       setPkgs(await adminFetchPackages())
@@ -444,12 +444,12 @@ function PackagesTab() {
         )
       })}
       <button className="btn btn-success" onClick={() => { setAdding(true); setForm({ label: '', searches: '', price: '', image_url: '', duration_months: '1', features: normalizeFeatures([]), chips: [] }) }}>
-        ➕ הוסף מנוי
+        ➕ הוסף מוצר
       </button>
 
       {editing && (
         <PackageModal
-          title="✏️ עריכת מנוי"
+          title="✏️ עריכת מוצר"
           form={form} setForm={setForm}
           saving={saving} onSave={saveEdit} onClose={() => setEditing(null)}
           suggestions={allChipsPool}
@@ -457,7 +457,7 @@ function PackagesTab() {
       )}
       {adding && (
         <PackageModal
-          title="➕ מנוי חדש"
+          title="➕ מוצר חדש"
           form={form} setForm={setForm}
           saving={saving} onSave={saveAdd} onClose={() => setAdding(false)}
           suggestions={allChipsPool}
@@ -626,7 +626,7 @@ function PackageModal({ title, form, setForm, saving, onSave, onClose, suggestio
         <div className="modal-title">{title}</div>
         <input
           className="input"
-          placeholder="שם המנוי"
+          placeholder="שם המוצר"
           value={form.label}
           onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
         />
@@ -705,7 +705,7 @@ function PackageModal({ title, form, setForm, saving, onSave, onClose, suggestio
         {/* Features */}
         <div style={{ marginTop: 4, marginBottom: 8 }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--hint)', marginBottom: 8 }}>
-            תכונות המנוי
+            תכונות המוצר
             <span style={{ fontWeight: 400, marginRight: 6 }}>· ✅ קיים &nbsp; ✗ לא קיים &nbsp; ריק = מוסתר</span>
           </div>
 
