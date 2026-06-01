@@ -498,6 +498,7 @@ export async function fetchWatchModels(make) {
 // Yad2 Watches (user)
 export async function fetchUserWatches() {
   const r = await fetch(`${BASE}/api/user/watches`, { headers: headers() })
+  if (r.status === 403) throw new Error('FORBIDDEN')
   if (!r.ok) throw new Error('Failed')
   return r.json()
 }

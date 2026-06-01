@@ -5,9 +5,10 @@ import BackButton from '../components/BackButton.jsx'
 const CURRENT_YEAR = new Date().getFullYear()
 const YEARS = Array.from({ length: 30 }, (_, i) => CURRENT_YEAR - i)
 
-export default function WatchesPage({ onBack, user }) {
+export default function WatchesPage({ onBack, onPackages, user }) {
   const [watches, setWatches]   = useState(null)
   const [error, setError]       = useState(null)
+  const [accessDenied, setAccessDenied] = useState(false)
   const [adding, setAdding]     = useState(false)
 
   // Add form state
@@ -23,8 +24,9 @@ export default function WatchesPage({ onBack, user }) {
     try {
       const data = await fetchUserWatches()
       setWatches(data)
-    } catch {
-      setError('שגיאה בטעינת המעקבים')
+    } catch (e) {
+      if (e.message === 'FORBIDDEN') setAccessDenied(true)
+      else setError('שגיאה בטעינת המעקבים')
     }
   }
 
@@ -84,6 +86,41 @@ export default function WatchesPage({ onBack, user }) {
     width: '100%', padding: '10px 12px', borderRadius: 10, fontSize: 14,
     background: 'var(--bg)', border: '1px solid rgba(255,255,255,0.12)',
     color: 'var(--text)', marginBottom: 10, direction: 'rtl',
+  }
+
+  if (accessDenied) {
+    return (
+      <div className="page">
+        {onBack && <BackButton onClick={() => onBack('home')} />}
+        <div style={{ textAlign: 'center', padding: '32px 16px' }}>
+          <div style={{ fontSize: 52, marginBottom: 16 }}>🔔</div>
+          <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 10 }}>התראות יד2</div>
+          <div style={{ fontSize: 14, color: 'var(--hint)', lineHeight: 1.6, marginBottom: 24 }}>
+            קבל התראה בטלגרם ברגע שתתווסף מודעה חדשה ב-Yad2 לסוג הרכב שבחרת.
+            <br />
+            הפיצ׳ר זמין למנויים בלבד.
+          </div>
+          <div style={{
+            background: 'var(--bg2)', borderRadius: 16, padding: '16px 20px',
+            marginBottom: 24, textAlign: 'right', fontSize: 13, lineHeight: 1.8,
+          }}>
+            <div>✅ בחירת יצרן, דגם ושנה</div>
+            <div>✅ עד מספר מעקבים במקביל</div>
+            <div>✅ הודעה ישירה לטלגרם על כל מודעה חדשה</div>
+          </div>
+          {onPackages && (
+            <button
+              onClick={onPackages}
+              style={{
+                width: '100%', padding: '14px 0', borderRadius: 14, border: 'none',
+                background: 'linear-gradient(135deg,#7c3aed,#a855f7)',
+                color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer',
+              }}
+            >🛒 רכישת חבילה</button>
+          )}
+        </div>
+      </div>
+    )
   }
 
   return (
