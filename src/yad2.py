@@ -442,12 +442,15 @@ def fetch_listings(make: str, model: str, year: int | str | None) -> list[dict]:
 
     result = []
     seen_ids: set[str] = set()
+    has_tokens = False
     for item in items:
         token = str(item.get("token") or "")
         oid = str(item.get("orderId") or token or item.get("id") or "")
         if not oid or oid in seen_ids:
             continue
         seen_ids.add(oid)
+        if token:
+            has_tokens = True
         link = f"https://www.yad2.co.il/item/{token}" if token else ""
         result.append({
             "id": oid,
@@ -457,4 +460,5 @@ def fetch_listings(make: str, model: str, year: int | str | None) -> list[dict]:
             "city": item.get("city") or "",
             "link": link,
         })
+    _logger.info(f"fetch_listings: {len(result)} results, has_tokens={has_tokens}")
     return result
