@@ -127,9 +127,13 @@ async def get_user_info(user: dict = Depends(_get_user)):
     _today = str(_date.today())
 
     async def _check_feature(key_prefix: str) -> bool:
-        # Paying subscribers always have access — checked before any admin toggle
+        # Admin always has full access
+        if user_id == ADMIN_ID:
+            return True
+        # Unlimited quota (monthly sub or admin grant -1) always qualifies
         if quota == -1:
             return True
+        # Paying subscribers ("מנויים" group) always have access
         sub_r = await execute(
             "SELECT 1 FROM user_group_members ugm "
             "JOIN user_groups ug ON ug.id = ugm.group_id "
@@ -138,7 +142,10 @@ async def get_user_info(user: dict = Depends(_get_user)):
         )
         if len(sub_r.rows) > 0:
             return True
-        # Non-subscribers: respect the admin toggle
+        # Non-subscribers with active quota also get access
+        if left > 0:
+            return True
+        # Zero-quota users: respect the admin toggle
         if (await get_bot_setting(f"{key_prefix}_enabled")) == "0":
             return False
         if (await get_bot_setting(f"{key_prefix}_public")) == "1":
