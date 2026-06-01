@@ -402,7 +402,21 @@ def fetch_listings(make: str, model: str, year: int | str | None) -> list[dict]:
             data = json.loads(raw.decode("utf-8"))
         except Exception:
             data = json.loads(zlib.decompress(raw, 16 + zlib.MAX_WBITS).decode("utf-8"))
-        return data.get("data") or []
+        top_keys = list(data.keys()) if isinstance(data, dict) else type(data).__name__
+        data_val = data.get("data") if isinstance(data, dict) else None
+        data_type = type(data_val).__name__
+        data_summary = list(data_val.keys()) if isinstance(data_val, dict) else (len(data_val) if isinstance(data_val, list) else data_val)
+        _logger.info(f"fetch_listings response: top_keys={top_keys} data_type={data_type} data={data_summary}")
+        if isinstance(data_val, list):
+            return data_val
+        if isinstance(data_val, dict):
+            # try common nested paths in Yad2 feed response
+            for key in ("feed_items", "items", "feed"):
+                candidate = data_val.get(key)
+                if isinstance(candidate, list) and candidate:
+                    _logger.info(f"fetch_listings: found items under data.{key} ({len(candidate)})")
+                    return candidate
+        return []
 
     try:
         items = _do_fetch(f"&model={mod_id}") if mod_id else _do_fetch("")
