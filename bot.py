@@ -895,7 +895,7 @@ async def handle_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     buttons.append([InlineKeyboardButton("🔙 חזרה", callback_data="back_to_start")])
 
     await query.edit_message_text(
-        "📜 *היסטוריית החיפושים שלך:*\n_לחץ על מספר רכב לצפייה חוזרת \(לא מנכה בדיקה\)_",
+        "📜 *היסטוריית החיפושים שלך:*\n_לחץ על מספר רכב לצפייה חוזרת \\(לא מנכה בדיקה\\)_",
         parse_mode=ParseMode.MARKDOWN_V2,
         reply_markup=InlineKeyboardMarkup(buttons),
     )
@@ -1356,9 +1356,9 @@ async def handle_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         f"💳 *{label}*\n\n"
         f"• {desc}\n"
         f"• מחיר: *₪{price}*\n\n"
-        f"1\. לחץ על כפתור התשלום למטה \(PayPal או PayBox\)\n"
-        f"2\. השלם את התשלום\n"
-        f"3\. חזור לכאן ולחץ *שילמתי* לשליחת אישור\n\n"
+        f"1\\. לחץ על כפתור התשלום למטה \\(PayPal או PayBox\\)\n"
+        f"2\\. השלם את התשלום\n"
+        f"3\\. חזור לכאן ולחץ *שילמתי* לשליחת אישור\n\n"
         f"_הגישה תיפתח לאחר אישור ידני על ידי המנהל_",
         parse_mode=ParseMode.MARKDOWN_V2,
         reply_markup=_paypal_keyboard(searches, price),
@@ -1399,8 +1399,8 @@ async def handle_paid_callback(update: Update, context: ContextTypes.DEFAULT_TYP
             logger.warning("Failed to notify admin of payment: %s", e)
 
     await query.edit_message_text(
-        "✅ *בקשתך נשלחה למנהל\!*\n\n"
-        "הגישה תיפתח לאחר אימות התשלום\. בדרך כלל תוך מספר דקות\.",
+        "✅ *בקשתך נשלחה למנהל\\!*\n\n"
+        "הגישה תיפתח לאחר אימות התשלום\\. בדרך כלל תוך מספר דקות\\.",
         parse_mode=ParseMode.MARKDOWN_V2,
     )
 
@@ -1502,7 +1502,7 @@ async def handle_decline_callback(update: Update, context: ContextTypes.DEFAULT_
     try:
         await context.bot.send_message(
             target,
-            "❌ *התשלום לא אומת\.*\n\nלשאלות פנה למנהל דרך צ'אט המנהל\.",
+            "❌ *התשלום לא אומת\\.*\n\nלשאלות פנה למנהל דרך צ'אט המנהל\\.",
             parse_mode=ParseMode.MARKDOWN_V2,
         )
     except Exception:
@@ -1533,10 +1533,10 @@ async def handle_successful_payment(update: Update, context: ContextTypes.DEFAUL
 
     amount_ils = payment.total_amount // 100
     await update.message.reply_text(
-        f"✅ *תשלום התקבל\!*\n\n"
-        f"נוספו לך *{searches}* בדיקות רכב\.\n"
+        f"✅ *תשלום התקבל\\!*\n\n"
+        f"נוספו לך *{searches}* בדיקות רכב\\.\n"
         f"סכום שחויב: ₪{amount_ils}\n\n"
-        f"תודה על הרכישה\! 🙏",
+        f"תודה על הרכישה\\! 🙏",
         parse_mode=ParseMode.MARKDOWN_V2,
         reply_markup=ReplyKeyboardRemove(),
     )
@@ -1546,7 +1546,7 @@ async def handle_successful_payment(update: Update, context: ContextTypes.DEFAUL
     try:
         await context.bot.send_message(
             ADMIN_ID,
-            f"💰 *תשלום חדש\!*\n\n"
+            f"💰 *תשלום חדש\\!*\n\n"
             f"👤 {uname}\n"
             f"🔍 {searches} בדיקות\n"
             f"💵 ₪{amount_ils}",
