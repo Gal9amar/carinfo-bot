@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { fetchVehicle, fetchMarketPrice, requestPdfReport, fetchNote, saveNote } from '../api.js'
+import { fetchVehicle, fetchMarketPrice, requestPdfReport, fetchNote, saveNote, createUserWatch } from '../api.js'
 import { MAKE_EN, MODEL_EN } from '../vehicleNames.js'
 import LicensePlate from '../components/LicensePlate.jsx'
 import BackButton from '../components/BackButton.jsx'
@@ -230,6 +230,7 @@ export default function ReportPage({ plate, onBack, user }) {
   const [pdfSent, setPdfSent] = useState(false)
   const [note, setNote] = useState('')
   const [noteSaved, setNoteSaved] = useState(false)
+  const [watchState, setWatchState] = useState('idle') // idle | loading | done | error
 
   useEffect(() => {
     if (!plate) { setError('לא צוין מספר רכב'); return }
@@ -442,6 +443,56 @@ export default function ReportPage({ plate, onBack, user }) {
           </div>
         )
       })()}
+
+      {/* ── Yad2 Watch ── */}
+      {user?.show_watch && make && (
+        <div className="card" style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+            <div>
+              <div style={{
+                display: 'inline-block', fontSize: 11, fontWeight: 700,
+                background: '#8b5cf6', color: '#fff',
+                borderRadius: 20, padding: '4px 10px', marginBottom: 6,
+              }}>למנויים בלבד</div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>🔔 התראות יד2</div>
+            </div>
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 12 }}>
+            קבל התראה בטלגרם כשתתווסף מודעה חדשה ל-Yad2 עבור <strong>{[make, model, year].filter(Boolean).join(' ')}</strong>
+          </div>
+          {watchState === 'done' ? (
+            <div style={{ textAlign: 'center', color: '#38a169', fontWeight: 700, fontSize: 14, padding: '8px 0' }}>
+              ✅ המעקב נוסף בהצלחה!
+            </div>
+          ) : watchState === 'error' ? (
+            <div style={{ textAlign: 'center', color: '#e53e3e', fontSize: 13, padding: '8px 0' }}>
+              ❌ שגיאה בהוספת המעקב. ייתכן שהגעת למגבלת המעקבים.
+            </div>
+          ) : (
+            <button
+              onClick={async () => {
+                setWatchState('loading')
+                try {
+                  await createUserWatch({ make, model, year: year ? parseInt(year) : null })
+                  setWatchState('done')
+                } catch {
+                  setWatchState('error')
+                }
+              }}
+              disabled={watchState === 'loading'}
+              style={{
+                display: 'block', width: '100%', padding: '9px 0',
+                background: watchState === 'loading' ? '#55555544' : '#8b5cf6',
+                color: watchState === 'loading' ? 'var(--hint)' : '#fff',
+                borderRadius: 10, fontSize: 13, fontWeight: 700,
+                border: 'none', cursor: watchState === 'loading' ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {watchState === 'loading' ? '⏳ מוסיף מעקב...' : '🔔 הוסף מעקב ביד2'}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* ── General ── */}
       <Sec title="📋 פרטים כלליים">

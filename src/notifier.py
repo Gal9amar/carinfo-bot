@@ -7,19 +7,19 @@ This avoids a circular import between bot.py and api.py.
 
 from typing import Any, Callable, Awaitable, Optional
 
-_notify_admin_payment_fn: Optional[Callable[..., Awaitable[None]]] = None
-_notify_admin_ticket_fn:  Optional[Callable[..., Awaitable[None]]] = None
-_notify_user_ticket_fn:   Optional[Callable[..., Awaitable[None]]] = None
+_notify_admin_payment_fn: Optional[Callable[..., Awaitable[Any]]] = None
+_notify_admin_ticket_fn:  Optional[Callable[..., Awaitable[Any]]] = None
+_notify_user_ticket_fn:   Optional[Callable[..., Awaitable[Any]]] = None
 
 
-def register_payment_notifier(fn: Callable[..., Awaitable[None]]) -> None:
+def register_payment_notifier(fn: Callable[..., Awaitable[Any]]) -> None:
     global _notify_admin_payment_fn
     _notify_admin_payment_fn = fn
 
 
 def register_ticket_notifiers(
-    admin_fn: Callable[..., Awaitable[None]],
-    user_fn:  Callable[..., Awaitable[None]],
+    admin_fn: Callable[..., Awaitable[Any]],
+    user_fn:  Callable[..., Awaitable[Any]],
 ) -> None:
     global _notify_admin_ticket_fn, _notify_user_ticket_fn
     _notify_admin_ticket_fn = admin_fn
@@ -46,13 +46,13 @@ async def notify_user_ticket_reply(user_id: int, ticket_id: int, subject: str, r
     await _notify_user_ticket_fn(user_id, ticket_id, subject, reply)
 
 
-_notify_user_payment_approved_fn: Optional[Callable[..., Awaitable[None]]] = None
-_notify_user_payment_declined_fn: Optional[Callable[..., Awaitable[None]]] = None
+_notify_user_payment_approved_fn: Optional[Callable[..., Awaitable[Any]]] = None
+_notify_user_payment_declined_fn: Optional[Callable[..., Awaitable[Any]]] = None
 
 
 def register_payment_result_notifiers(
-    approved_fn: Callable[..., Awaitable[None]],
-    declined_fn: Callable[..., Awaitable[None]],
+    approved_fn: Callable[..., Awaitable[Any]],
+    declined_fn: Callable[..., Awaitable[Any]],
 ) -> None:
     global _notify_user_payment_approved_fn, _notify_user_payment_declined_fn
     _notify_user_payment_approved_fn = approved_fn
@@ -69,10 +69,10 @@ async def notify_user_payment_declined(user_id: int, label: str) -> None:
         await _notify_user_payment_declined_fn(user_id, label)
 
 
-_notify_user_admin_grant_fn: Optional[Callable[..., Awaitable[None]]] = None
+_notify_user_admin_grant_fn: Optional[Callable[..., Awaitable[Any]]] = None
 
 
-def register_admin_grant_notifier(fn: Callable[..., Awaitable[None]]) -> None:
+def register_admin_grant_notifier(fn: Callable[..., Awaitable[Any]]) -> None:
     global _notify_user_admin_grant_fn
     _notify_user_admin_grant_fn = fn
 
@@ -82,10 +82,10 @@ async def notify_user_admin_grant(user_id: int, searches: int, expires: str = ""
         await _notify_user_admin_grant_fn(user_id, searches, expires)
 
 
-_broadcast_fn: Optional[Callable[..., Awaitable[None]]] = None
+_broadcast_fn: Optional[Callable[..., Awaitable[Any]]] = None
 
 
-def register_broadcast_notifier(fn: Callable[..., Awaitable[None]]) -> None:
+def register_broadcast_notifier(fn: Callable[..., Awaitable[Any]]) -> None:
     global _broadcast_fn
     _broadcast_fn = fn
 
@@ -96,10 +96,10 @@ async def notify_broadcast(message: str) -> dict:
     return await _broadcast_fn(message)
 
 
-_send_user_message_fn: Optional[Callable[..., Awaitable[None]]] = None
+_send_user_message_fn: Optional[Callable[..., Awaitable[Any]]] = None
 
 
-def register_user_message_notifier(fn: Callable[..., Awaitable[None]]) -> None:
+def register_user_message_notifier(fn: Callable[..., Awaitable[Any]]) -> None:
     global _send_user_message_fn
     _send_user_message_fn = fn
 
@@ -110,10 +110,10 @@ async def send_user_message(user_id: int, message: str) -> bool:
     return await _send_user_message_fn(user_id, message)
 
 
-_broadcast_photo_fn: Optional[Callable[..., Awaitable[None]]] = None
+_broadcast_photo_fn: Optional[Callable[..., Awaitable[Any]]] = None
 
 
-def register_broadcast_photo_notifier(fn: Callable[..., Awaitable[None]]) -> None:
+def register_broadcast_photo_notifier(fn: Callable[..., Awaitable[Any]]) -> None:
     global _broadcast_photo_fn
     _broadcast_photo_fn = fn
 

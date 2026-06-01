@@ -2125,6 +2125,10 @@ async def _yad2_watch_job(context) -> None:
     """Job-queue callback: check Yad2 for new listings matching active watches."""
     from src import yad2 as _yad2
     from src.yad2_watcher import get_all_active_watches, update_seen_ids
+    from src.db import get_bot_setting
+
+    if (await get_bot_setting("yad2_watch_enabled")) != "1":
+        return
 
     try:
         watches = await get_all_active_watches()

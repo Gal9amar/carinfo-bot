@@ -158,6 +158,7 @@ async def get_user_info(user: dict = Depends(_get_user)):
 
     show_market = await _check_feature("yad2_market")
     show_pdf    = await _check_feature("pdf_report")
+    show_watch  = await _check_feature("yad2_watch")
 
     # Check if user is in the 'מנויים' group
     sub_r = await execute(
@@ -194,6 +195,7 @@ async def get_user_info(user: dict = Depends(_get_user)):
         "maintenance": maintenance,
         "show_market_price": show_market,
         "show_pdf_report": show_pdf,
+        "show_watch": show_watch,
         "is_subscriber": is_subscriber,
         "subscription_label": subscription_label,
     }
@@ -639,6 +641,12 @@ async def admin_get_settings(_: dict = Depends(_require_admin)):
         "yad2_market_public_start":  (await get_bot_setting("yad2_market_public_start")) or "",
         "yad2_market_public_end":    (await get_bot_setting("yad2_market_public_end"))   or "",
         "yad2_market_public_label":  (await get_bot_setting("yad2_market_public_label")) or "",
+        "yad2_watch_enabled":        (await get_bot_setting("yad2_watch_enabled")) == "1",
+        "yad2_watch_groups":         json.loads((await get_bot_setting("yad2_watch_groups")) or "[]"),
+        "yad2_watch_public":         (await get_bot_setting("yad2_watch_public")) == "1",
+        "yad2_watch_public_start":   (await get_bot_setting("yad2_watch_public_start")) or "",
+        "yad2_watch_public_end":     (await get_bot_setting("yad2_watch_public_end"))   or "",
+        "yad2_watch_public_label":   (await get_bot_setting("yad2_watch_public_label")) or "",
         "pdf_report_enabled":        (await get_bot_setting("pdf_report_enabled")) == "1",
         "pdf_report_groups":         json.loads((await get_bot_setting("pdf_report_groups")) or "[]"),
         "pdf_report_public":         (await get_bot_setting("pdf_report_public")) == "1",
@@ -664,6 +672,12 @@ class SettingsUpdate(BaseModel):
     yad2_market_public_start:  str          | None = None
     yad2_market_public_end:    str          | None = None
     yad2_market_public_label:  str          | None = None
+    yad2_watch_enabled:        bool         | None = None
+    yad2_watch_groups:         Optional[list]      = None
+    yad2_watch_public:         bool         | None = None
+    yad2_watch_public_start:   str          | None = None
+    yad2_watch_public_end:     str          | None = None
+    yad2_watch_public_label:   str          | None = None
     pdf_report_enabled:        bool         | None = None
     pdf_report_groups:         Optional[list]      = None
     pdf_report_public:         bool         | None = None
@@ -717,6 +731,18 @@ async def admin_update_settings(body: SettingsUpdate, _: dict = Depends(_require
         await set_bot_setting("yad2_market_public_end", body.yad2_market_public_end.strip())
     if body.yad2_market_public_label is not None:
         await set_bot_setting("yad2_market_public_label", body.yad2_market_public_label.strip())
+    if body.yad2_watch_enabled is not None:
+        await set_bot_setting("yad2_watch_enabled", "1" if body.yad2_watch_enabled else "0")
+    if body.yad2_watch_groups is not None:
+        await set_bot_setting("yad2_watch_groups", json.dumps(body.yad2_watch_groups))
+    if body.yad2_watch_public is not None:
+        await set_bot_setting("yad2_watch_public", "1" if body.yad2_watch_public else "0")
+    if body.yad2_watch_public_start is not None:
+        await set_bot_setting("yad2_watch_public_start", body.yad2_watch_public_start.strip())
+    if body.yad2_watch_public_end is not None:
+        await set_bot_setting("yad2_watch_public_end", body.yad2_watch_public_end.strip())
+    if body.yad2_watch_public_label is not None:
+        await set_bot_setting("yad2_watch_public_label", body.yad2_watch_public_label.strip())
     if body.pdf_report_enabled is not None:
         await set_bot_setting("pdf_report_enabled", "1" if body.pdf_report_enabled else "0")
     if body.pdf_report_groups is not None:
@@ -1597,12 +1623,88 @@ async def yad2_proxy(
         raise HTTPException(status_code=502, detail=str(e))
 
 
-# ── Yad2 Watches (Admin) ────────────────────────────────────────────────────
-
 class WatchBody(BaseModel):
     make: str
     model: str = ""
     year: Optional[int] = None
+
+
+# ── Yad2 Watches (User) ─────────────────────────────────────────────────────
+
+async def _check_watch_access(user: dict) -> bool:
+    """Return True if user is authorized to use the watch feature."""
+    from src.db import get_bot_setting, execute as _execute
+    user_id = int(user["id"])
+    if user_id == ADMIN_ID:
+        return True
+    if (await get_bot_setting("yad2_watch_enabled")) != "1":
+        return False
+    public_on = (await get_bot_setting("yad2_watch_public")) == "1"
+    if public_on:
+        from datetime import date as _date
+        today = str(_date.today())
+        ps = (await get_bot_setting("yad2_watch_public_start")) or ""
+        pe = (await get_bot_setting("yad2_watch_public_end")) or ""
+        if (not ps or today >= ps) and (not pe or today <= pe):
+            return True
+    groups_json = (await get_bot_setting("yad2_watch_groups")) or "[]"
+    allowed_groups = json.loads(groups_json)
+    if allowed_groups:
+        r = await _execute(
+            f"SELECT 1 FROM user_group_members WHERE user_id=? AND group_id IN ({','.join('?' * len(allowed_groups))})",
+            [user_id, *allowed_groups]
+        )
+        if len(r.rows) > 0:
+            return True
+    # subscribers always have access
+    sub_r = await _execute(
+        "SELECT 1 FROM user_group_members ugm "
+        "JOIN user_groups ug ON ug.id = ugm.group_id "
+        "WHERE ugm.user_id=? AND ug.name='מנויים'",
+        [user_id]
+    )
+    return len(sub_r.rows) > 0
+
+
+@api.get("/api/user/watches")
+async def user_get_watches(user: dict = Depends(_get_user)):
+    from src.yad2_watcher import get_user_watches
+    if not await _check_watch_access(user):
+        raise HTTPException(status_code=403, detail="אין גישה לפיצ'ר המעקב")
+    return await get_user_watches(int(user["id"]))
+
+
+@api.post("/api/user/watches")
+async def user_create_watch(body: WatchBody, user: dict = Depends(_get_user)):
+    from src.yad2_watcher import create_watch
+    if not await _check_watch_access(user):
+        raise HTTPException(status_code=403, detail="אין גישה לפיצ'ר המעקב")
+    try:
+        return await create_watch(int(user["id"]), body.make.strip(), body.model.strip(), body.year)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@api.delete("/api/user/watches/{watch_id}")
+async def user_delete_watch(watch_id: int, user: dict = Depends(_get_user)):
+    from src.yad2_watcher import delete_watch
+    await delete_watch(watch_id, int(user["id"]))
+    return {"ok": True}
+
+
+@api.patch("/api/user/watches/{watch_id}/toggle")
+async def user_toggle_watch(watch_id: int, user: dict = Depends(_get_user)):
+    from src.yad2_watcher import get_user_watches, toggle_watch
+    user_id = int(user["id"])
+    watches = await get_user_watches(user_id)
+    w = next((x for x in watches if x["id"] == watch_id), None)
+    if not w:
+        raise HTTPException(status_code=404)
+    await toggle_watch(watch_id, user_id, not w["active"])
+    return {"ok": True}
+
+
+# ── Yad2 Watches (Admin) ────────────────────────────────────────────────────
 
 
 @api.get("/api/admin/watches")

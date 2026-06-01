@@ -2116,6 +2116,12 @@ function FeaturesTab() {
   const [pdfPublicEnd, setPdfPublicEnd]         = useState('')
   const [pdfPublicLabel, setPdfPublicLabel]     = useState('')
   const [pdfSaving, setPdfSaving]               = useState(false)
+  const [watchEnabled, setWatchEnabled]         = useState(false)
+  const [watchPublic, setWatchPublic]           = useState(false)
+  const [watchPublicStart, setWatchPublicStart] = useState('')
+  const [watchPublicEnd, setWatchPublicEnd]     = useState('')
+  const [watchPublicLabel, setWatchPublicLabel] = useState('')
+  const [watchSaving, setWatchSaving]           = useState(false)
 
   useEffect(() => {
     adminFetchSettings().then(s => {
@@ -2130,6 +2136,11 @@ function FeaturesTab() {
       setPdfPublicStart(s.pdf_report_public_start || '')
       setPdfPublicEnd(s.pdf_report_public_end || '')
       setPdfPublicLabel(s.pdf_report_public_label || '')
+      setWatchEnabled(!!s.yad2_watch_enabled)
+      setWatchPublic(!!s.yad2_watch_public)
+      setWatchPublicStart(s.yad2_watch_public_start || '')
+      setWatchPublicEnd(s.yad2_watch_public_end || '')
+      setWatchPublicLabel(s.yad2_watch_public_label || '')
     }).catch(() => {})
   }, [])
 
@@ -2273,6 +2284,68 @@ function FeaturesTab() {
 
         <button className="btn btn-success" style={{ marginTop: 14 }} disabled={pdfSaving} onClick={savePdf}>
           {pdfSaving ? '...' : '💾 שמור'}
+        </button>
+      </div>
+
+      {/* Yad2 Watch alerts */}
+      <div style={{ border: '1.5px solid var(--border, rgba(255,255,255,0.12))', borderRadius: 14, padding: 16, marginTop: 16 }}>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14 }}>🔔 התראות יד2</div>
+
+        <div className="toggle-row">
+          <span className="toggle-label">הפעל התראות יד2 למנויים</span>
+          <button className={`toggle ${watchEnabled ? 'on' : ''}`} onClick={() => setWatchEnabled(v => !v)} />
+        </div>
+
+        {watchEnabled && (
+          <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ background: 'var(--bg2)', borderRadius: 10, padding: 12 }}>
+              <div className="toggle-row" style={{ paddingTop: 0 }}>
+                <span className="toggle-label" style={{ fontSize: 14 }}>🌐 פתוח לכולם</span>
+                <button className={`toggle ${watchPublic ? 'on' : ''}`} onClick={() => setWatchPublic(v => !v)} />
+              </div>
+              {watchPublic && (
+                <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ fontSize: 12, color: 'var(--hint)' }}>טקסט תצוגה למשתמש</div>
+                  <input type="text" className="input" style={{ marginBottom: 0 }}
+                    placeholder='לדוגמה: פתוח לכולם עד 01/07/2026'
+                    value={watchPublicLabel} onChange={e => setWatchPublicLabel(e.target.value)} />
+                  <div style={{ fontSize: 12, color: 'var(--hint)' }}>תאריך התחלה (אופציונלי)</div>
+                  <input type="date" className="input" style={{ marginBottom: 0 }}
+                    value={watchPublicStart} onChange={e => setWatchPublicStart(e.target.value)} />
+                  <div style={{ fontSize: 12, color: 'var(--hint)' }}>תאריך סיום (אופציונלי)</div>
+                  <input type="date" className="input" style={{ marginBottom: 0 }}
+                    value={watchPublicEnd} onChange={e => setWatchPublicEnd(e.target.value)} />
+                  {(() => {
+                    const today = new Date().toISOString().slice(0, 10)
+                    const inWindow = (!watchPublicStart || today >= watchPublicStart) &&
+                                     (!watchPublicEnd   || today <= watchPublicEnd)
+                    return (
+                      <div style={{ fontSize: 12, fontWeight: 600, color: inWindow ? '#38a169' : '#d69e2e' }}>
+                        {inWindow ? '🟢 פעיל כעת לכולם' : '🟡 לא פעיל (מחוץ לטווח התאריכים)'}
+                      </div>
+                    )
+                  })()}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <button className="btn btn-success" style={{ marginTop: 14 }} disabled={watchSaving} onClick={async () => {
+          setWatchSaving(true)
+          try {
+            await adminUpdateSettings({
+              yad2_watch_enabled:       watchEnabled,
+              yad2_watch_public:        watchPublic,
+              yad2_watch_public_start:  watchPublicStart,
+              yad2_watch_public_end:    watchPublicEnd,
+              yad2_watch_public_label:  watchPublicLabel,
+            })
+            window.Telegram?.WebApp?.showAlert('✅ הגדרות עודכנו')
+          } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+          setWatchSaving(false)
+        }}>
+          {watchSaving ? '...' : '💾 שמור'}
         </button>
       </div>
     </div>
