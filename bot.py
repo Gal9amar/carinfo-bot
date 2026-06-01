@@ -2150,11 +2150,7 @@ async def _yad2_watch_job(context) -> None:
                     label += f" {w['year']}"
 
                 if not listings:
-                    await context.bot.send_message(
-                        ADMIN_ID,
-                        f"🔍 *בדיקת מעקב יד2*\n\n🚗 {_escape_md(label)}\n❌ לא הוחזרו תוצאות מיד2",
-                        parse_mode=ParseMode.MARKDOWN_V2,
-                    )
+                    logger.warning("yad2_watch: no results for watch id=%s (%s)", w["id"], label)
                     continue
 
                 current_ids = {item["id"] for item in listings}
@@ -2165,7 +2161,12 @@ async def _yad2_watch_job(context) -> None:
                     await update_seen_ids(w["id"], list(current_ids)[-500:])
                     await context.bot.send_message(
                         ADMIN_ID,
-                        f"🔍 *בדיקת מעקב יד2 — הפעלה ראשונה*\n\n🚗 {_escape_md(label)}\n✅ נשמרו {len(current_ids)} מודעות קיימות כבסיס",
+                        f"🔍 *מעקב יד2 הופעל בהצלחה\\!*\n\n"
+                        f"🚗 *{_escape_md(label)}*\n"
+                        f"✅ נמצאו {len(current_ids)} מודעות תואמות קיימות\\.\n"
+                        f"מעתה תקבל התראה בכל פעם שתתווסף מודעה חדשה\\.\n\n"
+                        f"_שים לב: קבלת ההתראות תלויה בזמינות השירות ועשויה להתעכב\\. "
+                        f"המידע מסופק כשירות בלבד ואינו מובטח כמלא או מעודכן בזמן אמת\\._",
                         parse_mode=ParseMode.MARKDOWN_V2,
                     )
                     continue
@@ -2174,11 +2175,7 @@ async def _yad2_watch_job(context) -> None:
                 search_url = _yad2.build_search_url(w["make"], w.get("model", ""), w.get("year"))
 
                 if not new_ids:
-                    await context.bot.send_message(
-                        ADMIN_ID,
-                        f"🔍 *בדיקת מעקב יד2*\n\n🚗 {_escape_md(label)}\n✅ לא נמצאו מודעות חדשות",
-                        parse_mode=ParseMode.MARKDOWN_V2,
-                    )
+                    pass  # nothing new — stay silent
                 else:
                     new_listings = [item for item in listings if item["id"] in new_ids]
                     # Yad2 returns listings newest-first; take the first new item
