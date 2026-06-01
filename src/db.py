@@ -157,6 +157,16 @@ async def init_db() -> None:
     sent_at   TEXT    DEFAULT (datetime('now'))
 )""",
     ]
+    migrations.append("""CREATE TABLE IF NOT EXISTS yad2_watches (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL,
+    make       TEXT NOT NULL,
+    model      TEXT NOT NULL DEFAULT '',
+    year       INTEGER,
+    seen_ids   TEXT DEFAULT '[]',
+    active     INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now'))
+)""")
     migrations.append("ALTER TABLE users ADD COLUMN member_id INTEGER DEFAULT NULL")
     migrations.append("ALTER TABLE pending_payments ADD COLUMN paypal_order_id TEXT DEFAULT ''")
     migrations.append("ALTER TABLE pending_payments ADD COLUMN duration_months INTEGER DEFAULT 1")

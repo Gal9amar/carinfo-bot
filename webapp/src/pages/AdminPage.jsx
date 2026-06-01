@@ -24,6 +24,7 @@ import {
   adminAddGroupMember,
   adminRemoveGroupMember,
   adminFetchPaypalTransactions,
+  adminFetchWatches, adminCreateWatch, adminDeleteWatch, adminToggleWatch,
 } from '../api.js'
 import BackButton from '../components/BackButton.jsx'
 
@@ -40,6 +41,7 @@ const TABS = [
   { id: 'broadcast',icon: '📢', label: 'שידור' },
   { id: 'settings', icon: '⚙️', label: 'הגדרות' },
   { id: 'tickets',  icon: '🎫', label: 'טיקטים' },
+  { id: 'watches',  icon: '🔔', label: 'מעקב יד2' },
 ]
 
 export default function AdminPage({ user, onBack }) {
@@ -85,6 +87,7 @@ export default function AdminPage({ user, onBack }) {
       {tab === 'broadcast' && <BroadcastTab />}
       {tab === 'settings'  && <SettingsTab />}
       {tab === 'tickets'   && <TicketsTab />}
+      {tab === 'watches'   && <WatchesTab />}
     </div>
   )
 }
@@ -2873,6 +2876,134 @@ function GroupsTab() {
           </div>
         </div>
       ))}
+    </div>
+  )
+}
+
+function WatchesTab() {
+  const [watches, setWatches] = useState(null)
+  const [form, setForm] = useState({ make: '', model: '', year: '' })
+  const [adding, setAdding] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  function load() { adminFetchWatches().then(setWatches).catch(() => setWatches([])) }
+  useEffect(() => { load() }, [])
+
+  async function createWatch() {
+    if (!form.make.trim()) return
+    setSaving(true)
+    try {
+      await adminCreateWatch({
+        make: form.make.trim(),
+        model: form.model.trim(),
+        year: form.year ? parseInt(form.year) : null,
+      })
+      setForm({ make: '', model: '', year: '' })
+      setAdding(false)
+      load()
+    } catch (e) { window.Telegram?.WebApp?.showAlert(e.message || 'שגיאה') }
+    setSaving(false)
+  }
+
+  async function deleteWatch(id) {
+    window.Telegram?.WebApp?.showConfirm('למחוק את ההתראה?', async ok => {
+      if (!ok) return
+      await adminDeleteWatch(id)
+      load()
+    })
+  }
+
+  async function toggleWatch(id) {
+    await adminToggleWatch(id)
+    load()
+  }
+
+  if (!watches) return <div className="loading"></div>
+
+  return (
+    <div>
+      <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 12, lineHeight: 1.6 }}>
+        הגדר מעקב אחרי מודעות ביד2. בכל 30 דקות המערכת בודקת אם נוספו מודעות חדשות ושולחת הודעה בטלגרם.
+        מקסימום 5 התראות.
+      </div>
+
+      {watches.length === 0 && !adding && (
+        <div style={{ color: 'var(--hint)', textAlign: 'center', padding: 24 }}>אין התראות פעילות עדיין</div>
+      )}
+
+      {watches.map(w => (
+        <div key={w.id} className="card" style={{ opacity: w.active ? 1 : 0.55, transition: 'opacity 0.2s' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="card-title">
+                🔔 {w.make}{w.model ? ` ${w.model}` : ''}{w.year ? ` ${w.year}` : ''}
+              </div>
+              <div className="card-subtitle">
+                {w.active ? '🟢 פעיל' : '⏸ מושהה'} · {w.created_at?.slice(0, 10)}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+              <button
+                className="btn"
+                style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
+                onClick={() => toggleWatch(w.id)}
+                title={w.active ? 'השהה' : 'הפעל'}
+              >{w.active ? '⏸' : '▶️'}</button>
+              <button
+                className="btn btn-danger"
+                style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
+                onClick={() => deleteWatch(w.id)}
+              >🗑</button>
+            </div>
+          </div>
+        </div>
+      ))}
+
+      {adding && (
+        <div style={{ background: 'var(--bg2)', borderRadius: 14, padding: '14px 14px 10px', marginBottom: 10 }}>
+          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>➕ התראה חדשה</div>
+          <input
+            className="input"
+            placeholder="יצרן — לדוגמה: יונדאי"
+            value={form.make}
+            onChange={e => setForm(f => ({ ...f, make: e.target.value }))}
+          />
+          <input
+            className="input"
+            placeholder="דגם — לדוגמה: טוסון (אופציונלי)"
+            value={form.model}
+            onChange={e => setForm(f => ({ ...f, model: e.target.value }))}
+          />
+          <input
+            className="input"
+            placeholder="שנה — לדוגמה: 2017 (אופציונלי)"
+            type="number"
+            min="2000"
+            max="2030"
+            value={form.year}
+            onChange={e => setForm(f => ({ ...f, year: e.target.value }))}
+          />
+          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+            <button
+              className="btn"
+              disabled={saving || !form.make.trim()}
+              onClick={createWatch}
+              style={{ flex: 1, marginTop: 0 }}
+            >{saving ? '⏳...' : '✅ שמור'}</button>
+            <button
+              className="btn btn-secondary"
+              onClick={() => { setAdding(false); setForm({ make: '', model: '', year: '' }) }}
+              style={{ flex: 1, marginTop: 0 }}
+            >ביטול</button>
+          </div>
+        </div>
+      )}
+
+      {!adding && watches.length < 5 && (
+        <button className="btn btn-success" style={{ marginTop: 6 }} onClick={() => setAdding(true)}>
+          ➕ הוסף התראה
+        </button>
+      )}
     </div>
   )
 }

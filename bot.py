@@ -2121,6 +2121,77 @@ async def run_self_ping():
             logger.warning("Self-ping failed: %s", e)
 
 
+async def run_yad2_watch_loop(bot) -> None:
+    """Check Yad2 every 30 min for new listings matching active watches, notify users."""
+    import asyncio as _asyncio
+    from src import yad2 as _yad2
+    from src.yad2_watcher import get_all_active_watches, update_seen_ids
+
+    await _asyncio.sleep(90)  # warm-up delay
+
+    while True:
+        try:
+            watches = await get_all_active_watches()
+            for w in watches:
+                try:
+                    listings = _yad2.fetch_listings(w["make"], w.get("model", ""), w.get("year"))
+                    if not listings:
+                        continue
+
+                    current_ids = {item["id"] for item in listings}
+                    seen = set(w["seen_ids"])
+
+                    # First run: seed seen_ids so we don't flood with old listings
+                    if not seen:
+                        await update_seen_ids(w["id"], list(current_ids)[-500:])
+                        continue
+
+                    new_ids = current_ids - seen
+                    if not new_ids:
+                        continue
+
+                    new_listings = [item for item in listings if item["id"] in new_ids][:3]
+                    label = f"{w['make']}"
+                    if w.get("model"):
+                        label += f" {w['model']}"
+                    if w.get("year"):
+                        label += f" {w['year']}"
+
+                    for listing in new_listings:
+                        price_str = f"₪{int(listing['price']):,}" if listing.get("price") else "מחיר לא צוין"
+                        parts = [price_str]
+                        if listing.get("km"):
+                            parts.append(f"🛣️ {int(listing['km']):,} ק\"מ")
+                        if listing.get("city"):
+                            parts.append(f"📍 {listing['city']}")
+                        details = "  ".join(parts)
+
+                        text = (
+                            f"🔔 *מודעה חדשה ב-Yad2!*\n\n"
+                            f"🚗 {label}\n"
+                            f"{details}\n\n"
+                            f"🔗 {listing['link']}"
+                        )
+                        try:
+                            await bot.send_message(
+                                w["user_id"], text,
+                                parse_mode="Markdown",
+                                disable_web_page_preview=True,
+                            )
+                        except Exception as e:
+                            logger.warning("Watch notify failed user=%s: %s", w["user_id"], e)
+
+                    all_seen = list(seen | current_ids)[-500:]
+                    await update_seen_ids(w["id"], all_seen)
+
+                except Exception as e:
+                    logger.error("Watch check error id=%s: %s", w["id"], e)
+        except Exception as e:
+            logger.error("Yad2 watcher loop error: %s", e)
+
+        await _asyncio.sleep(30 * 60)
+
+
 async def _post_init(app) -> None:
     await init_db()
     await load_welcome_settings()
@@ -2136,6 +2207,9 @@ async def _post_init(app) -> None:
     except Exception as e:
         logger.warning("Could not set menu button: %s", e)
     logger.info("Turso DB initialized")
+    import asyncio as _aio
+    _aio.create_task(run_yad2_watch_loop(app.bot))
+    logger.info("Yad2 watch loop scheduled")
 
 
 def main() -> None:
