@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { fetchVehicle, fetchMarketPrice, requestPdfReport, fetchNote, saveNote, createUserWatch } from '../api.js'
+import { fetchVehicle, fetchMarketPrice, requestPdfReport, fetchNote, saveNote, createUserWatch, fetchUserWatches } from '../api.js'
 import { MAKE_EN, MODEL_EN } from '../vehicleNames.js'
 import LicensePlate from '../components/LicensePlate.jsx'
 import BackButton from '../components/BackButton.jsx'
@@ -230,13 +230,25 @@ export default function ReportPage({ plate, onBack, user }) {
   const [pdfSent, setPdfSent] = useState(false)
   const [note, setNote] = useState('')
   const [noteSaved, setNoteSaved] = useState(false)
-  const [watchState, setWatchState] = useState('idle') // idle | loading | done | error
+  const [watchState, setWatchState] = useState('idle') // idle | loading | done | error | exists
 
   useEffect(() => {
     if (!plate) { setError('לא צוין מספר רכב'); return }
     fetchVehicle(plate)
       .then(r => {
         setRecord(r)
+        const mk = String(r.tozeret_nm || '').trim()
+        const mdl = String(r.kinuy_mishari || r.degem_nm || '').trim()
+        const yr = r.shnat_yitzur ? String(r.shnat_yitzur) : ''
+        if (mk && user?.show_watch) {
+          fetchUserWatches().then(watches => {
+            const exists = watches.some(w =>
+              w.make === mk && w.model === mdl &&
+              String(w.year ?? '') === yr
+            )
+            if (exists) setWatchState('exists')
+          }).catch(() => {})
+        }
         return fetchMarketPrice(plate)
           .then(d => setMarketData(d))
           .catch(() => setMarketData(null))
@@ -460,7 +472,22 @@ export default function ReportPage({ plate, onBack, user }) {
           <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 12 }}>
             קבל התראה בטלגרם כשתתווסף מודעה חדשה ל-Yad2 עבור <strong>{[make, model, year].filter(Boolean).join(' ')}</strong>
           </div>
-          {watchState === 'done' ? (
+          {(watchState === 'exists') ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ textAlign: 'center', color: '#38bdf8', fontWeight: 700, fontSize: 14, padding: '4px 0' }}>
+                🔔 מעקב פעיל לרכב זה
+              </div>
+              <button
+                onClick={() => onBack('watches')}
+                style={{
+                  display: 'block', width: '100%', padding: '9px 0',
+                  background: '#8b5cf622', color: '#a78bfa',
+                  borderRadius: 10, fontSize: 13, fontWeight: 600,
+                  border: '1px solid #8b5cf644', cursor: 'pointer',
+                }}
+              >📋 עבור לרשימת המעקבים שלי</button>
+            </div>
+          ) : watchState === 'done' ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ textAlign: 'center', color: '#38a169', fontWeight: 700, fontSize: 14, padding: '4px 0' }}>
                 ✅ המעקב נוסף בהצלחה!
