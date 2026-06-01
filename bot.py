@@ -2181,19 +2181,41 @@ async def _yad2_watch_job(context) -> None:
                     )
                 else:
                     new_listings = [item for item in listings if item["id"] in new_ids]
-                    prices = sorted([int(x["price"]) for x in new_listings if x.get("price")])
+                    new_listings_priced = sorted(
+                        [x for x in new_listings if x.get("price")],
+                        key=lambda x: int(x["price"])
+                    )
+                    top = new_listings_priced[0] if new_listings_priced else new_listings[0] if new_listings else None
                     count = len(new_listings)
+                    prices = [int(x["price"]) for x in new_listings_priced]
                     if prices:
                         price_range = f"₪{prices[0]:,}" if len(prices) == 1 else f"₪{prices[0]:,} – ₪{prices[-1]:,}"
                     else:
                         price_range = "מחיר לא צוין"
 
                     count_word = "מודעה חדשה" if count == 1 else "מודעות חדשות"
+
+                    # Build featured listing line
+                    if top:
+                        top_price = f"₪{int(top['price']):,}" if top.get("price") else "מחיר לא צוין"
+                        top_details = "  ".join(filter(None, [
+                            f"🛣️ {int(top['km']):,} ק\"מ" if top.get("km") else None,
+                            f"📍 {top['city']}" if top.get("city") else None,
+                        ]))
+                        top_link = top.get("link", "")
+                        if top_link:
+                            featured_line = f"💎 *מודעה מומלצת:* [{_escape_md(top_price)}]({top_link})\n{_escape_md(top_details)}\n\n"
+                        else:
+                            featured_line = f"💎 *מודעה מומלצת:* {_escape_md(top_price)}\n{_escape_md(top_details)}\n\n"
+                    else:
+                        featured_line = ""
+
                     text = (
                         f"👋 היי\\! מצאנו *{count} {_escape_md(count_word)}* שמתאימות לחיפוש שלך\\.\n\n"
                         f"🚗 *{_escape_md(label)}*\n"
                         f"💰 טווח מחירים: *{_escape_md(price_range)}*\n\n"
-                        f"לחץ כאן כדי לצפות בכל המודעות 👇\n"
+                        f"{featured_line}"
+                        f"לצפייה בכל המודעות 👇\n"
                         f"[פתח ביד2]({search_url})"
                     )
                     try:

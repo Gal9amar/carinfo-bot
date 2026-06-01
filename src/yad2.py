@@ -443,15 +443,18 @@ def fetch_listings(make: str, model: str, year: int | str | None) -> list[dict]:
     result = []
     seen_ids: set[str] = set()
     for item in items:
-        oid = str(item.get("orderId") or item.get("token") or item.get("id") or "")
+        token = str(item.get("token") or "")
+        oid = str(item.get("orderId") or token or item.get("id") or "")
         if not oid or oid in seen_ids:
             continue
         seen_ids.add(oid)
+        link = f"https://www.yad2.co.il/item/{token}" if token else ""
         result.append({
             "id": oid,
             "price": item.get("price"),
             "km": item.get("km"),
             "year": item.get("vehicleDates", {}).get("yearOfProduction"),
             "city": item.get("city") or "",
+            "link": link,
         })
     return result
