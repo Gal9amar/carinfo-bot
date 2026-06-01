@@ -127,24 +127,26 @@ async def get_user_info(user: dict = Depends(_get_user)):
     _today = str(_date.today())
 
     async def _check_feature(key_prefix: str) -> bool:
-        if (await get_bot_setting(f"{key_prefix}_enabled")) == "0":
-            return False  # explicitly disabled by admin
-        if (await get_bot_setting(f"{key_prefix}_public")) == "1":
-            ps = (await get_bot_setting(f"{key_prefix}_public_start")) or ""
-            pe = (await get_bot_setting(f"{key_prefix}_public_end"))   or ""
-            if (not ps or _today >= ps) and (not pe or _today <= pe):
-                return True
-        # Unlimited quota (admin grants) also qualifies
+        # Paying subscribers always have access — checked before any admin toggle
         if quota == -1:
             return True
-        # Check "מנויים" group membership (payment-based subscriptions)
         sub_r = await execute(
             "SELECT 1 FROM user_group_members ugm "
             "JOIN user_groups ug ON ug.id = ugm.group_id "
             "WHERE ugm.user_id=? AND ug.name='מנויים'",
             [user_id]
         )
-        return len(sub_r.rows) > 0
+        if len(sub_r.rows) > 0:
+            return True
+        # Non-subscribers: respect the admin toggle
+        if (await get_bot_setting(f"{key_prefix}_enabled")) == "0":
+            return False
+        if (await get_bot_setting(f"{key_prefix}_public")) == "1":
+            ps = (await get_bot_setting(f"{key_prefix}_public_start")) or ""
+            pe = (await get_bot_setting(f"{key_prefix}_public_end"))   or ""
+            if (not ps or _today >= ps) and (not pe or _today <= pe):
+                return True
+        return False
 
     show_market = await _check_feature("yad2_market")
     show_pdf    = await _check_feature("pdf_report")
