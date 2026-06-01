@@ -438,9 +438,7 @@ def fetch_listings(make: str, model: str, year: int | str | None) -> list[dict]:
         _logger.error(f"fetch_listings error: {e}")
         return []
 
-    if y:
-        filtered = [c for c in items if int(c.get("vehicleDates", {}).get("yearOfProduction") or 0) == y]
-        items = filtered if filtered else items
+    # Yad2 already filters by year server-side via the year= param — no need to re-filter here.
 
     result = []
     seen_ids: set[str] = set()
