@@ -15,6 +15,7 @@ export default {
     const model        = url.searchParams.get('model')
     const year         = url.searchParams.get('year')
     const rows         = url.searchParams.get('rows') || '100'
+    const type         = url.searchParams.get('type') || 'lookalike'
 
     if (!manufacturer && !model) {
       return new Response(JSON.stringify({ error: 'missing manufacturer or model param' }), {
@@ -23,7 +24,13 @@ export default {
       })
     }
 
-    let yad2url = `https://gw.yad2.co.il/lookalike/vehicles/cars?rows=${rows}`
+    // type=feed  → full search results (all listings)
+    // type=lookalike (default) → market price comparison sample (existing behaviour)
+    const endpoint = type === 'feed'
+      ? 'https://gw.yad2.co.il/feed/vehicles/cars'
+      : 'https://gw.yad2.co.il/lookalike/vehicles/cars'
+
+    let yad2url = `${endpoint}?rows=${rows}`
     if (manufacturer) yad2url += `&manufacturer=${manufacturer}`
     if (model)        yad2url += `&model=${model}`
     if (year)         yad2url += `&year=${year}`
@@ -49,7 +56,7 @@ export default {
       })
     }
 
-    // Let Cloudflare's DecompressionStream handle gzip — pipe through it
+    // Decompress if needed
     let body = resp.body
     const encoding = resp.headers.get('content-encoding') || ''
     if (encoding.includes('gzip') || encoding.includes('br') || encoding.includes('deflate')) {
@@ -78,7 +85,20 @@ export default {
       })
     }
 
-    return new Response(JSON.stringify(data), {
+    // Normalise feed response → always {data: [...items]} so callers stay unchanged
+    let normalized = data
+    if (type === 'feed') {
+      const items = (
+        data?.data?.feed   ||   // most common feed structure
+        data?.data?.items  ||
+        data?.feed         ||
+        (Array.isArray(data?.data) ? data.data : null) ||
+        []
+      )
+      normalized = { data: items, total: data?.data?.totalItems ?? items.length }
+    }
+
+    return new Response(JSON.stringify(normalized), {
       status: resp.status,
       headers: {
         'Content-Type': 'application/json',

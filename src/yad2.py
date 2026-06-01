@@ -222,7 +222,8 @@ _FETCH_HEADERS = {
 }
 
 _LOOKALIKE_BASE = "https://gw.yad2.co.il/lookalike/vehicles/cars"
-_ORACLE_PROXY = os.environ.get("YAD2_PROXY_URL", "http://151.145.86.13:8080/yad2")
+_ORACLE_PROXY  = os.environ.get("YAD2_PROXY_URL", "http://151.145.86.13:8080/yad2")
+_CF_WORKER_URL = os.environ.get("YAD2_CF_WORKER_URL", "")
 
 
 def get_market_price(make: str, model: str, year: int | str) -> dict | None:
@@ -357,10 +358,13 @@ def build_search_url(make: str, model: str, year: int | str | None) -> str:
 
 def fetch_listings(make: str, model: str, year: int | str | None) -> list[dict]:
     """
-    Fetch current Yad2 listings for given make/model/year via the Israeli proxy.
-    Returns list of dicts: {id, price, km, year, city} — no individual links
-    (the lookalike API does not return navigable listing URLs).
-    Returns [] on error or unknown make.
+    Fetch current Yad2 listings for given make/model/year.
+
+    Uses the Cloudflare Worker (type=feed) when YAD2_CF_WORKER_URL is set —
+    this calls the full search/feed endpoint and returns all listings.
+    Falls back to the Oracle proxy (lookalike/market-price sample) otherwise.
+
+    Returns list of dicts: {id, price, km, year, city}
     """
     import urllib.request
     import zlib
@@ -377,13 +381,20 @@ def fetch_listings(make: str, model: str, year: int | str | None) -> list[dict]:
     except (TypeError, ValueError):
         y = None
 
-    proxy_secret = os.environ.get("YAD2_PROXY_SECRET", "carinfo2026")
+    use_feed = bool(_CF_WORKER_URL)
 
     def _do_fetch(model_param: str) -> list:
-        url = f"{_ORACLE_PROXY}?manufacturer={mid}{model_param}&rows=100"
-        if y:
+        if use_feed:
+            url = f"{_CF_WORKER_URL}?type=feed&manufacturer={mid}{model_param}&rows=100"
+        else:
+            proxy_secret = os.environ.get("YAD2_PROXY_SECRET", "carinfo2026")
+            url = f"{_ORACLE_PROXY}?manufacturer={mid}{model_param}&rows=100"
+            if y:
+                url += f"&year={y}-{y}"
+            url += f"&secret={proxy_secret}"
+        if use_feed and y:
             url += f"&year={y}-{y}"
-        url += f"&secret={proxy_secret}"
+        _logger.info(f"fetch_listings: {url}")
         req = urllib.request.Request(url)
         with urllib.request.urlopen(req, timeout=15) as resp:
             raw = resp.read()
@@ -395,7 +406,7 @@ def fetch_listings(make: str, model: str, year: int | str | None) -> list[dict]:
 
     try:
         items = _do_fetch(f"&model={mod_id}") if mod_id else _do_fetch("")
-        if mod_id and len(items) <= 2:
+        if not use_feed and mod_id and len(items) <= 2:
             items = _do_fetch("") or items
     except Exception as e:
         _logger.error(f"fetch_listings error: {e}")
