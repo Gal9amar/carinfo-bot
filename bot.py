@@ -2122,16 +2122,39 @@ async def run_self_ping():
 
 
 async def _yad2_watch_job(context) -> None:
-    """Job-queue callback: check Yad2 every 30 min for new listings matching active watches."""
+    """Job-queue callback: check Yad2 for new listings matching active watches."""
     from src import yad2 as _yad2
     from src.yad2_watcher import get_all_active_watches, update_seen_ids
 
     try:
         watches = await get_all_active_watches()
+        if not watches:
+            try:
+                await context.bot.send_message(
+                    ADMIN_ID,
+                    "🔍 *בדיקת מעקב יד2 בוצעה* — אין מעקבים פעילים",
+                    parse_mode=ParseMode.MARKDOWN_V2,
+                )
+            except Exception:
+                pass
+            return
+
         for w in watches:
             try:
                 listings = _yad2.fetch_listings(w["make"], w.get("model", ""), w.get("year"))
+
+                label = w["make"]
+                if w.get("model"):
+                    label += f" {w['model']}"
+                if w.get("year"):
+                    label += f" {w['year']}"
+
                 if not listings:
+                    await context.bot.send_message(
+                        ADMIN_ID,
+                        f"🔍 *בדיקת מעקב יד2*\n\n🚗 {_escape_md(label)}\n❌ לא הוחזרו תוצאות מיד2",
+                        parse_mode=ParseMode.MARKDOWN_V2,
+                    )
                     continue
 
                 current_ids = {item["id"] for item in listings}
@@ -2140,46 +2163,65 @@ async def _yad2_watch_job(context) -> None:
                 # First run: seed seen_ids so we don't flood with old listings
                 if not seen:
                     await update_seen_ids(w["id"], list(current_ids)[-500:])
+                    await context.bot.send_message(
+                        ADMIN_ID,
+                        f"🔍 *בדיקת מעקב יד2 — הפעלה ראשונה*\n\n🚗 {_escape_md(label)}\n✅ נשמרו {len(current_ids)} מודעות קיימות כבסיס",
+                        parse_mode=ParseMode.MARKDOWN_V2,
+                    )
                     continue
 
                 new_ids = current_ids - seen
-                if not new_ids:
-                    continue
-
-                new_listings = [item for item in listings if item["id"] in new_ids]
-                label = w["make"]
-                if w.get("model"):
-                    label += f" {w['model']}"
-                if w.get("year"):
-                    label += f" {w['year']}"
-
                 search_url = _yad2.build_search_url(w["make"], w.get("model", ""), w.get("year"))
-                prices = sorted([int(x["price"]) for x in new_listings if x.get("price")])
-                count = len(new_listings)
-                if prices:
-                    price_range = f"₪{prices[0]:,}" if len(prices) == 1 else f"₪{prices[0]:,} – ₪{prices[-1]:,}"
-                else:
-                    price_range = "מחיר לא צוין"
 
-                text = (
-                    f"🔔 *{count} מודעות חדשות ב\\-Yad2\\!*\n\n"
-                    f"🚗 *{_escape_md(label)}*\n"
-                    f"💰 {_escape_md(price_range)}\n\n"
-                    f"[ראה את כל המודעות ביד2 ←]({search_url})"
-                )
-                try:
+                if not new_ids:
                     await context.bot.send_message(
-                        w["user_id"], text,
+                        ADMIN_ID,
+                        f"🔍 *בדיקת מעקב יד2*\n\n🚗 {_escape_md(label)}\n✅ לא נמצאו מודעות חדשות",
                         parse_mode=ParseMode.MARKDOWN_V2,
                     )
-                except Exception as e:
-                    logger.warning("Watch notify failed user=%s: %s", w["user_id"], e)
+                else:
+                    new_listings = [item for item in listings if item["id"] in new_ids]
+                    prices = sorted([int(x["price"]) for x in new_listings if x.get("price")])
+                    count = len(new_listings)
+                    if prices:
+                        price_range = f"₪{prices[0]:,}" if len(prices) == 1 else f"₪{prices[0]:,} – ₪{prices[-1]:,}"
+                    else:
+                        price_range = "מחיר לא צוין"
 
-                all_seen = list(seen | current_ids)[-500:]
-                await update_seen_ids(w["id"], all_seen)
+                    text = (
+                        f"🔔 *{count} מודעות חדשות ב\\-Yad2\\!*\n\n"
+                        f"🚗 *{_escape_md(label)}*\n"
+                        f"💰 {_escape_md(price_range)}\n\n"
+                        f"[ראה את כל המודעות ביד2 ←]({search_url})"
+                    )
+                    try:
+                        await context.bot.send_message(
+                            w["user_id"], text,
+                            parse_mode=ParseMode.MARKDOWN_V2,
+                        )
+                    except Exception as e:
+                        logger.warning("Watch notify failed user=%s: %s", w["user_id"], e)
+                    try:
+                        await context.bot.send_message(
+                            ADMIN_ID, text,
+                            parse_mode=ParseMode.MARKDOWN_V2,
+                        )
+                    except Exception as e:
+                        logger.warning("Watch admin notify failed: %s", e)
+
+                    all_seen = list(seen | current_ids)[-500:]
+                    await update_seen_ids(w["id"], all_seen)
 
             except Exception as e:
                 logger.error("Watch check error id=%s: %s", w["id"], e)
+                try:
+                    await context.bot.send_message(
+                        ADMIN_ID,
+                        f"⚠️ *שגיאה בבדיקת מעקב* id={w['id']}: {_escape_md(str(e))}",
+                        parse_mode=ParseMode.MARKDOWN_V2,
+                    )
+                except Exception:
+                    pass
     except Exception as e:
         logger.error("Yad2 watcher job error: %s", e)
 
@@ -2452,8 +2494,8 @@ def main() -> None:
         )
         app.job_queue.run_repeating(
             _yad2_watch_job,
-            interval=30 * 60,
-            first=90,
+            interval=60,
+            first=10,
             name="yad2_watch",
         )
 
