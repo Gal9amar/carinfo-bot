@@ -337,3 +337,68 @@ def build_url(record: dict) -> str:
     url = f"{base}?{'&'.join(params)}" if params else base
     _logger.debug(f"build_url returning: {url}")
     return url
+
+
+def fetch_listings(make: str, model: str, year: int | str | None) -> list[dict]:
+    """
+    Fetch current Yad2 listings for given make/model/year via the Israeli proxy.
+    Returns list of dicts: {id, price, km, year, city, link}
+    Returns [] on error or unknown make.
+    """
+    import urllib.request
+    import zlib
+
+    mid = _manufacturer_id(make)
+    if not mid:
+        _logger.warning(f"fetch_listings: unknown make '{make}'")
+        return []
+
+    mod_id = _model_id(mid, model) if model else None
+
+    try:
+        y = int(year) if year else None
+    except (TypeError, ValueError):
+        y = None
+
+    proxy_secret = os.environ.get("YAD2_PROXY_SECRET", "carinfo2026")
+
+    def _do_fetch(model_param: str) -> list:
+        url = f"{_ORACLE_PROXY}?manufacturer={mid}{model_param}&rows=100"
+        if y:
+            url += f"&year={y}-{y}"
+        url += f"&secret={proxy_secret}"
+        req = urllib.request.Request(url)
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            raw = resp.read()
+        try:
+            data = json.loads(raw.decode("utf-8"))
+        except Exception:
+            data = json.loads(zlib.decompress(raw, 16 + zlib.MAX_WBITS).decode("utf-8"))
+        return data.get("data") or []
+
+    try:
+        items = _do_fetch(f"&model={mod_id}") if mod_id else _do_fetch("")
+        if mod_id and len(items) <= 2:
+            items = _do_fetch("") or items
+    except Exception as e:
+        _logger.error(f"fetch_listings error: {e}")
+        return []
+
+    if y:
+        filtered = [c for c in items if int(c.get("vehicleDates", {}).get("yearOfProduction") or 0) == y]
+        items = filtered if filtered else items
+
+    result = []
+    for item in items:
+        oid = item.get("orderId") or item.get("token") or item.get("id")
+        if not oid:
+            continue
+        result.append({
+            "id": str(oid),
+            "price": item.get("price"),
+            "km": item.get("km"),
+            "year": item.get("vehicleDates", {}).get("yearOfProduction"),
+            "city": item.get("city") or "",
+            "link": f"https://www.yad2.co.il/item/{oid}",
+        })
+    return result

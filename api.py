@@ -1596,6 +1596,47 @@ async def yad2_proxy(
         raise HTTPException(status_code=502, detail=str(e))
 
 
+# ── Yad2 Watches (Admin) ────────────────────────────────────────────────────
+
+class WatchBody(BaseModel):
+    make: str
+    model: str = ""
+    year: Optional[int] = None
+
+
+@api.get("/api/admin/watches")
+async def admin_get_watches(_: dict = Depends(_require_admin)):
+    from src.yad2_watcher import get_user_watches
+    return await get_user_watches(ADMIN_ID)
+
+
+@api.post("/api/admin/watches")
+async def admin_create_watch(body: WatchBody, _: dict = Depends(_require_admin)):
+    from src.yad2_watcher import create_watch
+    try:
+        return await create_watch(ADMIN_ID, body.make.strip(), body.model.strip(), body.year)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@api.delete("/api/admin/watches/{watch_id}")
+async def admin_delete_watch(watch_id: int, _: dict = Depends(_require_admin)):
+    from src.yad2_watcher import delete_watch
+    await delete_watch(watch_id, ADMIN_ID)
+    return {"ok": True}
+
+
+@api.patch("/api/admin/watches/{watch_id}/toggle")
+async def admin_toggle_watch_endpoint(watch_id: int, _: dict = Depends(_require_admin)):
+    from src.yad2_watcher import get_user_watches, toggle_watch
+    watches = await get_user_watches(ADMIN_ID)
+    w = next((x for x in watches if x["id"] == watch_id), None)
+    if not w:
+        raise HTTPException(status_code=404)
+    await toggle_watch(watch_id, ADMIN_ID, not w["active"])
+    return {"ok": True}
+
+
 # ── Serve React SPA (must be last) ──────────────────────────────────────────
 _DIST = os.path.join(os.path.dirname(__file__), "webapp", "dist")
 
