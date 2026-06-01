@@ -2085,7 +2085,7 @@ async def handle_pdf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 async def run_self_ping():
-    """Ping /health every 10 min only during active hours (06:00-21:00 Israel time).
+    """Ping /health every 13 min only during active hours (06:00-21:00 Israel time).
     Outside those hours the server is allowed to sleep, saving Render free-tier hours.
     Active window: 15 h/day × 31 days ≈ 465 h/month (well within the 750 h free quota).
     """
@@ -2102,7 +2102,7 @@ async def run_self_ping():
     ACTIVE_END   = 21  # 21:00
 
     while True:
-        await _asyncio.sleep(600)
+        await _asyncio.sleep(780)
         cache.clear_expired()
         now_hour = datetime.now(israel_tz).hour
         if not (ACTIVE_START <= now_hour < ACTIVE_END):
