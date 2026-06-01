@@ -43,7 +43,6 @@ const TABS = [
   { id: 'broadcast',icon: '📢', label: 'שידור' },
   { id: 'settings', icon: '⚙️', label: 'הגדרות' },
   { id: 'tickets',  icon: '🎫', label: 'טיקטים' },
-  { id: 'watches',  icon: '🔔', label: 'מעקב יד2' },
 ]
 
 export default function AdminPage({ user, onBack }) {
