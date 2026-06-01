@@ -366,7 +366,7 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
       {alertPackages.length > 0 && (
         <>
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, marginTop: 8, color: 'var(--text)' }}>
-            🔔 חבילות התראות יד2
+            🔔 חבילת התראות יד2
           </div>
           {alertPackages.map(pkg => {
             const qty         = getQty(pkg.id)
