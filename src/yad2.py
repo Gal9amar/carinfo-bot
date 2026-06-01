@@ -381,36 +381,17 @@ def fetch_listings(make: str, model: str, year: int | str | None) -> list[dict]:
     except (TypeError, ValueError):
         y = None
 
-    use_feed = bool(_CF_WORKER_URL)
-
-    def _do_fetch(model_param: str) -> list:
-        if use_feed:
-            url = f"{_CF_WORKER_URL}?type=feed&manufacturer={mid}{model_param}&rows=100"
-        else:
-            proxy_secret = os.environ.get("YAD2_PROXY_SECRET", "carinfo2026")
-            url = f"{_ORACLE_PROXY}?manufacturer={mid}{model_param}&rows=100"
-            if y:
-                url += f"&year={y}-{y}"
-            url += f"&secret={proxy_secret}"
-        if use_feed and y:
-            url += f"&year={y}-{y}"
-        _logger.info(f"fetch_listings: {url}")
-        req = urllib.request.Request(url)
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            raw = resp.read()
+    def _parse_response(raw: bytes) -> list:
+        import zlib as _zlib
         try:
             data = json.loads(raw.decode("utf-8"))
         except Exception:
-            data = json.loads(zlib.decompress(raw, 16 + zlib.MAX_WBITS).decode("utf-8"))
-        top_keys = list(data.keys()) if isinstance(data, dict) else type(data).__name__
+            data = json.loads(_zlib.decompress(raw, 16 + _zlib.MAX_WBITS).decode("utf-8"))
         data_val = data.get("data") if isinstance(data, dict) else None
-        data_type = type(data_val).__name__
-        data_summary = list(data_val.keys()) if isinstance(data_val, dict) else (len(data_val) if isinstance(data_val, list) else data_val)
-        _logger.info(f"fetch_listings response: top_keys={top_keys} data_type={data_type} data={data_summary}")
+        _logger.info(f"fetch_listings response: top_keys={list(data.keys()) if isinstance(data, dict) else type(data).__name__} data_type={type(data_val).__name__} data={list(data_val.keys()) if isinstance(data_val, dict) else (len(data_val) if isinstance(data_val, list) else data_val)}")
         if isinstance(data_val, list):
             return data_val
         if isinstance(data_val, dict):
-            # try common nested paths in Yad2 feed response
             for key in ("feed_items", "items", "feed"):
                 candidate = data_val.get(key)
                 if isinstance(candidate, list) and candidate:
@@ -418,9 +399,40 @@ def fetch_listings(make: str, model: str, year: int | str | None) -> list[dict]:
                     return candidate
         return []
 
+    def _fetch_oracle(model_param: str) -> list:
+        proxy_secret = os.environ.get("YAD2_PROXY_SECRET", "carinfo2026")
+        url = f"{_ORACLE_PROXY}?manufacturer={mid}{model_param}&rows=100"
+        if y:
+            url += f"&year={y}-{y}"
+        url += f"&secret={proxy_secret}"
+        _logger.info(f"fetch_listings (oracle): {url}")
+        import urllib.request as _ur
+        with _ur.urlopen(_ur.Request(url), timeout=15) as resp:
+            return _parse_response(resp.read())
+
+    def _do_fetch(model_param: str) -> list:
+        if _CF_WORKER_URL:
+            url = f"{_CF_WORKER_URL}?type=feed&manufacturer={mid}{model_param}&rows=100"
+            if y:
+                url += f"&year={y}-{y}"
+            _logger.info(f"fetch_listings (cf): {url}")
+            import urllib.request as _ur
+            import urllib.error as _ue
+            try:
+                with _ur.urlopen(_ur.Request(url), timeout=15) as resp:
+                    items = _parse_response(resp.read())
+                if items:
+                    return items
+                _logger.warning("fetch_listings: CF Worker returned empty, falling back to oracle")
+            except _ue.HTTPError as e:
+                _logger.warning(f"fetch_listings: CF Worker {e.code}, falling back to oracle")
+            except Exception as e:
+                _logger.warning(f"fetch_listings: CF Worker error ({e}), falling back to oracle")
+        return _fetch_oracle(model_param)
+
     try:
         items = _do_fetch(f"&model={mod_id}") if mod_id else _do_fetch("")
-        if not use_feed and mod_id and len(items) <= 2:
+        if mod_id and len(items) <= 2:
             items = _do_fetch("") or items
     except Exception as e:
         _logger.error(f"fetch_listings error: {e}")
