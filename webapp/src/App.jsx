@@ -29,6 +29,7 @@ export default function App() {
     if (plate) {
       setReportPlate(plate)
       setScreen('report')
+      fetchUser().catch(() => null).then(usr => setUser(usr))
       return
     }
     if (page === 'privacy') { setScreen('privacy'); return }
