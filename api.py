@@ -160,6 +160,10 @@ async def get_user_info(user: dict = Depends(_get_user)):
     show_pdf    = await _check_feature("pdf_report")
     show_watch  = await _check_feature("yad2_watch")
 
+    async def _get_watch_max(uid: int) -> int:
+        from src.yad2_watcher import _get_max_for_user
+        return await _get_max_for_user(uid)
+
     async def _public_label(key_prefix: str) -> str:
         if (await get_bot_setting(f"{key_prefix}_public")) != "1":
             return ""
@@ -206,6 +210,7 @@ async def get_user_info(user: dict = Depends(_get_user)):
         "show_watch": show_watch,
         "pdf_public_label": pdf_public_label,
         "watch_public_label": watch_public_label,
+        "watch_max": await _get_watch_max(user_id),
         "is_subscriber": is_subscriber,
         "subscription_label": subscription_label,
     }

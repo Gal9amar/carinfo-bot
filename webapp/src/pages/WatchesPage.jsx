@@ -5,7 +5,7 @@ import BackButton from '../components/BackButton.jsx'
 const CURRENT_YEAR = new Date().getFullYear()
 const YEARS = Array.from({ length: 30 }, (_, i) => CURRENT_YEAR - i)
 
-export default function WatchesPage({ onBack }) {
+export default function WatchesPage({ onBack, user }) {
   const [watches, setWatches]   = useState(null)
   const [error, setError]       = useState(null)
   const [adding, setAdding]     = useState(false)
@@ -90,9 +90,41 @@ export default function WatchesPage({ onBack }) {
     <div className="page">
       {onBack && <BackButton onClick={() => onBack('home')} />}
       <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 4 }}>🔔 התראות יד2 שלי</div>
-      <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 18 }}>
+      <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 12 }}>
         תקבל הודעה בטלגרם כשתתווסף מודעה חדשה לסוג הרכב שבחרת.
       </div>
+
+      {/* ── Usage bar ── */}
+      {watches && user?.watch_max != null && (() => {
+        const used = watches.length
+        const max  = user.watch_max
+        const pct  = max > 0 ? Math.min(100, Math.round((used / max) * 100)) : 0
+        const full = used >= max
+        return (
+          <div style={{ background: 'var(--bg2)', borderRadius: 12, padding: '12px 14px', marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <span style={{ fontSize: 13, fontWeight: 600 }}>מעקבים פעילים</span>
+              <span style={{
+                fontSize: 13, fontWeight: 700,
+                color: full ? '#e53e3e' : used > 0 ? '#a78bfa' : 'var(--hint)',
+              }}>{used} / {max}</span>
+            </div>
+            <div style={{ background: 'var(--bg)', borderRadius: 20, height: 8, overflow: 'hidden' }}>
+              <div style={{
+                height: '100%', borderRadius: 20,
+                width: `${pct}%`,
+                background: full ? '#e53e3e' : 'linear-gradient(90deg,#7c3aed,#a78bfa)',
+                transition: 'width 0.4s ease',
+              }} />
+            </div>
+            {full && (
+              <div style={{ fontSize: 11, color: '#e53e3e', marginTop: 6 }}>
+                הגעת למגבלה. מחק מעקב קיים או רכוש חבילת התראות נוספת.
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {error && <div style={{ color: '#e53e3e', fontSize: 13, textAlign: 'center', padding: 16 }}>{error}</div>}
       {!watches && !error && <div className="loading"></div>}

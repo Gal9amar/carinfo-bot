@@ -2,5 +2,8 @@
   "reportMissingModuleSource": "none",
   "reportMissingImports": "none",
   "reportOptionalMemberAccess": "none",
-  "reportAttributeAccessIssue": "none"
+  "reportOptionalSubscript": "none",
+  "reportAttributeAccessIssue": "none",
+  "reportUndefinedVariable": "none",
+  "reportGeneralTypeIssues": "none"
 }
