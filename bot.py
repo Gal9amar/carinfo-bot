@@ -2150,36 +2150,34 @@ async def run_yad2_watch_loop(bot) -> None:
                     if not new_ids:
                         continue
 
-                    new_listings = [item for item in listings if item["id"] in new_ids][:3]
-                    label = f"{w['make']}"
+                    new_listings = [item for item in listings if item["id"] in new_ids]
+                    label = w["make"]
                     if w.get("model"):
                         label += f" {w['model']}"
                     if w.get("year"):
                         label += f" {w['year']}"
 
-                    for listing in new_listings:
-                        price_str = f"₪{int(listing['price']):,}" if listing.get("price") else "מחיר לא צוין"
-                        parts = [price_str]
-                        if listing.get("km"):
-                            parts.append(f"🛣️ {int(listing['km']):,} ק\"מ")
-                        if listing.get("city"):
-                            parts.append(f"📍 {listing['city']}")
-                        details = "  ".join(parts)
+                    search_url = _yad2.build_search_url(w["make"], w.get("model", ""), w.get("year"))
+                    prices = sorted([int(x["price"]) for x in new_listings if x.get("price")])
+                    count = len(new_listings)
+                    if prices:
+                        price_range = f"₪{prices[0]:,}" if len(prices) == 1 else f"₪{prices[0]:,} – ₪{prices[-1]:,}"
+                    else:
+                        price_range = "מחיר לא צוין"
 
-                        text = (
-                            f"🔔 *מודעה חדשה ב-Yad2!*\n\n"
-                            f"🚗 {label}\n"
-                            f"{details}\n\n"
-                            f"🔗 {listing['link']}"
+                    text = (
+                        f"🔔 *{count} מודעות חדשות ב\\-Yad2\\!*\n\n"
+                        f"🚗 *{_escape_md(label)}*\n"
+                        f"💰 {_escape_md(price_range)}\n\n"
+                        f"[ראה את כל המודעות ביד2 ←]({search_url})"
+                    )
+                    try:
+                        await bot.send_message(
+                            w["user_id"], text,
+                            parse_mode=ParseMode.MARKDOWN_V2,
                         )
-                        try:
-                            await bot.send_message(
-                                w["user_id"], text,
-                                parse_mode="Markdown",
-                                disable_web_page_preview=True,
-                            )
-                        except Exception as e:
-                            logger.warning("Watch notify failed user=%s: %s", w["user_id"], e)
+                    except Exception as e:
+                        logger.warning("Watch notify failed user=%s: %s", w["user_id"], e)
 
                     all_seen = list(seen | current_ids)[-500:]
                     await update_seen_ids(w["id"], all_seen)
