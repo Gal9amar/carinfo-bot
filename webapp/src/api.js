@@ -472,3 +472,27 @@ export async function adminFetchMarketPrice(plate) {
   if (!r.ok) throw new Error('שגיאה בשליפה')
   return r.json()
 }
+
+// Yad2 Watches (admin)
+export async function adminFetchWatches() {
+  const r = await fetch(`${BASE}/api/admin/watches`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+export async function adminCreateWatch(data) {
+  const r = await fetch(`${BASE}/api/admin/watches`, {
+    method: 'POST', headers: headers(), body: JSON.stringify(data),
+  })
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.detail || 'Failed') }
+  return r.json()
+}
+export async function adminDeleteWatch(id) {
+  const r = await fetch(`${BASE}/api/admin/watches/${id}`, { method: 'DELETE', headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+export async function adminToggleWatch(id) {
+  const r = await fetch(`${BASE}/api/admin/watches/${id}/toggle`, { method: 'PATCH', headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
