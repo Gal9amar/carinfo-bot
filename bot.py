@@ -2494,8 +2494,8 @@ def main() -> None:
         )
         app.job_queue.run_repeating(
             _yad2_watch_job,
-            interval=60,
-            first=10,
+            interval=30 * 60,
+            first=90,
             name="yad2_watch",
         )
 
