@@ -2,7 +2,7 @@ import { } from 'react'
 import { fmtDate } from '../utils/time.js'
 
 const menuItems = [
-  { id: 'packages',   icon: '⭐', label: 'רכישת מנוי',    sub: 'חיפושים + תכונות מנוי' },
+  { id: 'packages',   icon: '🛒', label: 'רכישת מוצר',      sub: 'חיפושים + התראות' },
   { id: 'orders',     icon: '📦', label: 'הזמנות שלי',   sub: 'היסטוריית רכישות' },
   { id: 'history',    icon: '📋', label: 'חיפושים שלי',    sub: 'חיפושים קודמים' },
   { id: 'referral',   icon: '🤝', label: 'הפנה חבר',      sub: 'קבל חיפושים בחינם' },
