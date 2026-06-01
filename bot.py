@@ -2212,7 +2212,7 @@ async def _yad2_watch_job(context) -> None:
                         f"🚗 *{_escape_md(label)}*\n"
                         f"💰 {_escape_md(top_price)}"
                         + (f"\n{_escape_md(top_details)}" if top_details else "")
-                        + f"\n\n{cta}{_escape_md(all_link)}"
+                        + f"\n\n{cta}{all_link}"
                     )
                     try:
                         await context.bot.send_message(
