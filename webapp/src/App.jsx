@@ -132,7 +132,7 @@ export default function App() {
   if (screen === 'watches') {
     return (
       <div key="watches" className="page-enter">
-        <WatchesPage onBack={() => setScreen('home')} user={user} />
+        <WatchesPage onBack={() => setScreen('home')} onPackages={() => setScreen('packages')} user={user} />
       </div>
     )
   }
