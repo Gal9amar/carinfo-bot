@@ -917,7 +917,7 @@ async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYP
             if expires:
                 from datetime import datetime as _dt
                 exp_str = _dt.strptime(expires, "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y")
-                _si = f"♾️ מנוי חודשי פעיל עד {_escape(exp_str)}"
+                _si = f"♾️ מנוי חודשי פעיל עד {_escape_md(exp_str)}"
             else:
                 _si = "✅ גישה בלתי מוגבלת"
         except Exception:

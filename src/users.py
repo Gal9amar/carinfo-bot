@@ -574,6 +574,13 @@ async def admin_stats() -> dict:
         "SELECT COUNT(*) as c FROM tickets WHERE status='open'"
     )
 
+    # Yad2 watch stats
+    watches_total_r   = await execute("SELECT COUNT(*) as c FROM yad2_watches WHERE active=1")
+    watches_users_r   = await execute("SELECT COUNT(DISTINCT user_id) as c FROM yad2_watches WHERE active=1")
+    watches_week_r    = await execute(
+        "SELECT COUNT(*) as c FROM yad2_watches WHERE active=1 AND created_at >= ?", [week_ago]
+    )
+
     top_users_r = await execute(
         "SELECT username, full_name, searches_done FROM users "
         "ORDER BY searches_done DESC LIMIT 5"
@@ -601,6 +608,9 @@ async def admin_stats() -> dict:
         "used_codes":       _row(used_r)["c"],
         "active_codes":     _row(active_codes_r)["c"],
         "tickets_open":     _row(tickets_open_r)["c"],
+        "watches_total":    _row(watches_total_r)["c"],
+        "watches_users":    _row(watches_users_r)["c"],
+        "watches_week":     _row(watches_week_r)["c"],
         "top_users":        top_users,
     }
 

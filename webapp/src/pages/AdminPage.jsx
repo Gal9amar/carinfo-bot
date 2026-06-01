@@ -152,6 +152,12 @@ function StatsTab() {
         <StatCard value={stats.tickets_open}  label="טיקטים פתוחים" accent={stats.tickets_open > 0 ? '#f59e0b' : undefined} />
       </Section>
 
+      <Section title="🔔 התראות יד2">
+        <StatCard value={stats.watches_users ?? 0} label="משתמשים עם מעקב" accent="#8b5cf6" />
+        <StatCard value={stats.watches_total ?? 0} label="מעקבים פעילים"   accent="#a78bfa" />
+        <StatCard value={stats.watches_week  ?? 0} label="נוספו השבוע"      accent="#38bdf8" />
+      </Section>
+
       {stats.top_users?.length > 0 && (
         <div style={{ marginBottom: 18 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--hint)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>

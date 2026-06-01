@@ -230,6 +230,8 @@ export default function ReportPage({ plate, onBack, user }) {
   const [pdfSent, setPdfSent] = useState(false)
   const [note, setNote] = useState('')
   const [noteSaved, setNoteSaved] = useState(false)
+  const [noteDirty, setNoteDirty] = useState(false)
+  const [noteSaving, setNoteSaving] = useState(false)
   const [watchState, setWatchState] = useState('idle') // idle | loading | done | error | exists
 
   useEffect(() => {
@@ -254,7 +256,7 @@ export default function ReportPage({ plate, onBack, user }) {
           .catch(() => setMarketData(null))
       })
       .catch(() => setError('הרכב לא נמצא או שגיאה בטעינה'))
-    fetchNote(plate).then(n => setNote(n || '')).catch(() => {})
+    fetchNote(plate).then(n => { setNote(n || ''); setNoteDirty(false) }).catch(() => {})
   }, [plate])
 
   if (error) return (
@@ -741,12 +743,15 @@ export default function ReportPage({ plate, onBack, user }) {
             setPdfLoading(false)
           }
         }
-        async function handleNoteBlur(val) {
+        async function handleNoteSave() {
+          setNoteSaving(true)
           try {
-            await saveNote(plateNum, val)
+            await saveNote(plateNum, note)
             setNoteSaved(true)
+            setNoteDirty(false)
             setTimeout(() => setNoteSaved(false), 2000)
           } catch { /* silent */ }
+          setNoteSaving(false)
         }
         return (
           <div className="card" style={{ marginBottom: 12 }}>
@@ -775,21 +780,33 @@ export default function ReportPage({ plate, onBack, user }) {
                 <>
                   <textarea
                     value={note}
-                    onChange={e => setNote(e.target.value)}
-                    onBlur={e => handleNoteBlur(e.target.value)}
+                    onChange={e => { setNote(e.target.value); setNoteDirty(true) }}
                     rows={4}
                     style={{
                       width: '100%', boxSizing: 'border-box',
-                      background: 'var(--bg)', border: '1px solid rgba(255,255,255,0.12)',
+                      background: 'var(--bg)', border: `1px solid ${noteDirty ? '#8b5cf6' : 'rgba(255,255,255,0.12)'}`,
                       borderRadius: 10, padding: '10px 12px', color: 'var(--text)',
                       fontSize: 14, lineHeight: 1.6, resize: 'vertical',
                       fontFamily: 'inherit', direction: 'rtl',
                     }}
                     placeholder={'מחיר סגירה 70,000\nטלפון 052-12345678\nמול אמיר.'}
                   />
-                  {noteSaved && (
-                    <div style={{ fontSize: 11, color: '#38a169', marginTop: 4 }}>✅ נשמר</div>
-                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                    {noteDirty && (
+                      <button
+                        onClick={handleNoteSave}
+                        disabled={noteSaving}
+                        style={{
+                          padding: '7px 18px', borderRadius: 8, border: 'none',
+                          background: '#8b5cf6', color: '#fff', fontSize: 13,
+                          fontWeight: 600, cursor: 'pointer', opacity: noteSaving ? 0.6 : 1,
+                        }}
+                      >{noteSaving ? '...' : '💾 שמור הערה'}</button>
+                    )}
+                    {noteSaved && (
+                      <span style={{ fontSize: 11, color: '#38a169' }}>✅ נשמר</span>
+                    )}
+                  </div>
                 </>
               ) : note ? (
                 <div style={{
