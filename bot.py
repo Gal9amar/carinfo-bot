@@ -2181,11 +2181,8 @@ async def _yad2_watch_job(context) -> None:
                     )
                 else:
                     new_listings = [item for item in listings if item["id"] in new_ids]
-                    new_listings_priced = sorted(
-                        [x for x in new_listings if x.get("price")],
-                        key=lambda x: int(x["price"])
-                    )
-                    top = new_listings_priced[0] if new_listings_priced else new_listings[0] if new_listings else None
+                    # Yad2 returns listings newest-first; take the first new item
+                    top = new_listings[0] if new_listings else None
                     count = len(new_listings)
                     prices = [int(x["price"]) for x in new_listings_priced]
                     if prices:
@@ -2204,9 +2201,9 @@ async def _yad2_watch_job(context) -> None:
                         ]))
                         top_link = top.get("link", "")
                         if top_link:
-                            featured_line = f"💎 *מודעה מומלצת:* [{_escape_md(top_price)}]({top_link})\n{_escape_md(top_details)}\n\n"
+                            featured_line = f"🆕 *המודעה החדשה ביותר:* [{_escape_md(top_price)}]({top_link})\n{_escape_md(top_details)}\n\n"
                         else:
-                            featured_line = f"💎 *מודעה מומלצת:* {_escape_md(top_price)}\n{_escape_md(top_details)}\n\n"
+                            featured_line = f"🆕 *המודעה החדשה ביותר:* {_escape_md(top_price)}\n{_escape_md(top_details)}\n\n"
                     else:
                         featured_line = ""
 
