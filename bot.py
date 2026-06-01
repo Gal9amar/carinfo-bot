@@ -2188,11 +2188,13 @@ async def _yad2_watch_job(context) -> None:
                     else:
                         price_range = "מחיר לא צוין"
 
+                    count_word = "מודעה חדשה" if count == 1 else "מודעות חדשות"
                     text = (
-                        f"🔔 *{count} מודעות חדשות ב\\-Yad2\\!*\n\n"
+                        f"👋 היי\\! מצאנו *{count} {_escape_md(count_word)}* שמתאימות לחיפוש שלך\\.\n\n"
                         f"🚗 *{_escape_md(label)}*\n"
-                        f"💰 {_escape_md(price_range)}\n\n"
-                        f"[ראה את כל המודעות ביד2 ←]({search_url})"
+                        f"💰 טווח מחירים: *{_escape_md(price_range)}*\n\n"
+                        f"לחץ כאן כדי לצפות בכל המודעות 👇\n"
+                        f"[פתח ביד2]({search_url})"
                     )
                     try:
                         await context.bot.send_message(
