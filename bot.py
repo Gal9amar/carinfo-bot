@@ -89,9 +89,13 @@ WAITING_FREE_COUNT = 2
 WAITING_PAYMENT_MSG = 3
 
 def _persistent_rows(is_admin: bool = False) -> list:
-    """Bottom rows shown in chat — only search-related actions."""
+    """Bottom row shown in every chat keyboard — search + mini-app shortcut."""
+    webapp_url = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
     return [
-        [InlineKeyboardButton("🔍 חיפוש רכב חדש", callback_data="new_search")],
+        [
+            InlineKeyboardButton("🔍 חיפוש רכב חדש", callback_data="new_search"),
+            InlineKeyboardButton("📱 פתח תפריט", web_app=WebAppInfo(url=webapp_url)),
+        ],
     ]
 
 
