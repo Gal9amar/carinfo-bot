@@ -2184,7 +2184,7 @@ async def _yad2_watch_job(context) -> None:
                     # Yad2 returns listings newest-first; take the first new item
                     top = new_listings[0] if new_listings else None
                     count = len(new_listings)
-                    prices = [int(x["price"]) for x in new_listings_priced]
+                    prices = sorted([int(x["price"]) for x in new_listings if x.get("price")])
                     if prices:
                         price_range = f"₪{prices[0]:,}" if len(prices) == 1 else f"₪{prices[0]:,} – ₪{prices[-1]:,}"
                     else:
@@ -2192,28 +2192,27 @@ async def _yad2_watch_job(context) -> None:
 
                     count_word = "מודעה חדשה" if count == 1 else "מודעות חדשות"
 
-                    # Build featured listing line
-                    if top:
-                        top_price = f"₪{int(top['price']):,}" if top.get("price") else "מחיר לא צוין"
-                        top_details = "  ".join(filter(None, [
-                            f"🛣️ {int(top['km']):,} ק\"מ" if top.get("km") else None,
-                            f"📍 {top['city']}" if top.get("city") else None,
-                        ]))
-                        top_link = top.get("link", "")
-                        if top_link:
-                            featured_line = f"🆕 *המודעה החדשה ביותר:* [{_escape_md(top_price)}]({top_link})\n{_escape_md(top_details)}\n\n"
-                        else:
-                            featured_line = f"🆕 *המודעה החדשה ביותר:* {_escape_md(top_price)}\n{_escape_md(top_details)}\n\n"
+                    top_price = f"₪{int(top['price']):,}" if top and top.get("price") else "מחיר לא צוין"
+                    top_details = "  ".join(filter(None, [
+                        f"🛣️ {int(top['km']):,} ק\"מ" if top and top.get("km") else None,
+                        f"📍 {top['city']}" if top and top.get("city") else None,
+                    ])) if top else ""
+                    top_link = top.get("link", "") if top else ""
+
+                    # Primary CTA: direct link to newest item if token available, else search page
+                    if top_link:
+                        cta = f"[🆕 פתח את המודעה החדשה ביותר]({top_link})"
+                        all_link = f"\n[ראה את כל {count} המודעות ביד2]({search_url})" if count > 1 else ""
                     else:
-                        featured_line = ""
+                        cta = f"[🆕 ראה את המודעות החדשות ביד2]({search_url})"
+                        all_link = ""
 
                     text = (
                         f"👋 היי\\! מצאנו *{count} {_escape_md(count_word)}* שמתאימות לחיפוש שלך\\.\n\n"
                         f"🚗 *{_escape_md(label)}*\n"
-                        f"💰 טווח מחירים: *{_escape_md(price_range)}*\n\n"
-                        f"{featured_line}"
-                        f"לצפייה בכל המודעות 👇\n"
-                        f"[פתח ביד2]({search_url})"
+                        f"💰 {_escape_md(top_price)}"
+                        + (f"\n{_escape_md(top_details)}" if top_details else "")
+                        + f"\n\n{cta}{_escape_md(all_link)}"
                     )
                     try:
                         await context.bot.send_message(
