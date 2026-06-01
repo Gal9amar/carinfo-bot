@@ -2921,10 +2921,11 @@ function WatchesTab() {
   async function runPreview(make, model, year) {
     setPreview('loading')
     try {
-      const results = await adminWatchPreview(make, model || '', year || null)
-      setPreview(results)
+      const data = await adminWatchPreview(make, model || '', year || null)
+      // API now returns {items, total, search_url}
+      setPreview(Array.isArray(data) ? { items: data, total: data.length, search_url: '' } : data)
     } catch (e) {
-      setPreview([])
+      setPreview({ items: [], total: 0, search_url: '' })
       window.Telegram?.WebApp?.showAlert('לא נמצאו מודעות / שגיאת חיבור')
     }
   }
@@ -3006,20 +3007,19 @@ function WatchesTab() {
               {preview === 'loading' && (
                 <div style={{ color: 'var(--hint)', fontSize: 13, textAlign: 'center', padding: '8px 0' }}>⏳ מחפש מודעות...</div>
               )}
-              {Array.isArray(preview) && preview.length === 0 && (
+              {preview?.items && preview.items.length === 0 && (
                 <div style={{ color: 'var(--hint)', fontSize: 13, textAlign: 'center', padding: '8px 0' }}>לא נמצאו מודעות תואמות</div>
               )}
-              {Array.isArray(preview) && preview.length > 0 && (
+              {preview?.items && preview.items.length > 0 && (
                 <div>
                   <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 8 }}>
-                    {preview.length} מודעות נמצאו (מוצגות עד 5)
+                    {preview.total} מודעות (מוצגות עד 5)
                   </div>
-                  {preview.map((item, i) => (
-                    <a key={i} href={item.link} target="_blank" rel="noreferrer" style={{
+                  {preview.items.map((item, i) => (
+                    <div key={i} style={{
                       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                       padding: '8px 10px', background: 'var(--bg2)', borderRadius: 9,
-                      marginBottom: 6, textDecoration: 'none', color: 'var(--text)',
-                      gap: 8,
+                      marginBottom: 6, gap: 8,
                     }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 700, fontSize: 13, color: '#38bdf8' }}>
@@ -3033,9 +3033,15 @@ function WatchesTab() {
                           ].filter(Boolean).join('  ')}
                         </div>
                       </div>
-                      <span style={{ fontSize: 16, color: 'var(--hint)', flexShrink: 0 }}>↗</span>
-                    </a>
+                    </div>
                   ))}
+                  {preview.search_url && (
+                    <a href={preview.search_url} target="_blank" rel="noreferrer" style={{
+                      display: 'block', textAlign: 'center', padding: '8px',
+                      background: 'var(--btn)', color: 'var(--btn-text)',
+                      borderRadius: 9, fontSize: 13, fontWeight: 600, textDecoration: 'none', marginTop: 4,
+                    }}>ראה את כל המודעות ביד2 ←</a>
+                  )}
                 </div>
               )}
             </div>
@@ -3096,17 +3102,17 @@ function WatchesTab() {
           {preview === 'loading' && !previewWatch && (
             <div style={{ color: 'var(--hint)', fontSize: 13, marginBottom: 10 }}>⏳ מחפש...</div>
           )}
-          {Array.isArray(preview) && !previewWatch && preview.length === 0 && (
+          {preview?.items && !previewWatch && preview.items.length === 0 && (
             <div style={{ color: 'var(--hint)', fontSize: 12, marginBottom: 10 }}>לא נמצאו מודעות תואמות</div>
           )}
-          {Array.isArray(preview) && !previewWatch && preview.length > 0 && (
+          {preview?.items && !previewWatch && preview.items.length > 0 && (
             <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 6 }}>{preview.length} מודעות קיימות תואמות:</div>
-              {preview.map((item, i) => (
-                <a key={i} href={item.link} target="_blank" rel="noreferrer" style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 6 }}>{preview.total} מודעות קיימות תואמות:</div>
+              {preview.items.map((item, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center',
                   padding: '7px 10px', background: 'var(--bg)', borderRadius: 8,
-                  marginBottom: 5, textDecoration: 'none', color: 'var(--text)', gap: 8,
+                  marginBottom: 5, gap: 8,
                 }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 700, fontSize: 13, color: '#38bdf8' }}>
@@ -3119,9 +3125,15 @@ function WatchesTab() {
                       ].filter(Boolean).join('  ')}
                     </div>
                   </div>
-                  <span style={{ fontSize: 15, color: 'var(--hint)' }}>↗</span>
-                </a>
+                </div>
               ))}
+              {preview.search_url && (
+                <a href={preview.search_url} target="_blank" rel="noreferrer" style={{
+                  display: 'block', textAlign: 'center', padding: '7px',
+                  background: 'rgba(56,189,248,0.12)', color: '#38bdf8',
+                  borderRadius: 8, fontSize: 12, fontWeight: 600, textDecoration: 'none', marginTop: 4,
+                }}>ראה כל המודעות ביד2 ←</a>
+              )}
             </div>
           )}
 

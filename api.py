@@ -1678,7 +1678,8 @@ async def admin_watches_preview(make: str = "", model: str = "", year: Optional[
         )
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
-    return listings[:5]
+    search_url = _yad2.build_search_url(make, model or "", year)
+    return {"items": listings[:5], "total": len(listings), "search_url": search_url}
 
 
 # ── Serve React SPA (must be last) ──────────────────────────────────────────

@@ -339,10 +339,27 @@ def build_url(record: dict) -> str:
     return url
 
 
+def build_search_url(make: str, model: str, year: int | str | None) -> str:
+    """Return a Yad2 search URL filtered by make/model/year."""
+    base = "https://www.yad2.co.il/vehicles/cars"
+    params: list[str] = []
+    mid = _manufacturer_id(make)
+    if mid:
+        params.append(f"manufacturer={mid}")
+        mod_id = _model_id(mid, model) if model else None
+        if mod_id:
+            params.append(f"model={mod_id}")
+    yr = _year_param(str(year)) if year else ""
+    if yr:
+        params.append(yr)
+    return f"{base}?{'&'.join(params)}" if params else base
+
+
 def fetch_listings(make: str, model: str, year: int | str | None) -> list[dict]:
     """
     Fetch current Yad2 listings for given make/model/year via the Israeli proxy.
-    Returns list of dicts: {id, price, km, year, city, link}
+    Returns list of dicts: {id, price, km, year, city} — no individual links
+    (the lookalike API does not return navigable listing URLs).
     Returns [] on error or unknown make.
     """
     import urllib.request
@@ -389,16 +406,17 @@ def fetch_listings(make: str, model: str, year: int | str | None) -> list[dict]:
         items = filtered if filtered else items
 
     result = []
+    seen_ids: set[str] = set()
     for item in items:
-        oid = item.get("orderId") or item.get("token") or item.get("id")
-        if not oid:
+        oid = str(item.get("orderId") or item.get("token") or item.get("id") or "")
+        if not oid or oid in seen_ids:
             continue
+        seen_ids.add(oid)
         result.append({
-            "id": str(oid),
+            "id": oid,
             "price": item.get("price"),
             "km": item.get("km"),
             "year": item.get("vehicleDates", {}).get("yearOfProduction"),
             "city": item.get("city") or "",
-            "link": f"https://www.yad2.co.il/item/{oid}",
         })
     return result
