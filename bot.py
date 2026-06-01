@@ -2121,73 +2121,67 @@ async def run_self_ping():
             logger.warning("Self-ping failed: %s", e)
 
 
-async def run_yad2_watch_loop(bot) -> None:
-    """Check Yad2 every 30 min for new listings matching active watches, notify users."""
-    import asyncio as _asyncio
+async def _yad2_watch_job(context) -> None:
+    """Job-queue callback: check Yad2 every 30 min for new listings matching active watches."""
     from src import yad2 as _yad2
     from src.yad2_watcher import get_all_active_watches, update_seen_ids
 
-    await _asyncio.sleep(90)  # warm-up delay
+    try:
+        watches = await get_all_active_watches()
+        for w in watches:
+            try:
+                listings = _yad2.fetch_listings(w["make"], w.get("model", ""), w.get("year"))
+                if not listings:
+                    continue
 
-    while True:
-        try:
-            watches = await get_all_active_watches()
-            for w in watches:
+                current_ids = {item["id"] for item in listings}
+                seen = set(w["seen_ids"])
+
+                # First run: seed seen_ids so we don't flood with old listings
+                if not seen:
+                    await update_seen_ids(w["id"], list(current_ids)[-500:])
+                    continue
+
+                new_ids = current_ids - seen
+                if not new_ids:
+                    continue
+
+                new_listings = [item for item in listings if item["id"] in new_ids]
+                label = w["make"]
+                if w.get("model"):
+                    label += f" {w['model']}"
+                if w.get("year"):
+                    label += f" {w['year']}"
+
+                search_url = _yad2.build_search_url(w["make"], w.get("model", ""), w.get("year"))
+                prices = sorted([int(x["price"]) for x in new_listings if x.get("price")])
+                count = len(new_listings)
+                if prices:
+                    price_range = f"₪{prices[0]:,}" if len(prices) == 1 else f"₪{prices[0]:,} – ₪{prices[-1]:,}"
+                else:
+                    price_range = "מחיר לא צוין"
+
+                text = (
+                    f"🔔 *{count} מודעות חדשות ב\\-Yad2\\!*\n\n"
+                    f"🚗 *{_escape_md(label)}*\n"
+                    f"💰 {_escape_md(price_range)}\n\n"
+                    f"[ראה את כל המודעות ביד2 ←]({search_url})"
+                )
                 try:
-                    listings = _yad2.fetch_listings(w["make"], w.get("model", ""), w.get("year"))
-                    if not listings:
-                        continue
-
-                    current_ids = {item["id"] for item in listings}
-                    seen = set(w["seen_ids"])
-
-                    # First run: seed seen_ids so we don't flood with old listings
-                    if not seen:
-                        await update_seen_ids(w["id"], list(current_ids)[-500:])
-                        continue
-
-                    new_ids = current_ids - seen
-                    if not new_ids:
-                        continue
-
-                    new_listings = [item for item in listings if item["id"] in new_ids]
-                    label = w["make"]
-                    if w.get("model"):
-                        label += f" {w['model']}"
-                    if w.get("year"):
-                        label += f" {w['year']}"
-
-                    search_url = _yad2.build_search_url(w["make"], w.get("model", ""), w.get("year"))
-                    prices = sorted([int(x["price"]) for x in new_listings if x.get("price")])
-                    count = len(new_listings)
-                    if prices:
-                        price_range = f"₪{prices[0]:,}" if len(prices) == 1 else f"₪{prices[0]:,} – ₪{prices[-1]:,}"
-                    else:
-                        price_range = "מחיר לא צוין"
-
-                    text = (
-                        f"🔔 *{count} מודעות חדשות ב\\-Yad2\\!*\n\n"
-                        f"🚗 *{_escape_md(label)}*\n"
-                        f"💰 {_escape_md(price_range)}\n\n"
-                        f"[ראה את כל המודעות ביד2 ←]({search_url})"
+                    await context.bot.send_message(
+                        w["user_id"], text,
+                        parse_mode=ParseMode.MARKDOWN_V2,
                     )
-                    try:
-                        await bot.send_message(
-                            w["user_id"], text,
-                            parse_mode=ParseMode.MARKDOWN_V2,
-                        )
-                    except Exception as e:
-                        logger.warning("Watch notify failed user=%s: %s", w["user_id"], e)
-
-                    all_seen = list(seen | current_ids)[-500:]
-                    await update_seen_ids(w["id"], all_seen)
-
                 except Exception as e:
-                    logger.error("Watch check error id=%s: %s", w["id"], e)
-        except Exception as e:
-            logger.error("Yad2 watcher loop error: %s", e)
+                    logger.warning("Watch notify failed user=%s: %s", w["user_id"], e)
 
-        await _asyncio.sleep(30 * 60)
+                all_seen = list(seen | current_ids)[-500:]
+                await update_seen_ids(w["id"], all_seen)
+
+            except Exception as e:
+                logger.error("Watch check error id=%s: %s", w["id"], e)
+    except Exception as e:
+        logger.error("Yad2 watcher job error: %s", e)
 
 
 async def _post_init(app) -> None:
@@ -2205,9 +2199,6 @@ async def _post_init(app) -> None:
     except Exception as e:
         logger.warning("Could not set menu button: %s", e)
     logger.info("Turso DB initialized")
-    import asyncio as _aio
-    _aio.create_task(run_yad2_watch_loop(app.bot))
-    logger.info("Yad2 watch loop scheduled")
 
 
 def main() -> None:
@@ -2458,6 +2449,12 @@ def main() -> None:
             _daily_expiry_notify,
             time=_dt.time(hour=9, minute=0, tzinfo=_dt.timezone.utc),
             name="daily_expiry_notify",
+        )
+        app.job_queue.run_repeating(
+            _yad2_watch_job,
+            interval=30 * 60,
+            first=90,
+            name="yad2_watch",
         )
 
     logger.info("Bot is starting (polling mode)...")
