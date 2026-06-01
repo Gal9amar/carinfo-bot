@@ -25,6 +25,7 @@ import {
   adminRemoveGroupMember,
   adminFetchPaypalTransactions,
   adminFetchWatches, adminCreateWatch, adminDeleteWatch, adminToggleWatch,
+  adminWatchMakes, adminWatchModels, adminWatchPreview,
 } from '../api.js'
 import BackButton from '../components/BackButton.jsx'
 
@@ -2883,32 +2884,56 @@ function GroupsTab() {
 function WatchesTab() {
   const [watches, setWatches] = useState(null)
   const [form, setForm] = useState({ make: '', model: '', year: '' })
+  const [makes, setMakes] = useState([])
+  const [models, setModels] = useState([])
   const [adding, setAdding] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [preview, setPreview] = useState(null)   // null | 'loading' | []
+  const [previewWatch, setPreviewWatch] = useState(null)  // watch id being previewed
 
   function load() { adminFetchWatches().then(setWatches).catch(() => setWatches([])) }
   useEffect(() => { load() }, [])
+  useEffect(() => {
+    adminWatchMakes().then(setMakes).catch(() => {})
+  }, [])
+  useEffect(() => {
+    if (!form.make) { setModels([]); setForm(f => ({ ...f, model: '' })); return }
+    adminWatchModels(form.make).then(ms => { setModels(ms); setForm(f => ({ ...f, model: '' })) }).catch(() => setModels([]))
+  }, [form.make])
 
   async function createWatch() {
-    if (!form.make.trim()) return
+    if (!form.make) return
     setSaving(true)
     try {
       await adminCreateWatch({
-        make: form.make.trim(),
-        model: form.model.trim(),
+        make: form.make,
+        model: form.model,
         year: form.year ? parseInt(form.year) : null,
       })
       setForm({ make: '', model: '', year: '' })
       setAdding(false)
+      setPreview(null)
       load()
     } catch (e) { window.Telegram?.WebApp?.showAlert(e.message || 'שגיאה') }
     setSaving(false)
+  }
+
+  async function runPreview(make, model, year) {
+    setPreview('loading')
+    try {
+      const results = await adminWatchPreview(make, model || '', year || null)
+      setPreview(results)
+    } catch (e) {
+      setPreview([])
+      window.Telegram?.WebApp?.showAlert('לא נמצאו מודעות / שגיאת חיבור')
+    }
   }
 
   async function deleteWatch(id) {
     window.Telegram?.WebApp?.showConfirm('למחוק את ההתראה?', async ok => {
       if (!ok) return
       await adminDeleteWatch(id)
+      if (previewWatch === id) { setPreview(null); setPreviewWatch(null) }
       load()
     })
   }
@@ -2917,6 +2942,9 @@ function WatchesTab() {
     await adminToggleWatch(id)
     load()
   }
+
+  const currentYear = new Date().getFullYear()
+  const years = Array.from({ length: currentYear - 1999 }, (_, i) => currentYear - i)
 
   if (!watches) return <div className="loading"></div>
 
@@ -2932,67 +2960,181 @@ function WatchesTab() {
       )}
 
       {watches.map(w => (
-        <div key={w.id} className="card" style={{ opacity: w.active ? 1 : 0.55, transition: 'opacity 0.2s' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="card-title">
-                🔔 {w.make}{w.model ? ` ${w.model}` : ''}{w.year ? ` ${w.year}` : ''}
+        <div key={w.id} style={{ marginBottom: 10 }}>
+          <div className="card" style={{ opacity: w.active ? 1 : 0.55, transition: 'opacity 0.2s', marginBottom: 0 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="card-title">
+                  🔔 {w.make}{w.model ? ` ${w.model}` : ''}{w.year ? ` ${w.year}` : ''}
+                </div>
+                <div className="card-subtitle">
+                  {w.active ? '🟢 פעיל' : '⏸ מושהה'} · {w.created_at?.slice(0, 10)}
+                </div>
               </div>
-              <div className="card-subtitle">
-                {w.active ? '🟢 פעיל' : '⏸ מושהה'} · {w.created_at?.slice(0, 10)}
+              <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
+                <button
+                  className="btn"
+                  style={{ width: 'auto', padding: '6px 10px', marginTop: 0, fontSize: 12, background: 'var(--bg)' }}
+                  onClick={() => {
+                    if (previewWatch === w.id) { setPreview(null); setPreviewWatch(null) }
+                    else { setPreviewWatch(w.id); runPreview(w.make, w.model, w.year) }
+                  }}
+                  title="בדוק עכשיו"
+                >🔍 בדוק</button>
+                <button
+                  className="btn"
+                  style={{ width: 'auto', padding: '6px 10px', marginTop: 0, fontSize: 13 }}
+                  onClick={() => toggleWatch(w.id)}
+                  title={w.active ? 'השהה' : 'הפעל'}
+                >{w.active ? '⏸' : '▶️'}</button>
+                <button
+                  className="btn btn-danger"
+                  style={{ width: 'auto', padding: '6px 10px', marginTop: 0, fontSize: 13 }}
+                  onClick={() => deleteWatch(w.id)}
+                >🗑</button>
               </div>
-            </div>
-            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-              <button
-                className="btn"
-                style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
-                onClick={() => toggleWatch(w.id)}
-                title={w.active ? 'השהה' : 'הפעל'}
-              >{w.active ? '⏸' : '▶️'}</button>
-              <button
-                className="btn btn-danger"
-                style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
-                onClick={() => deleteWatch(w.id)}
-              >🗑</button>
             </div>
           </div>
+
+          {/* Preview panel */}
+          {previewWatch === w.id && (
+            <div style={{
+              background: 'var(--bg)', borderRadius: '0 0 12px 12px',
+              borderTop: '1px solid rgba(255,255,255,0.08)',
+              padding: '10px 14px',
+            }}>
+              {preview === 'loading' && (
+                <div style={{ color: 'var(--hint)', fontSize: 13, textAlign: 'center', padding: '8px 0' }}>⏳ מחפש מודעות...</div>
+              )}
+              {Array.isArray(preview) && preview.length === 0 && (
+                <div style={{ color: 'var(--hint)', fontSize: 13, textAlign: 'center', padding: '8px 0' }}>לא נמצאו מודעות תואמות</div>
+              )}
+              {Array.isArray(preview) && preview.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 8 }}>
+                    {preview.length} מודעות נמצאו (מוצגות עד 5)
+                  </div>
+                  {preview.map((item, i) => (
+                    <a key={i} href={item.link} target="_blank" rel="noreferrer" style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '8px 10px', background: 'var(--bg2)', borderRadius: 9,
+                      marginBottom: 6, textDecoration: 'none', color: 'var(--text)',
+                      gap: 8,
+                    }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: '#38bdf8' }}>
+                          {item.price ? `₪${Number(item.price).toLocaleString()}` : 'מחיר לא צוין'}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--hint)', marginTop: 2 }}>
+                          {[
+                            item.km ? `🛣️ ${Number(item.km).toLocaleString()} ק"מ` : null,
+                            item.city ? `📍 ${item.city}` : null,
+                            item.year ? `📅 ${item.year}` : null,
+                          ].filter(Boolean).join('  ')}
+                        </div>
+                      </div>
+                      <span style={{ fontSize: 16, color: 'var(--hint)', flexShrink: 0 }}>↗</span>
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       ))}
 
       {adding && (
         <div style={{ background: 'var(--bg2)', borderRadius: 14, padding: '14px 14px 10px', marginBottom: 10 }}>
           <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>➕ התראה חדשה</div>
-          <input
+
+          {/* Make dropdown */}
+          <select
             className="input"
-            placeholder="יצרן — לדוגמה: יונדאי"
             value={form.make}
-            onChange={e => setForm(f => ({ ...f, make: e.target.value }))}
-          />
-          <input
+            onChange={e => setForm(f => ({ ...f, make: e.target.value, model: '', year: '' }))}
+            style={{ marginBottom: 8 }}
+          >
+            <option value="">— בחר יצרן —</option>
+            {makes.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+
+          {/* Model dropdown — only shown when make is selected */}
+          {form.make && (
+            <select
+              className="input"
+              value={form.model}
+              onChange={e => setForm(f => ({ ...f, model: e.target.value }))}
+              style={{ marginBottom: 8 }}
+            >
+              <option value="">— כל הדגמים —</option>
+              {models.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+          )}
+
+          {/* Year dropdown */}
+          <select
             className="input"
-            placeholder="דגם — לדוגמה: טוסון (אופציונלי)"
-            value={form.model}
-            onChange={e => setForm(f => ({ ...f, model: e.target.value }))}
-          />
-          <input
-            className="input"
-            placeholder="שנה — לדוגמה: 2017 (אופציונלי)"
-            type="number"
-            min="2000"
-            max="2030"
             value={form.year}
             onChange={e => setForm(f => ({ ...f, year: e.target.value }))}
-          />
+            style={{ marginBottom: 10 }}
+          >
+            <option value="">— כל השנים —</option>
+            {years.map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+
+          {/* Preview button */}
+          {form.make && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ marginBottom: 10, marginTop: 0, fontSize: 13 }}
+              onClick={() => runPreview(form.make, form.model, form.year ? parseInt(form.year) : null)}
+            >🔍 בדוק עכשיו — ראה מודעות תואמות</button>
+          )}
+
+          {/* Inline preview for new watch form */}
+          {preview === 'loading' && !previewWatch && (
+            <div style={{ color: 'var(--hint)', fontSize: 13, marginBottom: 10 }}>⏳ מחפש...</div>
+          )}
+          {Array.isArray(preview) && !previewWatch && preview.length === 0 && (
+            <div style={{ color: 'var(--hint)', fontSize: 12, marginBottom: 10 }}>לא נמצאו מודעות תואמות</div>
+          )}
+          {Array.isArray(preview) && !previewWatch && preview.length > 0 && (
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 6 }}>{preview.length} מודעות קיימות תואמות:</div>
+              {preview.map((item, i) => (
+                <a key={i} href={item.link} target="_blank" rel="noreferrer" style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '7px 10px', background: 'var(--bg)', borderRadius: 8,
+                  marginBottom: 5, textDecoration: 'none', color: 'var(--text)', gap: 8,
+                }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: '#38bdf8' }}>
+                      {item.price ? `₪${Number(item.price).toLocaleString()}` : 'מחיר לא צוין'}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--hint)', marginTop: 2 }}>
+                      {[
+                        item.km ? `🛣️ ${Number(item.km).toLocaleString()} ק"מ` : null,
+                        item.city ? `📍 ${item.city}` : null,
+                      ].filter(Boolean).join('  ')}
+                    </div>
+                  </div>
+                  <span style={{ fontSize: 15, color: 'var(--hint)' }}>↗</span>
+                </a>
+              ))}
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
             <button
               className="btn"
-              disabled={saving || !form.make.trim()}
+              disabled={saving || !form.make}
               onClick={createWatch}
               style={{ flex: 1, marginTop: 0 }}
             >{saving ? '⏳...' : '✅ שמור'}</button>
             <button
               className="btn btn-secondary"
-              onClick={() => { setAdding(false); setForm({ make: '', model: '', year: '' }) }}
+              onClick={() => { setAdding(false); setForm({ make: '', model: '', year: '' }); setPreview(null) }}
               style={{ flex: 1, marginTop: 0 }}
             >ביטול</button>
           </div>
@@ -3000,7 +3142,7 @@ function WatchesTab() {
       )}
 
       {!adding && watches.length < 5 && (
-        <button className="btn btn-success" style={{ marginTop: 6 }} onClick={() => setAdding(true)}>
+        <button className="btn btn-success" style={{ marginTop: 6 }} onClick={() => { setAdding(true); setPreview(null); setPreviewWatch(null) }}>
           ➕ הוסף התראה
         </button>
       )}
