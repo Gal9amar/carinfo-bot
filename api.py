@@ -2,6 +2,7 @@
 FastAPI app — serves REST API + React static files.
 Replaces the simple health server. Runs on the same PORT as before.
 """
+import asyncio
 import hashlib
 import hmac
 import json
@@ -1635,6 +1636,49 @@ async def admin_toggle_watch_endpoint(watch_id: int, _: dict = Depends(_require_
         raise HTTPException(status_code=404)
     await toggle_watch(watch_id, ADMIN_ID, not w["active"])
     return {"ok": True}
+
+
+@api.get("/api/admin/watches/makes")
+async def admin_watches_makes(_: dict = Depends(_require_admin)):
+    from src import yad2 as _yad2
+    makes = sorted(_yad2._MAKES.keys())
+    return makes
+
+
+@api.get("/api/admin/watches/models")
+async def admin_watches_models(make: str = "", _: dict = Depends(_require_admin)):
+    from src import yad2 as _yad2
+    mid = _yad2._manufacturer_id(make)
+    if not mid:
+        return []
+    models_dict = _yad2._MODEL_LOOKUP.get(mid, {})
+    # Deduplicate by model_id, keep the shortest/cleanest name
+    seen_ids: dict[int, str] = {}
+    for name, model_id in models_dict.items():
+        # Skip names that look like normalized/lowercased versions — prefer ones with uppercase or Hebrew chars
+        if model_id not in seen_ids:
+            seen_ids[model_id] = name
+        else:
+            existing = seen_ids[model_id]
+            # Prefer original Hebrew/mixed case names over fully lowercase
+            if len(name) < len(existing) or (any(c.isupper() for c in name) and not any(c.isupper() for c in existing)):
+                seen_ids[model_id] = name
+    models = sorted(set(seen_ids.values()))
+    return models
+
+
+@api.get("/api/admin/watches/preview")
+async def admin_watches_preview(make: str = "", model: str = "", year: Optional[int] = None, _: dict = Depends(_require_admin)):
+    from src import yad2 as _yad2
+    if not make:
+        raise HTTPException(status_code=400, detail="make required")
+    try:
+        listings = await asyncio.get_event_loop().run_in_executor(
+            None, lambda: _yad2.fetch_listings(make, model, year)
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    return listings[:5]
 
 
 # ── Serve React SPA (must be last) ──────────────────────────────────────────

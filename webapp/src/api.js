@@ -496,3 +496,21 @@ export async function adminToggleWatch(id) {
   if (!r.ok) throw new Error('Failed')
   return r.json()
 }
+export async function adminWatchMakes() {
+  const r = await fetch(`${BASE}/api/admin/watches/makes`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+export async function adminWatchModels(make) {
+  const r = await fetch(`${BASE}/api/admin/watches/models?make=${encodeURIComponent(make)}`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+export async function adminWatchPreview(make, model, year) {
+  let url = `${BASE}/api/admin/watches/preview?make=${encodeURIComponent(make)}`
+  if (model) url += `&model=${encodeURIComponent(model)}`
+  if (year)  url += `&year=${year}`
+  const r = await fetch(url, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
