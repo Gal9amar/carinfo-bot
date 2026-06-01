@@ -439,7 +439,7 @@ async def get_referrals(referrer_id: int) -> list[dict]:
 async def get_all_users() -> list[dict]:
     r = await execute(
         "SELECT u.user_id, u.username, u.full_name, u.searches_done, u.searches_quota, "
-        "u.first_seen, u.last_seen, u.blocked, u.channel, u.quota_expires, u.member_id, "
+        "u.first_seen, u.last_seen, u.blocked, u.channel, u.quota_expires, u.member_id, u.watch_quota, "
         "CASE WHEN ugm.user_id IS NOT NULL THEN 1 ELSE 0 END as is_subscriber "
         "FROM users u "
         "LEFT JOIN user_group_members ugm ON ugm.user_id = u.user_id "

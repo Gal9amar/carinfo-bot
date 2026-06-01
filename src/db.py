@@ -185,6 +185,7 @@ async def init_db() -> None:
     created_at      TEXT DEFAULT (datetime('now')),
     updated_at      TEXT DEFAULT (datetime('now'))
 )""")
+    migrations.append("ALTER TABLE users ADD COLUMN watch_quota INTEGER DEFAULT NULL")
     migrations.append("""CREATE TABLE IF NOT EXISTS vehicle_notes (
     user_id    INTEGER NOT NULL,
     plate      TEXT NOT NULL,
@@ -243,6 +244,7 @@ async def init_db() -> None:
     conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('yad2_watch_public_start', '')")
     conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('yad2_watch_public_end', '')")
     conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('yad2_watch_public_label', '')")
+    conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('yad2_watch_max', '2')")
     conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('order_sequence', '0')")
     conn.commit()
 

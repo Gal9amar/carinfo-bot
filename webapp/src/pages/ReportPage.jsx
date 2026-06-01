@@ -461,8 +461,19 @@ export default function ReportPage({ plate, onBack, user }) {
             קבל התראה בטלגרם כשתתווסף מודעה חדשה ל-Yad2 עבור <strong>{[make, model, year].filter(Boolean).join(' ')}</strong>
           </div>
           {watchState === 'done' ? (
-            <div style={{ textAlign: 'center', color: '#38a169', fontWeight: 700, fontSize: 14, padding: '8px 0' }}>
-              ✅ המעקב נוסף בהצלחה!
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ textAlign: 'center', color: '#38a169', fontWeight: 700, fontSize: 14, padding: '4px 0' }}>
+                ✅ המעקב נוסף בהצלחה!
+              </div>
+              <button
+                onClick={() => onBack('watches')}
+                style={{
+                  display: 'block', width: '100%', padding: '9px 0',
+                  background: '#8b5cf622', color: '#a78bfa',
+                  borderRadius: 10, fontSize: 13, fontWeight: 600,
+                  border: '1px solid #8b5cf644', cursor: 'pointer',
+                }}
+              >📋 עבור לרשימת המעקבים שלי</button>
             </div>
           ) : watchState === 'error' ? (
             <div style={{ textAlign: 'center', color: '#e53e3e', fontSize: 13, padding: '8px 0' }}>

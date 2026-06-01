@@ -26,6 +26,7 @@ import {
   adminFetchPaypalTransactions,
   adminFetchWatches, adminCreateWatch, adminDeleteWatch, adminToggleWatch,
   adminWatchMakes, adminWatchModels, adminWatchPreview,
+  adminSetWatchQuota,
 } from '../api.js'
 import BackButton from '../components/BackButton.jsx'
 
@@ -1580,8 +1581,9 @@ function UsersTab() {
 
 function GrantModal({ user, onClose, onDone }) {
   const [grants, setGrants] = useState(null)
-  const [mode, setMode] = useState('grants') // 'grants' | 'custom' | 'history' | 'referrals'
+  const [mode, setMode] = useState('grants') // 'grants' | 'custom' | 'watch' | 'history' | 'referrals'
   const [customAmount, setCustomAmount] = useState('')
+  const [watchQuotaInput, setWatchQuotaInput] = useState(user.watch_quota != null ? String(user.watch_quota) : '')
   const [saving, setSaving] = useState(false)
   const [history, setHistory] = useState(null)
   const [referralData, setReferralData] = useState(null)
@@ -1631,6 +1633,7 @@ function GrantModal({ user, onClose, onDone }) {
   const TABS = [
     ['grants',    '🎁', 'הטבות'],
     ['custom',    '✍️', 'התאמה'],
+    ['watch',     '🔔', 'התראות'],
     ['history',   '📋', 'חיפושים'],
     ['referrals', '🤝', 'הפניות'],
   ]
@@ -1742,6 +1745,48 @@ function GrantModal({ user, onClose, onDone }) {
                 fontWeight: 600, cursor: 'pointer', opacity: (saving || !customAmount) ? 0.5 : 1,
               }}
             >{saving ? '...' : 'הוסף'}</button>
+          </div>
+        )}
+
+        {mode === 'watch' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ fontSize: 12, color: 'var(--hint)' }}>
+              מגבלת התראות יד2 עבור משתמש זה.<br/>
+              ריק = השתמש במגבלה הגלובלית מהגדרות הפיצ'רים.
+            </div>
+            <input
+              className="input"
+              type="number" min="0" max="50"
+              placeholder="מגבלה אישית (ריק = גלובלי)"
+              value={watchQuotaInput}
+              onChange={e => setWatchQuotaInput(e.target.value)}
+              style={{ fontSize: 13 }}
+            />
+            <button
+              disabled={saving}
+              onClick={async () => {
+                setSaving(true)
+                try {
+                  const val = watchQuotaInput.trim() === '' ? null : parseInt(watchQuotaInput)
+                  await adminSetWatchQuota(user.user_id, val)
+                  window.Telegram?.WebApp?.showAlert(val === null ? '✅ אופס לברירת המחדל' : `✅ הוגדרו ${val} התראות`)
+                  await onDone()
+                } catch {
+                  window.Telegram?.WebApp?.showAlert('שגיאה')
+                }
+                setSaving(false)
+              }}
+              style={{
+                padding: '10px', borderRadius: 10, border: 'none',
+                background: 'var(--accent)', color: '#fff', fontSize: 13,
+                fontWeight: 600, cursor: 'pointer', opacity: saving ? 0.5 : 1,
+              }}
+            >{saving ? '...' : '💾 שמור'}</button>
+            {user.watch_quota != null && (
+              <div style={{ fontSize: 11, color: 'var(--hint)', textAlign: 'center' }}>
+                מגבלה נוכחית: {user.watch_quota} התראות (אישי)
+              </div>
+            )}
           </div>
         )}
 
@@ -2117,6 +2162,7 @@ function FeaturesTab() {
   const [pdfPublicLabel, setPdfPublicLabel]     = useState('')
   const [pdfSaving, setPdfSaving]               = useState(false)
   const [watchEnabled, setWatchEnabled]         = useState(false)
+  const [watchMax, setWatchMax]                 = useState('2')
   const [watchPublic, setWatchPublic]           = useState(false)
   const [watchPublicStart, setWatchPublicStart] = useState('')
   const [watchPublicEnd, setWatchPublicEnd]     = useState('')
@@ -2137,6 +2183,7 @@ function FeaturesTab() {
       setPdfPublicEnd(s.pdf_report_public_end || '')
       setPdfPublicLabel(s.pdf_report_public_label || '')
       setWatchEnabled(!!s.yad2_watch_enabled)
+      setWatchMax(String(s.yad2_watch_max ?? 2))
       setWatchPublic(!!s.yad2_watch_public)
       setWatchPublicStart(s.yad2_watch_public_start || '')
       setWatchPublicEnd(s.yad2_watch_public_end || '')
@@ -2298,6 +2345,12 @@ function FeaturesTab() {
 
         {watchEnabled && (
           <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 13, color: 'var(--hint)', flex: 1 }}>מקסימום התראות למשתמש</span>
+              <input type="number" min="1" max="20" className="input"
+                style={{ width: 70, marginBottom: 0, textAlign: 'center' }}
+                value={watchMax} onChange={e => setWatchMax(e.target.value)} />
+            </div>
             <div style={{ background: 'var(--bg2)', borderRadius: 10, padding: 12 }}>
               <div className="toggle-row" style={{ paddingTop: 0 }}>
                 <span className="toggle-label" style={{ fontSize: 14 }}>🌐 פתוח לכולם</span>
@@ -2336,6 +2389,7 @@ function FeaturesTab() {
           try {
             await adminUpdateSettings({
               yad2_watch_enabled:       watchEnabled,
+              yad2_watch_max:           parseInt(watchMax) || 2,
               yad2_watch_public:        watchPublic,
               yad2_watch_public_start:  watchPublicStart,
               yad2_watch_public_end:    watchPublicEnd,

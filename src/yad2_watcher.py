@@ -4,14 +4,29 @@ import json
 import logging
 
 logger = logging.getLogger(__name__)
-MAX_WATCHES_PER_USER = 5
+MAX_WATCHES_PER_USER = 5  # fallback if DB unavailable
+
+
+async def _get_max_for_user(user_id: int) -> int:
+    """Return the effective watch limit for this user (per-user override > global setting > fallback)."""
+    from src.db import execute, get_bot_setting
+    # Per-user override
+    r = await execute("SELECT watch_quota FROM users WHERE user_id=?", [user_id])
+    if r.rows and r.rows[0][0] is not None:
+        return int(r.rows[0][0])
+    # Global setting
+    val = await get_bot_setting("yad2_watch_max")
+    if val and val.isdigit():
+        return int(val)
+    return MAX_WATCHES_PER_USER
 
 
 async def create_watch(user_id: int, make: str, model: str, year: int | None) -> dict:
     from src.db import execute
+    max_watches = await _get_max_for_user(user_id)
     existing = await get_user_watches(user_id)
-    if len(existing) >= MAX_WATCHES_PER_USER:
-        raise ValueError(f"מקסימום {MAX_WATCHES_PER_USER} התראות")
+    if len(existing) >= max_watches:
+        raise ValueError(f"מקסימום {max_watches} התראות")
     await execute(
         "INSERT INTO yad2_watches (user_id, make, model, year) VALUES (?, ?, ?, ?)",
         [user_id, make, model, year]

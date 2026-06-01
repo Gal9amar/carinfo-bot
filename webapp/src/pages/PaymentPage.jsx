@@ -12,11 +12,15 @@ export default function PaymentPage({ pkg, onBack }) {
   const [paymentUrl, setPaymentUrl] = useState(null)
   const [paymentRef, setPaymentRef] = useState(null)
   const [preparing, setPreparing] = useState(true)
-  const desc = pkg.searches === -1 ? 'ללא הגבלה' : `${pkg.searches} חיפושים`
+  const qty = pkg._qty ?? 1
+  const isAlerts = pkg.package_type === 'alerts'
+  const desc = isAlerts
+    ? `${qty} התראה${qty > 1 ? 'ות' : ''} נוספת ביד2`
+    : (pkg.searches === -1 ? 'ללא הגבלה' : `${(pkg.searches ?? 1) * qty} חיפושים`)
 
   useEffect(() => {
     // intent_only=true: creates PayPal order silently (no admin notification, not in history)
-    initiatePayment(pkg.id, 1, true)
+    initiatePayment(pkg.id, qty, true)
       .then(data => {
         setPaymentUrl(data.approval_url)
         setPaymentRef(data.ref)

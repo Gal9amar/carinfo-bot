@@ -198,6 +198,16 @@ export async function adminGrantUser(userId, searches) {
   return r.json()
 }
 
+export async function adminSetWatchQuota(userId, watchQuota) {
+  const r = await fetch(`${BASE}/api/admin/users/${userId}/watch-quota`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ watch_quota: watchQuota }),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
 export async function fetchSearchHistory() {
   const r = await fetch(`${BASE}/api/user/history`, { headers: headers() })
   if (!r.ok) throw new Error('Failed')

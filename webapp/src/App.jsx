@@ -11,6 +11,7 @@ import HowItWorksPage from './pages/HowItWorksPage.jsx'
 import HistoryPage from './pages/HistoryPage.jsx'
 import ReferralPage from './pages/ReferralPage.jsx'
 import OrdersPage from './pages/OrdersPage.jsx'
+import WatchesPage from './pages/WatchesPage.jsx'
 import BottomNav from './components/BottomNav.jsx'
 
 export default function App() {
@@ -128,6 +129,14 @@ export default function App() {
     )
   }
 
+  if (screen === 'watches') {
+    return (
+      <div key="watches" className="page-enter">
+        <WatchesPage onBack={() => setScreen('home')} />
+      </div>
+    )
+  }
+
   if (screen === 'loading') {
     return <div className="loading"></div>
   }
@@ -168,7 +177,7 @@ export default function App() {
           <div className="success-icon">✅</div>
           <div className="success-title">הבקשה נשלחה!</div>
           <div className="success-text">
-            המנהל יאשר את התשלום בקרוב ותקבל הודעה בטלגרם.
+            נאשר את הרכישה בקרוב ותקבל הודעה בטלגרם.
           </div>
           <button className="btn" onClick={() => setScreen('home')}>
             חזור לתפריט

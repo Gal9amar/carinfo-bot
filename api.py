@@ -111,7 +111,7 @@ async def health():
 async def list_packages():
     from src.packages import get_packages
     pkgs = await get_packages()
-    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4], "display_order": p[5], "duration_months": p[6] if len(p) > 6 else 1, "features": p[7] if len(p) > 7 else [], "chips": p[8] if len(p) > 8 else []} for p in pkgs]
+    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4], "display_order": p[5], "duration_months": p[6] if len(p) > 6 else 1, "features": p[7] if len(p) > 7 else [], "chips": p[8] if len(p) > 8 else [], "package_type": p[9] if len(p) > 9 else "searches"} for p in pkgs]
 
 
 @api.get("/api/user")
@@ -218,7 +218,10 @@ async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_u
         raise HTTPException(status_code=404, detail="Package not found")
     pid, label, searches, price, _img, _order = pkg[:6]
     duration_months = pkg[6] if len(pkg) > 6 else 1
-    qty = max(1, min(10, body.quantity))
+    package_type = pkg[9] if len(pkg) > 9 else "searches"
+    # Alert packs: qty = number of extra alerts (max 8)
+    max_qty = 8 if package_type == "alerts" else 10
+    qty = max(1, min(max_qty, body.quantity))
     total_price = price * qty
     total_searches = -1 if searches == -1 else searches * qty
     qty_label = f"{label} ×{qty}" if qty > 1 else label
@@ -259,8 +262,8 @@ async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_u
 
     init_status = "intent" if body.intent_only else "created"
     await execute(
-        "INSERT OR IGNORE INTO pending_payments (ref, phone, searches, price, label, paypal_order_id, duration_months) VALUES (?,?,?,?,?,?,?)",
-        [ref, str(uid), total_searches, total_price, qty_label, paypal_order_id, duration_months],
+        "INSERT OR IGNORE INTO pending_payments (ref, phone, searches, price, label, paypal_order_id, duration_months, package_type) VALUES (?,?,?,?,?,?,?,?)",
+        [ref, str(uid), total_searches, total_price, qty_label, paypal_order_id, duration_months, package_type],
     )
     await execute(
         "INSERT INTO paypal_transactions (ref, paypal_order_id, user_id, amount, currency, label, searches, status, duration_months) VALUES (?,?,?,?,?,?,?,?,?)",
@@ -416,15 +419,29 @@ async def _order_notify(ref: str, status: str, label: str = "", amount=None) -> 
         pass
 
 
+async def _grant_payment(user_id: int, searches: int, label: str, duration_months: int, package_type: str) -> None:
+    """Apply the reward for an approved payment based on package_type."""
+    from src.db import execute
+    if package_type == "alerts":
+        # Add watches quota: current + quantity (capped at 10)
+        r = await execute("SELECT COALESCE(watch_quota, NULL) FROM users WHERE user_id=?", [user_id])
+        from src.yad2_watcher import _get_max_for_user
+        current_max = await _get_max_for_user(user_id)
+        new_max = min(10, current_max + searches)
+        await execute("UPDATE users SET watch_quota=? WHERE user_id=?", [new_max, user_id])
+    else:
+        from src.users import admin_grant, add_to_subscribers
+        await admin_grant(0, user_id, searches, duration_months=duration_months)
+        await add_to_subscribers(user_id)
+
+
 async def _auto_approve_payment(ref: str) -> None:
     from src.db import execute
-    from src.users import admin_grant, add_to_subscribers
-    r = await execute("SELECT phone, searches, label, COALESCE(duration_months,1) FROM pending_payments WHERE ref=?", [ref])
+    r = await execute("SELECT phone, searches, label, COALESCE(duration_months,1), COALESCE(package_type,'searches') FROM pending_payments WHERE ref=?", [ref])
     if not r.rows:
         return  # already processed
-    user_id, searches, label, duration_months = int(r.rows[0][0]), r.rows[0][1], r.rows[0][2], int(r.rows[0][3])
-    await admin_grant(0, user_id, searches, duration_months=duration_months)
-    await add_to_subscribers(user_id)
+    user_id, searches, label, duration_months, package_type = int(r.rows[0][0]), r.rows[0][1], r.rows[0][2], int(r.rows[0][3]), r.rows[0][4]
+    await _grant_payment(user_id, searches, label, duration_months, package_type)
     await execute("DELETE FROM pending_payments WHERE ref=?", [ref])
     await execute(
         "UPDATE paypal_transactions SET status='completed', updated_at=datetime('now') WHERE ref=?",
@@ -438,7 +455,8 @@ async def _auto_approve_payment(ref: str) -> None:
         pass
     try:
         from src.activity import log as _alog
-        await _alog("payment_approved", f"PayPal אוטומטי: {label} ({searches} חיפושים) למשתמש {user_id}")
+        desc = f"PayPal אוטומטי: {label} ({'התראות' if package_type == 'alerts' else f'{searches} חיפושים'}) למשתמש {user_id}"
+        await _alog("payment_approved", desc)
     except Exception:
         pass
 
@@ -647,6 +665,7 @@ async def admin_get_settings(_: dict = Depends(_require_admin)):
         "yad2_watch_public_start":   (await get_bot_setting("yad2_watch_public_start")) or "",
         "yad2_watch_public_end":     (await get_bot_setting("yad2_watch_public_end"))   or "",
         "yad2_watch_public_label":   (await get_bot_setting("yad2_watch_public_label")) or "",
+        "yad2_watch_max":            int((await get_bot_setting("yad2_watch_max")) or "2"),
         "pdf_report_enabled":        (await get_bot_setting("pdf_report_enabled")) == "1",
         "pdf_report_groups":         json.loads((await get_bot_setting("pdf_report_groups")) or "[]"),
         "pdf_report_public":         (await get_bot_setting("pdf_report_public")) == "1",
@@ -673,6 +692,7 @@ class SettingsUpdate(BaseModel):
     yad2_market_public_end:    str          | None = None
     yad2_market_public_label:  str          | None = None
     yad2_watch_enabled:        bool         | None = None
+    yad2_watch_max:            int          | None = None
     yad2_watch_groups:         Optional[list]      = None
     yad2_watch_public:         bool         | None = None
     yad2_watch_public_start:   str          | None = None
@@ -733,6 +753,8 @@ async def admin_update_settings(body: SettingsUpdate, _: dict = Depends(_require
         await set_bot_setting("yad2_market_public_label", body.yad2_market_public_label.strip())
     if body.yad2_watch_enabled is not None:
         await set_bot_setting("yad2_watch_enabled", "1" if body.yad2_watch_enabled else "0")
+    if body.yad2_watch_max is not None:
+        await set_bot_setting("yad2_watch_max", str(max(1, body.yad2_watch_max)))
     if body.yad2_watch_groups is not None:
         await set_bot_setting("yad2_watch_groups", json.dumps(body.yad2_watch_groups))
     if body.yad2_watch_public is not None:
@@ -844,7 +866,7 @@ async def admin_remove_group_member(group_id: int, user_id: int, _: dict = Depen
 async def admin_list_packages(_: dict = Depends(_require_admin)):
     from src.packages import get_packages
     pkgs = await get_packages(force_reload=True)
-    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4], "display_order": p[5], "duration_months": p[6] if len(p) > 6 else 1, "features": p[7] if len(p) > 7 else [], "chips": p[8] if len(p) > 8 else []} for p in pkgs]
+    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4], "display_order": p[5], "duration_months": p[6] if len(p) > 6 else 1, "features": p[7] if len(p) > 7 else [], "chips": p[8] if len(p) > 8 else [], "package_type": p[9] if len(p) > 9 else "searches"} for p in pkgs]
 
 
 class PackageBody(BaseModel):
@@ -868,7 +890,7 @@ async def admin_reorder_packages(body: PackageReorderBody, _: dict = Depends(_re
         raise HTTPException(status_code=400, detail="Order list required")
     await reorder_packages(body.order)
     pkgs = await get_packages(force_reload=True)
-    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4], "display_order": p[5], "duration_months": p[6] if len(p) > 6 else 1, "features": p[7] if len(p) > 7 else [], "chips": p[8] if len(p) > 8 else []} for p in pkgs]
+    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4], "display_order": p[5], "duration_months": p[6] if len(p) > 6 else 1, "features": p[7] if len(p) > 7 else [], "chips": p[8] if len(p) > 8 else [], "package_type": p[9] if len(p) > 9 else "searches"} for p in pkgs]
 
 
 @api.post("/api/admin/packages")
@@ -876,7 +898,7 @@ async def admin_add_package(body: PackageBody, _: dict = Depends(_require_admin)
     from src.packages import add_package, get_packages
     await add_package(body.label, body.searches, body.price, body.image_url, body.duration_months, body.features, body.chips)
     pkgs = await get_packages(force_reload=True)
-    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4], "display_order": p[5], "duration_months": p[6] if len(p) > 6 else 1, "features": p[7] if len(p) > 7 else [], "chips": p[8] if len(p) > 8 else []} for p in pkgs]
+    return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4], "display_order": p[5], "duration_months": p[6] if len(p) > 6 else 1, "features": p[7] if len(p) > 7 else [], "chips": p[8] if len(p) > 8 else [], "package_type": p[9] if len(p) > 9 else "searches"} for p in pkgs]
 
 
 @api.put("/api/admin/packages/{pkg_id}")
@@ -969,6 +991,20 @@ async def admin_grant_user(user_id: int, body: GrantBody, admin: dict = Depends(
     except Exception:
         pass
     return {"ok": True, "msg": msg}
+
+
+class WatchQuotaBody(BaseModel):
+    watch_quota: Optional[int] = None  # None = reset to global default
+
+
+@api.post("/api/admin/users/{user_id}/watch-quota")
+async def admin_set_watch_quota(user_id: int, body: WatchQuotaBody, _: dict = Depends(_require_admin)):
+    from src.db import execute
+    await execute(
+        "UPDATE users SET watch_quota=? WHERE user_id=?",
+        [body.watch_quota, user_id]
+    )
+    return {"ok": True}
 
 
 # ── Tickets (user) ────────────────────────────────────────────────────────────
@@ -1107,14 +1143,11 @@ async def admin_list_payments(_: dict = Depends(_require_admin)):
 @api.post("/api/admin/payments/{ref}/approve")
 async def admin_approve_payment(ref: str, admin: dict = Depends(_require_admin)):
     from src.db import execute
-    from src.users import admin_grant
-    r = await execute("SELECT phone, searches, label, COALESCE(duration_months,1) FROM pending_payments WHERE ref=?", [ref])
+    r = await execute("SELECT phone, searches, label, COALESCE(duration_months,1), COALESCE(package_type,'searches') FROM pending_payments WHERE ref=?", [ref])
     if not r.rows:
         raise HTTPException(status_code=404, detail="Payment not found")
-    user_id, searches, label, duration_months = int(r.rows[0][0]), r.rows[0][1], r.rows[0][2], int(r.rows[0][3])
-    await admin_grant(int(admin["id"]), user_id, searches, duration_months=duration_months)
-    from src.users import add_to_subscribers
-    await add_to_subscribers(user_id)
+    user_id, searches, label, duration_months, package_type = int(r.rows[0][0]), r.rows[0][1], r.rows[0][2], int(r.rows[0][3]), r.rows[0][4]
+    await _grant_payment(user_id, searches, label, duration_months, package_type)
     await execute("DELETE FROM pending_payments WHERE ref=?", [ref])
     await execute(
         "UPDATE paypal_transactions SET status='completed', updated_at=datetime('now') WHERE ref=?", [ref]
@@ -1127,7 +1160,8 @@ async def admin_approve_payment(ref: str, admin: dict = Depends(_require_admin))
         pass
     try:
         from src.activity import log as _log
-        await _log("payment_approved", f"תשלום אושר: {label} ({searches} חיפושים) למשתמש {user_id}")
+        desc = f"תשלום אושר: {label} ({'התראות' if package_type == 'alerts' else f'{searches} חיפושים'}) למשתמש {user_id}"
+        await _log("payment_approved", desc)
     except Exception:
         pass
     return {"ok": True}

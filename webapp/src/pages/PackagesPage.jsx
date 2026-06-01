@@ -4,8 +4,8 @@ import BackButton from '../components/BackButton.jsx'
 export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSupport, onReferral, onBack }) {
   const [quantities, setQuantities] = useState({})
   function getQty(id) { return quantities[id] ?? 1 }
-  function setQty(id, val) {
-    setQuantities(q => ({ ...q, [id]: Math.max(1, Math.min(10, val)) }))
+  function setQty(id, val, max = 10) {
+    setQuantities(q => ({ ...q, [id]: Math.max(1, Math.min(max, val)) }))
   }
 
   function handleSelect(pkg) { onSelect(pkg) }
@@ -13,13 +13,14 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
   const isFreeUser = user && !user.is_subscriber
   const subLabel   = user?.subscription_label || null
 
-  const freePackage  = packages.find(p => p.searches === 0)
-  const paidPackages = packages.filter(p => p.searches !== 0)
+  const freePackage    = packages.find(p => p.searches === 0 && (p.package_type ?? 'searches') === 'searches')
+  const alertPackages  = packages.filter(p => p.package_type === 'alerts')
+  const paidPackages   = packages.filter(p => p.searches !== 0 && (p.package_type ?? 'searches') === 'searches')
 
   return (
     <div className="page" style={{ paddingBottom: 16 }}>
       {onBack && <BackButton onClick={onBack} />}
-      <div className="page-title">⭐ רכישת מנוי</div>
+      <div className="page-title">🛒 החנות</div>
 
       {user && (
         <div className="card" style={{ marginBottom: 16 }}>
@@ -44,7 +45,7 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
         borderRadius: 16, padding: '16px 18px', marginBottom: 20,
       }}>
         <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10, color: '#a855f7' }}>
-          ⭐ מה זה מנוי CarInfo?
+          ⭐ מה זה חבילת חיפושים CarInfo?
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9, fontSize: 13 }}>
           <Row icon="🔍" text="מנוי מקנה לך סל חיפושים לשימוש בקצב שלך — ללא הגבלת זמן לניצול היתרה" />
@@ -205,9 +206,14 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
         )
       })()}
 
+      {/* ── Section header: חבילות חיפושים ── */}
+      <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, color: 'var(--text)' }}>
+        🔍 חבילות חיפושים
+      </div>
+
       {paidPackages.length === 0 && (
         <div className="card" style={{ textAlign: 'center', color: 'var(--hint)', fontSize: 14 }}>
-          אין מנויים זמינים כרגע
+          אין חבילות זמינות כרגע
         </div>
       )}
 
@@ -265,7 +271,7 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
                   fontSize: 13, fontWeight: 400, padding: '4px 12px',
                   background: accent, color: '#000',
                   borderRadius: 20, whiteSpace: 'nowrap',
-                }}>⭐ מנוי {pkg.label}</span>
+                }}>⭐ חבילת {pkg.label}</span>
               </div>
             </div>
 
@@ -350,11 +356,134 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
                   boxShadow: `0 4px 14px rgba(0,0,0,0.25)`,
                   letterSpacing: 0.4,
                 }}
-              >🛒 רכישת מנוי</button>
+              >🛒 רכישת חבילה</button>
             </div>
           </div>
         )
       })}
+
+      {/* ── Section: חבילות התראות ── */}
+      {alertPackages.length > 0 && (
+        <>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, marginTop: 8, color: 'var(--text)' }}>
+            🔔 חבילות התראות יד2
+          </div>
+          {alertPackages.map(pkg => {
+            const qty         = getQty(pkg.id)
+            const maxQty      = 8
+            const totalPrice  = pkg.price * qty
+            const alertAccent = '#8b5cf6'
+            const alertGrad   = 'linear-gradient(135deg,#4c1d95,#7c3aed)'
+            return (
+              <div key={pkg.id} style={{
+                borderRadius: 20, overflow: 'hidden', marginBottom: 22,
+                boxShadow: '0 6px 28px rgba(0,0,0,0.18), 0 0 0 1px rgba(255,255,255,0.07)',
+                background: 'var(--bg2)',
+              }}>
+                {/* Hero */}
+                <div style={{
+                  width: '100%', height: 150, background: alertGrad,
+                  display: 'flex', flexDirection: 'column',
+                  alignItems: 'center', justifyContent: 'center', gap: 6, position: 'relative',
+                }}>
+                  <span style={{ fontSize: 52, lineHeight: 1 }}>🔔</span>
+                  <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 600 }}>
+                    התראות על מודעות חדשות ביד2
+                  </span>
+                  <div style={{
+                    position: 'absolute', inset: 0,
+                    background: 'linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 55%)',
+                    display: 'flex', alignItems: 'flex-end', padding: '12px 14px',
+                  }}>
+                    <span style={{
+                      fontSize: 13, fontWeight: 400, padding: '4px 12px',
+                      background: alertAccent, color: '#fff',
+                      borderRadius: 20, whiteSpace: 'nowrap',
+                    }}>🔔 {pkg.label}</span>
+                  </div>
+                </div>
+
+                {/* Chips */}
+                <div style={{ display: 'flex', gap: 7, padding: '14px 14px 10px', flexWrap: 'wrap' }}>
+                  <Chip accent={alertAccent}>🔔 {qty} התראה{qty > 1 ? 'ות' : ''} נוספת</Chip>
+                  {(pkg.chips?.length
+                    ? pkg.chips
+                    : ['💳 חד-פעמי', '🔓 ללא תפוגה']
+                  ).map((c, i) => <Chip key={i} accent={alertAccent}>{c}</Chip>)}
+                </div>
+
+                <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 14px' }} />
+
+                {/* Description */}
+                <div style={{ padding: '12px 16px 8px', fontSize: 12, color: 'var(--hint)', lineHeight: 1.7 }}>
+                  {pkg.features?.length > 0
+                    ? pkg.features.map((f, i) => (
+                        <div key={i} style={{ color: f.included !== false ? 'var(--hint)' : '#e53e3e66' }}>
+                          {f.included !== false ? '✅' : '✗'} {f.text}
+                        </div>
+                      ))
+                    : <>
+                        <div>✅ התראה בטלגרם על כל מודעה חדשה ביד2 עבור הרכב שבחרת</div>
+                        <div>✅ ניהול מעקבים מתוך הדוח</div>
+                        <div>✅ עד 10 מעקבים פעילים בסה"כ (2 בסיסיות + עד 8 נרכשות)</div>
+                      </>
+                  }
+                </div>
+
+                <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 14px' }} />
+
+                {/* Quantity */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '12px 16px',
+                }}>
+                  <span style={{ fontSize: 13, color: 'var(--hint)' }}>כמות התראות</span>
+                  <div style={{ display: 'flex', alignItems: 'center',
+                    background: 'var(--bg)', borderRadius: 12, overflow: 'hidden' }}>
+                    <button onClick={() => setQty(pkg.id, qty - 1, maxQty)} disabled={qty <= 1} style={{
+                      width: 44, height: 40, border: 'none', background: 'transparent',
+                      fontSize: 22, cursor: qty <= 1 ? 'default' : 'pointer',
+                      color: qty <= 1 ? 'var(--hint)' : alertAccent, fontWeight: 700,
+                    }}>−</button>
+                    <span style={{ width: 34, textAlign: 'center', fontWeight: 800, fontSize: 16 }}>{qty}</span>
+                    <button onClick={() => setQty(pkg.id, qty + 1, maxQty)} disabled={qty >= maxQty} style={{
+                      width: 44, height: 40, border: 'none', background: 'transparent',
+                      fontSize: 22, cursor: qty >= maxQty ? 'default' : 'pointer',
+                      color: qty >= maxQty ? 'var(--hint)' : alertAccent, fontWeight: 700,
+                    }}>+</button>
+                  </div>
+                  <span style={{ fontSize: 13, color: 'var(--hint)' }}>
+                    מקסימום <strong style={{ color: 'var(--text)' }}>{maxQty}</strong>
+                  </span>
+                </div>
+
+                {/* Price + CTA */}
+                <div style={{ padding: '10px 14px 16px' }}>
+                  <div style={{
+                    display: 'flex', alignItems: 'baseline', justifyContent: 'center',
+                    gap: 6, marginBottom: 12,
+                  }}>
+                    <span style={{ fontSize: 40, fontWeight: 900, color: alertAccent, lineHeight: 1 }}>
+                      ₪{totalPrice}
+                    </span>
+                    <span style={{ fontSize: 12, color: 'var(--hint)' }}>
+                      ({qty} × ₪{pkg.price} לכל התראה)
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => handleSelect({ ...pkg, _qty: qty })}
+                    style={{
+                      width: '100%', padding: '14px 0', border: 'none', borderRadius: 14,
+                      background: alertGrad, color: '#fff', fontSize: 16, fontWeight: 700,
+                      cursor: 'pointer', boxShadow: '0 4px 14px rgba(0,0,0,0.25)', letterSpacing: 0.4,
+                    }}
+                  >🔔 רכישת חבילת התראות</button>
+                </div>
+              </div>
+            )
+          })}
+        </>
+      )}
 
       {/* Nav buttons */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
