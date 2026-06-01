@@ -1,0 +1,6 @@
+{
+  "reportMissingModuleSource": "none",
+  "reportMissingImports": "none",
+  "reportOptionalMemberAccess": "none",
+  "reportAttributeAccessIssue": "none"
+}

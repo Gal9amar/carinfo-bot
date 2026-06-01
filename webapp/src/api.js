@@ -483,6 +483,18 @@ export async function adminFetchMarketPrice(plate) {
   return r.json()
 }
 
+// Yad2 Watch reference data
+export async function fetchWatchMakes() {
+  const r = await fetch(`${BASE}/api/watches/makes`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+export async function fetchWatchModels(make) {
+  const r = await fetch(`${BASE}/api/watches/models?make=${encodeURIComponent(make)}`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
 // Yad2 Watches (user)
 export async function fetchUserWatches() {
   const r = await fetch(`${BASE}/api/user/watches`, { headers: headers() })

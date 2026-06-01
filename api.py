@@ -1673,6 +1673,32 @@ class WatchBody(BaseModel):
     year: Optional[int] = None
 
 
+# ── Yad2 Watch reference data (user-facing) ──────────────────────────────────
+
+@api.get("/api/watches/makes")
+async def user_watch_makes(_: dict = Depends(_get_user)):
+    from src import yad2 as _yad2
+    return sorted(_yad2._MAKES.keys())
+
+
+@api.get("/api/watches/models")
+async def user_watch_models(make: str = "", _: dict = Depends(_get_user)):
+    from src import yad2 as _yad2
+    mid = _yad2._manufacturer_id(make)
+    if not mid:
+        return []
+    models_dict = _yad2._MODEL_LOOKUP.get(mid, {})
+    seen_ids: dict[int, str] = {}
+    for name, model_id in models_dict.items():
+        if model_id not in seen_ids:
+            seen_ids[model_id] = name
+        else:
+            existing = seen_ids[model_id]
+            if len(name) < len(existing) or (any(c.isupper() for c in name) and not any(c.isupper() for c in existing)):
+                seen_ids[model_id] = name
+    return sorted(set(seen_ids.values()))
+
+
 # ── Yad2 Watches (User) ─────────────────────────────────────────────────────
 
 async def _check_watch_access(user: dict) -> bool:
