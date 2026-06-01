@@ -13,7 +13,7 @@ export default function PaymentPage({ pkg, onBack }) {
   const [paymentRef, setPaymentRef] = useState(null)
   const [preparing, setPreparing] = useState(true)
   const qty = pkg._qty ?? 1
-  const isAlerts = pkg.package_type === 'alerts'
+  const isAlerts = pkg.package_type === 'alerts' || (pkg.label ?? '').includes('התראות')
   const desc = isAlerts
     ? `${qty} התראה${qty > 1 ? 'ות' : ''} נוספת ביד2`
     : (pkg.searches === -1 ? 'ללא הגבלה' : `${(pkg.searches ?? 1) * qty} חיפושים`)
