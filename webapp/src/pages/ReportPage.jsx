@@ -658,11 +658,19 @@ export default function ReportPage({ plate, onBack, user }) {
           <div className="card" style={{ marginBottom: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
               <div>
-                <div style={{
-                  display: 'inline-block', fontSize: 11, fontWeight: 700,
-                  background: '#8b5cf6', color: '#fff',
-                  borderRadius: 20, padding: '4px 10px', marginBottom: 6,
-                }}>למנויים בלבד</div>
+                {authorized ? (
+                  <div style={{
+                    display: 'inline-block', fontSize: 11, fontWeight: 700,
+                    background: '#16a34a', color: '#fff',
+                    borderRadius: 20, padding: '4px 10px', marginBottom: 6,
+                  }}>✅ מנוי פעיל</div>
+                ) : (
+                  <div style={{
+                    display: 'inline-block', fontSize: 11, fontWeight: 700,
+                    background: '#8b5cf6', color: '#fff',
+                    borderRadius: 20, padding: '4px 10px', marginBottom: 6,
+                  }}>למנויים בלבד</div>
+                )}
                 <div style={{ fontWeight: 700, fontSize: 15 }}>📄 דוח PDF + הערות אישיות</div>
               </div>
             </div>
