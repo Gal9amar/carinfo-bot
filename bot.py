@@ -2085,15 +2085,29 @@ async def handle_pdf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 async def run_self_ping():
+    """Ping /health every 10 min only during active hours (07:00-23:00 Israel time).
+    Outside those hours the server is allowed to sleep, saving Render free-tier hours.
+    Active window: 16 h/day × 31 days ≈ 496 h/month (well within the 750 h free quota).
+    """
     import asyncio as _asyncio, urllib.request as _req
+    from datetime import datetime, timezone, timedelta
+
     url = os.environ.get("RENDER_EXTERNAL_URL", "")
     if not url:
         logger.info("RENDER_EXTERNAL_URL not set — self-ping disabled")
         return
     url = url.rstrip("/") + "/health"
+    israel_tz = timezone(timedelta(hours=3))  # UTC+3 (covers both IST and IDT)
+    ACTIVE_START = 7   # 07:00
+    ACTIVE_END   = 23  # 23:00
+
     while True:
         await _asyncio.sleep(600)
         cache.clear_expired()
+        now_hour = datetime.now(israel_tz).hour
+        if not (ACTIVE_START <= now_hour < ACTIVE_END):
+            logger.debug("Self-ping skipped (off-hours %02d:xx)", now_hour)
+            continue
         try:
             await _asyncio.get_event_loop().run_in_executor(
                 None, lambda: _req.urlopen(url, timeout=10)
