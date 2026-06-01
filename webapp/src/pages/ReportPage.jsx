@@ -468,6 +468,11 @@ export default function ReportPage({ plate, onBack, user }) {
               }}>למנויים בלבד</div>
               <div style={{ fontWeight: 700, fontSize: 15 }}>🔔 התראות יד2</div>
             </div>
+            {user?.watch_public_label && (
+              <div style={{ fontSize: 11, color: 'var(--hint)', textAlign: 'left', whiteSpace: 'nowrap' }}>
+                {user.watch_public_label}
+              </div>
+            )}
           </div>
           <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 12 }}>
             קבל התראה בטלגרם כשתתווסף מודעה חדשה ל-Yad2 עבור <strong>{[make, model, year].filter(Boolean).join(' ')}</strong>
@@ -754,6 +759,11 @@ export default function ReportPage({ plate, onBack, user }) {
                 }}>למנויים בלבד</div>
                 <div style={{ fontWeight: 700, fontSize: 15 }}>📄 דוח PDF + הערות אישיות</div>
               </div>
+              {user?.pdf_public_label && (
+                <div style={{ fontSize: 11, color: 'var(--hint)', textAlign: 'left', whiteSpace: 'nowrap' }}>
+                  {user.pdf_public_label}
+                </div>
+              )}
             </div>
 
             {/* Notes */}

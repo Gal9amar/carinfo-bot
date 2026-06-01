@@ -160,6 +160,14 @@ async def get_user_info(user: dict = Depends(_get_user)):
     show_pdf    = await _check_feature("pdf_report")
     show_watch  = await _check_feature("yad2_watch")
 
+    async def _public_label(key_prefix: str) -> str:
+        if (await get_bot_setting(f"{key_prefix}_public")) != "1":
+            return ""
+        return (await get_bot_setting(f"{key_prefix}_public_label")) or ""
+
+    pdf_public_label   = await _public_label("pdf_report")
+    watch_public_label = await _public_label("yad2_watch")
+
     # Check if user is in the 'מנויים' group
     sub_r = await execute(
         "SELECT 1 FROM user_group_members ugm "
@@ -196,6 +204,8 @@ async def get_user_info(user: dict = Depends(_get_user)):
         "show_market_price": show_market,
         "show_pdf_report": show_pdf,
         "show_watch": show_watch,
+        "pdf_public_label": pdf_public_label,
+        "watch_public_label": watch_public_label,
         "is_subscriber": is_subscriber,
         "subscription_label": subscription_label,
     }
