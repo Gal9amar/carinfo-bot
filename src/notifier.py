@@ -5,7 +5,7 @@ bot.py registers callbacks here; api.py calls them.
 This avoids a circular import between bot.py and api.py.
 """
 
-from typing import Callable, Awaitable, Optional
+from typing import Any, Callable, Awaitable, Optional
 
 _notify_admin_payment_fn: Optional[Callable[..., Awaitable[None]]] = None
 _notify_admin_ticket_fn:  Optional[Callable[..., Awaitable[None]]] = None
@@ -137,10 +137,10 @@ async def notify_admin_order(ref: str, status: str, label: str, amount, username
         await _notify_admin_order_fn(ref, status, label, amount, username, member_id)
 
 
-_send_user_document_fn: Optional[Callable[..., Awaitable[None]]] = None
+_send_user_document_fn: Optional[Callable[..., Awaitable[Any]]] = None
 
 
-def register_user_document_sender(fn: Callable[..., Awaitable[None]]) -> None:
+def register_user_document_sender(fn: Callable[..., Awaitable[Any]]) -> None:
     global _send_user_document_fn
     _send_user_document_fn = fn
 
