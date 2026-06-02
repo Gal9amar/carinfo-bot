@@ -201,16 +201,24 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
             import_records, importer_records, scrapped_records,
         ) = await asyncio.gather(*tasks)
 
-    # Same-model count — use numeric codes to avoid Hebrew encoding issues with CKAN filters
-    same_model_filters = {}
-    if tozeret_cd:                  same_model_filters["tozeret_cd"]   = tozeret_cd
-    if degem_cd:                    same_model_filters["degem_cd"]     = degem_cd
-    if record.get("shnat_yitzur"):  same_model_filters["shnat_yitzur"] = record["shnat_yitzur"]
-    if same_model_filters:
-        async with httpx.AsyncClient(timeout=20) as client:
-            same_model_count = await _count_filter(client, RES_MAIN, same_model_filters)
-    else:
-        same_model_count = None
+    # Same-model count — cast codes to int (CKAN may return floats; int mismatch = 0 results)
+    same_model_count = None
+    if tozeret_cd and degem_cd:
+        try:
+            _tc = int(float(str(tozeret_cd).strip()))
+            _dc = int(float(str(degem_cd).strip()))
+            _filters: dict = {"tozeret_cd": _tc, "degem_cd": _dc}
+            if record.get("shnat_yitzur"):
+                _filters["shnat_yitzur"] = record["shnat_yitzur"]
+            async with httpx.AsyncClient(timeout=20) as client:
+                _r = await client.get(
+                    BASE_URL,
+                    params={"resource_id": RES_MAIN, "filters": json.dumps(_filters), "limit": 1},
+                )
+                _r.raise_for_status()
+                same_model_count = _r.json().get("result", {}).get("total")
+        except Exception as exc:
+            logger.warning("gov_api same_model_count failed tozeret=%s degem=%s: %s", tozeret_cd, degem_cd, exc)
 
     if ownership_records:
         ownership_records.sort(key=lambda r: str(r.get("baalut_dt", "")))
