@@ -3359,6 +3359,23 @@ function DebugTab() {
 
         {result && (
           <div style={{ marginTop: 12 }}>
+            {/* km fields from schema */}
+            <div style={{
+              background: result.km_fields?.length > 1 ? '#1a3a2a' : 'var(--bg)',
+              borderRadius: 8, padding: '10px 12px', marginBottom: 10,
+              border: `1px solid ${result.km_fields?.length > 1 ? '#48bb78' : 'rgba(255,255,255,0.08)'}`,
+            }}>
+              <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
+                🔑 שדות kilometer בטבלה ({result.km_fields?.length ?? 0} נמצאו):
+              </div>
+              {result.km_fields?.length > 0
+                ? result.km_fields.map(f => (
+                    <div key={f} style={{ fontSize: 12, fontFamily: 'monospace', color: '#a78bfa', marginTop: 2 }}>• {f}</div>
+                  ))
+                : <div style={{ fontSize: 11, color: 'var(--hint)' }}>לא נמצאו שדות kilometer</div>
+              }
+            </div>
+
             <div style={{ fontSize: 12, marginBottom: 6 }}>
               <strong>לוחית:</strong> {result.plate} &nbsp;|&nbsp;
               <strong>שורות היסטוריה:</strong>{' '}
@@ -3375,7 +3392,7 @@ function DebugTab() {
             {result.history_rows.length > 0 && (
               <>
                 <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 4 }}>
-                  שדות: {Object.keys(result.history_rows[0]).join(', ')}
+                  כל השדות: {result.all_fields?.join(', ')}
                 </div>
                 {result.history_rows.map((row, i) => (
                   <div key={i} style={{ marginBottom: 6 }}>
