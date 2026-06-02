@@ -255,9 +255,10 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
                     "limit": 1,
                 })
                 _total = _r.json().get("result", {}).get("total")
+                logger.warning("same_model_count plate=%s filters=%s total=%r status=%s", clean, _filters, _total, _r.status_code)
                 if _total is not None:
                     record["_same_model_count"] = _total
         except Exception as exc:
-            logger.warning("same_model_count failed: %s", exc)
+            logger.warning("same_model_count EXCEPTION plate=%s: %s", clean, exc)
 
     return record
