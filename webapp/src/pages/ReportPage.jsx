@@ -369,14 +369,6 @@ export default function ReportPage({ plate, onBack, user }) {
           </div>
           <div className="stat-label">תוקף טסט</div>
         </div>
-        {record._same_model_count != null && (
-          <div className="stat-card" style={{ gridColumn: 'span 2' }}>
-            <div className="stat-value" style={{ fontSize: 18 }}>
-              {Number(record._same_model_count).toLocaleString('he-IL')}
-            </div>
-            <div className="stat-label">🇮🇱 רכבים זהים רשומים בישראל</div>
-          </div>
-        )}
       </div>
 
       {/* ── Same-model count ── */}
