@@ -201,21 +201,6 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
             import_records, importer_records, scrapped_records,
         ) = await asyncio.gather(*tasks)
 
-    # Same-model count runs alone after the parallel gather so it doesn't compete
-    same_model_count = None
-    if tozeret_cd and degem_cd:
-        try:
-            _tc = int(float(str(tozeret_cd).strip()))
-            _dc = int(float(str(degem_cd).strip()))
-            _f  = {"tozeret_cd": _tc, "degem_cd": _dc}
-            if record.get("shnat_yitzur"):
-                _f["shnat_yitzur"] = record["shnat_yitzur"]
-            async with httpx.AsyncClient(timeout=20) as _c:
-                r = await _c.get(BASE_URL, params={"resource_id": RES_MAIN, "filters": json.dumps(_f), "limit": 1})
-                same_model_count = r.json().get("result", {}).get("total")
-        except Exception as exc:
-            logger.warning("gov_api same_model_count failed tc=%s dc=%s: %s", tozeret_cd, degem_cd, exc)
-
     if ownership_records:
         ownership_records.sort(key=lambda r: str(r.get("baalut_dt", "")))
         record["_ownership"] = ownership_records
@@ -253,8 +238,5 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
 
     if scrapped_records:
         record["_scrapped_dt"] = scrapped_records[0].get("bitul_dt", "")
-
-    if same_model_count is not None:
-        record["_same_model_count"] = same_model_count
 
     return record

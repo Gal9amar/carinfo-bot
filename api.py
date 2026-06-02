@@ -542,35 +542,27 @@ async def get_vehicle(plate: str, user: dict = Depends(_get_user)):
     if not record:
         raise HTTPException(status_code=404, detail="Vehicle not found")
 
-    # Same-model count — identical to admin debug endpoint which is proven to work
-    import logging as _logging
-    _smlog = _logging.getLogger("same_model_count")
-    if "_same_model_count" not in record:
-        _degem_cd   = str(record.get("degem_cd") or record.get("sug_degem") or "").strip()
-        _tozeret_cd = str(record.get("tozeret_cd") or "").strip()
-        _smlog.warning("vehicle %s codes: tozeret=%s degem=%s", plate, _tozeret_cd, _degem_cd)
-        if _degem_cd and _tozeret_cd:
-            try:
-                _cd_filters = {"tozeret_cd": int(_tozeret_cd), "degem_cd": int(_degem_cd)}
-                _shnat = record.get("shnat_yitzur")
-                if _shnat:
-                    _cd_filters["shnat_yitzur"] = _shnat
-                _smlog.warning("vehicle %s querying filters=%s", plate, _cd_filters)
-                async with _httpx.AsyncClient(timeout=15) as _c:
-                    _r = await _c.get(_GOV_URL, params={
-                        "resource_id": _RES_MAIN,
-                        "filters": json.dumps(_cd_filters),
-                        "limit": 1,
-                    })
-                    _total = _r.json().get("result", {}).get("total")
-                    _smlog.warning("vehicle %s count result=%s status=%s", plate, _total, _r.status_code)
-                    if _total is not None:
-                        record["_same_model_count"] = _total
-                        cache.set(plate, record)
-            except Exception as _e:
-                _smlog.warning("vehicle %s count EXCEPTION: %s", plate, _e)
-        else:
-            _smlog.warning("vehicle %s skipping count — empty codes", plate)
+    # Same-model count — exact copy of working admin debug code
+    _degem_cd   = str(record.get("degem_cd") or record.get("sug_degem") or "").strip()
+    _tozeret_cd = str(record.get("tozeret_cd") or "").strip()
+    if _degem_cd and _tozeret_cd:
+        try:
+            _cd_filters = {"tozeret_cd": int(_tozeret_cd), "degem_cd": int(_degem_cd)}
+            _shnat = record.get("shnat_yitzur")
+            if _shnat:
+                _cd_filters["shnat_yitzur"] = _shnat
+            async with _httpx.AsyncClient(timeout=15) as _c:
+                _r = await _c.get(_GOV_URL, params={
+                    "resource_id": _RES_MAIN,
+                    "filters": json.dumps(_cd_filters),
+                    "limit": 1,
+                })
+                _total = _r.json().get("result", {}).get("total")
+                if _total is not None:
+                    record["_same_model_count"] = _total
+                    cache.set(plate, record)
+        except Exception:
+            pass
 
     uid  = int(user["id"])
     name = user.get("username") or user.get("first_name", str(uid))
