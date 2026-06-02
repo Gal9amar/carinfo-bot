@@ -241,6 +241,7 @@ export default function ReportPage({ plate, onBack, user }) {
     if (!plate) { setError('לא צוין מספר רכב'); return }
     fetchVehicle(plate)
       .then(r => {
+        console.log('[ReportPage] vehicle response _same_model_count=', r._same_model_count, 'keys=', Object.keys(r).filter(k => k.startsWith('_')))
         setRecord(r)
         const mk = String(r.tozeret_nm || '').trim()
         const mdl = String(r.kinuy_mishari || r.degem_nm || '').trim()
