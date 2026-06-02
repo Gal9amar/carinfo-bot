@@ -175,7 +175,7 @@ def cat_general(record: dict, w: dict) -> str:
     lines.append(_row_always("מקוריות", _val(record, "mkoriut_nm")))
     same_count = record.get("_same_model_count")
     if same_count is not None:
-        lines.append(_row("רכבים זהים רשומים בישראל 🇮🇱", f"{int(same_count):,}"))
+        lines.append(_row("מספר הרכבים לדגם זה על כבישי ישראל 🇮🇱", f"{int(same_count):,}"))
     agra_group = _val(w, "kvuzat_agra_cd")
     shnat      = _val(record, "shnat_yitzur")
     sug_delek  = _val(record, "sug_delek_nm") or _val(w, "sug_delek_nm")

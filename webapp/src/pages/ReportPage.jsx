@@ -101,7 +101,7 @@ function buildFullText(record, ownership) {
   if (flags.length) { t += '\n'; flags.forEach(f => { t += `${f}\n` }) }
 
   if (record._same_model_count != null)
-    t += `🇮🇱 ${Number(record._same_model_count).toLocaleString('he-IL')} רכבים זהים רשומים בישראל\n`
+    t += `🇮🇱 ${Number(record._same_model_count).toLocaleString('he-IL')} מספר הרכבים לדגם זה על כבישי ישראל\n`
 
   t += `\n📋 פרטים כלליים\n${'─'.repeat(20)}\n`
   t += row('יצרן', make)
@@ -375,7 +375,7 @@ export default function ReportPage({ plate, onBack, user }) {
               ? Number(record._same_model_count).toLocaleString('he-IL')
               : '—'}
           </div>
-          <div className="stat-label">🇮🇱 רכבים זהים רשומים בישראל</div>
+          <div className="stat-label">🇮🇱 מספר הרכבים לדגם זה על כבישי ישראל</div>
         </div>
       </div>
 
