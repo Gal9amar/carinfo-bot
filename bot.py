@@ -2222,14 +2222,6 @@ async def _yad2_watch_job(context) -> None:
                         )
                     except Exception as e:
                         logger.warning("Watch notify failed user=%s: %s", w["user_id"], e)
-                    if w["user_id"] != ADMIN_ID:
-                        try:
-                            await context.bot.send_message(
-                                ADMIN_ID, text,
-                                parse_mode=ParseMode.MARKDOWN_V2,
-                            )
-                        except Exception as e:
-                            logger.warning("Watch admin notify failed: %s", e)
 
                     all_seen = list(seen | current_ids)[-500:]
                     await update_seen_ids(w["id"], all_seen)
