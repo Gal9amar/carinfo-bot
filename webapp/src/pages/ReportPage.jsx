@@ -370,7 +370,7 @@ export default function ReportPage({ plate, onBack, user }) {
           <div className="stat-label">תוקף טסט</div>
         </div>
         <div className="stat-card" style={{ gridColumn: 'span 2' }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
+          <div style={{ fontSize: 22, fontWeight: 600, color: 'var(--text)' }}>
             {record._same_model_count != null
               ? Number(record._same_model_count).toLocaleString('he-IL')
               : '—'}
