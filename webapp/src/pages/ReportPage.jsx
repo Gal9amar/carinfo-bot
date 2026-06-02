@@ -369,18 +369,14 @@ export default function ReportPage({ plate, onBack, user }) {
           </div>
           <div className="stat-label">תוקף טסט</div>
         </div>
-      </div>
-
-      {/* ── Same-model count ── */}
-      <div className="card" style={{ marginBottom: 12 }}>
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>🇮🇱 רכבים זהים רשומים בישראל</div>
-        {record._same_model_count != null ? (
-          <div style={{ fontSize: 30, fontWeight: 700, textAlign: 'center', padding: '4px 0' }}>
-            {Number(record._same_model_count).toLocaleString('he-IL')}
+        <div className="stat-card" style={{ gridColumn: 'span 2' }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
+            {record._same_model_count != null
+              ? Number(record._same_model_count).toLocaleString('he-IL')
+              : '—'}
           </div>
-        ) : (
-          <div style={{ fontSize: 13, color: 'var(--hint)' }}>לא נמצאו נתונים</div>
-        )}
+          <div className="stat-label">🇮🇱 רכבים זהים רשומים בישראל</div>
+        </div>
       </div>
 
       {/* ── Market Price ── */}
