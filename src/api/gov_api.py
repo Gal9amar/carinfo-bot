@@ -183,15 +183,6 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
             if degem_cd and tozeret_cd else _empty()
         )
 
-        same_model_filters = {}
-        if record.get("tozeret_nm"):    same_model_filters["tozeret_nm"]    = record["tozeret_nm"]
-        if record.get("kinuy_mishari"): same_model_filters["kinuy_mishari"] = record["kinuy_mishari"]
-        if record.get("shnat_yitzur"):  same_model_filters["shnat_yitzur"]  = record["shnat_yitzur"]
-        same_model_task = (
-            _count_filter(client, RES_MAIN, same_model_filters)
-            if same_model_filters else _empty()
-        )
-
         tasks = [
             _search_filter(client, RES_OWNERSHIP, {"mispar_rechev": mispar}, limit=50),
             _wltp_with_fallback(),
@@ -202,14 +193,23 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
             _search_filter(client, RES_PERSONAL_IMPORT, {"mispar_rechev": mispar}, limit=1),
             importer_task,
             _search_filter(client, RES_SCRAPPED, {"mispar_rechev": mispar}, limit=1),
-            same_model_task,
         ]
         (
             ownership_records, wltp_records, recall_car_records,
             tag_nache_records, inactive_records, inactive_nodeg_records,
             import_records, importer_records, scrapped_records,
-            same_model_count,
         ) = await asyncio.gather(*tasks)
+
+    # Same-model count in a dedicated client so it doesn't compete for timeout
+    same_model_filters = {}
+    if record.get("tozeret_nm"):    same_model_filters["tozeret_nm"]    = record["tozeret_nm"]
+    if record.get("kinuy_mishari"): same_model_filters["kinuy_mishari"] = record["kinuy_mishari"]
+    if record.get("shnat_yitzur"):  same_model_filters["shnat_yitzur"]  = record["shnat_yitzur"]
+    if same_model_filters:
+        async with httpx.AsyncClient(timeout=20) as client:
+            same_model_count = await _count_filter(client, RES_MAIN, same_model_filters)
+    else:
+        same_model_count = None
 
     if ownership_records:
         ownership_records.sort(key=lambda r: str(r.get("baalut_dt", "")))
