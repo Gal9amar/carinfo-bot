@@ -28,6 +28,7 @@ import {
   adminWatchMakes, adminWatchModels, adminWatchPreview,
   adminSetWatchQuota,
   adminDebugHistory,
+  adminDebugVehicle,
 } from '../api.js'
 import BackButton from '../components/BackButton.jsx'
 
@@ -3300,16 +3301,17 @@ function WatchesTab() {
 // ── Debug / Diagnostics tab ──────────────────────────────────────────────────
 
 function DebugTab() {
-  const [plate, setPlate]     = useState('')
-  const [result, setResult]   = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState('')
+  const [plate, setPlate]       = useState('')
+  const [result, setResult]     = useState(null)
+  const [loading, setLoading]   = useState(false)
+  const [error, setError]       = useState('')
+  const [expanded, setExpanded] = useState({})
 
-  async function runHistory() {
+  async function run() {
     if (!plate.trim()) return
-    setLoading(true); setError(''); setResult(null)
+    setLoading(true); setError(''); setResult(null); setExpanded({})
     try {
-      const data = await adminDebugHistory(plate.trim())
+      const data = await adminDebugVehicle(plate.trim())
       setResult(data)
     } catch (e) {
       setError(e.message || 'שגיאה')
@@ -3317,103 +3319,164 @@ function DebugTab() {
     setLoading(false)
   }
 
+  function toggle(key) {
+    setExpanded(prev => ({ ...prev, [key]: !prev[key] }))
+  }
+
   const preStyle = {
     background: 'var(--bg)', borderRadius: 8, padding: 10, fontSize: 11,
     overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all',
-    border: '1px solid rgba(255,255,255,0.08)', marginTop: 8, direction: 'ltr', textAlign: 'left',
+    border: '1px solid rgba(255,255,255,0.08)', marginTop: 6, direction: 'ltr', textAlign: 'left',
   }
+
+  const RESOURCE_ORDER = [
+    'main', 'main_ext', 'history', 'ownership', 'wltp',
+    'recall_car', 'recall_model', 'tag_nache',
+    'inactive', 'inactive_nodeg', 'personal_import', 'importer', 'scrapped',
+  ]
 
   return (
     <div>
       <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14 }}>🔬 בדיקות ודיאגנוסטיקה</div>
 
-      {/* History query */}
       <div style={{ background: 'var(--bg2)', borderRadius: 14, padding: 16, marginBottom: 16 }}>
-        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>
-          📋 היסטוריית רכב (RES_HISTORY) — עד 10 שורות
-        </div>
         <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 10 }}>
-          בודק כמה שורות מחזיר ה-API של data.gov.il לרכב נתון, ומה מבנה השדות.
-          כך ניתן לדעת אם יש היסטוריית ק"מ מלאה לפי טסטים.
+          שולח בקשה לכל ה-resources של data.gov.il במקביל ומציג את כל התוצאות הגולמיות.
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <input
             value={plate}
             onChange={e => setPlate(e.target.value)}
             placeholder="מספר לוחית (ללא מקפים)"
-            onKeyDown={e => e.key === 'Enter' && runHistory()}
+            onKeyDown={e => e.key === 'Enter' && run()}
             style={{
               flex: 1, padding: '9px 12px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)',
               background: 'var(--bg)', color: 'var(--text)', fontSize: 13, direction: 'ltr',
             }}
           />
-          <button
-            className="btn"
-            onClick={runHistory}
-            disabled={loading || !plate.trim()}
-            style={{ whiteSpace: 'nowrap', marginTop: 0 }}
-          >{loading ? '⏳...' : '🔍 בדוק'}</button>
+          <button className="btn" onClick={run} disabled={loading || !plate.trim()}
+            style={{ whiteSpace: 'nowrap', marginTop: 0 }}>
+            {loading ? '⏳...' : '🔍 בדוק הכל'}
+          </button>
         </div>
-
         {error && <div style={{ color: '#e53e3e', fontSize: 12, marginTop: 8 }}>❌ {error}</div>}
-
-        {result && (
-          <div style={{ marginTop: 12 }}>
-            {/* km fields from schema */}
-            <div style={{
-              background: result.km_fields?.length > 1 ? '#1a3a2a' : 'var(--bg)',
-              borderRadius: 8, padding: '10px 12px', marginBottom: 10,
-              border: `1px solid ${result.km_fields?.length > 1 ? '#48bb78' : 'rgba(255,255,255,0.08)'}`,
-            }}>
-              <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
-                🔑 שדות kilometer בטבלה ({result.km_fields?.length ?? 0} נמצאו):
-              </div>
-              {result.km_fields?.length > 0
-                ? result.km_fields.map(f => (
-                    <div key={f} style={{ fontSize: 12, fontFamily: 'monospace', color: '#a78bfa', marginTop: 2 }}>• {f}</div>
-                  ))
-                : <div style={{ fontSize: 11, color: 'var(--hint)' }}>לא נמצאו שדות kilometer</div>
-              }
-            </div>
-
-            <div style={{ fontSize: 12, marginBottom: 6 }}>
-              <strong>לוחית:</strong> {result.plate} &nbsp;|&nbsp;
-              <strong>שורות היסטוריה:</strong>{' '}
-              <span style={{ color: result.history_rows.length > 1 ? '#48bb78' : 'var(--hint)' }}>
-                {result.history_rows.length}
-              </span>
-              {result.history_rows.length > 1
-                ? ' ✅ יש היסטוריה מלאה!'
-                : result.history_rows.length === 1
-                  ? ' ⚠️ שורה אחת בלבד (נתון נקודתי)'
-                  : ' ❌ לא נמצאו נתונים'}
-            </div>
-
-            {result.history_rows.length > 0 && (
-              <>
-                <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 4 }}>
-                  כל השדות: {result.all_fields?.join(', ')}
-                </div>
-                {result.history_rows.map((row, i) => (
-                  <div key={i} style={{ marginBottom: 6 }}>
-                    <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 2 }}>שורה {i + 1}</div>
-                    <pre style={preStyle}>{JSON.stringify(row, null, 2)}</pre>
-                  </div>
-                ))}
-              </>
-            )}
-
-            {result.main_row && (
-              <>
-                <div style={{ fontWeight: 600, fontSize: 12, marginTop: 12, marginBottom: 4 }}>
-                  רשומה ראשית (RES_MAIN):
-                </div>
-                <pre style={preStyle}>{JSON.stringify(result.main_row, null, 2)}</pre>
-              </>
-            )}
-          </div>
-        )}
       </div>
+
+      {result && (
+        <div>
+          {/* Summary header */}
+          <div style={{
+            background: 'var(--bg2)', borderRadius: 14, padding: '12px 16px', marginBottom: 12,
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8,
+          }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>
+                {result.main_record?.tozeret_nm} {result.main_record?.kinuy_mishari} ({result.main_record?.shnat_yitzur})
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--hint)', marginTop: 2 }}>לוחית: {result.plate}</div>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {RESOURCE_ORDER.map(key => {
+                const r = result.resources?.[key]
+                if (!r) return null
+                const found = r.records?.length > 0
+                const skipped = r.skipped
+                return (
+                  <div key={key} style={{
+                    fontSize: 10, padding: '3px 8px', borderRadius: 12, fontWeight: 600,
+                    background: skipped ? 'rgba(255,255,255,0.06)' : found ? '#1a3a2a' : 'rgba(229,62,62,0.12)',
+                    color: skipped ? 'var(--hint)' : found ? '#48bb78' : '#fc8181',
+                    border: `1px solid ${skipped ? 'rgba(255,255,255,0.08)' : found ? '#48bb7844' : '#fc818133'}`,
+                  }}>
+                    {found ? '✅' : skipped ? '—' : '❌'} {r.label?.split(' ')[0] || key}
+                    {found ? ` (${r.records.length})` : ''}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Resource sections */}
+          {RESOURCE_ORDER.map(key => {
+            const r = result.resources?.[key]
+            if (!r) return null
+            const found = r.records?.length > 0
+            const isOpen = expanded[key]
+            return (
+              <div key={key} style={{
+                background: 'var(--bg2)', borderRadius: 12, marginBottom: 8,
+                border: `1px solid ${found ? 'rgba(72,187,120,0.2)' : 'rgba(255,255,255,0.05)'}`,
+                overflow: 'hidden',
+              }}>
+                {/* Row header */}
+                <div
+                  onClick={() => toggle(key)}
+                  style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '10px 14px', cursor: 'pointer', userSelect: 'none',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 14 }}>{found ? '✅' : r.skipped ? '—' : '❌'}</span>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{r.label}</div>
+                      <div style={{ fontSize: 10, color: 'var(--hint)', fontFamily: 'monospace', marginTop: 1 }}>
+                        {r.res_id}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {found && (
+                      <div style={{
+                        fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10,
+                        background: '#1a3a2a', color: '#48bb78',
+                      }}>{r.records.length} רשומות</div>
+                    )}
+                    {r.error && (
+                      <div style={{ fontSize: 11, color: '#fc8181' }}>שגיאה</div>
+                    )}
+                    <span style={{ color: 'var(--hint)', fontSize: 14 }}>{isOpen ? '▲' : '▼'}</span>
+                  </div>
+                </div>
+
+                {/* Expanded content */}
+                {isOpen && (
+                  <div style={{ padding: '0 14px 14px' }}>
+                    {r.error && (
+                      <div style={{ color: '#fc8181', fontSize: 12, marginBottom: 8 }}>❌ {r.error}</div>
+                    )}
+                    {r.fields?.length > 0 && (
+                      <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 8, lineHeight: 1.6 }}>
+                        <strong>שדות ({r.fields.length}):</strong> {r.fields.join(', ')}
+                      </div>
+                    )}
+                    {r.records?.length > 0
+                      ? r.records.map((row, i) => (
+                          <div key={i} style={{ marginBottom: 6 }}>
+                            {r.records.length > 1 && (
+                              <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 2 }}>שורה {i + 1}</div>
+                            )}
+                            <pre style={preStyle}>{JSON.stringify(row, null, 2)}</pre>
+                          </div>
+                        ))
+                      : !r.skipped && (
+                          <div style={{ fontSize: 12, color: 'var(--hint)', fontStyle: 'italic' }}>
+                            לא נמצאו רשומות
+                          </div>
+                        )
+                    }
+                    {r.skipped && (
+                      <div style={{ fontSize: 12, color: 'var(--hint)', fontStyle: 'italic' }}>
+                        דולג — חסר degem_cd / tozeret_cd
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
