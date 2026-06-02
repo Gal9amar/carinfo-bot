@@ -3396,6 +3396,51 @@ function DebugTab() {
             </div>
           </div>
 
+          {/* Same-model count debug */}
+          {result.same_model_count_debug && (() => {
+            const d = result.same_model_count_debug
+            const ok = d.total != null && d.total > 0
+            const err = !!d.error
+            return (
+              <div style={{
+                background: 'var(--bg2)', borderRadius: 12, marginBottom: 8, padding: '12px 14px',
+                border: `1px solid ${err ? '#fc818133' : ok ? 'rgba(72,187,120,0.25)' : 'rgba(255,165,0,0.25)'}`,
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13 }}>
+                    {err ? '❌' : ok ? '✅' : '⚠️'} בדיקת ספירת רכבים זהים
+                  </div>
+                  {d.total != null && (
+                    <div style={{
+                      fontSize: 13, fontWeight: 700, padding: '3px 12px', borderRadius: 10,
+                      background: ok ? '#1a3a2a' : 'rgba(255,165,0,0.15)',
+                      color: ok ? '#48bb78' : '#f6ad55',
+                    }}>
+                      {ok ? `${Number(d.total).toLocaleString('he-IL')} רכבים` : 'total = 0'}
+                    </div>
+                  )}
+                </div>
+                {err && <div style={{ color: '#fc8181', fontSize: 12, marginBottom: 6 }}>שגיאה: {d.error}</div>}
+                {d.filters_used && (
+                  <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 4 }}>
+                    <strong>פילטרים:</strong>{' '}
+                    {Object.entries(d.filters_used).map(([k, v]) => `${k}=${v}`).join(' · ')}
+                  </div>
+                )}
+                {d.total != null && (
+                  <div style={{ fontSize: 11, color: 'var(--hint)' }}>
+                    total={d.total} · records_returned={d.records_returned}
+                  </div>
+                )}
+                {!ok && !err && (
+                  <div style={{ fontSize: 11, color: '#f6ad55', marginTop: 4 }}>
+                    ⚠️ total=0 — CKAN לא מוצא רשומות עם הפילטרים האלה
+                  </div>
+                )}
+              </div>
+            )
+          })()}
+
           {/* Resource sections */}
           {RESOURCE_ORDER.map(key => {
             const r = result.resources?.[key]
