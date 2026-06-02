@@ -1955,9 +1955,33 @@ async def admin_debug_vehicle(plate: str, _: dict = Depends(_require_admin)):
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 
+    # Test same-model count with different filter combinations
+    same_model_debug = {}
+    if have_codes:
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                cd_filters = {"tozeret_cd": int(tozeret_cd), "degem_cd": int(degem_cd)}
+                if shnat:
+                    cd_filters["shnat_yitzur"] = shnat
+                r = await client.get(BASE_URL, params={
+                    "resource_id": RES_MAIN,
+                    "filters": _json.dumps(cd_filters),
+                    "limit": 1,
+                })
+                res = r.json().get("result", {})
+                same_model_debug = {
+                    "filters_used": cd_filters,
+                    "total": res.get("total"),
+                    "records_returned": len(res.get("records", [])),
+                    "sample_record_keys": list(res.get("records", [{}])[0].keys()) if res.get("records") else [],
+                }
+        except Exception as exc:
+            same_model_debug = {"error": str(exc)}
+
     return {
         "plate": clean,
         "main_record": rec,
+        "same_model_count_debug": same_model_debug,
         "resources": {
             "main":            {"label": "רישוי ראשי",                    "res_id": RES_MAIN,           **main_data},
             "main_ext":        {"label": "המשך מרשם — גרירה/צמיג",        "res_id": RES_MAIN_EXT,       **ext},
