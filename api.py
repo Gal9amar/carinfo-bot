@@ -530,7 +530,8 @@ async def get_user_history(user: dict = Depends(_get_user)):
 # ── Vehicle report ───────────────────────────────────────────────────────────
 @api.get("/api/vehicle/{plate}")
 async def get_vehicle(plate: str, user: dict = Depends(_get_user)):
-    from src.api.gov_api import fetch_vehicle_data
+    import httpx as _httpx
+    from src.api.gov_api import fetch_vehicle_data, BASE_URL as _GOV_URL, RES_MAIN as _RES_MAIN
     from src.cache import cache
     plate = plate.replace("-", "").replace(" ", "")
     record = cache.get(plate)
@@ -540,6 +541,30 @@ async def get_vehicle(plate: str, user: dict = Depends(_get_user)):
             cache.set(plate, record)
     if not record:
         raise HTTPException(status_code=404, detail="Vehicle not found")
+
+    # Same-model count — exact same pattern as admin debug (which is proven to work)
+    if "_same_model_count" not in record:
+        _degem_cd  = str(record.get("degem_cd") or record.get("sug_degem") or "").strip()
+        _tozeret_cd = str(record.get("tozeret_cd") or "").strip()
+        if _degem_cd and _tozeret_cd:
+            try:
+                _cd_filters = {"tozeret_cd": int(_tozeret_cd), "degem_cd": int(_degem_cd)}
+                _shnat = record.get("shnat_yitzur")
+                if _shnat:
+                    _cd_filters["shnat_yitzur"] = _shnat
+                async with _httpx.AsyncClient(timeout=15) as _c:
+                    _r = await _c.get(_GOV_URL, params={
+                        "resource_id": _RES_MAIN,
+                        "filters": json.dumps(_cd_filters),
+                        "limit": 1,
+                    })
+                    _total = _r.json().get("result", {}).get("total")
+                    if _total is not None:
+                        record["_same_model_count"] = _total
+                        cache.set(plate, record)
+            except Exception:
+                pass
+
     uid  = int(user["id"])
     name = user.get("username") or user.get("first_name", str(uid))
     try:
