@@ -58,7 +58,7 @@ async def _search_q(client: httpx.AsyncClient, resource_id: str, q: str, limit: 
 async def _search_filter(
     client: httpx.AsyncClient, resource_id: str, filters: dict, limit: int = 1,
 ) -> list:
-    params = {"resource_id": resource_id, "filters": json.dumps(filters), "limit": limit}
+    params = {"resource_id": resource_id, "filters": json.dumps(filters, ensure_ascii=False), "limit": limit}
     try:
         resp = await client.get(BASE_URL, params=params)
         resp.raise_for_status()
@@ -71,7 +71,7 @@ async def _search_filter(
 async def _count_filter(
     client: httpx.AsyncClient, resource_id: str, filters: dict,
 ) -> Optional[int]:
-    params = {"resource_id": resource_id, "filters": json.dumps(filters), "limit": 0}
+    params = {"resource_id": resource_id, "filters": json.dumps(filters, ensure_ascii=False), "limit": 0}
     try:
         resp = await client.get(BASE_URL, params=params)
         resp.raise_for_status()
