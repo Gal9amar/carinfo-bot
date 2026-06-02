@@ -201,11 +201,18 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
             import_records, importer_records, scrapped_records,
         ) = await asyncio.gather(*tasks)
 
-    # Same-model count — use numeric codes to avoid Hebrew encoding issues with CKAN filters
+    # Same-model count — convert codes to int to match CKAN's stored type
     same_model_filters = {}
-    if tozeret_cd:                  same_model_filters["tozeret_cd"]   = tozeret_cd
-    if degem_cd:                    same_model_filters["degem_cd"]     = degem_cd
-    if record.get("shnat_yitzur"):  same_model_filters["shnat_yitzur"] = record["shnat_yitzur"]
+    try:
+        if tozeret_cd is not None:
+            same_model_filters["tozeret_cd"] = int(float(str(tozeret_cd)))
+        if degem_cd is not None:
+            same_model_filters["degem_cd"] = int(float(str(degem_cd)))
+        shnat = record.get("shnat_yitzur")
+        if shnat is not None:
+            same_model_filters["shnat_yitzur"] = int(float(str(shnat)))
+    except (ValueError, TypeError):
+        pass
     if same_model_filters:
         async with httpx.AsyncClient(timeout=20) as client:
             same_model_count = await _count_filter(client, RES_MAIN, same_model_filters)
