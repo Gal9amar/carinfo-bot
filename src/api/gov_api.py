@@ -239,4 +239,25 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
     if scrapped_records:
         record["_scrapped_dt"] = scrapped_records[0].get("bitul_dt", "")
 
+    # Same-model count — separate request after main gather to avoid throttling
+    _degem_cd   = str(record.get("degem_cd") or record.get("sug_degem") or "").strip()
+    _tozeret_cd = str(record.get("tozeret_cd") or "").strip()
+    if _degem_cd and _tozeret_cd:
+        try:
+            _filters = {"tozeret_cd": int(float(_tozeret_cd)), "degem_cd": int(float(_degem_cd))}
+            _shnat = record.get("shnat_yitzur")
+            if _shnat:
+                _filters["shnat_yitzur"] = _shnat
+            async with httpx.AsyncClient(timeout=15) as client:
+                _r = await client.get(BASE_URL, params={
+                    "resource_id": RES_MAIN,
+                    "filters": json.dumps(_filters),
+                    "limit": 1,
+                })
+                _total = _r.json().get("result", {}).get("total")
+                if _total is not None:
+                    record["_same_model_count"] = _total
+        except Exception as exc:
+            logger.warning("same_model_count failed: %s", exc)
+
     return record

@@ -542,32 +542,7 @@ async def get_vehicle(plate: str, user: dict = Depends(_get_user)):
     if not record:
         raise HTTPException(status_code=404, detail="Vehicle not found")
 
-    # Same-model count
-    import logging as _lg
-    _smc_log = _lg.getLogger("same_model_count")
-    _degem_cd   = str(record.get("degem_cd") or record.get("sug_degem") or "").strip()
-    _tozeret_cd = str(record.get("tozeret_cd") or "").strip()
-    _smc_log.warning("same_model_count start: plate=%s degem_cd=%r tozeret_cd=%r", plate, _degem_cd, _tozeret_cd)
-    if _degem_cd and _tozeret_cd:
-        try:
-            _cd_filters = {"tozeret_cd": int(float(_tozeret_cd)), "degem_cd": int(float(_degem_cd))}
-            _shnat = record.get("shnat_yitzur")
-            if _shnat:
-                _cd_filters["shnat_yitzur"] = _shnat
-            _smc_log.warning("same_model_count filters=%s", _cd_filters)
-            async with _httpx.AsyncClient(timeout=15) as _c:
-                _r = await _c.get(_GOV_URL, params={
-                    "resource_id": _RES_MAIN,
-                    "filters": json.dumps(_cd_filters),
-                    "limit": 1,
-                })
-                _total = _r.json().get("result", {}).get("total")
-                _smc_log.warning("same_model_count total=%r status=%s", _total, _r.status_code)
-                if _total is not None:
-                    record["_same_model_count"] = _total
-                    cache.set(plate, record)
-        except Exception as _smc_exc:
-            _smc_log.warning("same_model_count EXCEPTION: %s", _smc_exc, exc_info=True)
+    # _same_model_count is now populated inside fetch_vehicle_data (gov_api.py)
 
     uid  = int(user["id"])
     name = user.get("username") or user.get("first_name", str(uid))
