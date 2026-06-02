@@ -530,8 +530,7 @@ async def get_user_history(user: dict = Depends(_get_user)):
 # ── Vehicle report ───────────────────────────────────────────────────────────
 @api.get("/api/vehicle/{plate}")
 async def get_vehicle(plate: str, user: dict = Depends(_get_user)):
-    import httpx as _httpx
-    from src.api.gov_api import fetch_vehicle_data, BASE_URL as _GOV_URL, RES_MAIN as _RES_MAIN
+    from src.api.gov_api import fetch_vehicle_data
     from src.cache import cache
     plate = plate.replace("-", "").replace(" ", "")
     record = cache.get(plate)
@@ -542,12 +541,6 @@ async def get_vehicle(plate: str, user: dict = Depends(_get_user)):
     if not record:
         raise HTTPException(status_code=404, detail="Vehicle not found")
 
-    import logging as _lg
-    _lg.getLogger("vehicle_endpoint").warning(
-        "GET /api/vehicle/%s — _same_model_count=%r from_cache=%s",
-        plate, record.get("_same_model_count"), cache.get(plate) is not None,
-    )
-
     uid  = int(user["id"])
     name = user.get("username") or user.get("first_name", str(uid))
     try:
@@ -555,7 +548,7 @@ async def get_vehicle(plate: str, user: dict = Depends(_get_user)):
         await _log("search", f"חיפוש לוחית {plate}", uid, name)
     except Exception:
         pass
-    return record
+    return JSONResponse(content=record, headers={"Cache-Control": "no-store"})
 
 
 @api.get("/api/vehicle/{plate}/pdf")
