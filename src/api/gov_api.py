@@ -186,6 +186,7 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
 
         async def _count_same_model():
             if not (tozeret_cd and degem_cd):
+                logger.warning("gov_api same_model_count skip — missing codes tc=%s dc=%s", tozeret_cd, degem_cd)
                 return None
             try:
                 _tc = int(float(str(tozeret_cd).strip()))
@@ -193,14 +194,17 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
                 _f = {"tozeret_cd": _tc, "degem_cd": _dc}
                 if record.get("shnat_yitzur"):
                     _f["shnat_yitzur"] = record["shnat_yitzur"]
+                logger.warning("gov_api same_model_count querying filters=%s", _f)
                 async with httpx.AsyncClient(timeout=20) as _c:
                     r = await _c.get(
                         BASE_URL,
                         params={"resource_id": RES_MAIN, "filters": json.dumps(_f), "limit": 1},
                     )
-                    return r.json().get("result", {}).get("total")
+                    total = r.json().get("result", {}).get("total")
+                    logger.warning("gov_api same_model_count result=%s status=%s", total, r.status_code)
+                    return total
             except Exception as exc:
-                logger.warning("gov_api same_model_count failed tozeret=%s degem=%s: %s", tozeret_cd, degem_cd, exc)
+                logger.warning("gov_api same_model_count EXCEPTION tozeret=%s degem=%s: %s", tozeret_cd, degem_cd, exc)
                 return None
 
         tasks = [
