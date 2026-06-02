@@ -200,11 +200,11 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
             import_records, importer_records, scrapped_records,
         ) = await asyncio.gather(*tasks)
 
-    # Same-model count in a dedicated client so it doesn't compete for timeout
+    # Same-model count — use numeric codes to avoid Hebrew encoding issues with CKAN filters
     same_model_filters = {}
-    if record.get("tozeret_nm"):    same_model_filters["tozeret_nm"]    = record["tozeret_nm"]
-    if record.get("kinuy_mishari"): same_model_filters["kinuy_mishari"] = record["kinuy_mishari"]
-    if record.get("shnat_yitzur"):  same_model_filters["shnat_yitzur"]  = record["shnat_yitzur"]
+    if tozeret_cd:                  same_model_filters["tozeret_cd"]   = tozeret_cd
+    if degem_cd:                    same_model_filters["degem_cd"]     = degem_cd
+    if record.get("shnat_yitzur"):  same_model_filters["shnat_yitzur"] = record["shnat_yitzur"]
     if same_model_filters:
         async with httpx.AsyncClient(timeout=20) as client:
             same_model_count = await _count_filter(client, RES_MAIN, same_model_filters)
