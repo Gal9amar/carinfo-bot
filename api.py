@@ -1859,6 +1859,31 @@ async def admin_watches_preview(make: str = "", model: str = "", year: Optional[
     return {"items": listings[:5], "total": len(listings), "search_url": search_url}
 
 
+@api.get("/api/admin/debug/history")
+async def admin_debug_history(plate: str, _: dict = Depends(_require_admin)):
+    """Raw gov-API history rows for a plate — used to inspect the data structure."""
+    from src.api.gov_api import BASE_URL, RES_HISTORY, RES_MAIN
+    import httpx
+    clean = plate.replace("-", "").strip()
+    if not clean:
+        raise HTTPException(status_code=400, detail="plate required")
+    try:
+        async with httpx.AsyncClient(timeout=12) as client:
+            history_resp, main_resp = await asyncio.gather(
+                client.get(BASE_URL, params={"resource_id": RES_HISTORY, "q": clean, "limit": 10}),
+                client.get(BASE_URL, params={"resource_id": RES_MAIN, "q": clean, "limit": 1}),
+            )
+        history_rows = history_resp.json().get("result", {}).get("records", [])
+        main_rows    = main_resp.json().get("result", {}).get("records", [])
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    return {
+        "plate":        clean,
+        "history_rows": history_rows,
+        "main_row":     main_rows[0] if main_rows else None,
+    }
+
+
 # ── Serve React SPA (must be last) ──────────────────────────────────────────
 _DIST = os.path.join(os.path.dirname(__file__), "webapp", "dist")
 
