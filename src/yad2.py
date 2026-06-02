@@ -433,12 +433,27 @@ def fetch_listings(make: str, model: str, year: int | str | None) -> list[dict]:
     try:
         items = _do_fetch(f"&model={mod_id}") if mod_id else _do_fetch("")
         if mod_id and len(items) <= 2:
-            items = _do_fetch("") or items
+            broader = _do_fetch("") or items
+            # Keep only items whose year matches when a year was requested
+            if y and broader:
+                broader_filtered = [
+                    c for c in broader
+                    if int(c.get("vehicleDates", {}).get("yearOfProduction") or 0) == y
+                ]
+                broader = broader_filtered if broader_filtered else broader
+            items = broader
     except Exception as e:
         _logger.error(f"fetch_listings error: {e}")
         return []
 
-    # Yad2 already filters by year server-side via the year= param — no need to re-filter here.
+    # Filter by year — the proxy does not always honour the year= param reliably.
+    if y and items:
+        year_filtered = [
+            c for c in items
+            if int(c.get("vehicleDates", {}).get("yearOfProduction") or 0) == y
+        ]
+        if year_filtered:
+            items = year_filtered
 
     result = []
     seen_ids: set[str] = set()
