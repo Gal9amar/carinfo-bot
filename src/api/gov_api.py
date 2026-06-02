@@ -68,6 +68,19 @@ async def _search_filter(
         return []
 
 
+async def _count_filter(
+    client: httpx.AsyncClient, resource_id: str, filters: dict,
+) -> Optional[int]:
+    params = {"resource_id": resource_id, "filters": json.dumps(filters), "limit": 0}
+    try:
+        resp = await client.get(BASE_URL, params=params)
+        resp.raise_for_status()
+        return resp.json().get("result", {}).get("total")
+    except Exception as exc:
+        logger.warning("gov_api _count_filter failed resource=%s filters=%s: %s", resource_id, filters, exc)
+        return None
+
+
 def _merge_ext_fields(record: dict, ext: dict) -> None:
     for key in _EXT_FIELDS:
         val = ext.get(key)
@@ -170,6 +183,15 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
             if degem_cd and tozeret_cd else _empty()
         )
 
+        same_model_filters = {}
+        if record.get("tozeret_nm"):    same_model_filters["tozeret_nm"]    = record["tozeret_nm"]
+        if record.get("kinuy_mishari"): same_model_filters["kinuy_mishari"] = record["kinuy_mishari"]
+        if record.get("shnat_yitzur"):  same_model_filters["shnat_yitzur"]  = record["shnat_yitzur"]
+        same_model_task = (
+            _count_filter(client, RES_MAIN, same_model_filters)
+            if same_model_filters else _empty()
+        )
+
         tasks = [
             _search_filter(client, RES_OWNERSHIP, {"mispar_rechev": mispar}, limit=50),
             _wltp_with_fallback(),
@@ -180,11 +202,13 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
             _search_filter(client, RES_PERSONAL_IMPORT, {"mispar_rechev": mispar}, limit=1),
             importer_task,
             _search_filter(client, RES_SCRAPPED, {"mispar_rechev": mispar}, limit=1),
+            same_model_task,
         ]
         (
             ownership_records, wltp_records, recall_car_records,
             tag_nache_records, inactive_records, inactive_nodeg_records,
             import_records, importer_records, scrapped_records,
+            same_model_count,
         ) = await asyncio.gather(*tasks)
 
     if ownership_records:
@@ -224,5 +248,8 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
 
     if scrapped_records:
         record["_scrapped_dt"] = scrapped_records[0].get("bitul_dt", "")
+
+    if same_model_count is not None:
+        record["_same_model_count"] = same_model_count
 
     return record

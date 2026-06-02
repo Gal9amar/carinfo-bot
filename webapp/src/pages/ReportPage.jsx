@@ -100,6 +100,9 @@ function buildFullText(record, ownership) {
   t += `👥 בעלויות: ${ownership.length} | נוכחית: ${baalut}\n`
   if (flags.length) { t += '\n'; flags.forEach(f => { t += `${f}\n` }) }
 
+  if (record._same_model_count != null)
+    t += `🇮🇱 ${Number(record._same_model_count).toLocaleString('he-IL')} רכבים זהים רשומים בישראל\n`
+
   t += `\n📋 פרטים כלליים\n${'─'.repeat(20)}\n`
   t += row('יצרן', make)
   t += row('דגם', model)
@@ -366,6 +369,14 @@ export default function ReportPage({ plate, onBack, user }) {
           </div>
           <div className="stat-label">תוקף טסט</div>
         </div>
+        {record._same_model_count != null && (
+          <div className="stat-card" style={{ gridColumn: 'span 2' }}>
+            <div className="stat-value" style={{ fontSize: 18 }}>
+              {Number(record._same_model_count).toLocaleString('he-IL')}
+            </div>
+            <div className="stat-label">🇮🇱 רכבים זהים רשומים בישראל</div>
+          </div>
+        )}
       </div>
 
       {/* ── Market Price ── */}

@@ -6,6 +6,13 @@
         "-y",
         "@skills-il/israel-vehicles-mcp"
       ]
+    },
+    "data-gov-il": {
+      "command": "node",
+      "args": [
+        "stdio.js"
+      ],
+      "cwd": "/home/user/data-gov-il-mcp"
     }
   }
 }

@@ -567,3 +567,9 @@ export async function adminDebugHistory(plate) {
   if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.detail || 'Failed') }
   return r.json()
 }
+
+export async function adminDebugVehicle(plate) {
+  const r = await fetch(`${BASE}/api/admin/debug/vehicle?plate=${encodeURIComponent(plate)}`, { headers: headers() })
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.detail || 'Failed') }
+  return r.json()
+}
