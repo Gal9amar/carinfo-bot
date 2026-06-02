@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "israel-vehicles": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@skills-il/israel-vehicles-mcp"
+      ]
+    }
+  }
+}
