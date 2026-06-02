@@ -542,7 +542,11 @@ async def get_vehicle(plate: str, user: dict = Depends(_get_user)):
     if not record:
         raise HTTPException(status_code=404, detail="Vehicle not found")
 
-    # _same_model_count is now populated inside fetch_vehicle_data (gov_api.py)
+    import logging as _lg
+    _lg.getLogger("vehicle_endpoint").warning(
+        "GET /api/vehicle/%s — _same_model_count=%r from_cache=%s",
+        plate, record.get("_same_model_count"), cache.get(plate) is not None,
+    )
 
     uid  = int(user["id"])
     name = user.get("username") or user.get("first_name", str(uid))
