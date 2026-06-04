@@ -67,24 +67,6 @@ async def init_packages() -> None:
             "INSERT INTO packages (label, searches, price, image_url, display_order, duration_months, features, chips) VALUES (?,?,?,?,?,?,?,?)",
             ["🆓 מסלול FREE", 0, 0, "", 0, 1, json.dumps(_DEFAULT_FREE_FEATURES, ensure_ascii=False), default_free_chips],
         )
-    # Seed alert pack if not present
-    r_alert = await execute("SELECT COUNT(*) FROM packages WHERE COALESCE(package_type,'searches')='alerts'")
-    if (r_alert.rows[0][0] if r_alert.rows else 0) == 0:
-        alert_chips = json.dumps(["🔔 התראה על מודעה חדשה", "💳 חד-פעמי", "🔓 ללא תפוגה"], ensure_ascii=False)
-        alert_features = json.dumps([
-            {"text": "התראה בטלגרם על כל מודעה חדשה ביד2 עבור הרכב שבחרת", "included": True},
-            {"text": "ניהול מעקבים מתוך הדוח", "included": True},
-            {"text": "עד 10 מעקבים פעילים בסה\"כ", "included": True},
-            {"text": "ניתן לרכוש עד 8 התראות נוספות מעל 2 הבסיסיות", "included": True},
-        ], ensure_ascii=False)
-        r_order = await execute("SELECT COALESCE(MAX(display_order), 0) + 1 FROM packages")
-        next_order = r_order.rows[0][0] if r_order.rows else 10
-        r_id = await execute("SELECT COALESCE(MAX(id), 0) + 1 FROM packages")
-        next_id = r_id.rows[0][0] if r_id.rows else 10
-        await execute(
-            "INSERT INTO packages (id, label, searches, price, image_url, display_order, duration_months, features, chips, package_type) VALUES (?,?,?,?,?,?,?,?,?,?)",
-            [next_id, "🔔 חבילת התראות יד2", 1, 1, "", next_order, 1, alert_features, alert_chips, "alerts"],
-        )
     await get_packages(force_reload=True)
 
 
