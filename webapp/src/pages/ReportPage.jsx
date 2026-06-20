@@ -198,6 +198,238 @@ function buildFullText(record, ownership) {
 
 // ── sub-components ────────────────────────────────────────────────────────────
 
+// ── SummaryTab ────────────────────────────────────────────────────────────────
+
+function SummaryTab({ record, ownership, recalls, make, model, year, color, km, testStr,
+  plateNum, score, flags, marketData, copied, onShare, w, statusColor }) {
+
+  const kmNum = km ? Number(km) : null
+  const age = year ? new Date().getFullYear() - parseInt(year) : null
+
+  // Market price median
+  let marketMedian = null
+  let marketAuthorized = false
+  if (marketData?.market) {
+    marketAuthorized = marketData.authorized !== false
+    const yr = marketData.year ? parseInt(marketData.year) : null
+    const items = marketData.market.items || []
+    const filtered = yr ? items.filter(i => parseInt(i.vehicleDates?.yearOfProduction || 0) === yr) : items
+    const prices = (filtered.length ? filtered : items).map(i => i.price).filter(Boolean).sort((a, b) => a - b)
+    if (prices.length) marketMedian = prices[Math.floor(prices.length / 2)]
+  }
+
+  const ownersPrivate = ownership.filter(o => o.baalut === 'פרטי').length
+  const ownersDealer  = ownership.filter(o => o.baalut === 'סוחר').length
+
+  return (
+    <div>
+      {/* ── Score card ── */}
+      <div style={{
+        borderRadius: 20, marginBottom: 14, overflow: 'hidden',
+        background: 'var(--bg2)',
+        boxShadow: `0 0 0 2px ${score.color}55, 0 8px 32px rgba(0,0,0,0.25)`,
+      }}>
+        <div style={{
+          background: `linear-gradient(135deg, ${score.color}33, ${score.color}11)`,
+          padding: '24px 20px', display: 'flex', alignItems: 'center', gap: 20,
+        }}>
+          {/* Grade circle */}
+          <div style={{
+            width: 72, height: 72, borderRadius: '50%', flexShrink: 0,
+            background: score.bg, border: `3px solid ${score.color}`,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <span style={{ fontSize: 30, fontWeight: 900, color: score.color, lineHeight: 1 }}>{score.grade}</span>
+          </div>
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: score.color }}>{score.label}</div>
+            <div style={{ fontSize: 13, color: 'var(--hint)', marginTop: 3 }}>
+              {make} {model} · {year}
+            </div>
+            {color && <div style={{ fontSize: 12, color: 'var(--hint)', marginTop: 1 }}>{color}</div>}
+          </div>
+        </div>
+
+        {/* Quick 4 stats */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 1, background: 'var(--bg)' }}>
+          {[
+            { icon: '👥', val: ownership.length, label: 'בעלויות' },
+            { icon: '🛣️', val: kmNum ? `${Math.round(kmNum / 1000)}K` : '—', label: 'ק"מ' },
+            { icon: '📅', val: year || '—', label: 'שנה' },
+            { icon: '🔔', val: recalls.length || '✓', label: 'ריקולים' },
+          ].map(({ icon, val, label }) => (
+            <div key={label} style={{
+              background: 'var(--bg2)', padding: '12px 6px', textAlign: 'center',
+            }}>
+              <div style={{ fontSize: 16 }}>{icon}</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)', lineHeight: 1.2, marginTop: 2 }}>{val}</div>
+              <div style={{ fontSize: 10, color: 'var(--hint)', marginTop: 2 }}>{label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Test status card ── */}
+      {testStr && (
+        <div style={{
+          borderRadius: 14, padding: '14px 16px', marginBottom: 14,
+          background: 'var(--bg2)', display: 'flex', alignItems: 'center', gap: 12,
+        }}>
+          <span style={{ fontSize: 28 }}>🔧</span>
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 2 }}>תוקף טסט</div>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>{testStr}</div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Market price ── */}
+      {marketMedian && (
+        <div style={{
+          borderRadius: 14, padding: '14px 16px', marginBottom: 14,
+          background: 'var(--bg2)', display: 'flex', alignItems: 'center', gap: 12,
+        }}>
+          <span style={{ fontSize: 28 }}>💰</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 2 }}>מחיר שוק – Yad2</div>
+            <div style={{
+              fontWeight: 800, fontSize: 22, color: '#38bdf8',
+              filter: marketAuthorized ? 'none' : 'blur(6px)',
+              userSelect: marketAuthorized ? 'auto' : 'none',
+            }}>₪{marketMedian.toLocaleString()}</div>
+          </div>
+          {!marketAuthorized && (
+            <div style={{
+              fontSize: 11, background: '#8b5cf6', color: '#fff',
+              borderRadius: 20, padding: '3px 9px', fontWeight: 700,
+            }}>למנויים</div>
+          )}
+        </div>
+      )}
+
+      {/* ── Ownership timeline ── */}
+      {ownership.length > 0 && (
+        <div style={{
+          borderRadius: 14, padding: '14px 16px', marginBottom: 14,
+          background: 'var(--bg2)',
+        }}>
+          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>
+            👥 היסטוריית בעלויות
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+            {[
+              { label: 'סה"כ', val: ownership.length, color: '#38bdf8' },
+              { label: 'פרטי', val: ownersPrivate, color: '#38a169' },
+              { label: 'סוחר', val: ownersDealer, color: '#d69e2e' },
+            ].map(({ label, val, color }) => (
+              <div key={label} style={{
+                flex: 1, textAlign: 'center', background: 'var(--bg)',
+                borderRadius: 10, padding: '8px 4px',
+              }}>
+                <div style={{ fontSize: 20, fontWeight: 800, color }}>{val}</div>
+                <div style={{ fontSize: 11, color: 'var(--hint)' }}>{label}</div>
+              </div>
+            ))}
+          </div>
+          {/* Timeline */}
+          <div style={{ position: 'relative', paddingRight: 20 }}>
+            <div style={{
+              position: 'absolute', right: 7, top: 6, bottom: 6,
+              width: 2, background: 'rgba(255,255,255,0.08)', borderRadius: 2,
+            }} />
+            {ownership.map((o, i) => {
+              const isDealer = o.baalut === 'סוחר'
+              const dotColor = isDealer ? '#d69e2e' : '#38a169'
+              return (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  paddingBottom: i < ownership.length - 1 ? 10 : 0,
+                }}>
+                  <div style={{
+                    width: 14, height: 14, borderRadius: '50%', flexShrink: 0,
+                    background: dotColor, border: '2px solid var(--bg2)',
+                    position: 'relative', zIndex: 1,
+                  }} />
+                  <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                    <span style={{ color: 'var(--text)', fontWeight: 500 }}>
+                      {isDealer ? '🏢' : '👤'} {o.baalut || '?'}
+                    </span>
+                    <span style={{ color: 'var(--hint)' }}>{fmtBaalutDt(o.baalut_dt)}</span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Key specs ── */}
+      <div style={{
+        borderRadius: 14, padding: '14px 16px', marginBottom: 14,
+        background: 'var(--bg2)',
+      }}>
+        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>⚙️ פרטים עיקריים</div>
+        {[
+          ['סוג דלק',     record.sug_delek_nm],
+          ['תיבת הילוכים', w.automatic_ind != null ? ((w.automatic_ind === 1 || w.automatic_ind === '1') ? 'אוטומטית' : 'ידנית') : null],
+          ['כוח סוס',     w.koah_sus ? `${w.koah_sus} כ"ס` : null],
+          ['מושבים',      w.mispar_moshavim],
+          ['ניקוד בטיחות', w.nikud_betihut],
+          ['בעלות נוכחית', record.baalut],
+          ['יבואן',       w.tozar],
+        ].filter(([, val]) => val != null && val !== '').map(([label, val]) => (
+          <div key={label} style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '6px 0', borderBottom: '1px solid var(--bg)', fontSize: 13,
+          }}>
+            <span style={{ color: 'var(--hint)' }}>{label}</span>
+            <span style={{ fontWeight: 600 }}>{val}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Recalls summary ── */}
+      <div style={{
+        borderRadius: 14, padding: '14px 16px', marginBottom: 14,
+        background: recalls.length > 0 ? '#e53e3e11' : '#38a16911',
+        border: `1px solid ${recalls.length > 0 ? '#e53e3e33' : '#38a16933'}`,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 22 }}>{recalls.length > 0 ? '⚠️' : '✅'}</span>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>
+              {recalls.length > 0 ? `${recalls.length} ריקולים ידועים` : 'אין ריקולים ידועים'}
+            </div>
+            {recalls.length > 0 && (
+              <div style={{ fontSize: 12, color: 'var(--hint)', marginTop: 2 }}>
+                {recalls[0].TEUR_TAKALA || recalls[0].SHNAT_RECALL || ''}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Share button ── */}
+      <button
+        onClick={onShare}
+        style={{
+          width: '100%', padding: '14px 0', border: 'none', borderRadius: 14,
+          background: copied
+            ? 'linear-gradient(135deg,#276749,#38a169)'
+            : 'linear-gradient(135deg,#1e40af,#0ea5e9)',
+          color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer',
+          boxShadow: '0 4px 14px rgba(0,0,0,0.25)', marginBottom: 8,
+          transition: 'background 0.2s',
+        }}
+      >
+        {copied ? '✅ הועתק ללוח!' : '📤 שתף סיכום רכב'}
+      </button>
+    </div>
+  )
+}
+
+// ── Row & Sec ─────────────────────────────────────────────────────────────────
+
 function Row({ label, value }) {
   if (value === null || value === undefined || value === '') return null
   return (
@@ -225,6 +457,7 @@ function Sec({ title, children }) {
 // ── main component ────────────────────────────────────────────────────────────
 
 export default function ReportPage({ plate, onBack, user }) {
+  const [activeTab, setActiveTab] = useState('summary')
   const [record, setRecord] = useState(null)
   const [error, setError] = useState(null)
   const [copied, setCopied] = useState(false)
@@ -321,6 +554,58 @@ export default function ReportPage({ plate, onBack, user }) {
     } catch { /* ignore */ }
   }
 
+  // ── score calculation ────────────────────────────────────────────────────
+  function calcScore() {
+    let score = 100
+    if (scrapped || inactive || inactiveNd) score -= 50
+    if (bodyChange) score -= 20
+    const owners = ownership.length
+    if (owners >= 5) score -= 20
+    else if (owners >= 3) score -= 10
+    else if (owners >= 2) score -= 5
+    const age = year ? new Date().getFullYear() - parseInt(year) : 0
+    const kmNum = km ? Number(km) : 0
+    const expectedKm = age * 15000
+    if (kmNum > expectedKm * 1.4) score -= 15
+    if (testStr && testStr.startsWith('🔴')) score -= 15
+    else if (testStr && testStr.startsWith('🟡')) score -= 5
+    if (recalls.length >= 3) score -= 10
+    else if (recalls.length >= 1) score -= 5
+    score = Math.max(0, Math.min(100, score))
+    if (score >= 80) return { grade: 'A', label: 'מצוין', color: '#38a169', bg: '#38a16922' }
+    if (score >= 60) return { grade: 'B', label: 'טוב', color: '#d69e2e', bg: '#d69e2e22' }
+    if (score >= 40) return { grade: 'C', label: 'בינוני', color: '#dd6b20', bg: '#dd6b2022' }
+    return { grade: 'D', label: 'דורש בדיקה', color: '#e53e3e', bg: '#e53e3e22' }
+  }
+  const score = calcScore()
+
+  // ── share text ───────────────────────────────────────────────────────────
+  function buildShareText() {
+    const kmStr = km ? `${Number(km).toLocaleString('he-IL')} ק"מ` : 'לא ידוע'
+    let t = `🚗 סיכום רכב — ${plateNum}\n`
+    t += `${make} ${model} ${year}\n`
+    t += `━━━━━━━━━━━━━━━━\n`
+    t += `👥 בעלויות: ${ownership.length}\n`
+    t += `🛣️ ק"מ: ${kmStr}\n`
+    t += `🔧 טסט: ${testStr || 'לא ידוע'}\n`
+    if (flags.length) { t += `\n⚠️ לשים לב:\n`; flags.forEach(f => { t += `${f}\n` }) }
+    if (marketData?.market && marketData?.authorized !== false) {
+      const prices = (marketData.market.items || []).map(i => i.price).filter(Boolean).sort((a, b) => a - b)
+      if (prices.length) t += `\n💰 מחיר שוק: ₪${prices[Math.floor(prices.length / 2)].toLocaleString()}\n`
+    }
+    t += `\nמופק על ידי @israelcarinfobot`
+    return t
+  }
+
+  async function handleShare() {
+    const text = buildShareText()
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2200)
+    } catch { /* ignore */ }
+  }
+
   return (
     <div className="page">
       {onBack && <BackButton onClick={onBack} />}
@@ -341,7 +626,25 @@ export default function ReportPage({ plate, onBack, user }) {
         }}>{statusLabel}</div>
       </div>
 
-      {/* ── Flags ── */}
+      {/* ── Tab bar ── */}
+      <div style={{
+        display: 'flex', gap: 6, marginBottom: 16,
+        background: 'var(--bg2)', borderRadius: 14, padding: 4,
+      }}>
+        {[
+          { id: 'summary', label: '✨ סיכום' },
+          { id: 'full',    label: '📋 דוח מלא' },
+        ].map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
+            flex: 1, padding: '9px 0', border: 'none', borderRadius: 11,
+            fontSize: 14, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s',
+            background: activeTab === tab.id ? 'linear-gradient(135deg,#1e40af,#0ea5e9)' : 'transparent',
+            color: activeTab === tab.id ? '#fff' : 'var(--hint)',
+          }}>{tab.label}</button>
+        ))}
+      </div>
+
+      {/* ── Flags (always visible) ── */}
       {flags.length > 0 && (
         <div style={{
           background: '#fff3cd22', border: `1px solid ${statusColor}55`,
@@ -350,6 +653,20 @@ export default function ReportPage({ plate, onBack, user }) {
           {flags.map((f, i) => <div key={i} style={{ marginBottom: i < flags.length - 1 ? 4 : 0 }}>{f}</div>)}
         </div>
       )}
+
+      {/* ══════════════ SUMMARY TAB ══════════════ */}
+      {activeTab === 'summary' && (
+        <SummaryTab
+          record={record} ownership={ownership} recalls={recalls}
+          make={make} model={model} year={year} color={color}
+          km={km} testStr={testStr} plateNum={plateNum}
+          score={score} flags={flags} marketData={marketData}
+          copied={copied} onShare={handleShare}
+          w={w} statusColor={statusColor}
+        />
+      )}
+
+      {activeTab === 'full' && <>
 
       {/* ── Quick stats ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
@@ -884,6 +1201,8 @@ export default function ReportPage({ plate, onBack, user }) {
         onClick={() => window.Telegram?.WebApp?.close()}>
         סגור
       </button>
+
+      </> /* end full tab */}
     </div>
   )
 }
