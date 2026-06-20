@@ -562,57 +562,35 @@ def quick_summary(record: dict) -> str:
     else:
         overall = "🟢 תקין"
 
-    lines = [
-        "━━━━━━━━━━━━━━━━━━\n",
-        "*🔍 סיכום מהיר*\n",
-        "━━━━━━━━━━━━━━━━━━\n",
-        f"🚗 *{_escape(manufacturer)} {_escape(model)}* {_escape(year)}\n",
-    ]
-    if color:
-        lines.append(f"• *{_escape('צבע')}:* {_escape(color)}\n")
-    _no_data = '✖ לא קיים'
-    lines += [
-        f"• *{_escape('מצב כללי')}:* {overall}\n",
-        f"• *{_escape('ק\"מ בטסט אחרון')}:* {_escape(km_str) if km_str else _no_data}\n",
-        f"• *{_escape('בעלויות')}:* {_escape(str(owner_count))} \\| *{_escape('נוכחית')}:* {_escape(baalut)}\n",
-        f"• *{_escape('טסט')}:* {_escape(test_str)}\n",
-        f"• *{_escape('סטטוס רישום')}:* {_escape(_inactive_label(record))}\n",
-    ]
-    if personal_imp:
-        lines.append(f"• *{_escape('יבוא')}:* {_escape('אישי ✅')}\n")
-
     agra_group = _val(w, "kvuzat_agra_cd")
     shnat      = _val(record, "shnat_yitzur")
     sug_delek  = _val(record, "sug_delek_nm") or _val(w, "sug_delek_nm")
     agra_str   = _agra_from_group(agra_group, shnat, sug_delek) if agra_group else ""
+
+    color_str = f" · {color}" if color else ""
+    header = f"🚗 *{_escape(manufacturer)} {_escape(model)}* {_escape(year)}{_escape(color_str)}"
+
+    lines = [
+        f"{header}\n",
+        "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n",
+        f"  {overall}  \\|  👥 {_escape(str(owner_count))}  \\|  🛣 {_escape(km_str or '—')}\n",
+        "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n",
+        f"📅 *{_escape('טסט')}:* {_escape(test_str)}\n",
+    ]
+
     if agra_str:
-        lines.append(f"• *{_escape('אגרת רישוי שנתית')}:* {agra_str}\n")
-
-    importer_price = record.get("_importer_price")
-    if importer_price:
-        try:
-            price_int = int(float(importer_price))
-            if shnat:
-                from datetime import date as _date
-                age = _date.today().year - int(shnat)
-                if age > 0:
-                    dep_pct = min(age * 8, 70)
-                    est = int(price_int * (1 - dep_pct / 100))
-                    lines.append(f"• *{_escape('הערכת שווי')}:* {_escape(f'~₪{est:,}')}\n")
-        except Exception:
-            pass
-
+        lines.append(f"📋 *{_escape('אגרת רישוי')}:* {agra_str}\n")
     if tag_nache:
-        lines.append(f"• *{_escape('תו נכה')}:* ✅ כן\n")
-    else:
-        lines.append(f"• *{_escape('תו נכה')}:* ❌ לא\n")
+        lines.append(f"♿ *{_escape('תו נכה')}:* ✅\n")
+    if personal_imp:
+        lines.append(f"📦 *{_escape('יבוא אישי')}:* ✅\n")
 
     if flags_plain:
-        lines.append("━━━━━━━━━━━━━━━━━━\n")
+        lines.append("▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n")
         for flag in flags_plain:
             lines.append(f"{_escape(flag)}\n")
 
-    lines.append("━━━━━━━━━━━━━━━━━━\n\n")
+    lines.append("▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n\n")
     return "".join(lines)
 
 
