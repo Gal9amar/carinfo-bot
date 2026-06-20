@@ -206,18 +206,6 @@ function SummaryTab({ record, ownership, recalls, make, model, year, color, km, 
   const kmNum = km ? Number(km) : null
   const age = year ? new Date().getFullYear() - parseInt(year) : null
 
-  // Market price median
-  let marketMedian = null
-  let marketAuthorized = false
-  if (marketData?.market) {
-    marketAuthorized = marketData.authorized !== false
-    const yr = marketData.year ? parseInt(marketData.year) : null
-    const items = marketData.market.items || []
-    const filtered = yr ? items.filter(i => parseInt(i.vehicleDates?.yearOfProduction || 0) === yr) : items
-    const prices = (filtered.length ? filtered : items).map(i => i.price).filter(Boolean).sort((a, b) => a - b)
-    if (prices.length) marketMedian = prices[Math.floor(prices.length / 2)]
-  }
-
   const ownersPrivate = ownership.filter(o => o.baalut === 'פרטי').length
   const ownersDealer  = ownership.filter(o => o.baalut === 'סוחר').length
 
@@ -284,28 +272,55 @@ function SummaryTab({ record, ownership, recalls, make, model, year, color, km, 
       )}
 
       {/* ── Market price ── */}
-      {marketMedian && (
-        <div style={{
-          borderRadius: 14, padding: '14px 16px', marginBottom: 14,
-          background: 'var(--bg2)', display: 'flex', alignItems: 'center', gap: 12,
-        }}>
-          <span style={{ fontSize: 28 }}>💰</span>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 2 }}>מחיר שוק – Yad2</div>
-            <div style={{
-              fontWeight: 800, fontSize: 22, color: '#38bdf8',
-              filter: marketAuthorized ? 'none' : 'blur(6px)',
-              userSelect: marketAuthorized ? 'auto' : 'none',
-            }}>₪{marketMedian.toLocaleString()}</div>
+      {marketData?.market && (() => {
+        const authorized = marketData.authorized !== false
+        const m   = marketData.market
+        const yr  = marketData.year ? parseInt(marketData.year) : null
+        const filtered = yr && m.items?.length
+          ? m.items.filter(i => parseInt(i.vehicleDates?.yearOfProduction || 0) === yr)
+          : m.items || []
+        const prices = (filtered.length > 0 ? filtered : m.items || [])
+          .map(i => i.price).filter(Boolean).sort((a, b) => a - b)
+        if (!prices.length) return null
+        const median = prices[Math.floor(prices.length / 2)]
+        const min    = prices[0]
+        const max    = prices[prices.length - 1]
+        return (
+          <div className="card" style={{ marginBottom: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+              <div>
+                <div style={{
+                  display: 'inline-block', fontSize: 11, fontWeight: 700,
+                  background: '#8b5cf6', color: '#fff',
+                  borderRadius: 20, padding: '4px 10px', marginBottom: 6,
+                }}>למנויים בלבד</div>
+                <div style={{ fontWeight: 700, fontSize: 15 }}>💰 מחיר שוק – Yad2</div>
+              </div>
+              {marketData.public_label && (
+                <div style={{ fontSize: 11, color: 'var(--hint)', textAlign: 'left', whiteSpace: 'nowrap' }}>
+                  {marketData.public_label}
+                </div>
+              )}
+            </div>
+            {[
+              ['ממוצע שוק', `₪${median.toLocaleString()}`],
+              ['מינימום',   `₪${min.toLocaleString()}`],
+              ['מקסימום',   `₪${max.toLocaleString()}`],
+            ].map(([label, val]) => (
+              <div key={label} style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '6px 0', borderBottom: '1px solid var(--bg)', fontSize: 14, gap: 8,
+              }}>
+                <span style={{ color: 'var(--hint)' }}>{label}</span>
+                <span style={{
+                  fontWeight: 600,
+                  ...(authorized ? {} : { filter: 'blur(5px)', userSelect: 'none' }),
+                }}>{val}</span>
+              </div>
+            ))}
           </div>
-          {!marketAuthorized && (
-            <div style={{
-              fontSize: 11, background: '#8b5cf6', color: '#fff',
-              borderRadius: 20, padding: '3px 9px', fontWeight: 700,
-            }}>למנויים</div>
-          )}
-        </div>
-      )}
+        )
+      })()}
 
       {/* ── Ownership timeline ── */}
       {ownership.length > 0 && (
