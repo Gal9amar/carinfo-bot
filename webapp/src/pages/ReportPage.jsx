@@ -302,23 +302,26 @@ function SummaryTab({ record, ownership, recalls, make, model, year, color, km, 
         return (
           <div style={{
             borderRadius: 14, padding: '14px 16px', marginBottom: 14,
-            background: 'var(--bg2)', display: 'flex', alignItems: 'center', gap: 12,
+            background: 'var(--bg2)',
           }}>
-            <span style={{ fontSize: 24, flexShrink: 0 }}>💰</span>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-                <div style={{
-                  fontSize: 10, fontWeight: 700, background: '#8b5cf6', color: '#fff',
-                  borderRadius: 20, padding: '2px 8px',
-                }}>למנויים בלבד</div>
-                {marketData.public_label && (
-                  <div style={{ fontSize: 10, color: 'var(--hint)' }}>{marketData.public_label}</div>
-                )}
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--hint)' }}>ממוצע שוק – Yad2</div>
+            {/* שורה 1 — תגית + public_label */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <div style={{
+                fontSize: 11, fontWeight: 700, background: '#8b5cf6', color: '#fff',
+                borderRadius: 20, padding: '3px 10px', whiteSpace: 'nowrap',
+              }}>למנויים בלבד</div>
+              {marketData.public_label && (
+                <div style={{ fontSize: 11, color: 'var(--hint)', textAlign: 'left' }}>{marketData.public_label}</div>
+              )}
             </div>
+            {/* שורה 2 — אייקון + כותרת */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <span style={{ fontSize: 18 }}>💰</span>
+              <span style={{ fontSize: 13, color: 'var(--hint)', fontWeight: 500 }}>ממוצע שוק – Yad2</span>
+            </div>
+            {/* שורה 3 — מחיר מרוכז */}
             <div style={{
-              fontSize: 20, fontWeight: 800, color: '#38bdf8',
+              textAlign: 'center', fontSize: 26, fontWeight: 900, color: '#38bdf8',
               ...(authorized ? {} : { filter: 'blur(6px)', userSelect: 'none' }),
             }}>₪{median.toLocaleString()}</div>
           </div>
