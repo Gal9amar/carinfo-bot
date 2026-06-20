@@ -23,7 +23,7 @@ _DEFAULT_FREE_FEATURES = [
     {"text": "הערות אישיות לכל רכב", "included": False},
 ]
 
-_cache: list[tuple] | None = None  # (id, label, searches, price, image_url, display_order, duration_months, features, chips, package_type)
+_cache: list[tuple] | None = None  # (id, label, searches, price, image_url, display_order, duration_months, features, chips, package_type, is_active)
 
 
 async def init_packages() -> None:
@@ -45,6 +45,7 @@ async def init_packages() -> None:
         "ALTER TABLE packages ADD COLUMN chips TEXT DEFAULT '[]'",
         "ALTER TABLE packages ADD COLUMN package_type TEXT DEFAULT 'searches'",
         "ALTER TABLE pending_payments ADD COLUMN package_type TEXT DEFAULT 'searches'",
+        "ALTER TABLE packages ADD COLUMN is_active INTEGER DEFAULT 1",
     ]:
         try:
             await execute(migration)
@@ -86,19 +87,21 @@ def _normalize_features(raw) -> list:
         return []
 
 
-async def get_packages(force_reload: bool = False) -> list[tuple]:
-    """Returns (id, label, searches, price, image_url, display_order, duration_months, features, chips, package_type) sorted by display_order."""
+async def get_packages(force_reload: bool = False, active_only: bool = False) -> list[tuple]:
+    """Returns (id, label, searches, price, image_url, display_order, duration_months, features, chips, package_type, is_active) sorted by display_order."""
     global _cache
     if _cache is None or force_reload:
         r = await execute(
             "SELECT id, label, searches, price, COALESCE(image_url,''), display_order, COALESCE(duration_months,1), "
-            "COALESCE(features,'[]'), COALESCE(chips,'[]'), COALESCE(package_type,'searches') "
+            "COALESCE(features,'[]'), COALESCE(chips,'[]'), COALESCE(package_type,'searches'), COALESCE(is_active,1) "
             "FROM packages ORDER BY display_order, id"
         )
         _cache = [
-            tuple(row[:7]) + (_normalize_features(row[7]), _parse_chips(row[8]), str(row[9]))
+            tuple(row[:7]) + (_normalize_features(row[7]), _parse_chips(row[8]), str(row[9]), int(row[10]))
             for row in r.rows
         ]
+    if active_only:
+        return [p for p in _cache if p[10] == 1]
     return _cache
 
 
@@ -110,17 +113,17 @@ def _parse_chips(raw) -> list:
         return []
 
 
-async def update_package(pkg_id: int, label: str, searches: int, price: int, image_url: str = "", duration_months: int = 1, features: list | None = None, chips: list | None = None, package_type: str = "searches") -> None:
+async def update_package(pkg_id: int, label: str, searches: int, price: int, image_url: str = "", duration_months: int = 1, features: list | None = None, chips: list | None = None, package_type: str = "searches", is_active: int = 1) -> None:
     features_json = json.dumps(_normalize_features(features), ensure_ascii=False)
     chips_json = json.dumps(_parse_chips(chips) if chips is not None else [], ensure_ascii=False)
     await execute(
-        "UPDATE packages SET label=?, searches=?, price=?, image_url=?, duration_months=?, features=?, chips=?, package_type=? WHERE id=?",
-        [label, searches, price, image_url, duration_months, features_json, chips_json, package_type, pkg_id],
+        "UPDATE packages SET label=?, searches=?, price=?, image_url=?, duration_months=?, features=?, chips=?, package_type=?, is_active=? WHERE id=?",
+        [label, searches, price, image_url, duration_months, features_json, chips_json, package_type, is_active, pkg_id],
     )
     await get_packages(force_reload=True)
 
 
-async def add_package(label: str, searches: int, price: int, image_url: str = "", duration_months: int = 1, features: list | None = None, chips: list | None = None, package_type: str = "searches") -> None:
+async def add_package(label: str, searches: int, price: int, image_url: str = "", duration_months: int = 1, features: list | None = None, chips: list | None = None, package_type: str = "searches", is_active: int = 1) -> None:
     features_json = json.dumps(_normalize_features(features), ensure_ascii=False)
     chips_json = json.dumps(_parse_chips(chips) if chips is not None else [], ensure_ascii=False)
     r = await execute("SELECT COALESCE(MAX(id), 0) + 1 FROM packages")
@@ -128,8 +131,8 @@ async def add_package(label: str, searches: int, price: int, image_url: str = ""
     r2 = await execute("SELECT COALESCE(MAX(display_order), 0) + 1 FROM packages")
     next_order = r2.rows[0][0] if r2.rows else 1
     await execute(
-        "INSERT INTO packages (id, label, searches, price, image_url, display_order, duration_months, features, chips, package_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [next_id, label, searches, price, image_url, next_order, duration_months, features_json, chips_json, package_type],
+        "INSERT INTO packages (id, label, searches, price, image_url, display_order, duration_months, features, chips, package_type, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [next_id, label, searches, price, image_url, next_order, duration_months, features_json, chips_json, package_type, is_active],
     )
     await get_packages(force_reload=True)
 

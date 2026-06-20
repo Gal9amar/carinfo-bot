@@ -321,6 +321,7 @@ function PackagesTab() {
         duration_months: parseInt(form.duration_months) || 1,
         features: form.features || [],
         chips: form.chips || [],
+        is_active: form.is_active !== false,
       })
       const fresh = await adminFetchPackages()
       setPkgs(fresh)
@@ -340,6 +341,7 @@ function PackagesTab() {
         duration_months: parseInt(form.duration_months) || 1,
         features: form.features || [],
         chips: form.chips || [],
+        is_active: form.is_active !== false,
       })
       setPkgs(fresh)
       setAdding(false)
@@ -390,6 +392,7 @@ function PackagesTab() {
       {paidPkgs.map((pkg, idx) => {
         const desc = pkg.searches === -1 ? 'ללא הגבלה' : `${pkg.searches} חיפושים`
         const isDragging = dragIdx === idx
+        const isActive = pkg.is_active !== false
         return (
           <div
             key={pkg.id}
@@ -400,9 +403,10 @@ function PackagesTab() {
             onDragEnd={() => setDragIdx(null)}
             className="card"
             style={{
-              opacity: isDragging ? 0.45 : 1,
+              opacity: isDragging ? 0.45 : isActive ? 1 : 0.5,
               cursor: reordering ? 'wait' : 'grab',
               transition: 'opacity 0.15s',
+              borderColor: isActive ? undefined : 'rgba(255,255,255,0.1)',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
@@ -416,7 +420,15 @@ function PackagesTab() {
                   background: 'var(--bg)', borderRadius: 6, padding: '2px 7px', flexShrink: 0,
                 }}>{idx + 1}</span>
                 <div>
-                  <div className="card-title">{pkg.label}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span className="card-title">{pkg.label}</span>
+                    {!isActive && (
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10,
+                        background: '#e53e3e22', color: '#e53e3e', flexShrink: 0,
+                      }}>מושבת</span>
+                    )}
+                  </div>
                   <div className="card-subtitle">{desc} · ₪{pkg.price}</div>
                 </div>
               </div>
@@ -436,7 +448,7 @@ function PackagesTab() {
                   title="הזז למטה"
                 >↓</button>
                 <button className="btn" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
-                  onClick={() => { setEditing(pkg); setForm({ label: pkg.label, searches: String(pkg.searches), price: String(pkg.price), image_url: pkg.image_url || '', duration_months: String(pkg.duration_months ?? 1), features: normalizeFeatures(pkg.features), chips: pkg.chips?.length ? pkg.chips : getDefaultChips(pkg) }) }}>
+                  onClick={() => { setEditing(pkg); setForm({ label: pkg.label, searches: String(pkg.searches), price: String(pkg.price), image_url: pkg.image_url || '', duration_months: String(pkg.duration_months ?? 1), features: normalizeFeatures(pkg.features), chips: pkg.chips?.length ? pkg.chips : getDefaultChips(pkg), is_active: pkg.is_active !== false }) }}>
                   ✏️
                 </button>
                 <button className="btn btn-danger" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
@@ -448,7 +460,7 @@ function PackagesTab() {
           </div>
         )
       })}
-      <button className="btn btn-success" onClick={() => { setAdding(true); setForm({ label: '', searches: '', price: '', image_url: '', duration_months: '1', features: normalizeFeatures([]), chips: [] }) }}>
+      <button className="btn btn-success" onClick={() => { setAdding(true); setForm({ label: '', searches: '', price: '', image_url: '', duration_months: '1', features: normalizeFeatures([]), chips: [], is_active: true }) }}>
         ➕ הוסף מוצר
       </button>
 
@@ -777,6 +789,36 @@ function PackageModal({ title, form, setForm, saving, onSave, onClose, suggestio
             >+</button>
           </div>
         </div>
+
+        {/* Active toggle */}
+        {form.searches !== '0' && (
+          <label style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            background: 'var(--bg2)', borderRadius: 10, padding: '10px 14px', marginBottom: 8,
+            cursor: 'pointer', userSelect: 'none',
+          }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>מוצר פעיל</div>
+              <div style={{ fontSize: 11, color: 'var(--hint)', marginTop: 2 }}>
+                {form.is_active !== false ? 'מוצג לכל המשתמשים' : 'מוסתר — לא מוצג בדף המוצרים'}
+              </div>
+            </div>
+            <div
+              onClick={() => setForm(f => ({ ...f, is_active: f.is_active === false }))}
+              style={{
+                width: 44, height: 24, borderRadius: 12, flexShrink: 0,
+                background: form.is_active !== false ? '#38a169' : 'rgba(255,255,255,0.15)',
+                position: 'relative', transition: 'background 0.2s', cursor: 'pointer',
+              }}
+            >
+              <div style={{
+                position: 'absolute', top: 3, width: 18, height: 18, borderRadius: '50%',
+                background: '#fff', transition: 'left 0.2s',
+                left: form.is_active !== false ? 23 : 3,
+              }} />
+            </div>
+          </label>
+        )}
 
         <button className="btn" disabled={saving} onClick={onSave}>{saving ? '...' : 'שמור'}</button>
         <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={onClose}>ביטול</button>
