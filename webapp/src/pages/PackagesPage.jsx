@@ -279,32 +279,40 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
             <div style={{
               display: 'flex', gap: 7, padding: '14px 14px 10px', flexWrap: 'wrap',
             }}>
-              {pkg.chips?.length
-                ? pkg.chips.map((c, i) => <Chip key={i} accent={accent}>{c}</Chip>)
-                : <>
-                    <Chip accent={accent}>{isUnlimited ? '♾️ ללא הגבלה' : `🔍 ${pkg.searches} חיפושים`}</Chip>
-                    <Chip accent={accent}>💳 חד-פעמי</Chip>
-                    <Chip accent={accent}>{isUnlimited ? `📅 תוקף ${(pkg.duration_months ?? 1) > 1 ? `${pkg.duration_months} חודשים` : 'חודש'}` : '🔓 ללא תפוגה'}</Chip>
-                  </>
-              }
+              {(pkg.chips?.length
+                ? pkg.chips
+                : [
+                    isUnlimited ? '♾️ ללא הגבלה' : `🔍 ${pkg.searches} חיפושים`,
+                    '💳 חד-פעמי',
+                    isUnlimited ? `📅 תוקף ${(pkg.duration_months ?? 1) > 1 ? `${pkg.duration_months} חודשים` : 'חודש'}` : '🔓 ללא תפוגה',
+                  ]
+              ).map((c, i) => <Chip key={i} accent={accent}>{c}</Chip>)}
             </div>
 
             <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 14px' }} />
 
             {/* ── Features ── */}
-            {pkg.features && pkg.features.length > 0 && (
-              <div style={{ padding: '12px 16px', fontSize: 13, lineHeight: 1.9 }}>
-                {pkg.features.map((f, i) => {
-                  const text = typeof f === 'string' ? f : f.text
-                  const included = typeof f === 'string' ? true : f.included
-                  return (
-                    <div key={i} style={{ color: included ? 'var(--hint)' : '#e53e3e', opacity: included ? 1 : 0.75 }}>
-                      {included ? '✅' : '✗'} {text}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+            <div style={{ padding: '12px 16px', fontSize: 13, lineHeight: 1.9 }}>
+              {(pkg.features?.length
+                ? pkg.features
+                : [
+                    { text: 'מחיר שוק Yad2 — השוואת מחירים עדכנית', included: true },
+                    { text: 'הורדת דוח PDF מפורט', included: true },
+                    { text: 'העתקת דוח לשיתוף', included: true },
+                    { text: 'הערות אישיות לכל רכב — נשמרות ומופיעות בדוח', included: true },
+                    { text: 'היסטוריית חיפושים אישית', included: true },
+                    { text: 'גישה לכל תכונות המנוי הקיימות והעתידיות', included: true },
+                  ]
+              ).map((f, i) => {
+                const text = typeof f === 'string' ? f : f.text
+                const included = typeof f === 'string' ? true : f.included
+                return (
+                  <div key={i} style={{ color: included ? 'var(--hint)' : '#e53e3e', opacity: included ? 1 : 0.75 }}>
+                    {included ? '✅' : '✗'} {text}
+                  </div>
+                )
+              })}
+            </div>
 
             <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 14px' }} />
             {!isUnlimited && (
