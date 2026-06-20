@@ -238,6 +238,22 @@ function SummaryTab({ record, ownership, recalls, make, model, year, color, km, 
           </div>
         </div>
 
+        {/* Score breakdown */}
+        <div style={{ padding: '12px 20px 16px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 8, fontWeight: 600, letterSpacing: 0.5 }}>
+            מה מרכיב את הציון
+          </div>
+          {score.factors.map((f, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              fontSize: 13, paddingBottom: 5,
+            }}>
+              <span style={{ fontSize: 14, flexShrink: 0 }}>{f.icon}</span>
+              <span style={{ color: f.ok ? 'var(--hint)' : f.warn ? '#d69e2e' : '#e53e3e' }}>{f.text}</span>
+            </div>
+          ))}
+        </div>
+
         {/* Quick 4 stats */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 1, background: 'var(--bg)' }}>
           {[
@@ -283,41 +299,28 @@ function SummaryTab({ record, ownership, recalls, make, model, year, color, km, 
           .map(i => i.price).filter(Boolean).sort((a, b) => a - b)
         if (!prices.length) return null
         const median = prices[Math.floor(prices.length / 2)]
-        const min    = prices[0]
-        const max    = prices[prices.length - 1]
         return (
-          <div className="card" style={{ marginBottom: 14 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-              <div>
+          <div style={{
+            borderRadius: 14, padding: '14px 16px', marginBottom: 14,
+            background: 'var(--bg2)', display: 'flex', alignItems: 'center', gap: 12,
+          }}>
+            <span style={{ fontSize: 24, flexShrink: 0 }}>💰</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
                 <div style={{
-                  display: 'inline-block', fontSize: 11, fontWeight: 700,
-                  background: '#8b5cf6', color: '#fff',
-                  borderRadius: 20, padding: '4px 10px', marginBottom: 6,
+                  fontSize: 10, fontWeight: 700, background: '#8b5cf6', color: '#fff',
+                  borderRadius: 20, padding: '2px 8px',
                 }}>למנויים בלבד</div>
-                <div style={{ fontWeight: 700, fontSize: 15 }}>💰 מחיר שוק – Yad2</div>
+                {marketData.public_label && (
+                  <div style={{ fontSize: 10, color: 'var(--hint)' }}>{marketData.public_label}</div>
+                )}
               </div>
-              {marketData.public_label && (
-                <div style={{ fontSize: 11, color: 'var(--hint)', textAlign: 'left', whiteSpace: 'nowrap' }}>
-                  {marketData.public_label}
-                </div>
-              )}
+              <div style={{ fontSize: 12, color: 'var(--hint)' }}>ממוצע שוק – Yad2</div>
             </div>
-            {[
-              ['ממוצע שוק', `₪${median.toLocaleString()}`],
-              ['מינימום',   `₪${min.toLocaleString()}`],
-              ['מקסימום',   `₪${max.toLocaleString()}`],
-            ].map(([label, val]) => (
-              <div key={label} style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: '6px 0', borderBottom: '1px solid var(--bg)', fontSize: 14, gap: 8,
-              }}>
-                <span style={{ color: 'var(--hint)' }}>{label}</span>
-                <span style={{
-                  fontWeight: 600,
-                  ...(authorized ? {} : { filter: 'blur(5px)', userSelect: 'none' }),
-                }}>{val}</span>
-              </div>
-            ))}
+            <div style={{
+              fontSize: 20, fontWeight: 800, color: '#38bdf8',
+              ...(authorized ? {} : { filter: 'blur(6px)', userSelect: 'none' }),
+            }}>₪{median.toLocaleString()}</div>
           </div>
         )
       })()}
@@ -457,7 +460,7 @@ function Sec({ title, children }) {
 // ── main component ────────────────────────────────────────────────────────────
 
 export default function ReportPage({ plate, onBack, user }) {
-  const [activeTab, setActiveTab] = useState('summary')
+  const [activeTab, setActiveTab] = useState('full')
   const [record, setRecord] = useState(null)
   const [error, setError] = useState(null)
   const [copied, setCopied] = useState(false)
@@ -557,25 +560,59 @@ export default function ReportPage({ plate, onBack, user }) {
   // ── score calculation ────────────────────────────────────────────────────
   function calcScore() {
     let score = 100
-    if (scrapped || inactive || inactiveNd) score -= 50
-    if (bodyChange) score -= 20
-    const owners = ownership.length
-    if (owners >= 5) score -= 20
-    else if (owners >= 3) score -= 10
-    else if (owners >= 2) score -= 5
+    const factors = []
     const age = year ? new Date().getFullYear() - parseInt(year) : 0
     const kmNum = km ? Number(km) : 0
     const expectedKm = age * 15000
-    if (kmNum > expectedKm * 1.4) score -= 15
-    if (testStr && testStr.startsWith('🔴')) score -= 15
-    else if (testStr && testStr.startsWith('🟡')) score -= 5
-    if (recalls.length >= 3) score -= 10
-    else if (recalls.length >= 1) score -= 5
+
+    if (scrapped || inactive || inactiveNd) {
+      score -= 50
+      factors.push({ icon: '🚨', text: scrapped ? 'רכב גרוטאה' : 'רישום לא פעיל', ok: false })
+    }
+    if (bodyChange) {
+      score -= 20
+      factors.push({ icon: '⚠️', text: 'שינוי מבנה רשום', warn: true })
+    }
+
+    const owners = ownership.length
+    if (owners >= 5) { score -= 20; factors.push({ icon: '👥', text: `${owners} בעלויות — גבוה`, ok: false }) }
+    else if (owners >= 3) { score -= 10; factors.push({ icon: '👥', text: `${owners} בעלויות`, warn: true }) }
+    else if (owners === 2) { score -= 5; factors.push({ icon: '👥', text: '2 בעלויות', warn: true }) }
+    else { factors.push({ icon: '👥', text: 'בעלות יחידה', ok: true }) }
+
+    if (kmNum && expectedKm) {
+      if (kmNum > expectedKm * 1.4) {
+        score -= 15
+        factors.push({ icon: '🛣️', text: `ק"מ גבוה ביחס לגיל (${Math.round(kmNum / 1000)}K)`, ok: false })
+      } else {
+        factors.push({ icon: '🛣️', text: `ק"מ סביר לגיל (${Math.round(kmNum / 1000)}K)`, ok: true })
+      }
+    }
+
+    if (testStr) {
+      if (testStr.startsWith('🔴')) { score -= 15; factors.push({ icon: '🔧', text: 'טסט פג תוקף', ok: false }) }
+      else if (testStr.startsWith('🟡')) { score -= 5; factors.push({ icon: '🔧', text: 'טסט פג בקרוב', warn: true }) }
+      else { factors.push({ icon: '🔧', text: 'טסט בתוקף', ok: true }) }
+    }
+
+    if (recalls.length >= 3) {
+      score -= 10
+      factors.push({ icon: '🔔', text: `${recalls.length} ריקולים ידועים`, ok: false })
+    } else if (recalls.length >= 1) {
+      score -= 5
+      factors.push({ icon: '🔔', text: `${recalls.length} ריקול ידוע`, warn: true })
+    } else {
+      factors.push({ icon: '🔔', text: 'אין ריקולים ידועים', ok: true })
+    }
+
+    if (record._personal_import) factors.push({ icon: '📦', text: 'יבוא אישי', warn: true })
+
     score = Math.max(0, Math.min(100, score))
-    if (score >= 80) return { grade: 'A', label: 'מצוין', color: '#38a169', bg: '#38a16922' }
-    if (score >= 60) return { grade: 'B', label: 'טוב', color: '#d69e2e', bg: '#d69e2e22' }
-    if (score >= 40) return { grade: 'C', label: 'בינוני', color: '#dd6b20', bg: '#dd6b2022' }
-    return { grade: 'D', label: 'דורש בדיקה', color: '#e53e3e', bg: '#e53e3e22' }
+    const base = { factors }
+    if (score >= 80) return { ...base, grade: 'A', label: 'מצוין', color: '#38a169', bg: '#38a16922' }
+    if (score >= 60) return { ...base, grade: 'B', label: 'טוב', color: '#d69e2e', bg: '#d69e2e22' }
+    if (score >= 40) return { ...base, grade: 'C', label: 'בינוני', color: '#dd6b20', bg: '#dd6b2022' }
+    return { ...base, grade: 'D', label: 'דורש בדיקה', color: '#e53e3e', bg: '#e53e3e22' }
   }
   const score = calcScore()
 
