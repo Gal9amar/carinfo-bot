@@ -2088,45 +2088,11 @@ async def handle_pdf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 
-async def run_self_ping():
-    """Ping /health every 10 min during active hours (06:00-23:00 Israel time).
-    First ping fires after 30 s so the service doesn't fall asleep right after boot.
-    Outside active hours the server is allowed to sleep, saving Render free-tier hours.
-    Active window: 17 h/day × 31 days ≈ 527 h/month (within the 750 h free quota).
-    """
-    import asyncio as _asyncio, urllib.request as _req
-    from datetime import datetime, timezone, timedelta
-
-    url = os.environ.get("RENDER_EXTERNAL_URL", "")
-    if not url:
-        logger.info("RENDER_EXTERNAL_URL not set — self-ping disabled")
-        return
-    url = url.rstrip("/") + "/health"
-    israel_tz = timezone(timedelta(hours=3))  # UTC+3 (covers both IST and IDT)
-    ACTIVE_START = 6   # 06:00
-    ACTIVE_END   = 23  # 23:00
-    INTERVAL     = 600 # 10 minutes — well within Render's 15-min sleep threshold
-
-    def _do_ping():
-        try:
-            _req.urlopen(url, timeout=10)
-            logger.debug("Self-ping OK: %s", url)
-        except Exception as e:
-            logger.warning("Self-ping failed: %s", e)
-
-    # First ping quickly so the service doesn't sleep right after boot
-    await _asyncio.sleep(30)
-    loop = _asyncio.get_event_loop()
-    loop.run_in_executor(None, _do_ping)
-
+async def _cache_cleanup_job():
+    """Clear expired cache entries every 10 minutes."""
     while True:
-        await _asyncio.sleep(INTERVAL)
+        await asyncio.sleep(600)
         cache.clear_expired()
-        now_hour = datetime.now(israel_tz).hour
-        if not (ACTIVE_START <= now_hour < ACTIVE_END):
-            logger.debug("Self-ping skipped (off-hours %02d:xx)", now_hour)
-            continue
-        loop.run_in_executor(None, _do_ping)
 
 
 async def _yad2_watch_job(context) -> None:
@@ -2277,7 +2243,7 @@ def main() -> None:
         uvicorn.run(fastapi_app, host="0.0.0.0", port=port, log_level="warning")
 
     Thread(target=_start_api, daemon=True).start()
-    Thread(target=lambda: asyncio.run(run_self_ping()), daemon=True).start()
+    Thread(target=lambda: asyncio.run(_cache_cleanup_job()), daemon=True).start()
     logger.info("API server starting on port %s", os.environ.get("PORT", 8080))
 
     app = Application.builder().token(token).post_init(_post_init).build()

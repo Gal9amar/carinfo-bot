@@ -101,7 +101,7 @@ async def _startup():
 
 
 # ── Health ──────────────────────────────────────────────────────────────────
-@api.get("/health")
+@api.api_route("/health", methods=["GET", "HEAD"])
 async def health():
     return {"ok": True}
 
