@@ -572,25 +572,33 @@ def quick_summary(record: dict) -> str:
 
     lines = [
         f"{header}\n",
-        "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n",
-        f"  {overall}  \\|  👥 {_escape(str(owner_count))}  \\|  🛣 {_escape(km_str or '—')}\n",
-        "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n",
+        "\n",
+        f"👥 {_escape(str(owner_count))} {_escape('בעלים')}\n",
+        "\n",
+        f"🏷 *{_escape('בעלות נוכחית')}:* {_escape(baalut)}\n",
+        "\n",
+        f"🛣 {_escape(km_str or '—')}\n",
+        "\n",
         f"📅 *{_escape('טסט')}:* {_escape(test_str)}\n",
     ]
 
     if agra_str:
+        lines.append("\n")
         lines.append(f"📋 *{_escape('אגרת רישוי')}:* {agra_str}\n")
+        lines.append(f"_{_escape('הסכום המדויק מופיע ברשיון הרכב')}_\n")
     if tag_nache:
+        lines.append("\n")
         lines.append(f"♿ *{_escape('תו נכה')}:* ✅\n")
     if personal_imp:
+        lines.append("\n")
         lines.append(f"📦 *{_escape('יבוא אישי')}:* ✅\n")
 
     if flags_plain:
-        lines.append("▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n")
+        lines.append("\n")
         for flag in flags_plain:
-            lines.append(f"{_escape(flag)}\n")
+            lines.append(f"⚠️ {_escape(flag.lstrip('⚠️🚨📦 '))}\n")
+            lines.append("\n")
 
-    lines.append("▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n\n")
     return "".join(lines)
 
 
