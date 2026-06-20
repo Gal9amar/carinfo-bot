@@ -201,7 +201,7 @@ function buildFullText(record, ownership) {
 // ── SummaryTab ────────────────────────────────────────────────────────────────
 
 function SummaryTab({ record, ownership, recalls, make, model, year, color, km, testStr,
-  plateNum, score, flags, marketData, copied, onShare, w, statusColor }) {
+  plateNum, score, flags, marketData, w, statusColor }) {
 
   const kmNum = km ? Number(km) : null
   const age = year ? new Date().getFullYear() - parseInt(year) : null
@@ -409,21 +409,6 @@ function SummaryTab({ record, ownership, recalls, make, model, year, color, km, 
         </div>
       </div>
 
-      {/* ── Share button ── */}
-      <button
-        onClick={onShare}
-        style={{
-          width: '100%', padding: '14px 0', border: 'none', borderRadius: 14,
-          background: copied
-            ? 'linear-gradient(135deg,#276749,#38a169)'
-            : 'linear-gradient(135deg,#1e40af,#0ea5e9)',
-          color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer',
-          boxShadow: '0 4px 14px rgba(0,0,0,0.25)', marginBottom: 8,
-          transition: 'background 0.2s',
-        }}
-      >
-        {copied ? '✅ הועתק ללוח!' : '📤 שתף סיכום רכב'}
-      </button>
     </div>
   )
 }
@@ -579,32 +564,6 @@ export default function ReportPage({ plate, onBack, user }) {
   }
   const score = calcScore()
 
-  // ── share text ───────────────────────────────────────────────────────────
-  function buildShareText() {
-    const kmStr = km ? `${Number(km).toLocaleString('he-IL')} ק"מ` : 'לא ידוע'
-    let t = `🚗 סיכום רכב — ${plateNum}\n`
-    t += `${make} ${model} ${year}\n`
-    t += `━━━━━━━━━━━━━━━━\n`
-    t += `👥 בעלויות: ${ownership.length}\n`
-    t += `🛣️ ק"מ: ${kmStr}\n`
-    t += `🔧 טסט: ${testStr || 'לא ידוע'}\n`
-    if (flags.length) { t += `\n⚠️ לשים לב:\n`; flags.forEach(f => { t += `${f}\n` }) }
-    if (marketData?.market && marketData?.authorized !== false) {
-      const prices = (marketData.market.items || []).map(i => i.price).filter(Boolean).sort((a, b) => a - b)
-      if (prices.length) t += `\n💰 מחיר שוק: ₪${prices[Math.floor(prices.length / 2)].toLocaleString()}\n`
-    }
-    t += `\nמופק על ידי @israelcarinfobot`
-    return t
-  }
-
-  async function handleShare() {
-    const text = buildShareText()
-    try {
-      await navigator.clipboard.writeText(text)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2200)
-    } catch { /* ignore */ }
-  }
 
   return (
     <div className="page">
@@ -661,7 +620,6 @@ export default function ReportPage({ plate, onBack, user }) {
           make={make} model={model} year={year} color={color}
           km={km} testStr={testStr} plateNum={plateNum}
           score={score} flags={flags} marketData={marketData}
-          copied={copied} onShare={handleShare}
           w={w} statusColor={statusColor}
         />
       )}
