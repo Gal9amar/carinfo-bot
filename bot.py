@@ -508,10 +508,10 @@ def _admin_main_keyboard() -> InlineKeyboardMarkup:
 
 def _admin_gen_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("10 בדיקות",  callback_data="adm|gen|10|single"),
-         InlineKeyboardButton("25 בדיקות",  callback_data="adm|gen|25|single")],
-        [InlineKeyboardButton("50 בדיקות",  callback_data="adm|gen|50|single"),
-         InlineKeyboardButton("100 בדיקות", callback_data="adm|gen|100|single")],
+        [InlineKeyboardButton("🎫 10 בדיקות",  callback_data="adm|gen|10|single"),
+         InlineKeyboardButton("🎫 25 בדיקות",  callback_data="adm|gen|25|single")],
+        [InlineKeyboardButton("🎫 50 בדיקות",  callback_data="adm|gen|50|single"),
+         InlineKeyboardButton("🎫 100 בדיקות", callback_data="adm|gen|100|single")],
         [InlineKeyboardButton("📅 חודש – חיפושים חופשיים", callback_data="adm|gen|monthly|single")],
         [InlineKeyboardButton("🔙 חזרה", callback_data="adm|main")],
     ])
