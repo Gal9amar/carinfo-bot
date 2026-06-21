@@ -93,7 +93,7 @@ def _persistent_rows(is_admin: bool = False) -> list:
     webapp_url = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
     return [
         [
-            InlineKeyboardButton("🔍 חיפוש רכב חדש", callback_data="new_search"),
+            InlineKeyboardButton("🔍 חיפוש רכב חדש", callback_data="new_search", style="primary"),
             InlineKeyboardButton("📱 פתח תפריט", web_app=WebAppInfo(url=webapp_url)),
         ],
     ]
@@ -106,7 +106,7 @@ def _persistent_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
 def _payment_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
     webapp_url = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🛒 רכישת חבילה", web_app=WebAppInfo(url=webapp_url))],
+        [InlineKeyboardButton("🛒 רכישת חבילה", web_app=WebAppInfo(url=webapp_url), style="primary")],
         [InlineKeyboardButton("🔑 יש לי קוד גישה", callback_data="enter_code")],
     ])
 
@@ -117,7 +117,7 @@ def _welcome_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
 
 def _blocked_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("💬 צ'אט עם מנהל", callback_data="chat_admin")],
+        [InlineKeyboardButton("💬 צ'אט עם מנהל", callback_data="chat_admin", style="primary")],
     ])
 
 
@@ -155,6 +155,7 @@ def build_result_keyboard(
         first_row.append(InlineKeyboardButton(
             "📊 צפה בדוח המלא והורדה",
             web_app=WebAppInfo(url=f"{webapp_url}/?plate={plate}"),
+            style="primary",
         ))
     rows = [first_row] if first_row else []
     rows.extend(_persistent_rows(is_admin))
@@ -166,7 +167,8 @@ def _packages_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
     for label, searches, price in _pkgs():
         buttons.append([InlineKeyboardButton(
             f"{label} — ₪{price}",
-            callback_data=f"buy|{searches}|{price}"
+            callback_data=f"buy|{searches}|{price}",
+            style="primary",
         )])
     buttons.append([InlineKeyboardButton("🎟️ יש לי קוד הטבה", callback_data="enter_code")])
     buttons.append([InlineKeyboardButton("📱 פתח תפריט", web_app=WebAppInfo(url=os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")))])
@@ -177,9 +179,9 @@ def _paypal_keyboard(searches: int, price: int) -> InlineKeyboardMarkup:
     paypal_url = f"{PAYPAL_ME}/{price}"
     webapp_url = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton(f"💳 שלם ₪{price} ב-PayPal", url=paypal_url)],
-        [InlineKeyboardButton(f"💚 שלם ₪{price} ב-PayBox", url=PAYBOX_URL)],
-        [InlineKeyboardButton("✅ שילמתי — שלח אישור", callback_data=f"paid|{searches}|{price}")],
+        [InlineKeyboardButton(f"💳 שלם ₪{price} ב-PayPal", url=paypal_url, style="primary")],
+        [InlineKeyboardButton(f"💚 שלם ₪{price} ב-PayBox", url=PAYBOX_URL, style="success")],
+        [InlineKeyboardButton("✅ שילמתי — שלח אישור", callback_data=f"paid|{searches}|{price}", style="success")],
         [InlineKeyboardButton("📱 פתח תפריט", web_app=WebAppInfo(url=webapp_url))],
     ])
 
@@ -517,10 +519,11 @@ def _admin_gen_keyboard() -> InlineKeyboardMarkup:
 
 def _admin_settings_keyboard(maintenance_on: bool = False) -> InlineKeyboardMarkup:
     maint_label = "🔴 בטל תחזוקה" if maintenance_on else "🔧 הפעל תחזוקה"
+    maint_style = "danger" if maintenance_on else None
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("✏️ שנה הודעת תשלום",         callback_data="adm|set_payment")],
         [InlineKeyboardButton("🆓 שנה מספר בדיקות חינמיות", callback_data="adm|set_free")],
-        [InlineKeyboardButton(maint_label,                   callback_data="adm|toggle_maintenance")],
+        [InlineKeyboardButton(maint_label,                   callback_data="adm|toggle_maintenance", style=maint_style)],
         [InlineKeyboardButton("🔙 חזרה",                     callback_data="adm|main")],
     ])
 
@@ -1391,8 +1394,8 @@ async def handle_paid_callback(update: Update, context: ContextTypes.DEFAULT_TYP
                 f"לאחר אימות התשלום ב-PayPal לחץ אשר:",
                 parse_mode=None,
                 reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("✅ אשר ופתח גישה", callback_data=f"approve|{user_id}|{searches}"),
-                    InlineKeyboardButton("❌ דחה", callback_data=f"decline|{user_id}"),
+                    InlineKeyboardButton("✅ אשר ופתח גישה", callback_data=f"approve|{user_id}|{searches}", style="success"),
+                    InlineKeyboardButton("❌ דחה", callback_data=f"decline|{user_id}", style="danger"),
                 ]]),
             )
         except Exception as e:
@@ -1418,8 +1421,8 @@ async def _notify_admin_payment(user_id: int, name: str, label: str, searches: i
         f"לאחר אימות התשלום ב\\-PayPal לחץ אשר:",
         parse_mode=ParseMode.MARKDOWN_V2,
         reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton("✅ אשר ופתח גישה", callback_data=f"approve|{user_id}|{searches}"),
-            InlineKeyboardButton("❌ דחה",             callback_data=f"decline|{user_id}"),
+            InlineKeyboardButton("✅ אשר ופתח גישה", callback_data=f"approve|{user_id}|{searches}", style="success"),
+            InlineKeyboardButton("❌ דחה",             callback_data=f"decline|{user_id}", style="danger"),
         ]]),
     )
 
