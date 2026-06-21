@@ -93,7 +93,7 @@ def _persistent_rows(is_admin: bool = False) -> list:
     webapp_url = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
     return [
         [
-            InlineKeyboardButton("🔍 חיפוש רכב חדש", callback_data="new_search", style="success"),
+            InlineKeyboardButton("🔍 חיפוש רכב חדש", callback_data="new_search", style="primary"),
             InlineKeyboardButton("📱 פתח תפריט", web_app=WebAppInfo(url=webapp_url), style="primary"),
         ],
     ]
