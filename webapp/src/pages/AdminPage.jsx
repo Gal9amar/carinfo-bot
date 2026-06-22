@@ -18,6 +18,10 @@ import {
   adminFetchUserHistory,
   adminFetchUserReferrals,
   adminFetchUserSentMessages,
+  adminFetchPaymentMethods,
+  adminAddPaymentMethod,
+  adminUpdatePaymentMethod,
+  adminDeletePaymentMethod,
   adminFetchActivity,
   adminGiftAll,
   adminFetchGroups,
@@ -43,8 +47,9 @@ const TABS = [
   { id: 'features', icon: '⭐', label: 'פיצ\'רים' },
   { id: 'promo',    icon: '🎉', label: 'מבצעי הצטרפות' },
   { id: 'broadcast',icon: '📢', label: 'שידור' },
-  { id: 'settings', icon: '⚙️', label: 'הגדרות' },
-  { id: 'tickets',  icon: '🎫', label: 'טיקטים' },
+  { id: 'settings',        icon: '⚙️', label: 'הגדרות' },
+  { id: 'tickets',         icon: '🎫', label: 'טיקטים' },
+  { id: 'payment_methods', icon: '💰', label: 'אמצעי תשלום' },
 ]
 
 export default function AdminPage({ user, onBack }) {
@@ -89,7 +94,8 @@ export default function AdminPage({ user, onBack }) {
       {tab === 'promo'     && <PromoTab />}
       {tab === 'broadcast' && <BroadcastTab />}
       {tab === 'settings'  && <SettingsTab />}
-      {tab === 'tickets'   && <TicketsTab />}
+      {tab === 'tickets'         && <TicketsTab />}
+      {tab === 'payment_methods' && <PaymentMethodsTab />}
       {tab === 'watches'   && <WatchesTab />}
     </div>
   )
@@ -2084,6 +2090,158 @@ function SentMessagesModal({ user, onClose }) {
           </div>
         )}
         <button className="btn btn-secondary" style={{ marginTop: 12 }} onClick={onClose}>סגור</button>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
+function PaymentMethodsTab() {
+  const [methods, setMethods] = useState(null)
+  const [editingMethod, setEditingMethod] = useState(null)
+  const [showAdd, setShowAdd] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  function load() { adminFetchPaymentMethods().then(setMethods).catch(() => setMethods([])) }
+  useEffect(() => { load() }, [])
+
+  async function deleteMethod(id, name) {
+    window.Telegram?.WebApp?.showConfirm(`למחוק את "${name}"?`, async ok => {
+      if (!ok) return
+      try { await adminDeletePaymentMethod(id); load() }
+      catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    })
+  }
+
+  async function toggleActive(m) {
+    try {
+      await adminUpdatePaymentMethod(m.id, { name: m.name, logo_url: m.logo_url, payment_url: m.payment_url, active: !m.active })
+      load()
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+  }
+
+  if (!methods) return <div className="loading"></div>
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <div style={{ fontSize: 14, fontWeight: 700 }}>💰 אמצעי תשלום</div>
+        <button
+          onClick={() => setShowAdd(true)}
+          style={{ padding: '7px 14px', borderRadius: 9, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+        >+ הוסף</button>
+      </div>
+
+      {methods.length === 0 && (
+        <div style={{ color: 'var(--hint)', fontSize: 13, textAlign: 'center', padding: 20 }}>אין אמצעי תשלום</div>
+      )}
+
+      {methods.map(m => (
+        <div key={m.id} style={{
+          background: 'var(--bg2)', borderRadius: 12, padding: '12px 14px', marginBottom: 8,
+          border: m.active ? '1px solid rgba(255,255,255,0.08)' : '1px solid #e53e3e33',
+          opacity: m.active ? 1 : 0.6,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+            {m.logo_url
+              ? <img src={m.logo_url} alt={m.name} style={{ width: 40, height: 40, objectFit: 'contain', borderRadius: 8, background: '#fff', padding: 4 }} onError={e => { e.target.style.display='none' }} />
+              : <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>💳</div>
+            }
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{m.name}</div>
+              <div style={{ fontSize: 11, color: 'var(--hint)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.payment_url || 'אין כתובת תשלום'}</div>
+            </div>
+            <span style={{
+              fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20,
+              background: m.active ? '#38a16920' : '#e53e3e20',
+              color: m.active ? '#38a169' : '#e53e3e',
+            }}>{m.active ? 'פעיל' : 'מושבת'}</span>
+          </div>
+          <div style={{ display: 'flex', gap: 7 }}>
+            <button
+              onClick={() => setEditingMethod(m)}
+              style={{ flex: 1, padding: '8px 0', borderRadius: 8, border: 'none', background: 'var(--bg)', color: 'var(--text)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+            >✏️ ערוך</button>
+            <button
+              onClick={() => toggleActive(m)}
+              style={{ flex: 1, padding: '8px 0', borderRadius: 8, border: 'none', background: m.active ? '#e53e3e18' : '#38a16918', color: m.active ? '#e53e3e' : '#38a169', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+            >{m.active ? '🔕 השבת' : '✅ הפעל'}</button>
+            <button
+              onClick={() => deleteMethod(m.id, m.name)}
+              style={{ padding: '8px 12px', borderRadius: 8, border: 'none', background: '#e53e3e18', color: '#e53e3e', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+            >🗑</button>
+          </div>
+        </div>
+      ))}
+
+      {(showAdd || editingMethod) && (
+        <PaymentMethodModal
+          method={editingMethod}
+          onClose={() => { setShowAdd(false); setEditingMethod(null) }}
+          onSaved={() => { load(); setShowAdd(false); setEditingMethod(null) }}
+        />
+      )}
+    </div>
+  )
+}
+
+function PaymentMethodModal({ method, onClose, onSaved }) {
+  const [name, setName]           = useState(method?.name || '')
+  const [logoUrl, setLogoUrl]     = useState(method?.logo_url || '')
+  const [paymentUrl, setPaymentUrl] = useState(method?.payment_url || '')
+  const [saving, setSaving]       = useState(false)
+
+  async function save() {
+    if (!name.trim()) return
+    setSaving(true)
+    try {
+      if (method) {
+        await adminUpdatePaymentMethod(method.id, { name: name.trim(), logo_url: logoUrl.trim(), payment_url: paymentUrl.trim(), active: method.active })
+      } else {
+        await adminAddPaymentMethod(name.trim(), logoUrl.trim(), paymentUrl.trim())
+      }
+      onSaved()
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    setSaving(false)
+  }
+
+  return createPortal(
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{ padding: '18px 16px' }}>
+        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14 }}>
+          {method ? `✏️ עריכת ${method.name}` : '➕ אמצעי תשלום חדש'}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 4 }}>שם</div>
+            <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="לדוגמה: PayPal" style={{ fontSize: 13 }} />
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 4 }}>כתובת לוגו (URL)</div>
+            <input className="input" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} placeholder="https://..." style={{ fontSize: 13 }} />
+            {logoUrl && (
+              <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <img src={logoUrl} alt="preview" style={{ height: 36, objectFit: 'contain', borderRadius: 6, background: '#fff', padding: '2px 6px' }} onError={e => e.target.style.display='none'} />
+                <span style={{ fontSize: 10, color: 'var(--hint)' }}>תצוגה מקדימה</span>
+              </div>
+            )}
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 4 }}>כתובת לתשלום (URL)</div>
+            <input className="input" value={paymentUrl} onChange={e => setPaymentUrl(e.target.value)} placeholder="https://..." style={{ fontSize: 13 }} />
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+          <button
+            className="btn"
+            disabled={saving || !name.trim()}
+            onClick={save}
+            style={{ flex: 1, marginTop: 0 }}
+          >{saving ? '⏳...' : '💾 שמור'}</button>
+          <button className="btn btn-secondary" onClick={onClose} style={{ flex: 1, marginTop: 0 }}>ביטול</button>
+        </div>
       </div>
     </div>,
     document.body

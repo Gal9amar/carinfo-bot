@@ -936,6 +936,52 @@ async def admin_delete_package(pkg_id: int, _: dict = Depends(_require_admin)):
     return {"ok": True}
 
 
+@api.get("/api/admin/payment-methods")
+async def admin_list_payment_methods(_: dict = Depends(_require_admin)):
+    from src.payment_methods import get_payment_methods
+    return await get_payment_methods()
+
+
+class PaymentMethodBody(BaseModel):
+    name: str
+    logo_url: str = ""
+    payment_url: str = ""
+
+
+@api.post("/api/admin/payment-methods")
+async def admin_add_payment_method(body: PaymentMethodBody, _: dict = Depends(_require_admin)):
+    from src.payment_methods import add_payment_method
+    return await add_payment_method(body.name, body.logo_url, body.payment_url)
+
+
+class PaymentMethodUpdateBody(BaseModel):
+    name: str
+    logo_url: str = ""
+    payment_url: str = ""
+    active: bool = True
+
+
+@api.put("/api/admin/payment-methods/{method_id}")
+async def admin_update_payment_method(method_id: int, body: PaymentMethodUpdateBody, _: dict = Depends(_require_admin)):
+    from src.payment_methods import update_payment_method
+    await update_payment_method(method_id, body.name, body.logo_url, body.payment_url, body.active)
+    return {"ok": True}
+
+
+@api.delete("/api/admin/payment-methods/{method_id}")
+async def admin_delete_payment_method(method_id: int, _: dict = Depends(_require_admin)):
+    from src.payment_methods import delete_payment_method
+    await delete_payment_method(method_id)
+    return {"ok": True}
+
+
+@api.put("/api/admin/payment-methods/reorder")
+async def admin_reorder_payment_methods(body: dict, _: dict = Depends(_require_admin)):
+    from src.payment_methods import reorder_payment_methods
+    await reorder_payment_methods(body.get("ids", []))
+    return {"ok": True}
+
+
 def _grants_json(pkgs):
     return [{"id": g[0], "label": g[1], "searches": g[2], "display_order": g[3]} for g in pkgs]
 

@@ -387,6 +387,34 @@ export async function adminFetchUserSentMessages(userId) {
   return r.json()
 }
 
+// Payment methods (admin)
+export async function adminFetchPaymentMethods() {
+  const r = await fetch(`${BASE}/api/admin/payment-methods`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+export async function adminAddPaymentMethod(name, logo_url, payment_url) {
+  const r = await fetch(`${BASE}/api/admin/payment-methods`, {
+    method: 'POST', headers: { ...headers(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, logo_url, payment_url }),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+export async function adminUpdatePaymentMethod(id, data) {
+  const r = await fetch(`${BASE}/api/admin/payment-methods/${id}`, {
+    method: 'PUT', headers: { ...headers(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+export async function adminDeletePaymentMethod(id) {
+  const r = await fetch(`${BASE}/api/admin/payment-methods/${id}`, { method: 'DELETE', headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
 // Referral info for current user
 export async function fetchReferral() {
   const r = await fetch(`${BASE}/api/user/referral`, { headers: headers() })
