@@ -646,8 +646,9 @@ export default function ReportPage({ plate, onBack, user }) {
         background: 'var(--bg2)', borderRadius: 14, padding: 4,
       }}>
         {[
-          { id: 'summary', label: '✨ סיכום' },
-          { id: 'full',    label: '📋 דוח מלא' },
+          { id: 'summary',  label: '✨ סיכום' },
+          { id: 'full',     label: '📋 דוח מלא' },
+          { id: 'transfer', label: '🔄 העברה' },
         ].map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
             flex: 1, padding: '9px 0', border: 'none', borderRadius: 11,
@@ -1209,27 +1210,6 @@ export default function ReportPage({ plate, onBack, user }) {
         )
       })()}
 
-      {/* ── Ownership Transfer ── */}
-      <a
-        href="https://www.gov.il/he/service/ownership-vehicles-transfer"
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{
-          display: 'flex', alignItems: 'center', gap: 14,
-          background: 'var(--bg2)', borderRadius: 14,
-          padding: '14px 16px', marginBottom: 12,
-          textDecoration: 'none', color: 'var(--text)',
-          border: '1px solid rgba(255,255,255,0.07)',
-        }}
-      >
-        <span style={{ fontSize: 28, flexShrink: 0 }}>🔄</span>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>העברת בעלות אונליין</div>
-          <div style={{ fontSize: 12, color: 'var(--hint)' }}>לביצוע העברת הבעלות דרך האזור האישי של gov.il</div>
-        </div>
-        <span style={{ fontSize: 18, color: 'var(--hint)', flexShrink: 0 }}>›</span>
-      </a>
-
       {/* ── Actions ── */}
       <button className="btn btn-secondary" style={{ marginBottom: 20 }}
         onClick={() => window.Telegram?.WebApp?.close()}>
@@ -1237,6 +1217,131 @@ export default function ReportPage({ plate, onBack, user }) {
       </button>
 
       </> /* end full tab */}
+
+      {/* ══════════════ TRANSFER TAB ══════════════ */}
+      {activeTab === 'transfer' && (
+        <div>
+          {/* Hero */}
+          <div style={{
+            borderRadius: 16, padding: '20px 18px', marginBottom: 14,
+            background: 'linear-gradient(135deg,#1e3a5f,#0f2942)',
+            border: '1px solid #38bdf833',
+          }}>
+            <div style={{ fontSize: 36, marginBottom: 8 }}>🔄</div>
+            <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 6 }}>העברת בעלות אונליין</div>
+            <div style={{ fontSize: 13, color: '#93c5fd', lineHeight: 1.6 }}>
+              באמצעות האזור האישי של gov.il ניתן לבצע העברת בעלות על הרכב מהבית, ללא ביקור בדואר ישראל.
+            </div>
+          </div>
+
+          {/* Requirements */}
+          <div style={{ borderRadius: 14, padding: '14px 16px', marginBottom: 12, background: 'var(--bg2)' }}>
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>📋 דרישות מוקדמות</div>
+            {[
+              ['👤', 'חשבון mygov', 'לשני הצדדים (מוכר וקונה) חייב להיות חשבון אישי ב-gov.il'],
+              ['🚗', 'בעלות פרטית', 'השירות זמין רק לרכב בבעלות פרטית של אדם אחד בלבד (לא חברה)'],
+              ['📱', 'זמינות בו-זמנית', 'המוכר והקונה חייבים להיות מחוברים ומאשרים בו-זמנית'],
+            ].map(([icon, title, desc]) => (
+              <div key={title} style={{
+                display: 'flex', gap: 12, paddingBottom: 10,
+                borderBottom: '1px solid rgba(255,255,255,0.06)', marginBottom: 10,
+              }}>
+                <span style={{ fontSize: 20, flexShrink: 0 }}>{icon}</span>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>{title}</div>
+                  <div style={{ fontSize: 12, color: 'var(--hint)', marginTop: 2, lineHeight: 1.5 }}>{desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Steps */}
+          <div style={{ borderRadius: 14, padding: '14px 16px', marginBottom: 12, background: 'var(--bg2)' }}>
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>🪜 שלבי התהליך</div>
+            {[
+              ['כניסה לאזור האישי', 'המוכר נכנס ל-gov.il → "רישיון רכב" → בוחר את הרכב → "העברת בעלות"'],
+              ['הזנת פרטי הקונה', 'המוכר מזין את מספר ת.ז של הקונה ומאשר שהוא מעוניין למכור'],
+              ['אישור הקונה', 'הקונה מקבל הודעה ומאשר את הרכישה דרך האזור האישי שלו'],
+              ['תשלום אגרה', 'המוכר משלם את אגרת העברת הבעלות אונליין תוך 10 דקות'],
+              ['סיום', 'הרישיון המעודכן נשלח לקונה במייל ובSMS — ללא ביקור בשום משרד'],
+            ].map(([title, desc], i) => (
+              <div key={i} style={{ display: 'flex', gap: 12, marginBottom: i < 4 ? 14 : 0 }}>
+                <div style={{
+                  width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+                  background: 'linear-gradient(135deg,#1e40af,#0ea5e9)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 13, fontWeight: 800, color: '#fff',
+                }}>{i + 1}</div>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>{title}</div>
+                  <div style={{ fontSize: 12, color: 'var(--hint)', marginTop: 2, lineHeight: 1.5 }}>{desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Fees */}
+          <div style={{ borderRadius: 14, padding: '14px 16px', marginBottom: 12, background: 'var(--bg2)' }}>
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>💳 עלות האגרה</div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              {[
+                { label: 'רכב פרטי', price: '₪206' },
+                { label: 'אופנוע', price: '₪61' },
+              ].map(({ label, price }) => (
+                <div key={label} style={{
+                  flex: 1, textAlign: 'center', background: 'var(--bg)',
+                  borderRadius: 10, padding: '12px 8px',
+                }}>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: '#38bdf8' }}>{price}</div>
+                  <div style={{ fontSize: 12, color: 'var(--hint)', marginTop: 4 }}>{label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Warnings */}
+          <div style={{
+            borderRadius: 14, padding: '14px 16px', marginBottom: 14,
+            background: '#d69e2e11', border: '1px solid #d69e2e33',
+          }}>
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>⚠️ חשוב לדעת</div>
+            {[
+              'יש לשלם את האגרה תוך 10 דקות מסיום התהליך — אחרת הבקשה מתבטלת',
+              'יש לסיים את כל התהליך (כולל אישור הקונה) תוך 60 דקות מתחילתו',
+              'לאחר העברה מוצלחת — הקונה מקבל רישיון רכב מעודכן למייל',
+            ].map((w, i) => (
+              <div key={i} style={{
+                display: 'flex', gap: 8, fontSize: 13, color: 'var(--hint)',
+                marginBottom: i < 2 ? 8 : 0, lineHeight: 1.5,
+              }}>
+                <span style={{ flexShrink: 0 }}>•</span>
+                <span>{w}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* CTA */}
+          <a
+            href="https://www.gov.il/he/service/ownership-vehicles-transfer"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'block', width: '100%', boxSizing: 'border-box',
+              padding: '14px 0', marginBottom: 10,
+              background: 'linear-gradient(135deg,#1e40af,#0ea5e9)',
+              color: '#fff', borderRadius: 14,
+              textAlign: 'center', fontSize: 15, fontWeight: 800,
+              textDecoration: 'none',
+            }}
+          >
+            לביצוע העברת בעלות ← gov.il
+          </a>
+          <div style={{ fontSize: 11, color: 'var(--hint)', textAlign: 'center', marginBottom: 20 }}>
+            הקישור יפתח את אתר ממשלת ישראל בדפדפן
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
