@@ -1209,6 +1209,27 @@ export default function ReportPage({ plate, onBack, user }) {
         )
       })()}
 
+      {/* ── Ownership Transfer ── */}
+      <a
+        href="https://www.gov.il/he/service/ownership-vehicles-transfer"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          display: 'flex', alignItems: 'center', gap: 14,
+          background: 'var(--bg2)', borderRadius: 14,
+          padding: '14px 16px', marginBottom: 12,
+          textDecoration: 'none', color: 'var(--text)',
+          border: '1px solid rgba(255,255,255,0.07)',
+        }}
+      >
+        <span style={{ fontSize: 28, flexShrink: 0 }}>🔄</span>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>העברת בעלות אונליין</div>
+          <div style={{ fontSize: 12, color: 'var(--hint)' }}>לביצוע העברת הבעלות דרך האזור האישי של gov.il</div>
+        </div>
+        <span style={{ fontSize: 18, color: 'var(--hint)', flexShrink: 0 }}>›</span>
+      </a>
+
       {/* ── Actions ── */}
       <button className="btn btn-secondary" style={{ marginBottom: 20 }}
         onClick={() => window.Telegram?.WebApp?.close()}>
