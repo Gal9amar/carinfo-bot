@@ -16,6 +16,7 @@ import {
   adminSendUserMessage,
   adminFetchUserHistory,
   adminFetchUserReferrals,
+  adminFetchUserSentMessages,
   adminFetchActivity,
   adminGiftAll,
   adminFetchGroups,
@@ -1634,6 +1635,7 @@ function GrantModal({ user, onClose, onDone }) {
   const [saving, setSaving] = useState(false)
   const [history, setHistory] = useState(null)
   const [referralData, setReferralData] = useState(null)
+  const [sentMessages, setSentMessages] = useState(null)
   const [pendingGrant, setPendingGrant] = useState(null)
 
   useEffect(() => { adminFetchGrants().then(setGrants).catch(() => {}) }, [])
@@ -1643,6 +1645,9 @@ function GrantModal({ user, onClose, onDone }) {
     }
     if (mode === 'referrals' && referralData === null) {
       adminFetchUserReferrals(user.user_id).then(setReferralData).catch(() => setReferralData({ referrals: [], count: 0, total_bonus: 0 }))
+    }
+    if (mode === 'messages' && sentMessages === null) {
+      adminFetchUserSentMessages(user.user_id).then(setSentMessages).catch(() => setSentMessages([]))
     }
   }, [mode])
 

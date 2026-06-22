@@ -380,6 +380,13 @@ export async function adminFetchUserHistory(userId) {
   return r.json()
 }
 
+// System messages sent to user (admin view)
+export async function adminFetchUserSentMessages(userId) {
+  const r = await fetch(`${BASE}/api/admin/users/${userId}/sent-messages`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
 // Referral info for current user
 export async function fetchReferral() {
   const r = await fetch(`${BASE}/api/user/referral`, { headers: headers() })

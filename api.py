@@ -1434,6 +1434,12 @@ async def admin_user_history(user_id: int, _: dict = Depends(_require_admin)):
     return await get_search_history(user_id)
 
 
+@api.get("/api/admin/users/{user_id}/sent-messages")
+async def admin_user_sent_messages(user_id: int, _: dict = Depends(_require_admin)):
+    from src.users import get_sent_messages
+    return await get_sent_messages(user_id)
+
+
 @api.post("/api/admin/users/{user_id}/block")
 async def admin_toggle_block(user_id: int, _: dict = Depends(_require_admin)):
     from src.db import execute

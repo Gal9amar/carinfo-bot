@@ -31,7 +31,8 @@ from src.users import (
     block_user, unblock_user, is_blocked,
     get_last_plate, set_last_plate, get_search_history,
     check_new_user, record_referral, get_referral_count, get_referrals,
-    load_welcome_settings, get_promo_welcome_info, get_users_expiring_today,
+    load_welcome_settings, get_promo_welcome_info, get_users_expiring_today, get_users_expiring_in_days,
+    log_sent_message,
 )
 from src.formatter import (
     format_error,
@@ -1110,7 +1111,9 @@ async def handle_user_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         try:
             from src.users import get_quota_expires
             expires = await get_quota_expires(uid) or ""
-            await context.bot.send_message(uid, _format_grant_message(amount, expires), parse_mode="Markdown")
+            msg = _format_grant_message(amount, expires)
+            await context.bot.send_message(uid, msg, parse_mode="Markdown")
+            await log_sent_message(uid, msg, kind="grant")
         except Exception:
             pass
         # Refresh user view
@@ -1150,14 +1153,18 @@ async def handle_user_callback(update: Update, context: ContextTypes.DEFAULT_TYP
             await unblock_user(uid)
             await query.answer("✅ שוחרר", show_alert=True)
             try:
-                await context.bot.send_message(uid, "✅ החסימה שלך הוסרה. תוכל להמשיך להשתמש בבוט.")
+                unblock_msg = "✅ החסימה שלך הוסרה. תוכל להמשיך להשתמש בבוט."
+                await context.bot.send_message(uid, unblock_msg)
+                await log_sent_message(uid, unblock_msg, kind="block")
             except Exception:
                 pass
         else:
             await block_user(uid)
             await query.answer("🚫 נחסם", show_alert=True)
             try:
-                await context.bot.send_message(uid, "🚫 הגישה שלך לבוט נחסמה. לפרטים פנה למנהל.")
+                block_msg = "🚫 הגישה שלך לבוט נחסמה. לפרטים פנה למנהל."
+                await context.bot.send_message(uid, block_msg)
+                await log_sent_message(uid, block_msg, kind="block")
             except Exception:
                 pass
         # Refresh
@@ -1457,6 +1464,7 @@ async def _notify_user_ticket_reply(user_id: int, ticket_id: int, subject: str, 
             InlineKeyboardButton("📂 פתח פנייה", web_app=WebAppInfo(url=f"{webapp_url}/?page=ticket&id={ticket_id}"))
         ]])
         await _bot_instance.send_message(user_id, text, parse_mode="Markdown", reply_markup=kb)
+        await log_sent_message(user_id, text, kind="ticket_reply")
     except Exception:
         pass
 
@@ -1484,6 +1492,7 @@ async def handle_approve_callback(update: Update, context: ContextTypes.DEFAULT_
                 f"🎉 התשלום אושר! נוספו לך {searches} בדיקות רכב. תוכל להתחיל מיד!"
             )
             await context.bot.send_message(target, user_msg)
+            await log_sent_message(target, user_msg, kind="payment")
         except Exception:
             pass
     except Exception as e:
@@ -1502,11 +1511,9 @@ async def handle_decline_callback(update: Update, context: ContextTypes.DEFAULT_
 
     await query.edit_message_text("❌ הבקשה נדחתה.")
     try:
-        await context.bot.send_message(
-            target,
-            "❌ *התשלום לא אומת\\.*\n\nלשאלות פנה למנהל דרך צ'אט המנהל\\.",
-            parse_mode=ParseMode.MARKDOWN_V2,
-        )
+        decline_msg = "❌ *התשלום לא אומת\\.*\n\nלשאלות פנה למנהל דרך צ'אט המנהל\\."
+        await context.bot.send_message(target, decline_msg, parse_mode=ParseMode.MARKDOWN_V2)
+        await log_sent_message(target, decline_msg, kind="payment")
     except Exception:
         pass
 
@@ -2291,6 +2298,7 @@ def main() -> None:
                 continue
             try:
                 await app.bot.send_message(uid, message)
+                await log_sent_message(uid, message, kind="broadcast")
                 sent += 1
             except Exception:
                 failed += 1
@@ -2298,11 +2306,9 @@ def main() -> None:
 
     async def _notify_admin_grant(user_id: int, searches: int, expires: str = ""):
         try:
-            await app.bot.send_message(
-                user_id,
-                _format_grant_message(searches, expires),
-                parse_mode="Markdown",
-            )
+            msg = _format_grant_message(searches, expires)
+            await app.bot.send_message(user_id, msg, parse_mode="Markdown")
+            await log_sent_message(user_id, msg, kind="grant")
         except Exception:
             pass
 
@@ -2315,6 +2321,7 @@ def main() -> None:
     async def _send_message_to_user(user_id: int, message: str) -> bool:
         try:
             await app.bot.send_message(user_id, message)
+            await log_sent_message(user_id, message, kind="admin_dm")
             return True
         except Exception as e:
             logger.warning("Failed to send message to user %s: %s", user_id, e)
@@ -2347,6 +2354,7 @@ def main() -> None:
                     )
                 else:
                     await app.bot.send_message(uid, message, parse_mode="Markdown")
+                await log_sent_message(uid, message, kind="broadcast")
                 sent += 1
             except Exception:
                 failed += 1
@@ -2457,31 +2465,52 @@ def main() -> None:
     ))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_plate))
 
-    async def _daily_expiry_notify(context):
-        from src.users import get_users_expiring_today
+    async def _send_expiry_reminders(context, days: int):
+        messages = {
+            30: (
+                "📅 *תזכורת: חודש להתחדשות המנוי*\n\n"
+                "המנוי שלך יפוג בעוד חודש\\. "
+                "כדי להמשיך ליהנות מחיפושים ללא הגבלה, ניתן לחדש את המנוי מראש\\."
+            ),
+            7: (
+                "⚠️ *תזכורת: שבוע להתחדשות המנוי*\n\n"
+                "המנוי שלך יפוג בעוד שבוע\\. "
+                "ניתן לחדש את המנוי כדי להמשיך ליהנות מהשירות ללא הפסקה\\."
+            ),
+            1: (
+                "🔴 *תזכורת: המנוי שלך יפוג מחר\\!*\n\n"
+                "מחר הוא היום האחרון של המנוי שלך\\. "
+                "ניתן לחדש את המנוי עוד היום\\."
+            ),
+            0: (
+                "⏰ *המנוי שלך פג היום\\!*\n\n"
+                "המנוי שלך פג\\. "
+                "כדי להמשיך ליהנות מהשירות, ניתן לרכוש חבילת חיפושים\\."
+            ),
+        }
+        text = messages[days]
         try:
-            user_ids = await get_users_expiring_today()
+            user_ids = await get_users_expiring_in_days(days)
             for uid in user_ids:
                 try:
-                    await context.bot.send_message(
-                        uid,
-                        "⏰ *תזכורת: ההטבה שלך פגה היום\\!*\n\n"
-                        "ההטבה שקיבלת בהצטרפות תפוג היום\\. "
-                        "כדי להמשיך ליהנות מהשירות, ניתן לרכוש חבילת חיפושים\\.",
-                        parse_mode=ParseMode.MARKDOWN_V2,
-                    )
+                    await context.bot.send_message(uid, text, parse_mode=ParseMode.MARKDOWN_V2)
+                    await log_sent_message(uid, text, kind="expiry_reminder")
                 except Exception:
                     pass
         except Exception as e:
-            logger.warning("Daily expiry job error: %s", e)
+            logger.warning("Expiry reminder job (days=%d) error: %s", days, e)
 
     if app.job_queue:
         import datetime as _dt
-        app.job_queue.run_daily(
-            _daily_expiry_notify,
-            time=_dt.time(hour=9, minute=0, tzinfo=_dt.timezone.utc),
-            name="daily_expiry_notify",
-        )
+        # 9:00 Israel time = 06:00 UTC (UTC+3 in summer)
+        _notify_time = _dt.time(hour=6, minute=0, tzinfo=_dt.timezone.utc)
+        for _days in (30, 7, 1, 0):
+            _d = _days
+            app.job_queue.run_daily(
+                lambda ctx, d=_d: _send_expiry_reminders(ctx, d),
+                time=_notify_time,
+                name=f"expiry_notify_{_days}d",
+            )
         app.job_queue.run_repeating(
             _yad2_watch_job,
             interval=30 * 60,

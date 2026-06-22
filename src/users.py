@@ -615,10 +615,29 @@ async def admin_stats() -> dict:
     }
 
 
-async def get_users_expiring_today() -> list[int]:
-    """Returns user_ids whose promo expires today (for last-day notification)."""
+async def log_sent_message(user_id: int, text: str, kind: str = "system") -> None:
+    await execute(
+        "INSERT INTO sent_messages (user_id, kind, text) VALUES (?, ?, ?)",
+        [user_id, kind, text],
+    )
+
+
+async def get_sent_messages(user_id: int, limit: int = 50) -> list[dict]:
     r = await execute(
-        "SELECT user_id FROM users WHERE date(quota_expires) = date('now') AND searches_quota = -1",
-        [],
+        "SELECT id, kind, text, sent_at FROM sent_messages WHERE user_id = ? ORDER BY sent_at DESC LIMIT ?",
+        [user_id, limit],
+    )
+    return [{"id": row[0], "kind": row[1], "text": row[2], "sent_at": row[3]} for row in r.rows]
+
+
+async def get_users_expiring_in_days(days: int) -> list[int]:
+    """Returns user_ids whose subscription expires exactly `days` from now (Israel time, UTC+3)."""
+    r = await execute(
+        "SELECT user_id FROM users WHERE date(quota_expires) = date('now', '+3 hours', ?, 'days') AND searches_quota = -1",
+        [f"+{days}"],
     )
     return [row[0] for row in r.rows]
+
+
+async def get_users_expiring_today() -> list[int]:
+    return await get_users_expiring_in_days(0)

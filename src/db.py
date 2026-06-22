@@ -186,6 +186,13 @@ async def init_db() -> None:
     updated_at      TEXT DEFAULT (datetime('now'))
 )""")
     migrations.append("ALTER TABLE users ADD COLUMN watch_quota INTEGER DEFAULT NULL")
+    migrations.append("""CREATE TABLE IF NOT EXISTS sent_messages (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL,
+    kind       TEXT NOT NULL DEFAULT 'system',
+    text       TEXT NOT NULL,
+    sent_at    TEXT DEFAULT (datetime('now'))
+)""")
     migrations.append("""CREATE TABLE IF NOT EXISTS vehicle_notes (
     user_id    INTEGER NOT NULL,
     plate      TEXT NOT NULL,
