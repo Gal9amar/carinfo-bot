@@ -973,12 +973,13 @@ class PaymentMethodBody(BaseModel):
     name: str
     logo_url: str = ""
     payment_url: str = ""
+    requires_manual_approval: bool = True
 
 
 @api.post("/api/admin/payment-methods")
 async def admin_add_payment_method(body: PaymentMethodBody, _: dict = Depends(_require_admin)):
     from src.payment_methods import add_payment_method
-    return await add_payment_method(body.name, body.logo_url, body.payment_url)
+    return await add_payment_method(body.name, body.logo_url, body.payment_url, body.requires_manual_approval)
 
 
 class PaymentMethodUpdateBody(BaseModel):
@@ -986,12 +987,13 @@ class PaymentMethodUpdateBody(BaseModel):
     logo_url: str = ""
     payment_url: str = ""
     active: bool = True
+    requires_manual_approval: bool = True
 
 
 @api.put("/api/admin/payment-methods/{method_id}")
 async def admin_update_payment_method(method_id: int, body: PaymentMethodUpdateBody, _: dict = Depends(_require_admin)):
     from src.payment_methods import update_payment_method
-    await update_payment_method(method_id, body.name, body.logo_url, body.payment_url, body.active)
+    await update_payment_method(method_id, body.name, body.logo_url, body.payment_url, body.active, body.requires_manual_approval)
     return {"ok": True}
 
 

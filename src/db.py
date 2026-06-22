@@ -194,14 +194,16 @@ async def init_db() -> None:
     sent_at    TEXT DEFAULT (datetime('now'))
 )""")
     migrations.append("""CREATE TABLE IF NOT EXISTS payment_methods (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    name          TEXT NOT NULL,
-    logo_url      TEXT NOT NULL DEFAULT '',
-    payment_url   TEXT NOT NULL DEFAULT '',
-    active        INTEGER NOT NULL DEFAULT 1,
-    display_order INTEGER NOT NULL DEFAULT 0,
-    created_at    TEXT DEFAULT (datetime('now'))
+    id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+    name                     TEXT NOT NULL,
+    logo_url                 TEXT NOT NULL DEFAULT '',
+    payment_url              TEXT NOT NULL DEFAULT '',
+    active                   INTEGER NOT NULL DEFAULT 1,
+    display_order            INTEGER NOT NULL DEFAULT 0,
+    requires_manual_approval INTEGER NOT NULL DEFAULT 1,
+    created_at               TEXT DEFAULT (datetime('now'))
 )""")
+    migrations.append("ALTER TABLE payment_methods ADD COLUMN requires_manual_approval INTEGER NOT NULL DEFAULT 1")
     migrations.append("""CREATE TABLE IF NOT EXISTS vehicle_notes (
     user_id    INTEGER NOT NULL,
     plate      TEXT NOT NULL,
@@ -291,8 +293,6 @@ async def init_db() -> None:
     await init_packages()
     from src.admin_grants import init_admin_grants
     await init_admin_grants()
-    from src.payment_methods import init_payment_methods
-    await init_payment_methods()
 
 
 async def get_vehicle_note(user_id: int, plate: str) -> str:

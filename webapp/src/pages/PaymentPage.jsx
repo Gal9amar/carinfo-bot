@@ -7,9 +7,10 @@ export default function PaymentPage({ pkg, onBack }) {
   const [preparing, setPreparing]   = useState(true)
   const [methods, setMethods]       = useState([])
 
-  const qty = pkg._qty ?? 1
-  const isAlerts = pkg.package_type === 'alerts' || (pkg.label ?? '').includes('התראות')
-  const desc = isAlerts
+  const qty        = pkg._qty ?? 1
+  const totalPrice = pkg.price * qty
+  const isAlerts   = pkg.package_type === 'alerts' || (pkg.label ?? '').includes('התראות')
+  const desc       = isAlerts
     ? `${qty} התראה${qty > 1 ? 'ות' : ''} נוספת ביד2`
     : (pkg.searches === -1 ? 'ללא הגבלה' : `${(pkg.searches ?? 1) * qty} חיפושים`)
 
@@ -27,9 +28,20 @@ export default function PaymentPage({ pkg, onBack }) {
       })
   }, [pkg.id])
 
-  function openMethod(url) {
-    if (!url) return
-    promotePayment(paymentRef)
+  function openMethod(m) {
+    let url
+    if (!m.requires_manual_approval) {
+      // Auto-approved (PayPal) — use the approval_url from the API
+      url = paymentUrl
+      if (!url) return
+      promotePayment(paymentRef)
+    } else {
+      // Manual approval — open the payment URL directly, no PayPal order needed
+      url = m.payment_url
+      if (!url) return
+      // Still promote so admin gets notified
+      if (paymentRef) promotePayment(paymentRef)
+    }
     if (window.Telegram?.WebApp?.openLink) {
       window.Telegram.WebApp.openLink(url)
     } else {
@@ -37,14 +49,8 @@ export default function PaymentPage({ pkg, onBack }) {
     }
   }
 
-  // For PayPal-type methods we append the price; otherwise use URL as-is
-  function resolvedUrl(m) {
-    const u = m.payment_url || ''
-    if (!u) return paymentUrl
-    const lc = m.name.toLowerCase()
-    if (lc.includes('paypal')) return `${u}/${pkg.price * qty}ILS`
-    return u
-  }
+  const autoMethods   = methods.filter(m => !m.requires_manual_approval)
+  const manualMethods = methods.filter(m => m.requires_manual_approval)
 
   return (
     <div className="page">
@@ -61,58 +67,75 @@ export default function PaymentPage({ pkg, onBack }) {
       <div className="card">
         <div className="card-title">{pkg.label}</div>
         <div className="card-subtitle">{desc}</div>
-        <div className="price-badge">₪{pkg.price * qty}</div>
+        <div className="price-badge">₪{totalPrice}</div>
       </div>
 
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 14, lineHeight: 1.8 }}>
-          <div>1️⃣ בחר אמצעי תשלום</div>
-          <div>2️⃣ השלם את התשלום</div>
-          <div>3️⃣ הגישה תתעדכן <strong>אוטומטית</strong> תוך שניות</div>
-        </div>
-      </div>
-
-      {preparing && (
-        <div style={{ textAlign: 'center', padding: 20, color: 'var(--hint)', fontSize: 14 }}>
+      {preparing ? (
+        <div style={{ textAlign: 'center', padding: 24, color: 'var(--hint)', fontSize: 14 }}>
           ⏳ מכין קישור תשלום...
         </div>
+      ) : (
+        <>
+          {autoMethods.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 8, paddingRight: 2 }}>
+                ✅ אישור אוטומטי — גישה מיידית לאחר התשלום
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {autoMethods.map(m => (
+                  <MethodButton key={m.id} m={m} disabled={!paymentUrl} onClick={() => openMethod(m)} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {manualMethods.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 8, paddingRight: 2 }}>
+                ⏳ אישור ידני — המנהל יאשר תוך זמן קצר
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {manualMethods.map(m => (
+                  <MethodButton key={m.id} m={m} disabled={false} onClick={() => openMethod(m)} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {methods.length === 0 && (
+            <div style={{ textAlign: 'center', padding: 20, color: 'var(--hint)', fontSize: 13 }}>
+              אין אמצעי תשלום זמינים כרגע
+            </div>
+          )}
+        </>
       )}
 
-      {!preparing && methods.length === 0 && (
-        <div style={{ textAlign: 'center', padding: 20, color: 'var(--hint)', fontSize: 13 }}>
-          אין אמצעי תשלום זמינים כרגע
-        </div>
-      )}
-
-      {!preparing && methods.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {methods.map(m => (
-            <button
-              key={m.id}
-              onClick={() => openMethod(resolvedUrl(m))}
-              disabled={!paymentUrl}
-              style={{
-                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
-                background: '#ffffff', border: '2px solid rgba(0,0,0,0.12)', borderRadius: 12,
-                padding: '12px 16px', cursor: !paymentUrl ? 'default' : 'pointer',
-                boxShadow: '0 2px 12px rgba(0,0,0,0.15)',
-                opacity: !paymentUrl ? 0.6 : 1,
-                transition: 'opacity 0.15s',
-              }}
-            >
-              {m.logo_url
-                ? <img src={m.logo_url} alt={m.name} style={{ height: 32, objectFit: 'contain' }} onError={e => e.target.style.display='none'} />
-                : <span style={{ fontSize: 22 }}>💳</span>
-              }
-              <span style={{ fontSize: 15, fontWeight: 700, color: '#111' }}>{m.name}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      <div style={{ marginTop: 14, fontSize: 12, color: 'var(--hint)', textAlign: 'center' }}>
-        לאחר השלמת התשלום הגישה תתעדכן אוטומטית ותגיע הודעה בצ'אט
+      <div style={{ marginTop: 8, fontSize: 12, color: 'var(--hint)', textAlign: 'center' }}>
+        לאחר השלמת התשלום הגישה תתעדכן ותגיע הודעה בצ'אט
       </div>
     </div>
+  )
+}
+
+function MethodButton({ m, disabled, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
+        background: '#ffffff', border: '2px solid rgba(0,0,0,0.1)', borderRadius: 12,
+        padding: '12px 16px', cursor: disabled ? 'default' : 'pointer',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.12)',
+        opacity: disabled ? 0.5 : 1,
+        transition: 'opacity 0.15s',
+      }}
+    >
+      {m.logo_url
+        ? <img src={m.logo_url} alt={m.name} style={{ height: 32, objectFit: 'contain' }} onError={e => e.target.style.display='none'} />
+        : <span style={{ fontSize: 22 }}>💳</span>
+      }
+      <span style={{ fontSize: 15, fontWeight: 700, color: '#111' }}>{m.name}</span>
+    </button>
   )
 }

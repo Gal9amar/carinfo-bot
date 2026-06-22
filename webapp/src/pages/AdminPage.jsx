@@ -2190,6 +2190,7 @@ function PaymentMethodModal({ method, onClose, onSaved }) {
   const [name, setName]             = useState(method?.name || '')
   const [logoUrl, setLogoUrl]       = useState(method?.logo_url || '')
   const [paymentUrl, setPaymentUrl] = useState(method?.payment_url || '')
+  const [manual, setManual]         = useState(method ? method.requires_manual_approval : true)
   const [uploading, setUploading]   = useState(false)
   const [saving, setSaving]         = useState(false)
   const fileRef = useRef()
@@ -2210,9 +2211,9 @@ function PaymentMethodModal({ method, onClose, onSaved }) {
     setSaving(true)
     try {
       if (method) {
-        await adminUpdatePaymentMethod(method.id, { name: name.trim(), logo_url: logoUrl, payment_url: paymentUrl.trim(), active: method.active })
+        await adminUpdatePaymentMethod(method.id, { name: name.trim(), logo_url: logoUrl, payment_url: paymentUrl.trim(), active: method.active, requires_manual_approval: manual })
       } else {
-        await adminAddPaymentMethod(name.trim(), logoUrl, paymentUrl.trim())
+        await adminAddPaymentMethod(name.trim(), logoUrl, paymentUrl.trim(), manual)
       }
       onSaved()
     } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
@@ -2256,6 +2257,29 @@ function PaymentMethodModal({ method, onClose, onSaved }) {
           <div>
             <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 4 }}>כתובת לתשלום (URL)</div>
             <input className="input" value={paymentUrl} onChange={e => setPaymentUrl(e.target.value)} placeholder="https://..." style={{ fontSize: 13 }} />
+          </div>
+
+          <div
+            onClick={() => setManual(v => !v)}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              background: 'var(--bg)', borderRadius: 10, padding: '10px 12px', cursor: 'pointer',
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>אישור ידני</div>
+              <div style={{ fontSize: 11, color: 'var(--hint)' }}>{manual ? 'מנהל מאשר ידנית לאחר קבלת תשלום' : 'אישור אוטומטי מיידי (כגון PayPal API)'}</div>
+            </div>
+            <div style={{
+              width: 40, height: 22, borderRadius: 11, transition: 'background 0.2s',
+              background: manual ? '#e53e3e' : '#38a169',
+              position: 'relative', flexShrink: 0,
+            }}>
+              <div style={{
+                position: 'absolute', top: 3, width: 16, height: 16, borderRadius: '50%', background: '#fff',
+                transition: 'left 0.2s', left: manual ? 3 : 21,
+              }} />
+            </div>
           </div>
         </div>
 

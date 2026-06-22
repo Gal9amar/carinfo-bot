@@ -408,10 +408,10 @@ export async function adminFetchPaymentMethods() {
   if (!r.ok) throw new Error('Failed')
   return r.json()
 }
-export async function adminAddPaymentMethod(name, logo_url, payment_url) {
+export async function adminAddPaymentMethod(name, logo_url, payment_url, requires_manual_approval = true) {
   const r = await fetch(`${BASE}/api/admin/payment-methods`, {
     method: 'POST', headers: { ...headers(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, logo_url, payment_url }),
+    body: JSON.stringify({ name, logo_url, payment_url, requires_manual_approval }),
   })
   if (!r.ok) throw new Error('Failed')
   return r.json()
