@@ -1,14 +1,12 @@
 import { useState, useEffect } from 'react'
 import { initiatePayment, promotePayment, fetchPaymentMethods } from '../api.js'
-import paypalLogo from '../assets/paypal-logo.png'
+import paypalLogo     from '../assets/paypal-logo.png'
+import visaLogo       from '../assets/visa.svg'
+import mastercardLogo from '../assets/mastercard.svg'
+import amexLogo       from '../assets/amex.svg'
+import isracardLogo   from '../assets/isracard.png'
 
-const PAYPAL_METHOD = {
-  id: '__paypal__',
-  name: 'PayPal',
-  logo_url: paypalLogo,
-  payment_url: '',
-  requires_manual_approval: false,
-}
+const CARD_STYLE = { height: 24, width: 'auto', borderRadius: 4, display: 'block', objectFit: 'contain' }
 
 export default function PaymentPage({ pkg, onBack }) {
   const [paymentUrl, setPaymentUrl] = useState(null)
@@ -88,11 +86,27 @@ export default function PaymentPage({ pkg, onBack }) {
           <div style={{ fontSize: 12, color: 'var(--hint)', paddingRight: 2 }}>
             ✅ אישור אוטומטי — גישה מיידית לאחר התשלום
           </div>
-          <MethodButton
-            m={PAYPAL_METHOD}
-            disabled={!paymentUrl}
+          <button
             onClick={openPaypal}
-          />
+            disabled={!paymentUrl}
+            style={{
+              width: '100%', display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center', gap: 5,
+              background: '#ffffff', border: '2px solid #003087', borderRadius: 12,
+              padding: '10px 12px', cursor: !paymentUrl ? 'default' : 'pointer',
+              boxShadow: '0 2px 12px rgba(0,0,0,0.18)',
+              opacity: !paymentUrl ? 0.7 : 1,
+            }}
+          >
+            <img src={paypalLogo} alt="PayPal" style={{ height: 28, objectFit: 'contain' }} />
+            <span style={{ fontSize: 11, color: '#666' }}>או שלם באמצעות אשראי:</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <img src={visaLogo}       alt="Visa"       style={CARD_STYLE} />
+              <img src={mastercardLogo} alt="Mastercard" style={CARD_STYLE} />
+              <img src={amexLogo}       alt="Amex"       style={CARD_STYLE} />
+              <img src={isracardLogo}   alt="Isracard"   style={CARD_STYLE} />
+            </div>
+          </button>
 
           {/* Manual methods added by admin */}
           {extraMethods.length > 0 && (
