@@ -1683,6 +1683,7 @@ function GrantModal({ user, onClose, onDone }) {
     ['watch',     '🔔', 'התראות'],
     ['history',   '📋', 'חיפושים'],
     ['referrals', '🤝', 'הפניות'],
+    ['messages',  '📨', 'הודעות'],
   ]
 
   return (
@@ -1907,6 +1908,47 @@ function GrantModal({ user, onClose, onDone }) {
                   </div>
                 ))}
               </>
+            )}
+          </div>
+        )}
+
+        {mode === 'messages' && (
+          <div>
+            {sentMessages === null && <div className="loading"></div>}
+            {sentMessages !== null && sentMessages.length === 0 && (
+              <div style={{ color: 'var(--hint)', fontSize: 13, textAlign: 'center', padding: 12 }}>
+                אין הודעות מערכת
+              </div>
+            )}
+            {sentMessages !== null && sentMessages.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {sentMessages.map(msg => {
+                  const kindColors = {
+                    grant:           { bg: '#7c3aed18', border: '#7c3aed55', icon: '🎁' },
+                    payment:         { bg: '#38a16918', border: '#38a16955', icon: '💳' },
+                    broadcast:       { bg: '#0ea5e918', border: '#0ea5e955', icon: '📢' },
+                    expiry_reminder: { bg: '#f59e0b18', border: '#f59e0b55', icon: '⏰' },
+                    block:           { bg: '#e53e3e18', border: '#e53e3e55', icon: '🚫' },
+                    ticket_reply:    { bg: '#6366f118', border: '#6366f155', icon: '💬' },
+                    admin_dm:        { bg: '#ec489918', border: '#ec489955', icon: '✉️' },
+                  }
+                  const style = kindColors[msg.kind] || { bg: 'var(--bg)', border: 'rgba(255,255,255,0.1)', icon: '📩' }
+                  return (
+                    <div key={msg.id} style={{
+                      background: style.bg, border: `1px solid ${style.border}`,
+                      borderRadius: 10, padding: '10px 12px',
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                        <span style={{ fontSize: 11, color: 'var(--hint)' }}>{style.icon} {msg.kind}</span>
+                        <span style={{ fontSize: 10, color: 'var(--hint)' }}>{msg.sent_at?.slice(0, 16).replace('T', ' ')}</span>
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--text)', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
+                        {msg.text.replace(/\\/g, '').replace(/\*/g, '')}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             )}
           </div>
         )}
