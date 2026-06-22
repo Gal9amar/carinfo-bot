@@ -648,7 +648,7 @@ export default function ReportPage({ plate, onBack, user }) {
         {[
           { id: 'summary',  label: '✨ סיכום' },
           { id: 'full',     label: '📋 דוח מלא' },
-          { id: 'transfer', label: '🔄 העברה' },
+          { id: 'transfer', label: '🔄 העברת בעלות' },
         ].map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
             flex: 1, padding: '9px 0', border: 'none', borderRadius: 11,
