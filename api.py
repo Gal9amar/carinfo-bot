@@ -936,6 +936,27 @@ async def admin_delete_package(pkg_id: int, _: dict = Depends(_require_admin)):
     return {"ok": True}
 
 
+_UPLOADS_DIR = os.path.join(os.path.dirname(__file__), "uploads")
+os.makedirs(_UPLOADS_DIR, exist_ok=True)
+
+@api.post("/api/admin/upload-logo")
+async def admin_upload_logo(request: Request, _: dict = Depends(_require_admin)):
+    import uuid, shutil
+    from fastapi import UploadFile
+    form = await request.form()
+    file: UploadFile = form.get("file")
+    if not file:
+        raise HTTPException(status_code=400, detail="No file")
+    ext = os.path.splitext(file.filename)[1].lower() if file.filename else ".png"
+    if ext not in (".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif"):
+        raise HTTPException(status_code=400, detail="Invalid file type")
+    filename = f"{uuid.uuid4().hex}{ext}"
+    dest = os.path.join(_UPLOADS_DIR, filename)
+    with open(dest, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+    return {"url": f"/uploads/{filename}"}
+
+
 @api.get("/api/admin/payment-methods")
 async def admin_list_payment_methods(_: dict = Depends(_require_admin)):
     from src.payment_methods import get_payment_methods
@@ -1920,6 +1941,8 @@ async def admin_watches_preview(make: str = "", model: str = "", year: Optional[
 
 # ── Serve React SPA (must be last) ──────────────────────────────────────────
 _DIST = os.path.join(os.path.dirname(__file__), "webapp", "dist")
+
+api.mount("/uploads", StaticFiles(directory=_UPLOADS_DIR), name="uploads")
 
 if os.path.isdir(_DIST):
     api.mount("/assets", StaticFiles(directory=os.path.join(_DIST, "assets")), name="assets")

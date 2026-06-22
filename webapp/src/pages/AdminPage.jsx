@@ -22,6 +22,7 @@ import {
   adminAddPaymentMethod,
   adminUpdatePaymentMethod,
   adminDeletePaymentMethod,
+  adminUploadLogo,
   adminFetchActivity,
   adminGiftAll,
   adminFetchGroups,
@@ -2186,19 +2187,32 @@ function PaymentMethodsTab() {
 }
 
 function PaymentMethodModal({ method, onClose, onSaved }) {
-  const [name, setName]           = useState(method?.name || '')
-  const [logoUrl, setLogoUrl]     = useState(method?.logo_url || '')
+  const [name, setName]             = useState(method?.name || '')
+  const [logoUrl, setLogoUrl]       = useState(method?.logo_url || '')
   const [paymentUrl, setPaymentUrl] = useState(method?.payment_url || '')
-  const [saving, setSaving]       = useState(false)
+  const [uploading, setUploading]   = useState(false)
+  const [saving, setSaving]         = useState(false)
+  const fileRef = useRef()
+
+  async function handleLogoFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const res = await adminUploadLogo(file)
+      setLogoUrl(res.url)
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה בהעלאת הלוגו') }
+    setUploading(false)
+  }
 
   async function save() {
     if (!name.trim()) return
     setSaving(true)
     try {
       if (method) {
-        await adminUpdatePaymentMethod(method.id, { name: name.trim(), logo_url: logoUrl.trim(), payment_url: paymentUrl.trim(), active: method.active })
+        await adminUpdatePaymentMethod(method.id, { name: name.trim(), logo_url: logoUrl, payment_url: paymentUrl.trim(), active: method.active })
       } else {
-        await adminAddPaymentMethod(name.trim(), logoUrl.trim(), paymentUrl.trim())
+        await adminAddPaymentMethod(name.trim(), logoUrl, paymentUrl.trim())
       }
       onSaved()
     } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
@@ -2217,16 +2231,28 @@ function PaymentMethodModal({ method, onClose, onSaved }) {
             <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 4 }}>שם</div>
             <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="לדוגמה: PayPal" style={{ fontSize: 13 }} />
           </div>
+
           <div>
-            <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 4 }}>כתובת לוגו (URL)</div>
-            <input className="input" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} placeholder="https://..." style={{ fontSize: 13 }} />
-            {logoUrl && (
-              <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <img src={logoUrl} alt="preview" style={{ height: 36, objectFit: 'contain', borderRadius: 6, background: '#fff', padding: '2px 6px' }} onError={e => e.target.style.display='none'} />
-                <span style={{ fontSize: 10, color: 'var(--hint)' }}>תצוגה מקדימה</span>
+            <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 6 }}>לוגו</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {logoUrl
+                ? <img src={logoUrl} alt="logo" style={{ width: 52, height: 52, objectFit: 'contain', borderRadius: 10, background: '#fff', padding: 4, flexShrink: 0 }} onError={e => e.target.style.display='none'} />
+                : <div style={{ width: 52, height: 52, borderRadius: 10, background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>💳</div>
+              }
+              <div style={{ flex: 1 }}>
+                <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleLogoFile} />
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  disabled={uploading}
+                  style={{ width: '100%', padding: '9px 0', borderRadius: 9, border: '1px dashed rgba(255,255,255,0.2)', background: 'var(--bg)', color: 'var(--hint)', fontSize: 12, cursor: uploading ? 'default' : 'pointer' }}
+                >{uploading ? '⏳ מעלה...' : '📁 בחר תמונה'}</button>
+                {logoUrl && (
+                  <button onClick={() => setLogoUrl('')} style={{ width: '100%', marginTop: 5, padding: '5px 0', borderRadius: 7, border: 'none', background: '#e53e3e18', color: '#e53e3e', fontSize: 11, cursor: 'pointer' }}>הסר לוגו</button>
+                )}
               </div>
-            )}
+            </div>
           </div>
+
           <div>
             <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 4 }}>כתובת לתשלום (URL)</div>
             <input className="input" value={paymentUrl} onChange={e => setPaymentUrl(e.target.value)} placeholder="https://..." style={{ fontSize: 13 }} />
@@ -2236,7 +2262,7 @@ function PaymentMethodModal({ method, onClose, onSaved }) {
         <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
           <button
             className="btn"
-            disabled={saving || !name.trim()}
+            disabled={saving || uploading || !name.trim()}
             onClick={save}
             style={{ flex: 1, marginTop: 0 }}
           >{saving ? '⏳...' : '💾 שמור'}</button>

@@ -387,6 +387,15 @@ export async function adminFetchUserSentMessages(userId) {
   return r.json()
 }
 
+// Upload logo image (admin)
+export async function adminUploadLogo(file) {
+  const form = new FormData()
+  form.append('file', file)
+  const r = await fetch(`${BASE}/api/admin/upload-logo`, { method: 'POST', headers: headers(), body: form })
+  if (!r.ok) throw new Error('Upload failed')
+  return r.json()
+}
+
 // Payment methods (admin)
 export async function adminFetchPaymentMethods() {
   const r = await fetch(`${BASE}/api/admin/payment-methods`, { headers: headers() })
