@@ -1375,7 +1375,7 @@ function getInitials(u) {
   return String(u.user_id).slice(-2)
 }
 
-function UserCard({ u, expanded, onToggle, onEdit, onMessage, onReload }) {
+function UserCard({ u, expanded, onToggle, onEdit, onMessage, onHistory, onReload }) {
   const [blocking, setBlocking] = useState(false)
   const st = userStatus(u)
   const left = u.searches_left === -1 ? '∞' : u.searches_left
@@ -1478,26 +1478,33 @@ function UserCard({ u, expanded, onToggle, onEdit, onMessage, onReload }) {
           </div>
 
           {/* Action buttons */}
-          <div style={{ display: 'flex', gap: 7 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7, marginBottom: 7 }}>
             <button
               onClick={e => { e.stopPropagation(); onEdit(u) }}
               style={{
-                flex: 1, padding: '9px 0', borderRadius: 9, border: 'none',
+                padding: '9px 0', borderRadius: 9, border: 'none',
                 background: 'var(--bg)', color: 'var(--text)', cursor: 'pointer', fontSize: 13, fontWeight: 600,
               }}
             >✏️ ערוך</button>
             <button
               onClick={e => { e.stopPropagation(); onMessage(u) }}
               style={{
-                flex: 1, padding: '9px 0', borderRadius: 9, border: 'none',
+                padding: '9px 0', borderRadius: 9, border: 'none',
                 background: 'var(--bg)', color: 'var(--text)', cursor: 'pointer', fontSize: 13, fontWeight: 600,
               }}
             >💬 הודעה</button>
             <button
+              onClick={e => { e.stopPropagation(); onHistory(u) }}
+              style={{
+                padding: '9px 0', borderRadius: 9, border: 'none',
+                background: '#6366f118', color: '#818cf8', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+              }}
+            >📨 הודעות מערכת</button>
+            <button
               onClick={toggleBlock}
               disabled={blocking}
               style={{
-                flex: 1, padding: '9px 0', borderRadius: 9, border: 'none',
+                padding: '9px 0', borderRadius: 9, border: 'none',
                 background: u.blocked ? '#38a16918' : '#e53e3e18',
                 color: u.blocked ? '#38a169' : '#e53e3e',
                 cursor: blocking ? 'default' : 'pointer', fontSize: 12, fontWeight: 600,
@@ -1519,6 +1526,7 @@ function UsersTab() {
   const [expandedId, setExpandedId]     = useState(null)
   const [editingUser, setEditingUser]   = useState(null)
   const [messagingUser, setMessagingUser] = useState(null)
+  const [historyUser, setHistoryUser]   = useState(null)
 
   function load() { adminFetchUsers().then(setUsers).catch(() => {}) }
   useEffect(() => { load() }, [])
@@ -1610,6 +1618,7 @@ function UsersTab() {
           onToggle={id => setExpandedId(prev => prev === id ? null : id)}
           onEdit={setEditingUser}
           onMessage={setMessagingUser}
+          onHistory={setHistoryUser}
           onReload={load}
         />
       ))}
@@ -1623,6 +1632,9 @@ function UsersTab() {
       )}
       {messagingUser && (
         <SendMessageModal user={messagingUser} onClose={() => setMessagingUser(null)} />
+      )}
+      {historyUser && (
+        <SentMessagesModal user={historyUser} onClose={() => setHistoryUser(null)} />
       )}
     </div>
   )
@@ -2018,6 +2030,60 @@ function SendMessageModal({ user, onClose }) {
           {sending ? '⏳ שולח...' : '📤 שלח'}
         </button>
         <button className="btn btn-secondary" style={{ marginTop: 6 }} onClick={onClose}>ביטול</button>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
+function SentMessagesModal({ user, onClose }) {
+  const [msgs, setMsgs] = useState(null)
+  const name = user.username ? `@${user.username}` : user.full_name || `id:${user.user_id}`
+
+  useEffect(() => {
+    adminFetchUserSentMessages(user.user_id).then(setMsgs).catch(() => setMsgs([]))
+  }, [user.user_id])
+
+  const kindMeta = {
+    grant:           { icon: '🎁', label: 'הטבה', color: '#a78bfa' },
+    payment:         { icon: '💳', label: 'תשלום', color: '#38a169' },
+    broadcast:       { icon: '📢', label: 'שידור', color: '#0ea5e9' },
+    expiry_reminder: { icon: '⏰', label: 'תזכורת מנוי', color: '#f59e0b' },
+    block:           { icon: '🚫', label: 'חסימה', color: '#e53e3e' },
+    ticket_reply:    { icon: '💬', label: 'טיקט', color: '#6366f1' },
+    admin_dm:        { icon: '✉️', label: 'הודעת מנהל', color: '#ec4899' },
+  }
+
+  return createPortal(
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{ padding: '18px 16px' }}>
+        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14 }}>📨 הודעות מערכת — {name}</div>
+        {msgs === null && <div className="loading"></div>}
+        {msgs !== null && msgs.length === 0 && (
+          <div style={{ color: 'var(--hint)', fontSize: 13, textAlign: 'center', padding: 20 }}>אין הודעות מערכת</div>
+        )}
+        {msgs !== null && msgs.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {msgs.map(msg => {
+              const m = kindMeta[msg.kind] || { icon: '📩', label: msg.kind, color: 'var(--hint)' }
+              return (
+                <div key={msg.id} style={{
+                  background: 'var(--bg)', borderRadius: 10, padding: '10px 12px',
+                  borderRight: `3px solid ${m.color}`,
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: m.color }}>{m.icon} {m.label}</span>
+                    <span style={{ fontSize: 10, color: 'var(--hint)' }}>{msg.sent_at?.slice(0, 16).replace('T', ' ')}</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text)', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
+                    {msg.text.replace(/\\/g, '').replace(/\*/g, '')}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+        <button className="btn btn-secondary" style={{ marginTop: 12 }} onClick={onClose}>סגור</button>
       </div>
     </div>,
     document.body
