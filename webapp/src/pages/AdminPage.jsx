@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { fmtDateTime, fmtDate as fmtDateIL, fmtTimeShort } from '../utils/time.js'
 import { adminOrderApprove, adminOrderCancel } from '../api.js'
 import {
@@ -1691,7 +1692,7 @@ function GrantModal({ user, onClose, onDone }) {
     ['messages',  '📨', 'הודעות'],
   ]
 
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()} style={{ padding: '18px 16px' }}>
 
@@ -1978,7 +1979,8 @@ function GrantModal({ user, onClose, onDone }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -2000,7 +2002,7 @@ function SendMessageModal({ user, onClose }) {
     setSending(false)
   }
 
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <div className="modal-title">💬 הודעה ל{name}</div>
@@ -2017,7 +2019,8 @@ function SendMessageModal({ user, onClose }) {
         </button>
         <button className="btn btn-secondary" style={{ marginTop: 6 }} onClick={onClose}>ביטול</button>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
