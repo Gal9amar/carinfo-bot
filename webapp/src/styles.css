@@ -264,10 +264,11 @@ body {
   inset: 0;
   background: rgba(0,0,0,0.55);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   z-index: 100;
   padding: 16px;
+  overflow-y: auto;
 }
 
 .modal {
@@ -276,8 +277,9 @@ body {
   padding: 20px;
   width: 100%;
   max-width: 420px;
-  max-height: 80vh;
+  max-height: 85vh;
   overflow-y: auto;
+  margin: auto 0;
 }
 
 .modal-title {
