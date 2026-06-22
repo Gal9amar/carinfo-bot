@@ -14,6 +14,12 @@ export async function fetchPackages() {
   return r.json()
 }
 
+export async function fetchPaymentMethods() {
+  const r = await fetch(`${BASE}/api/payment-methods`)
+  if (!r.ok) throw new Error('Failed to load payment methods')
+  return r.json()
+}
+
 export async function fetchUser() {
   const r = await fetch(`${BASE}/api/user`, { headers: headers() })
   if (!r.ok) throw new Error('Auth failed')

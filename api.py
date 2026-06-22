@@ -114,6 +114,12 @@ async def list_packages():
     return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4], "display_order": p[5], "duration_months": p[6] if len(p) > 6 else 1, "features": p[7] if len(p) > 7 else [], "chips": p[8] if len(p) > 8 else [], "package_type": p[9] if len(p) > 9 else "searches"} for p in pkgs]
 
 
+@api.get("/api/payment-methods")
+async def list_payment_methods():
+    from src.payment_methods import get_payment_methods
+    return await get_payment_methods(active_only=True)
+
+
 @api.get("/api/user")
 async def get_user_info(user: dict = Depends(_get_user)):
     from src.users import get_user_by_id
