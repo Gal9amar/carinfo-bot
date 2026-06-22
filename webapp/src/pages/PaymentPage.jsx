@@ -1,11 +1,20 @@
 import { useState, useEffect } from 'react'
 import { initiatePayment, promotePayment, fetchPaymentMethods } from '../api.js'
+import paypalLogo from '../assets/paypal-logo.png'
+
+const PAYPAL_METHOD = {
+  id: '__paypal__',
+  name: 'PayPal',
+  logo_url: paypalLogo,
+  payment_url: '',
+  requires_manual_approval: false,
+}
 
 export default function PaymentPage({ pkg, onBack }) {
   const [paymentUrl, setPaymentUrl] = useState(null)
   const [paymentRef, setPaymentRef] = useState(null)
   const [preparing, setPreparing]   = useState(true)
-  const [methods, setMethods]       = useState([])
+  const [extraMethods, setExtraMethods] = useState([])
 
   const qty        = pkg._qty ?? 1
   const totalPrice = pkg.price * qty
@@ -15,42 +24,41 @@ export default function PaymentPage({ pkg, onBack }) {
     : (pkg.searches === -1 ? 'ללא הגבלה' : `${(pkg.searches ?? 1) * qty} חיפושים`)
 
   useEffect(() => {
-    fetchPaymentMethods().then(setMethods).catch(() => setMethods([]))
-    initiatePayment(pkg.id, qty, true)
-      .then(data => {
+    Promise.all([
+      fetchPaymentMethods().catch(() => []),
+      initiatePayment(pkg.id, qty, true).catch(() => null),
+    ]).then(([dbMethods, data]) => {
+      if (data) {
         setPaymentUrl(data.approval_url)
         setPaymentRef(data.ref)
-        setPreparing(false)
-      })
-      .catch(() => {
-        setPreparing(false)
+      } else {
         window.Telegram?.WebApp?.showAlert('שגיאה ביצירת הזמנה, נסה שוב.')
-      })
+      }
+      // Only show DB methods that require manual approval (admin-added)
+      setExtraMethods(dbMethods.filter(m => m.requires_manual_approval))
+      setPreparing(false)
+    })
   }, [pkg.id])
 
-  function openMethod(m) {
-    let url
-    if (!m.requires_manual_approval) {
-      // Auto-approved (PayPal) — use the approval_url from the API
-      url = paymentUrl
-      if (!url) return
-      promotePayment(paymentRef)
-    } else {
-      // Manual approval — open the payment URL directly, no PayPal order needed
-      url = m.payment_url
-      if (!url) return
-      // Still promote so admin gets notified
-      if (paymentRef) promotePayment(paymentRef)
-    }
+  function openPaypal() {
+    if (!paymentUrl) return
+    promotePayment(paymentRef)
     if (window.Telegram?.WebApp?.openLink) {
-      window.Telegram.WebApp.openLink(url)
+      window.Telegram.WebApp.openLink(paymentUrl)
     } else {
-      window.open(url, '_blank')
+      window.open(paymentUrl, '_blank')
     }
   }
 
-  const autoMethods   = methods.filter(m => !m.requires_manual_approval)
-  const manualMethods = methods.filter(m => m.requires_manual_approval)
+  function openManual(m) {
+    if (!m.payment_url) return
+    if (paymentRef) promotePayment(paymentRef)
+    if (window.Telegram?.WebApp?.openLink) {
+      window.Telegram.WebApp.openLink(m.payment_url)
+    } else {
+      window.open(m.payment_url, '_blank')
+    }
+  }
 
   return (
     <div className="page">
@@ -75,42 +83,32 @@ export default function PaymentPage({ pkg, onBack }) {
           ⏳ מכין קישור תשלום...
         </div>
       ) : (
-        <>
-          {autoMethods.length > 0 && (
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 8, paddingRight: 2 }}>
-                ✅ אישור אוטומטי — גישה מיידית לאחר התשלום
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {autoMethods.map(m => (
-                  <MethodButton key={m.id} m={m} disabled={!paymentUrl} onClick={() => openMethod(m)} />
-                ))}
-              </div>
-            </div>
-          )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {/* PayPal — always first, auto-approved */}
+          <div style={{ fontSize: 12, color: 'var(--hint)', paddingRight: 2 }}>
+            ✅ אישור אוטומטי — גישה מיידית לאחר התשלום
+          </div>
+          <MethodButton
+            m={PAYPAL_METHOD}
+            disabled={!paymentUrl}
+            onClick={openPaypal}
+          />
 
-          {manualMethods.length > 0 && (
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 8, paddingRight: 2 }}>
+          {/* Manual methods added by admin */}
+          {extraMethods.length > 0 && (
+            <>
+              <div style={{ fontSize: 12, color: 'var(--hint)', paddingRight: 2, marginTop: 6 }}>
                 ⏳ אישור ידני — המנהל יאשר תוך זמן קצר
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {manualMethods.map(m => (
-                  <MethodButton key={m.id} m={m} disabled={false} onClick={() => openMethod(m)} />
-                ))}
-              </div>
-            </div>
+              {extraMethods.map(m => (
+                <MethodButton key={m.id} m={m} disabled={false} onClick={() => openManual(m)} />
+              ))}
+            </>
           )}
-
-          {methods.length === 0 && (
-            <div style={{ textAlign: 'center', padding: 20, color: 'var(--hint)', fontSize: 13 }}>
-              אין אמצעי תשלום זמינים כרגע
-            </div>
-          )}
-        </>
+        </div>
       )}
 
-      <div style={{ marginTop: 8, fontSize: 12, color: 'var(--hint)', textAlign: 'center' }}>
+      <div style={{ marginTop: 14, fontSize: 12, color: 'var(--hint)', textAlign: 'center' }}>
         לאחר השלמת התשלום הגישה תתעדכן ותגיע הודעה בצ'אט
       </div>
     </div>
