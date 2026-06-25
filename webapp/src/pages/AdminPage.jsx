@@ -1489,6 +1489,7 @@ function UserCard({ u, expanded, onToggle, onEdit, onMessage, onHistory, onReloa
             {u.quota_expires && <div>⏰ פג תוקף: <span style={{ color: '#d69e2e', fontWeight: 600 }}>{u.quota_expires.slice(0, 10)}</span></div>}
             {u.referred_by && <div>🤝 הופנה ע"י: <span style={{ color: '#38a169', fontWeight: 600 }}>{u.referred_by}</span></div>}
             {u.channel && <div>📡 ערוץ: <span style={{ color: 'var(--text)' }}>{u.channel}</span></div>}
+            <div>{u.broadcast_consent === 0 ? '🔕' : '🔔'} שידורים: <span style={{ color: u.broadcast_consent === 0 ? '#e53e3e' : '#38a169', fontWeight: 600 }}>{u.broadcast_consent === 0 ? 'הסכמה בוטלה' : 'פעיל'}</span></div>
           </div>
 
           {/* Action buttons */}

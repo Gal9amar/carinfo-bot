@@ -33,6 +33,7 @@ from src.users import (
     check_new_user, record_referral, get_referral_count, get_referrals,
     load_welcome_settings, get_promo_welcome_info, get_users_expiring_today, get_users_expiring_in_days,
     log_sent_message,
+    set_broadcast_consent, get_broadcast_consent,
 )
 from src.formatter import (
     format_error,
@@ -1841,15 +1842,21 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             from telegram.helpers import escape_markdown
             escaped_msg = escape_markdown(raw, version=2)
             broadcast_log_text = f"📢 הודעה מהמנהל: {raw}"
+            _bc_optout_kb = InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔕 הסר אותי מהתפוצה", callback_data="broadcast_optout"),
+            ]])
             for u in tg_users:
                 uid = u["user_id"]
                 if uid == ADMIN_ID:
+                    continue
+                if not u.get("broadcast_consent", 1):
                     continue
                 try:
                     await context.bot.send_message(
                         uid,
                         f"📢 *הודעה מהמנהל:*\n\n{escaped_msg}",
                         parse_mode=ParseMode.MARKDOWN_V2,
+                        reply_markup=_bc_optout_kb,
                     )
                     await log_sent_message(uid, broadcast_log_text, kind="broadcast")
                     sent_ok += 1
@@ -2118,6 +2125,62 @@ async def handle_pdf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 
+async def handle_broadcast_consent_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle broadcast opt-out / opt-in inline buttons."""
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    action = query.data  # "broadcast_optout" or "broadcast_optin"
+
+    if action == "broadcast_optout":
+        await set_broadcast_consent(user_id, False)
+        await query.edit_message_reply_markup(
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔔 חזור לרשימת התפוצה", callback_data="broadcast_optin"),
+            ]])
+        )
+        await context.bot.send_message(
+            user_id,
+            "🔕 *הוסרת מרשימת השידורים*\n\n"
+            "לא תקבל עוד הודעות שידור מהמנהל\\.\n"
+            "הודעות מערכת חיוניות \\(אישורי רכישה וכו׳\\) עדיין יישלחו\\.\n\n"
+            "לחזרה לרשימה שלח `/optin`\\.",
+            parse_mode=ParseMode.MARKDOWN_V2,
+        )
+    elif action == "broadcast_optin":
+        await set_broadcast_consent(user_id, True)
+        await query.edit_message_reply_markup(
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔕 הסר אותי מהתפוצה", callback_data="broadcast_optout"),
+            ]])
+        )
+        await context.bot.send_message(
+            user_id,
+            "🔔 *נרשמת מחדש לרשימת השידורים\\!*\n\nתקבל עדכונים ומבצעים מהמנהל\\.",
+            parse_mode=ParseMode.MARKDOWN_V2,
+        )
+
+
+async def cmd_optout(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = update.effective_user.id
+    await set_broadcast_consent(user_id, False)
+    await update.message.reply_text(
+        "🔕 *הוסרת מרשימת השידורים*\n\n"
+        "לא תקבל עוד הודעות שידור\\.\n"
+        "לחזרה לרשימה שלח `/optin`\\.",
+        parse_mode=ParseMode.MARKDOWN_V2,
+    )
+
+
+async def cmd_optin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = update.effective_user.id
+    await set_broadcast_consent(user_id, True)
+    await update.message.reply_text(
+        "🔔 *נרשמת מחדש לרשימת השידורים\\!*\n\nתקבל עדכונים ומבצעים מהמנהל\\.",
+        parse_mode=ParseMode.MARKDOWN_V2,
+    )
+
+
 async def _cache_cleanup_job():
     """Clear expired cache entries every 10 minutes."""
     while True:
@@ -2306,6 +2369,10 @@ def main() -> None:
     from src.notifier import register_payment_result_notifiers
     register_payment_result_notifiers(_notify_payment_approved, _notify_payment_declined)
 
+    _optout_kb = InlineKeyboardMarkup([[
+        InlineKeyboardButton("🔕 הסר אותי מהתפוצה", callback_data="broadcast_optout"),
+    ]])
+
     async def _do_broadcast(message: str) -> dict:
         from src.users import get_all_users
         users = await get_all_users()
@@ -2314,8 +2381,10 @@ def main() -> None:
             uid = u.get("user_id")
             if not uid or uid == ADMIN_ID:
                 continue
+            if not u.get("broadcast_consent", 1):
+                continue
             try:
-                await app.bot.send_message(uid, message)
+                await app.bot.send_message(uid, message, reply_markup=_optout_kb)
                 await log_sent_message(uid, message, kind="broadcast")
                 sent += 1
             except Exception:
@@ -2362,6 +2431,8 @@ def main() -> None:
             uid = u.get("user_id")
             if not uid or uid == ADMIN_ID or u.get("blocked"):
                 continue
+            if not u.get("broadcast_consent", 1):
+                continue
             try:
                 if photo_bytes:
                     await app.bot.send_photo(
@@ -2369,9 +2440,10 @@ def main() -> None:
                         photo=_io.BytesIO(photo_bytes),
                         caption=message,
                         parse_mode="Markdown",
+                        reply_markup=_optout_kb,
                     )
                 else:
-                    await app.bot.send_message(uid, message, parse_mode="Markdown")
+                    await app.bot.send_message(uid, message, parse_mode="Markdown", reply_markup=_optout_kb)
                 await log_sent_message(uid, message, kind="broadcast")
                 sent += 1
             except Exception:
@@ -2437,6 +2509,9 @@ def main() -> None:
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("code",   cmd_code))
     app.add_handler(CommandHandler("admin",  cmd_admin))
+    app.add_handler(CommandHandler("optout", cmd_optout))
+    app.add_handler(CommandHandler("optin",  cmd_optin))
+    app.add_handler(CallbackQueryHandler(handle_broadcast_consent_callback, pattern=r"^broadcast_(optout|optin)$"))
     app.add_handler(CallbackQueryHandler(handle_user_callback,   pattern=r"^(usr|ugrant|utoggle)\|"))
     app.add_handler(CallbackQueryHandler(handle_admin_callback,  pattern=r"^adm\|"))
     app.add_handler(CommandHandler("buy", cmd_buy))

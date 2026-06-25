@@ -211,6 +211,7 @@ async def init_db() -> None:
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (user_id, plate)
 )""")
+    migrations.append("ALTER TABLE users ADD COLUMN broadcast_consent INTEGER DEFAULT 1")
     for sql in statements:
         conn.execute(sql)
     for sql in migrations:

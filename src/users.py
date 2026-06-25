@@ -440,7 +440,7 @@ async def get_all_users() -> list[dict]:
     r = await execute(
         "SELECT u.user_id, u.username, u.full_name, u.searches_done, u.searches_quota, "
         "u.first_seen, u.last_seen, u.blocked, u.channel, u.quota_expires, u.member_id, u.watch_quota, "
-        "u.referred_by, "
+        "u.referred_by, u.broadcast_consent, "
         "CASE WHEN ugm.user_id IS NOT NULL THEN 1 ELSE 0 END as is_subscriber "
         "FROM users u "
         "LEFT JOIN user_group_members ugm ON ugm.user_id = u.user_id "
@@ -614,6 +614,24 @@ async def admin_stats() -> dict:
         "watches_week":     _row(watches_week_r)["c"],
         "top_users":        top_users,
     }
+
+
+async def set_broadcast_consent(user_id: int, consent: bool) -> None:
+    await execute(
+        "UPDATE users SET broadcast_consent = ? WHERE user_id = ?",
+        [1 if consent else 0, user_id],
+    )
+
+
+async def get_broadcast_consent(user_id: int) -> bool:
+    r = await execute(
+        "SELECT broadcast_consent FROM users WHERE user_id = ?",
+        [user_id],
+    )
+    if not r.rows:
+        return True
+    val = r.rows[0][0]
+    return val is None or bool(val)
 
 
 async def log_sent_message(user_id: int, text: str, kind: str = "system") -> None:
