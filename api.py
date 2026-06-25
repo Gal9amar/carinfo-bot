@@ -1541,8 +1541,13 @@ async def admin_user_referrals(user_id: int, _: dict = Depends(_require_admin)):
 
 @api.get("/api/admin/users/{user_id}/history")
 async def admin_user_history(user_id: int, _: dict = Depends(_require_admin)):
-    from src.users import get_search_history
-    return await get_search_history(user_id)
+    from src.db import execute
+    r = await execute(
+        "SELECT plate, searched_at FROM search_history WHERE user_id = ? "
+        "ORDER BY searched_at DESC LIMIT 100",
+        [user_id],
+    )
+    return [{"plate": row[0], "searched_at": row[1]} for row in r.rows]
 
 
 @api.get("/api/admin/users/{user_id}/sent-messages")

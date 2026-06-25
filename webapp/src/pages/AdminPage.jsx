@@ -2009,17 +2009,25 @@ function GrantModal({ user, onClose, onDone }) {
               </div>
             )}
             {history !== null && history.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {history.map((plate, i) => (
-                  <span
-                    key={i}
-                    style={{
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 2 }}>{history.length} חיפושים אחרונים</div>
+                {history.map((item, i) => (
+                  <div key={i} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    background: 'var(--bg)', borderRadius: 8, padding: '7px 10px',
+                  }}>
+                    <span style={{
                       background: '#f5c518', color: '#111', fontWeight: 700,
-                      borderRadius: 6, padding: '4px 10px', fontSize: 13, letterSpacing: 1,
-                    }}
-                  >
-                    {plate}
-                  </span>
+                      borderRadius: 6, padding: '3px 10px', fontSize: 13, letterSpacing: 1,
+                    }}>
+                      {item.plate ?? item}
+                    </span>
+                    {item.searched_at && (
+                      <span style={{ fontSize: 11, color: 'var(--hint)' }}>
+                        {item.searched_at.slice(0, 16).replace('T', ' ')}
+                      </span>
+                    )}
+                  </div>
                 ))}
               </div>
             )}
