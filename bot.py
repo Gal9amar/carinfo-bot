@@ -334,19 +334,23 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 [bonus, referrer_id],
             )
             ref_uname = f"@{user.username}" if user.username else str(user_id)
+            referral_msg = (
+                f"🎉 *חבר חדש הצטרף דרך הלינק שלך!*\n\n"
+                f"👤 {ref_uname} הצטרף לבוט\n"
+                f"🎁 קיבלת *{bonus} חיפושים* בונוס!"
+            )
             try:
                 await context.bot.send_message(
                     referrer_id,
-                    f"🎉 *חבר חדש הצטרף דרך הלינק שלך!*\n\n"
-                    f"👤 {ref_uname} הצטרף לבוט\n"
-                    f"🎁 קיבלת *{bonus} חיפושים* בונוס!",
+                    referral_msg,
                     parse_mode="Markdown",
                 )
+                await log_sent_message(referrer_id, referral_msg, kind="referral_bonus")
             except Exception:
                 pass
             try:
                 from src.activity import log as _log
-                await _log("grant", f"בונוס הפניה: +{bonus} חיפושים למשתמש {referrer_id}", user_id, ref_uname)
+                await _log("grant", f"בונוס הפניה: +{bonus} חיפושים (הצטרף: {ref_uname})", referrer_id, "")
             except Exception:
                 pass
         except Exception as e:

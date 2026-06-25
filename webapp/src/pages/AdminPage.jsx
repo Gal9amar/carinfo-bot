@@ -1448,10 +1448,11 @@ function UserCard({ u, expanded, onToggle, onEdit, onMessage, onHistory, onReloa
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', padding: '12px 13px' }}>
 
           {/* Stats mini-grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 7, marginBottom: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 7, marginBottom: 10 }}>
             {[
               { label: 'נעשו', value: u.searches_done, color: '#38bdf8' },
               { label: 'נותרו', value: left, color: st.color },
+              { label: 'קוטה', value: u.searches_quota === -1 ? '∞' : u.searches_quota, color: '#a78bfa' },
               { label: 'מזהה', value: u.user_id, mono: true },
             ].map(({ label, value, color, mono }) => (
               <div key={label} style={{
@@ -1459,7 +1460,7 @@ function UserCard({ u, expanded, onToggle, onEdit, onMessage, onHistory, onReloa
               }}>
                 <div style={{
                   fontWeight: 700,
-                  fontSize: mono ? 11 : 15,
+                  fontSize: mono ? 10 : 15,
                   color: color || 'var(--text)',
                   fontFamily: mono ? 'monospace' : undefined,
                   wordBreak: 'break-all',
@@ -1481,6 +1482,7 @@ function UserCard({ u, expanded, onToggle, onEdit, onMessage, onHistory, onReloa
             {u.first_seen && <div>📅 הצטרף: <span style={{ color: 'var(--text)' }}>{fmtDateIL(u.first_seen)}</span></div>}
             {u.last_seen  && <div>👁 נראה לאחרונה: <span style={{ color: 'var(--text)' }}>{fmtDateTime(u.last_seen)}</span></div>}
             {u.quota_expires && <div>⏰ פג תוקף: <span style={{ color: '#d69e2e', fontWeight: 600 }}>{u.quota_expires.slice(0, 10)}</span></div>}
+            {u.referred_by && <div>🤝 הופנה ע"י: <span style={{ color: '#38a169', fontWeight: 600 }}>{u.referred_by}</span></div>}
             {u.channel && <div>📡 ערוץ: <span style={{ color: 'var(--text)' }}>{u.channel}</span></div>}
           </div>
 
@@ -1721,13 +1723,13 @@ function GrantModal({ user, onClose, onDone }) {
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: 4, marginBottom: 16, background: 'var(--bg)', borderRadius: 10, padding: 3 }}>
+        <div style={{ display: 'flex', gap: 4, marginBottom: 16, background: 'var(--bg)', borderRadius: 10, padding: 3, overflowX: 'auto', scrollbarWidth: 'none' }}>
           {TABS.map(([id, icon, label]) => (
             <button
               key={id}
               onClick={() => setMode(id)}
               style={{
-                flex: 1, padding: '6px 2px', fontSize: 10, borderRadius: 7, border: 'none',
+                flexShrink: 0, minWidth: 52, padding: '6px 8px', fontSize: 10, borderRadius: 7, border: 'none',
                 background: mode === id ? 'var(--bg2)' : 'transparent',
                 color: mode === id ? 'var(--text)' : 'var(--hint)',
                 cursor: 'pointer', fontWeight: mode === id ? 600 : 400,
@@ -1950,6 +1952,7 @@ function GrantModal({ user, onClose, onDone }) {
                 {sentMessages.map(msg => {
                   const kindColors = {
                     grant:           { bg: '#7c3aed18', border: '#7c3aed55', icon: '🎁' },
+                    referral_bonus:  { bg: '#38a16918', border: '#38a16955', icon: '🤝' },
                     payment:         { bg: '#38a16918', border: '#38a16955', icon: '💳' },
                     broadcast:       { bg: '#0ea5e918', border: '#0ea5e955', icon: '📢' },
                     expiry_reminder: { bg: '#f59e0b18', border: '#f59e0b55', icon: '⏰' },
