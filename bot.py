@@ -2137,14 +2137,6 @@ async def _yad2_watch_job(context) -> None:
     try:
         watches = await get_all_active_watches()
         if not watches:
-            try:
-                await context.bot.send_message(
-                    ADMIN_ID,
-                    "🔍 *בדיקת מעקב יד2 בוצעה* — אין מעקבים פעילים",
-                    parse_mode=ParseMode.MARKDOWN_V2,
-                )
-            except Exception:
-                pass
             return
 
         for w in watches:
