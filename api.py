@@ -1495,6 +1495,42 @@ async def admin_send_user_message(user_id: int, body: DirectMessageBody, _: dict
     return {"ok": ok}
 
 
+@api.get("/api/admin/referrals")
+async def admin_all_referrals(_: dict = Depends(_require_admin)):
+    from src.db import execute
+    r = await execute(
+        """SELECT rf.id, rf.referrer_id, rf.referee_id, rf.bonus, rf.joined_at,
+                  ru.username AS referrer_username, ru.full_name AS referrer_name,
+                  ru.searches_quota AS referrer_quota, ru.searches_done AS referrer_done,
+                  eu.username AS referee_username, eu.full_name AS referee_name,
+                  eu.searches_quota AS referee_quota, eu.searches_done AS referee_done
+           FROM referrals rf
+           LEFT JOIN users ru ON ru.user_id = rf.referrer_id
+           LEFT JOIN users eu ON eu.user_id = rf.referee_id
+           ORDER BY rf.joined_at DESC"""
+    )
+    rows = []
+    for row in r.rows:
+        def _name(uid, uname, fname):
+            if uname: return f"@{uname}"
+            if fname: return fname
+            return f"id:{uid}"
+        referrer_quota = row[7]
+        referee_quota  = row[11]
+        rows.append({
+            "id":                    row[0],
+            "referrer_id":           row[1],
+            "referee_id":            row[2],
+            "bonus":                 row[3],
+            "joined_at":             row[4],
+            "referrer_name":         _name(row[1], row[5], row[6]),
+            "referrer_searches_left": -1 if referrer_quota == -1 else max(0, (referrer_quota or 0) - (row[8] or 0)),
+            "referee_name":          _name(row[2], row[9], row[10]),
+            "referee_searches_left": -1 if referee_quota == -1 else max(0, (referee_quota or 0) - (row[12] or 0)),
+        })
+    return {"referrals": rows, "count": len(rows), "total_bonus": sum(r["bonus"] for r in rows)}
+
+
 @api.get("/api/admin/users/{user_id}/referrals")
 async def admin_user_referrals(user_id: int, _: dict = Depends(_require_admin)):
     from src.users import get_referrals

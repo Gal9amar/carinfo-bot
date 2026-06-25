@@ -16,6 +16,7 @@ import {
   adminToggleBlock,
   adminSendUserMessage,
   adminFetchUserHistory,
+  adminFetchAllReferrals,
   adminFetchUserReferrals,
   adminFetchUserSentMessages,
   adminFetchPaymentMethods,
@@ -43,7 +44,8 @@ const TABS = [
   { id: 'payments', icon: '💳', label: 'הזמנות' },
   { id: 'packages', icon: '🛒', label: 'מוצרים' },
   { id: 'grants',   icon: '🎁', label: 'הטבות מנהל' },
-  { id: 'users',    icon: '👥', label: 'משתמשים' },
+  { id: 'users',     icon: '👥', label: 'משתמשים' },
+  { id: 'referrals', icon: '🤝', label: 'הפניות' },
   { id: 'groups',   icon: '👥', label: 'קבוצות' },
   { id: 'features', icon: '⭐', label: 'פיצ\'רים' },
   { id: 'promo',    icon: '🎉', label: 'מבצעי הצטרפות' },
@@ -90,6 +92,7 @@ export default function AdminPage({ user, onBack }) {
       {tab === 'packages' && <PackagesTab />}
       {tab === 'grants'   && <AdminGrantsTab />}
       {tab === 'users'     && <UsersTab />}
+      {tab === 'referrals' && <ReferralsTab />}
       {tab === 'groups'    && <GroupsTab />}
       {tab === 'features'  && <FeaturesTab />}
       {tab === 'promo'     && <PromoTab />}
@@ -1520,6 +1523,136 @@ function UserCard({ u, expanded, onToggle, onEdit, onMessage, onHistory, onReloa
                 opacity: blocking ? 0.6 : 1,
               }}
             >{u.blocked ? '🔓 בטל חסימה' : '🚫 חסום'}</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ReferralsTab() {
+  const [data, setData]       = useState(null)
+  const [selected, setSelected] = useState(null)
+  const [search, setSearch]   = useState('')
+
+  useEffect(() => {
+    adminFetchAllReferrals().then(setData).catch(() => setData({ referrals: [], count: 0, total_bonus: 0 }))
+  }, [])
+
+  const filtered = data?.referrals.filter(r => {
+    if (!search) return true
+    const q = search.toLowerCase()
+    return (
+      r.referrer_name.toLowerCase().includes(q) ||
+      r.referee_name.toLowerCase().includes(q) ||
+      String(r.referrer_id).includes(q) ||
+      String(r.referee_id).includes(q)
+    )
+  }) ?? []
+
+  if (data === null) return <div className="loading" />
+
+  return (
+    <div>
+      {/* Summary */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+        <div style={{ background: 'var(--bg2)', borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#38a169' }}>{data.count}</div>
+          <div style={{ fontSize: 11, color: 'var(--hint)' }}>סה"כ הפניות</div>
+        </div>
+        <div style={{ background: 'var(--bg2)', borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#a78bfa' }}>+{data.total_bonus}</div>
+          <div style={{ fontSize: 11, color: 'var(--hint)' }}>חיפושים חולקו</div>
+        </div>
+      </div>
+
+      {/* Search */}
+      <input
+        className="input"
+        placeholder="חיפוש לפי שם או מזהה..."
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        style={{ marginBottom: 10 }}
+      />
+
+      {filtered.length === 0 && (
+        <div style={{ color: 'var(--hint)', fontSize: 13, textAlign: 'center', padding: 20 }}>
+          {search ? 'לא נמצאו תוצאות' : 'אין הפניות עדיין'}
+        </div>
+      )}
+
+      {filtered.map(ref => (
+        <div
+          key={ref.id}
+          onClick={() => setSelected(ref)}
+          style={{
+            background: 'var(--bg2)', borderRadius: 10, padding: '10px 12px',
+            marginBottom: 8, cursor: 'pointer', borderRight: '3px solid #38a169',
+            display: 'flex', alignItems: 'center', gap: 10,
+          }}
+        >
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 2 }}>
+              <span style={{ color: '#38bdf8' }}>{ref.referrer_name}</span>
+              <span style={{ color: 'var(--hint)', margin: '0 5px' }}>הפנה את</span>
+              <span>{ref.referee_name}</span>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--hint)' }}>
+              {ref.joined_at?.slice(0, 10)}
+            </div>
+          </div>
+          <span style={{
+            background: '#38a16920', color: '#38a169',
+            borderRadius: 20, padding: '3px 10px', fontSize: 12, fontWeight: 700, flexShrink: 0,
+          }}>
+            +{ref.bonus}
+          </span>
+          <span style={{ color: 'var(--hint)', fontSize: 16 }}>›</span>
+        </div>
+      ))}
+
+      {selected && (
+        <div className="modal-overlay" onClick={() => setSelected(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ padding: '20px 16px' }}>
+            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 16, color: 'var(--text)' }}>
+              🤝 פירוט הפניה
+            </div>
+
+            {/* Referrer */}
+            <div style={{ background: 'var(--bg)', borderRadius: 10, padding: '12px 14px', marginBottom: 10 }}>
+              <div style={{ fontSize: 11, color: '#38bdf8', fontWeight: 600, marginBottom: 6 }}>📤 המפנה (קיבל בונוס)</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>{selected.referrer_name}</div>
+              <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'var(--hint)' }}>
+                <span>מזהה: <b style={{ color: 'var(--text)', fontFamily: 'monospace' }}>{selected.referrer_id}</b></span>
+                <span>חיפושים נותרו: <b style={{ color: '#a78bfa' }}>{selected.referrer_searches_left === -1 ? '∞' : selected.referrer_searches_left}</b></span>
+              </div>
+            </div>
+
+            {/* Bonus */}
+            <div style={{
+              background: '#38a16918', border: '1px solid #38a16940',
+              borderRadius: 10, padding: '10px 14px', marginBottom: 10,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            }}>
+              <span style={{ fontSize: 13, color: 'var(--hint)' }}>🎁 בונוס שניתן</span>
+              <span style={{ fontSize: 18, fontWeight: 800, color: '#38a169' }}>+{selected.bonus} חיפושים</span>
+            </div>
+
+            {/* Referee */}
+            <div style={{ background: 'var(--bg)', borderRadius: 10, padding: '12px 14px', marginBottom: 14 }}>
+              <div style={{ fontSize: 11, color: '#f59e0b', fontWeight: 600, marginBottom: 6 }}>📥 המצטרף (הופנה)</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>{selected.referee_name}</div>
+              <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'var(--hint)' }}>
+                <span>מזהה: <b style={{ color: 'var(--text)', fontFamily: 'monospace' }}>{selected.referee_id}</b></span>
+                <span>חיפושים נותרו: <b style={{ color: '#a78bfa' }}>{selected.referee_searches_left === -1 ? '∞' : selected.referee_searches_left}</b></span>
+              </div>
+            </div>
+
+            <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 14, textAlign: 'center' }}>
+              📅 תאריך הצטרפות: {selected.joined_at?.slice(0, 16).replace('T', ' ')}
+            </div>
+
+            <button className="btn" onClick={() => setSelected(null)} style={{ width: '100%' }}>סגור</button>
           </div>
         </div>
       )}
