@@ -45,7 +45,6 @@ const TABS = [
   { id: 'packages', icon: '🛒', label: 'מוצרים' },
   { id: 'grants',   icon: '🎁', label: 'הטבות מנהל' },
   { id: 'codes',    icon: '🔑', label: 'קודים' },
-  { id: 'watches',  icon: '🔔', label: 'התראות' },
   { id: 'users',     icon: '👥', label: 'משתמשים' },
   { id: 'referrals', icon: '🤝', label: 'הפניות' },
   { id: 'groups',   icon: '👥', label: 'קבוצות' },
