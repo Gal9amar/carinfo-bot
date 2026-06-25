@@ -44,6 +44,8 @@ const TABS = [
   { id: 'payments', icon: '💳', label: 'הזמנות' },
   { id: 'packages', icon: '🛒', label: 'מוצרים' },
   { id: 'grants',   icon: '🎁', label: 'הטבות מנהל' },
+  { id: 'codes',    icon: '🔑', label: 'קודים' },
+  { id: 'watches',  icon: '🔔', label: 'התראות' },
   { id: 'users',     icon: '👥', label: 'משתמשים' },
   { id: 'referrals', icon: '🤝', label: 'הפניות' },
   { id: 'groups',   icon: '👥', label: 'קבוצות' },
@@ -91,6 +93,7 @@ export default function AdminPage({ user, onBack }) {
       {tab === 'payments' && <PaymentsTab />}
       {tab === 'packages' && <PackagesTab />}
       {tab === 'grants'   && <AdminGrantsTab />}
+      {tab === 'codes'    && <CodesSection standalone />}
       {tab === 'users'     && <UsersTab />}
       {tab === 'referrals' && <ReferralsTab />}
       {tab === 'groups'    && <GroupsTab />}
@@ -1107,7 +1110,7 @@ function PaymentsTab() {
   )
 }
 
-function CodesSection() {
+function CodesSection({ standalone }) {
   const [codes, setCodes] = useState(null)
   const [form, setForm] = useState({ searches: 50, unlimited: false, single_use: true, monthly: false })
   const [creating, setCreating] = useState(false)
