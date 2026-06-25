@@ -497,7 +497,7 @@ export default function ReportPage({ plate, onBack, user }) {
           .then(d => setMarketData(d))
           .catch(() => setMarketData(null))
       })
-      .catch(() => setError('הרכב לא נמצא או שגיאה בטעינה'))
+      .catch(e => setError(e.message === 'QUOTA_EXCEEDED' ? 'נגמרו החיפושים שלך — רכוש חבילה להמשך' : 'הרכב לא נמצא או שגיאה בטעינה'))
     fetchNote(plate).then(n => { setNote(n || ''); setNoteDirty(false) }).catch(() => {})
   }, [plate])
 

@@ -538,7 +538,17 @@ async def get_user_history(user: dict = Depends(_get_user)):
 async def get_vehicle(plate: str, user: dict = Depends(_get_user)):
     from src.api.gov_api import fetch_vehicle_data
     from src.cache import cache
+    from src.users import is_allowed, increment_search
     plate = plate.replace("-", "").replace(" ", "")
+
+    uid      = int(user["id"])
+    username = user.get("username") or ""
+    fullname = user.get("first_name", "") + " " + user.get("last_name", "")
+
+    allowed, _ = await is_allowed(uid, username, fullname.strip())
+    if not allowed:
+        raise HTTPException(status_code=403, detail="quota_exceeded")
+
     record = cache.get(plate)
     if record is None:
         record = await fetch_vehicle_data(plate)
@@ -547,11 +557,10 @@ async def get_vehicle(plate: str, user: dict = Depends(_get_user)):
     if not record:
         raise HTTPException(status_code=404, detail="Vehicle not found")
 
-    uid  = int(user["id"])
-    name = user.get("username") or user.get("first_name", str(uid))
+    await increment_search(uid, plate)
     try:
         from src.activity import log as _log
-        await _log("search", f"חיפוש לוחית {plate}", uid, name)
+        await _log("search", f"חיפוש לוחית {plate}", uid, username)
     except Exception:
         pass
     return JSONResponse(content=record, headers={"Cache-Control": "no-store"})

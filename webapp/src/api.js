@@ -62,6 +62,7 @@ export async function confirmPayment(ref, packageId) {
 
 export async function fetchVehicle(plate) {
   const r = await fetch(`${BASE}/api/vehicle/${plate}`, { headers: headers(), cache: 'no-store' })
+  if (r.status === 403) throw new Error('QUOTA_EXCEEDED')
   if (!r.ok) throw new Error('Vehicle not found')
   return r.json()
 }
