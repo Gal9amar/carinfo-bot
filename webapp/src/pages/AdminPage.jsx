@@ -2096,12 +2096,18 @@ function GrantModal({ user, onClose, onDone }) {
                   const kindColors = {
                     grant:           { bg: '#7c3aed18', border: '#7c3aed55', icon: '🎁' },
                     referral_bonus:  { bg: '#38a16918', border: '#38a16955', icon: '🤝' },
-                    payment:         { bg: '#38a16918', border: '#38a16955', icon: '💳' },
+                    referral_info:   { bg: '#f59e0b18', border: '#f59e0b55', icon: 'ℹ️' },
+                    payment:         { bg: '#16a34a18', border: '#16a34a55', icon: '💳' },
                     broadcast:       { bg: '#0ea5e918', border: '#0ea5e955', icon: '📢' },
                     expiry_reminder: { bg: '#f59e0b18', border: '#f59e0b55', icon: '⏰' },
                     block:           { bg: '#e53e3e18', border: '#e53e3e55', icon: '🚫' },
+                    unblock:         { bg: '#38a16918', border: '#38a16955', icon: '✅' },
                     ticket_reply:    { bg: '#6366f118', border: '#6366f155', icon: '💬' },
                     admin_dm:        { bg: '#ec489918', border: '#ec489955', icon: '✉️' },
+                    welcome:         { bg: '#0ea5e918', border: '#0ea5e955', icon: '👋' },
+                    promo_welcome:   { bg: '#f59e0b18', border: '#f59e0b55', icon: '🎉' },
+                    code_applied:    { bg: '#7c3aed18', border: '#7c3aed55', icon: '🔑' },
+                    watch_alert:     { bg: '#6366f118', border: '#6366f155', icon: '🔔' },
                   }
                   const style = kindColors[msg.kind] || { bg: 'var(--bg)', border: 'rgba(255,255,255,0.1)', icon: '📩' }
                   return (

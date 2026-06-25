@@ -299,6 +299,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 else:
                     duration_text = "ללא הגבלת זמן"
                 expires_text = f" \\(עד {_esc(expires_str, version=2)}\\)" if expires_str else ""
+                promo_text = f"🎉 ברוכים הבאים למבצע! {promo_info['label']} — {duration_text}"
                 await context.bot.send_message(
                     user_id,
                     f"🎉 *ברוכים הבאים למבצע ההצטרפות\\!*\n\n"
@@ -307,12 +308,14 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     f"⏱ {duration_text}{expires_text}",
                     parse_mode=ParseMode.MARKDOWN_V2,
                 )
+                await log_sent_message(user_id, promo_text, kind="promo_welcome")
             except Exception as e:
                 logger.warning("Failed to send promo welcome: %s", e)
 
     if not is_new and referrer_id:
         try:
             ref_uname = f"@{user.username}" if user.username else str(user_id)
+            ref_info_msg = f"ℹ️ לא ניתן לקבל בונוס הפניה — {ref_uname} כבר קיים בבוט"
             await context.bot.send_message(
                 referrer_id,
                 f"ℹ️ *לא ניתן לקבל בונוס הפניה*\n\n"
@@ -320,6 +323,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 f"הבונוס ניתן רק עבור משתמשים חדשים שמצטרפים לראשונה\\.",
                 parse_mode=ParseMode.MARKDOWN_V2,
             )
+            await log_sent_message(referrer_id, ref_info_msg, kind="referral_info")
         except Exception:
             pass
 
@@ -390,6 +394,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     else:
         searches_info = "גישה מלאה פעילה ✅"
 
+    welcome_text = f"🚗 ברוך הבא ל-CarInfo! {searches_info}"
     await update.message.reply_text(
         "🚗 *ברוך הבא ל\\-CarInfo\\!*\n"
         "_הבוט החכם לבדיקת רכבים בישראל_\n\n"
@@ -407,6 +412,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         parse_mode=ParseMode.MARKDOWN_V2,
         reply_markup=_welcome_keyboard(is_admin),
     )
+    await log_sent_message(user_id, welcome_text, kind="welcome")
 
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -481,6 +487,7 @@ async def receive_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
             parse_mode=ParseMode.MARKDOWN_V2,
             reply_markup=_persistent_keyboard(is_admin),
         )
+        await log_sent_message(user_id, f"✅ קוד הופעל: {msg}", kind="code_applied")
     else:
         await update.message.reply_text(
             f"❌ *קוד לא תקין*\n\n{_escape_md(msg)}\n\nנסה שוב או חזור לתפריט החבילות\\.",
@@ -568,6 +575,7 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 else:
                     user_msg = f"🎉 נוספו לך {amount} בדיקות רכב!\n\nתוכל להתחיל לחפש מיד."
                 await context.bot.send_message(target["user_id"], user_msg)
+                await log_sent_message(target["user_id"], user_msg, kind="grant")
             except Exception as e:
                 logger.warning("Failed to notify user after grant: %s", e)
             return
@@ -796,11 +804,13 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         target_id = int(parts[2])
         await block_user(target_id)
         try:
+            block_msg = "🚫 הגישה שלך לבוט נחסמה. לפרטים פנה למנהל."
             await context.bot.send_message(
                 target_id,
                 "🚫 הגישה שלך לבוט נחסמה\\. לפרטים פנה למנהל\\.",
                 parse_mode=ParseMode.MARKDOWN_V2,
             )
+            await log_sent_message(target_id, block_msg, kind="block")
         except Exception:
             pass
         users = await get_all_users()
@@ -826,11 +836,13 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         target_id = int(parts[2])
         await unblock_user(target_id)
         try:
+            unblock_msg = "✅ החסימה שלך הוסרה. תוכל להמשיך להשתמש בבוט."
             await context.bot.send_message(
                 target_id,
                 "✅ החסימה שלך הוסרה\\. תוכל להמשיך להשתמש בבוט\\.",
                 parse_mode=ParseMode.MARKDOWN_V2,
             )
+            await log_sent_message(target_id, unblock_msg, kind="unblock")
         except Exception:
             pass
         users = await get_all_users()
@@ -1553,6 +1565,7 @@ async def handle_successful_payment(update: Update, context: ContextTypes.DEFAUL
         parse_mode=ParseMode.MARKDOWN_V2,
         reply_markup=ReplyKeyboardRemove(),
     )
+    await log_sent_message(user_id, f"✅ תשלום התקבל! נוספו {searches} בדיקות — ₪{amount_ils}", kind="payment")
 
     # Notify admin
     uname = f"@{update.effective_user.username}" if update.effective_user.username else f"id:{user_id}"
@@ -1662,11 +1675,13 @@ async def handle_admin_message(update: Update, context: ContextTypes.DEFAULT_TYP
         return
     target_id = int(match.group(1))
     try:
+        dm_text = f"📩 הודעה מהמנהל: {msg.text}"
         await context.bot.send_message(
             target_id,
             f"📩 *הודעה מהמנהל:*\n\n{msg.text}",
             parse_mode=ParseMode.MARKDOWN_V2,
         )
+        await log_sent_message(target_id, dm_text, kind="admin_dm")
         await msg.reply_text(f"✅ נשלח למשתמש `{target_id}`\\.", parse_mode=ParseMode.MARKDOWN_V2)
     except Exception as e:
         await msg.reply_text(f"❌ שגיאה בשליחה: `{e}`", parse_mode=ParseMode.MARKDOWN_V2)
@@ -1825,6 +1840,7 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             )
             from telegram.helpers import escape_markdown
             escaped_msg = escape_markdown(raw, version=2)
+            broadcast_log_text = f"📢 הודעה מהמנהל: {raw}"
             for u in tg_users:
                 uid = u["user_id"]
                 if uid == ADMIN_ID:
@@ -1835,6 +1851,7 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                         f"📢 *הודעה מהמנהל:*\n\n{escaped_msg}",
                         parse_mode=ParseMode.MARKDOWN_V2,
                     )
+                    await log_sent_message(uid, broadcast_log_text, kind="broadcast")
                     sent_ok += 1
                 except Exception as e:
                     logger.warning("Broadcast failed for uid=%s: %s", uid, e)
@@ -2207,6 +2224,7 @@ async def _yad2_watch_job(context) -> None:
                             w["user_id"], text,
                             parse_mode=ParseMode.MARKDOWN_V2,
                         )
+                        await log_sent_message(w["user_id"], f"🔔 התראת מעקב יד2: {label} — {count} מודעות חדשות", kind="watch_alert")
                     except Exception as e:
                         logger.warning("Watch notify failed user=%s: %s", w["user_id"], e)
 
@@ -2271,21 +2289,25 @@ def main() -> None:
     async def _notify_payment_approved(user_id: int, label: str, searches: int):
         try:
             desc = "ללא הגבלה" if searches == -1 else f"{searches} חיפושים"
+            approved_msg = f"✅ תשלומך אושר! {label} — {desc} נוספו לחשבונך"
             await app.bot.send_message(
                 user_id,
                 f"✅ *תשלומך אושר!*\n📦 {label}\n🔍 {desc} נוספו לחשבונך",
                 parse_mode="Markdown"
             )
+            await log_sent_message(user_id, approved_msg, kind="payment")
         except Exception:
             pass
 
     async def _notify_payment_declined(user_id: int, label: str):
         try:
+            declined_msg = f"❌ בקשת התשלום נדחתה — {label}"
             await app.bot.send_message(
                 user_id,
                 f"❌ *בקשת התשלום נדחתה*\n📦 {label}\nלפרטים פנה לתמיכה.",
                 parse_mode="Markdown"
             )
+            await log_sent_message(user_id, declined_msg, kind="payment")
         except Exception:
             pass
 
