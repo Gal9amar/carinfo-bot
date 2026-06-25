@@ -14,7 +14,7 @@ export default function PrivacyPolicyPage({ onBack, onContact }) {
       <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 20 }}>
         מסמך זה מסדיר את תנאי השימוש ואת מדיניות הפרטיות של בוט {BOT_NAME} בטלגרם.
         השימוש בשירות מהווה הסכמה מלאה לאמור להלן.<br/><br/>
-        <strong>בעל המאגר ואחראי הנתונים:</strong> מפעיל השירות — ניתן לפנות דרך הבוט ({BOT_HANDLE}) או בדוא"ל gal9amar@gmail.com.
+        <strong>בעל המאגר ואחראי הנתונים:</strong> מפעיל השירות — ניתן לפנות דרך הבוט ({BOT_HANDLE}) או בדוא"ל carsreport22@gmail.com.
       </div>
 
       {/* ─── PART 1: TERMS OF SERVICE ─── */}
@@ -337,7 +337,7 @@ export default function PrivacyPolicyPage({ onBack, onContact }) {
         </p>
         <ul>
           <li>דרך הבוט בטלגרם: {BOT_HANDLE}</li>
-          <li>בדוא"ל: gal9amar@gmail.com</li>
+          <li>בדוא"ל: carsreport22@gmail.com</li>
         </ul>
         <p>נשתדל להגיב תוך 14 ימי עבודה. לפניות הנוגעות לחוק הגנת הפרטיות — תוך 30 יום.</p>
       </Section>
