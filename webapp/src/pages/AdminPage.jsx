@@ -35,6 +35,7 @@ import {
   adminFetchWatches, adminCreateWatch, adminDeleteWatch, adminToggleWatch,
   adminWatchMakes, adminWatchModels, adminWatchPreview,
   adminSetWatchQuota,
+  adminToggleBroadcastConsent,
 } from '../api.js'
 import BackButton from '../components/BackButton.jsx'
 
@@ -1389,6 +1390,7 @@ function getInitials(u) {
 
 function UserCard({ u, expanded, onToggle, onEdit, onMessage, onHistory, onReload }) {
   const [blocking, setBlocking] = useState(false)
+  const [togglingConsent, setTogglingConsent] = useState(false)
   const st = userStatus(u)
   const left = u.searches_left === -1 ? '∞' : u.searches_left
   const displayName = u.username ? `@${u.username}` : u.full_name || `id:${u.user_id}`
@@ -1400,6 +1402,21 @@ function UserCard({ u, expanded, onToggle, onEdit, onMessage, onHistory, onReloa
     try { await adminToggleBlock(u.user_id); onReload() }
     catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
     setBlocking(false)
+  }
+
+  async function toggleConsent(e) {
+    e.stopPropagation()
+    const isOptedOut = u.broadcast_consent === 0
+    const msg = isOptedOut
+      ? `להחזיר שידורים ל-${displayName}?`
+      : `לבטל שידורים ל-${displayName}?`
+    window.Telegram?.WebApp?.showConfirm(msg, async (ok) => {
+      if (!ok) return
+      setTogglingConsent(true)
+      try { await adminToggleBroadcastConsent(u.user_id); onReload() }
+      catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+      setTogglingConsent(false)
+    })
   }
 
   return (
@@ -1526,6 +1543,19 @@ function UserCard({ u, expanded, onToggle, onEdit, onMessage, onHistory, onReloa
                 opacity: blocking ? 0.6 : 1,
               }}
             >{u.blocked ? '🔓 בטל חסימה' : '🚫 חסום'}</button>
+            {u.broadcast_consent === 0 && (
+              <button
+                onClick={toggleConsent}
+                disabled={togglingConsent}
+                style={{
+                  gridColumn: '1 / -1',
+                  padding: '9px 0', borderRadius: 9, border: 'none',
+                  background: '#38a16918', color: '#38a169',
+                  cursor: togglingConsent ? 'default' : 'pointer', fontSize: 12, fontWeight: 600,
+                  opacity: togglingConsent ? 0.6 : 1,
+                }}
+              >🔔 החזר שידורים למשתמש</button>
+            )}
           </div>
         </div>
       )}

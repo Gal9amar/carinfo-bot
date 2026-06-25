@@ -364,6 +364,12 @@ export async function adminToggleBlock(userId) {
   return r.json()
 }
 
+export async function adminToggleBroadcastConsent(userId) {
+  const r = await fetch(`${BASE}/api/admin/users/${userId}/broadcast-consent`, { method: 'POST', headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
 // Direct message to user
 export async function adminSendUserMessage(userId, message) {
   const r = await fetch(`${BASE}/api/admin/users/${userId}/message`, {

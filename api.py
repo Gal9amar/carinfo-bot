@@ -1565,6 +1565,15 @@ async def admin_user_sent_messages(user_id: int, _: dict = Depends(_require_admi
     return await get_sent_messages(user_id)
 
 
+@api.post("/api/admin/users/{user_id}/broadcast-consent")
+async def admin_toggle_broadcast_consent(user_id: int, _: dict = Depends(_require_admin)):
+    from src.users import set_broadcast_consent, get_broadcast_consent
+    current = await get_broadcast_consent(user_id)
+    new_val = not current
+    await set_broadcast_consent(user_id, new_val)
+    return {"ok": True, "broadcast_consent": new_val}
+
+
 @api.post("/api/admin/users/{user_id}/block")
 async def admin_toggle_block(user_id: int, _: dict = Depends(_require_admin)):
     from src.db import execute
