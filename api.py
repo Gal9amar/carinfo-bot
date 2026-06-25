@@ -1749,8 +1749,9 @@ async def user_referral_info(user: dict = Depends(_get_user)):
 
 
 # ── Yad2 proxy (Israeli IP bypass) ──────────────────────────────────────────
-_YAD2_SECRET = os.environ.get("YAD2_PROXY_SECRET", "carinfo2026")
-_YAD2_BASE   = "https://gw.yad2.co.il/lookalike/vehicles/cars"
+_YAD2_SECRET       = os.environ.get("YAD2_PROXY_SECRET", "carinfo2026")
+_YAD2_LOOKALIKE    = "https://gw.yad2.co.il/lookalike/vehicles/cars"
+_YAD2_FEED         = "https://gw.yad2.co.il/feed/vehicles/cars"
 _YAD2_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
     "Accept": "application/json, text/plain, */*",
@@ -1770,6 +1771,7 @@ async def yad2_proxy(
     model: Optional[str] = None,
     year: Optional[str] = None,
     rows: int = 100,
+    type: str = "lookalike",
 ):
     if secret != _YAD2_SECRET:
         raise HTTPException(status_code=403, detail="forbidden")
@@ -1777,12 +1779,13 @@ async def yad2_proxy(
     import urllib.request as _ureq, gzip as _gzip, zlib as _zlib
     from urllib.parse import urlencode as _ue
 
+    base = _YAD2_FEED if type == "feed" else _YAD2_LOOKALIKE
     params: dict = {"rows": rows}
     if manufacturer: params["manufacturer"] = manufacturer
     if model:        params["model"]        = model
     if year:         params["year"]         = year
 
-    yad2_url = f"{_YAD2_BASE}?{_ue(params)}"
+    yad2_url = f"{base}?{_ue(params)}"
     req = _ureq.Request(yad2_url, headers=_YAD2_HEADERS)
     try:
         with _ureq.urlopen(req, timeout=15) as resp:
@@ -1790,7 +1793,15 @@ async def yad2_proxy(
             encoding = resp.headers.get("Content-Encoding", "")
         if "gzip"    in encoding: raw = _gzip.decompress(raw)
         elif "deflate" in encoding: raw = _zlib.decompress(raw)
-        return JSONResponse(content=json.loads(raw.decode("utf-8")))
+        data = json.loads(raw.decode("utf-8"))
+        # Normalise feed response so callers get {data: [...items]}
+        if type == "feed":
+            items = (
+                data.get("data", {}).get("feed") if isinstance(data.get("data"), dict) else None
+            ) or data.get("data") or []
+            if not isinstance(items, list): items = []
+            data = {"data": items, "total": len(items)}
+        return JSONResponse(content=data)
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
 
