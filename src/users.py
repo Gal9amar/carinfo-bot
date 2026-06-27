@@ -660,3 +660,30 @@ async def get_users_expiring_in_days(days: int) -> list[int]:
 
 async def get_users_expiring_today() -> list[int]:
     return await get_users_expiring_in_days(0)
+
+
+async def expire_subscriptions() -> list[int]:
+    """Downgrade all users whose subscription has already expired.
+
+    Resets quota to 0, clears quota_expires, removes from subscribers group.
+    Returns list of affected user_ids.
+    """
+    r = await execute(
+        "SELECT user_id FROM users WHERE searches_quota = -1 "
+        "AND quota_expires IS NOT NULL AND quota_expires <= datetime('now')"
+    )
+    expired_ids = [row[0] for row in r.rows]
+    if not expired_ids:
+        return []
+    await execute(
+        "UPDATE users SET searches_quota = 0, quota_expires = NULL "
+        "WHERE searches_quota = -1 AND quota_expires IS NOT NULL AND quota_expires <= datetime('now')"
+    )
+    gid = await _get_subscribers_group_id()
+    if gid:
+        for uid in expired_ids:
+            await execute(
+                "DELETE FROM user_group_members WHERE group_id=? AND user_id=?",
+                [gid, uid],
+            )
+    return expired_ids

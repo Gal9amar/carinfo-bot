@@ -32,6 +32,7 @@ from src.users import (
     get_last_plate, set_last_plate, get_search_history,
     check_new_user, record_referral, get_referral_count, get_referrals,
     load_welcome_settings, get_promo_welcome_info, get_users_expiring_today, get_users_expiring_in_days,
+    expire_subscriptions,
     log_sent_message,
     set_broadcast_consent, get_broadcast_consent,
 )
@@ -2593,6 +2594,14 @@ def main() -> None:
         except Exception as e:
             logger.warning("Expiry reminder job (days=%d) error: %s", days, e)
 
+    async def _expire_subscriptions_job(context):
+        try:
+            expired = await expire_subscriptions()
+            if expired:
+                logger.info("Expired subscriptions downgraded: %s", expired)
+        except Exception as e:
+            logger.warning("Expire subscriptions job error: %s", e)
+
     if app.job_queue:
         import datetime as _dt
         # 9:00 Israel time = 06:00 UTC (UTC+3 in summer)
@@ -2604,6 +2613,13 @@ def main() -> None:
                 time=_notify_time,
                 name=f"expiry_notify_{_days}d",
             )
+        # Run at startup and then every hour to downgrade expired subscriptions promptly
+        app.job_queue.run_repeating(
+            _expire_subscriptions_job,
+            interval=3600,
+            first=10,
+            name="expire_subscriptions",
+        )
         app.job_queue.run_repeating(
             _yad2_watch_job,
             interval=30 * 60,
