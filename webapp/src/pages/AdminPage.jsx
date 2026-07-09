@@ -330,6 +330,7 @@ function PackagesTab() {
         duration_months: parseInt(form.duration_months) || 1,
         features: form.features || [],
         chips: form.chips || [],
+        package_type: form.package_type || 'searches',
         is_active: form.is_active !== false,
       })
       const fresh = await adminFetchPackages()
@@ -350,6 +351,7 @@ function PackagesTab() {
         duration_months: parseInt(form.duration_months) || 1,
         features: form.features || [],
         chips: form.chips || [],
+        package_type: form.package_type || 'searches',
         is_active: form.is_active !== false,
       })
       setPkgs(fresh)
@@ -390,7 +392,7 @@ function PackagesTab() {
           <button
             className="btn"
             style={{ width: 'auto', padding: '6px 14px', marginTop: 0, fontSize: 13 }}
-            onClick={() => { setEditing(freePkg); setForm({ label: freePkg.label, searches: '0', price: '0', image_url: freePkg.image_url || '', duration_months: '1', features: normalizeFeatures(freePkg.features), chips: freePkg.chips?.length ? freePkg.chips : getDefaultChips(freePkg) }) }}
+            onClick={() => { setEditing(freePkg); setForm({ label: freePkg.label, searches: '0', price: '0', image_url: freePkg.image_url || '', duration_months: '1', features: normalizeFeatures(freePkg.features), chips: freePkg.chips?.length ? freePkg.chips : getDefaultChips(freePkg), package_type: freePkg.package_type || 'searches' }) }}
           >✏️ ערוך</button>
         </div>
       )}
@@ -457,7 +459,7 @@ function PackagesTab() {
                   title="הזז למטה"
                 >↓</button>
                 <button className="btn" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
-                  onClick={() => { setEditing(pkg); setForm({ label: pkg.label, searches: String(pkg.searches), price: String(pkg.price), image_url: pkg.image_url || '', duration_months: String(pkg.duration_months ?? 1), features: normalizeFeatures(pkg.features), chips: pkg.chips?.length ? pkg.chips : getDefaultChips(pkg), is_active: pkg.is_active !== false }) }}>
+                  onClick={() => { setEditing(pkg); setForm({ label: pkg.label, searches: String(pkg.searches), price: String(pkg.price), image_url: pkg.image_url || '', duration_months: String(pkg.duration_months ?? 1), features: normalizeFeatures(pkg.features), chips: pkg.chips?.length ? pkg.chips : getDefaultChips(pkg), is_active: pkg.is_active !== false, package_type: pkg.package_type || 'searches' }) }}>
                   ✏️
                 </button>
                 <button className="btn btn-danger" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}

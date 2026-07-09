@@ -903,6 +903,7 @@ class PackageBody(BaseModel):
     duration_months: int = 1
     features: list = []
     chips: list = []
+    package_type: str = "searches"
     is_active: bool = True
 
 
@@ -923,7 +924,7 @@ async def admin_reorder_packages(body: PackageReorderBody, _: dict = Depends(_re
 @api.post("/api/admin/packages")
 async def admin_add_package(body: PackageBody, _: dict = Depends(_require_admin)):
     from src.packages import add_package, get_packages
-    await add_package(body.label, body.searches, body.price, body.image_url, body.duration_months, body.features, body.chips, is_active=int(body.is_active))
+    await add_package(body.label, body.searches, body.price, body.image_url, body.duration_months, body.features, body.chips, package_type=body.package_type, is_active=int(body.is_active))
     pkgs = await get_packages(force_reload=True)
     return [_pkg_json(p) for p in pkgs]
 
@@ -931,7 +932,7 @@ async def admin_add_package(body: PackageBody, _: dict = Depends(_require_admin)
 @api.put("/api/admin/packages/{pkg_id}")
 async def admin_update_package(pkg_id: int, body: PackageBody, _: dict = Depends(_require_admin)):
     from src.packages import update_package
-    await update_package(pkg_id, body.label, body.searches, body.price, body.image_url, body.duration_months, body.features, body.chips, is_active=int(body.is_active))
+    await update_package(pkg_id, body.label, body.searches, body.price, body.image_url, body.duration_months, body.features, body.chips, package_type=body.package_type, is_active=int(body.is_active))
     return {"ok": True}
 
 
