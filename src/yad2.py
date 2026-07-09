@@ -271,7 +271,10 @@ def get_market_price(make: str, model: str, year: int | str) -> dict | None:
                 url += f"&year={y}-{y}"
             url += f"&secret={proxy_secret}"
         _logger.info(f"get_market_price: {url}")
-        req = urllib.request.Request(url, headers=_FETCH_HEADERS)
+        # Ask for identity encoding: urllib can't decode Brotli, and Cloudflare
+        # will serve br to our own Worker whenever the client advertises it.
+        headers = {**_FETCH_HEADERS, "Accept-Encoding": "identity"}
+        req = urllib.request.Request(url, headers=headers)
         with urllib.request.urlopen(req, timeout=15) as resp:
             raw = resp.read()
         try:
@@ -445,7 +448,8 @@ def fetch_listings(make: str, model: str, year: int | str | None) -> list[dict]:
             import urllib.request as _ur
             import urllib.error as _ue
             try:
-                with _ur.urlopen(_ur.Request(url, headers=_FETCH_HEADERS), timeout=15) as resp:
+                cf_headers = {**_FETCH_HEADERS, "Accept-Encoding": "identity"}
+                with _ur.urlopen(_ur.Request(url, headers=cf_headers), timeout=15) as resp:
                     items = _parse_response(resp.read())
                 if items:
                     return items
