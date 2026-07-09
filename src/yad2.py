@@ -271,7 +271,7 @@ def get_market_price(make: str, model: str, year: int | str) -> dict | None:
                 url += f"&year={y}-{y}"
             url += f"&secret={proxy_secret}"
         _logger.info(f"get_market_price: {url}")
-        req = urllib.request.Request(url)
+        req = urllib.request.Request(url, headers=_FETCH_HEADERS)
         with urllib.request.urlopen(req, timeout=15) as resp:
             raw = resp.read()
         try:
@@ -433,7 +433,7 @@ def fetch_listings(make: str, model: str, year: int | str | None) -> list[dict]:
         url += f"&secret={proxy_secret}"
         _logger.info(f"fetch_listings (oracle/feed): {url}")
         import urllib.request as _ur
-        with _ur.urlopen(_ur.Request(url), timeout=15) as resp:
+        with _ur.urlopen(_ur.Request(url, headers=_FETCH_HEADERS), timeout=15) as resp:
             return _parse_response(resp.read())
 
     def _do_fetch(model_param: str) -> list:
@@ -445,7 +445,7 @@ def fetch_listings(make: str, model: str, year: int | str | None) -> list[dict]:
             import urllib.request as _ur
             import urllib.error as _ue
             try:
-                with _ur.urlopen(_ur.Request(url), timeout=15) as resp:
+                with _ur.urlopen(_ur.Request(url, headers=_FETCH_HEADERS), timeout=15) as resp:
                     items = _parse_response(resp.read())
                 if items:
                     return items
