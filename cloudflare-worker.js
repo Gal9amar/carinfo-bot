@@ -14,7 +14,6 @@ export default {
     const manufacturer = url.searchParams.get('manufacturer')
     const model        = url.searchParams.get('model')
     const year         = url.searchParams.get('year')
-    const rows         = url.searchParams.get('rows') || '100'
     const type         = url.searchParams.get('type') || 'lookalike'
 
     if (!manufacturer && !model) {
@@ -26,14 +25,16 @@ export default {
 
     // type=feed  → full search results (all listings)
     // type=lookalike (default) → market price comparison sample (existing behaviour)
+    // Note: Yad2's API rejects unrecognized params (e.g. `rows`) with a 400 — only send what it accepts.
     const endpoint = type === 'feed'
       ? 'https://gw.yad2.co.il/feed/vehicles/cars'
       : 'https://gw.yad2.co.il/lookalike/vehicles/cars'
 
-    let yad2url = `${endpoint}?rows=${rows}`
-    if (manufacturer) yad2url += `&manufacturer=${manufacturer}`
-    if (model)        yad2url += `&model=${model}`
-    if (year)         yad2url += `&year=${year}`
+    const yad2params = []
+    if (model)        yad2params.push(`model=${model}`)
+    else if (manufacturer) yad2params.push(`manufacturer=${manufacturer}`)
+    if (year)         yad2params.push(`year=${year}`)
+    let yad2url = `${endpoint}?${yad2params.join('&')}`
 
     let resp
     try {
