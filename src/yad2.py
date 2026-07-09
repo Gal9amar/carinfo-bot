@@ -259,9 +259,9 @@ def get_market_price(make: str, model: str, year: int | str) -> dict | None:
     # Build Oracle proxy URL (Israeli IP, bypasses Yad2 geo-block)
     proxy_secret = os.environ.get("YAD2_PROXY_SECRET", "carinfo2026")
 
-    def _fetch(extra_params: str) -> list:
+    def _fetch(extra_params: str, include_year: bool = True) -> list:
         url = f"{_ORACLE_PROXY}?manufacturer={mid}{extra_params}&rows=100"
-        if y:
+        if y and include_year:
             url += f"&year={y}-{y}"
         url += f"&secret={proxy_secret}"
         _logger.info(f"get_market_price: {url}")
@@ -276,13 +276,19 @@ def get_market_price(make: str, model: str, year: int | str) -> dict | None:
 
     try:
         all_items = _fetch(f"&model={mod_id}")
-        # If too few results, retry with manufacturer only (broader search)
-        if len(all_items) <= 3:
-            _logger.info(f"get_market_price: few results ({len(all_items)}), retrying with manufacturer only")
-            all_items = _fetch("") or all_items
     except Exception as e:
         _logger.error(f"get_market_price fetch error: {e}")
         return None
+
+    # If too few results, retry with a broader year window (model stays required by the proxy)
+    if len(all_items) <= 3:
+        _logger.info(f"get_market_price: few results ({len(all_items)}), retrying without year filter")
+        try:
+            broader = _fetch(f"&model={mod_id}", include_year=False)
+            if len(broader) > len(all_items):
+                all_items = broader
+        except Exception as e:
+            _logger.warning(f"get_market_price broader fetch failed, keeping initial results: {e}")
     if y:
         filtered = [
             c for c in all_items
