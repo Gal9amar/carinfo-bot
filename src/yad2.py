@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 
 # ── Manufacturer mapping ─────────────────────────────────────────────────────
 # Confirmed Yad2 manufacturer IDs (from yoelzeitoun/car-scrapper yad2_mapping.json)
@@ -259,7 +260,7 @@ def get_market_price(make: str, model: str, year: int | str) -> dict | None:
     # Build Oracle proxy URL (Israeli IP, bypasses Yad2 geo-block)
     proxy_secret = os.environ.get("YAD2_PROXY_SECRET", "carinfo2026")
 
-    def _fetch(include_year: bool = True) -> list:
+    def _fetch_once(include_year: bool) -> list:
         if _CF_WORKER_URL:
             url = f"{_CF_WORKER_URL}?model={mod_id}"
             if y and include_year:
@@ -278,6 +279,20 @@ def get_market_price(make: str, model: str, year: int | str) -> dict | None:
         except Exception:
             data = json.loads(zlib.decompress(raw, 16 + zlib.MAX_WBITS).decode("utf-8"))
         return data.get("data") or []
+
+    def _fetch(include_year: bool = True, retries: int = 2) -> list:
+        # Yad2's bot protection intermittently 403s a fraction of requests even
+        # through the CF Worker — a short retry clears most of these transient hits.
+        last_err = None
+        for attempt in range(retries + 1):
+            try:
+                return _fetch_once(include_year)
+            except Exception as e:
+                last_err = e
+                if attempt < retries:
+                    _logger.warning(f"get_market_price: attempt {attempt + 1} failed ({e}), retrying")
+                    time.sleep(0.5)
+        raise last_err
 
     try:
         all_items = _fetch()
