@@ -32,7 +32,9 @@ from src.users import (
     get_last_plate, set_last_plate, get_search_history,
     check_new_user, record_referral, get_referral_count, get_referrals,
     load_welcome_settings, get_promo_welcome_info, get_users_expiring_today, get_users_expiring_in_days,
+    expire_subscriptions,
     log_sent_message,
+    set_broadcast_consent, get_broadcast_consent,
 )
 from src.formatter import (
     format_error,
@@ -299,6 +301,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 else:
                     duration_text = "ללא הגבלת זמן"
                 expires_text = f" \\(עד {_esc(expires_str, version=2)}\\)" if expires_str else ""
+                promo_text = f"🎉 ברוכים הבאים למבצע! {promo_info['label']} — {duration_text}"
                 await context.bot.send_message(
                     user_id,
                     f"🎉 *ברוכים הבאים למבצע ההצטרפות\\!*\n\n"
@@ -307,12 +310,14 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     f"⏱ {duration_text}{expires_text}",
                     parse_mode=ParseMode.MARKDOWN_V2,
                 )
+                await log_sent_message(user_id, promo_text, kind="promo_welcome")
             except Exception as e:
                 logger.warning("Failed to send promo welcome: %s", e)
 
     if not is_new and referrer_id:
         try:
             ref_uname = f"@{user.username}" if user.username else str(user_id)
+            ref_info_msg = f"ℹ️ לא ניתן לקבל בונוס הפניה — {ref_uname} כבר קיים בבוט"
             await context.bot.send_message(
                 referrer_id,
                 f"ℹ️ *לא ניתן לקבל בונוס הפניה*\n\n"
@@ -320,6 +325,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 f"הבונוס ניתן רק עבור משתמשים חדשים שמצטרפים לראשונה\\.",
                 parse_mode=ParseMode.MARKDOWN_V2,
             )
+            await log_sent_message(referrer_id, ref_info_msg, kind="referral_info")
         except Exception:
             pass
 
@@ -334,19 +340,23 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 [bonus, referrer_id],
             )
             ref_uname = f"@{user.username}" if user.username else str(user_id)
+            referral_msg = (
+                f"🎉 *חבר חדש הצטרף דרך הלינק שלך!*\n\n"
+                f"👤 {ref_uname} הצטרף לבוט\n"
+                f"🎁 קיבלת *{bonus} חיפושים* בונוס!"
+            )
             try:
                 await context.bot.send_message(
                     referrer_id,
-                    f"🎉 *חבר חדש הצטרף דרך הלינק שלך!*\n\n"
-                    f"👤 {ref_uname} הצטרף לבוט\n"
-                    f"🎁 קיבלת *{bonus} חיפושים* בונוס!",
+                    referral_msg,
                     parse_mode="Markdown",
                 )
+                await log_sent_message(referrer_id, referral_msg, kind="referral_bonus")
             except Exception:
                 pass
             try:
                 from src.activity import log as _log
-                await _log("grant", f"בונוס הפניה: +{bonus} חיפושים למשתמש {referrer_id}", user_id, ref_uname)
+                await _log("grant", f"בונוס הפניה: +{bonus} חיפושים (הצטרף: {ref_uname})", referrer_id, "")
             except Exception:
                 pass
         except Exception as e:
@@ -386,6 +396,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     else:
         searches_info = "גישה מלאה פעילה ✅"
 
+    welcome_text = f"🚗 ברוך הבא ל-CarInfo! {searches_info}"
     await update.message.reply_text(
         "🚗 *ברוך הבא ל\\-CarInfo\\!*\n"
         "_הבוט החכם לבדיקת רכבים בישראל_\n\n"
@@ -403,6 +414,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         parse_mode=ParseMode.MARKDOWN_V2,
         reply_markup=_welcome_keyboard(is_admin),
     )
+    await log_sent_message(user_id, welcome_text, kind="welcome")
 
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -477,6 +489,7 @@ async def receive_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
             parse_mode=ParseMode.MARKDOWN_V2,
             reply_markup=_persistent_keyboard(is_admin),
         )
+        await log_sent_message(user_id, f"✅ קוד הופעל: {msg}", kind="code_applied")
     else:
         await update.message.reply_text(
             f"❌ *קוד לא תקין*\n\n{_escape_md(msg)}\n\nנסה שוב או חזור לתפריט החבילות\\.",
@@ -564,6 +577,7 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 else:
                     user_msg = f"🎉 נוספו לך {amount} בדיקות רכב!\n\nתוכל להתחיל לחפש מיד."
                 await context.bot.send_message(target["user_id"], user_msg)
+                await log_sent_message(target["user_id"], user_msg, kind="grant")
             except Exception as e:
                 logger.warning("Failed to notify user after grant: %s", e)
             return
@@ -792,11 +806,13 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         target_id = int(parts[2])
         await block_user(target_id)
         try:
+            block_msg = "🚫 הגישה שלך לבוט נחסמה. לפרטים פנה למנהל."
             await context.bot.send_message(
                 target_id,
                 "🚫 הגישה שלך לבוט נחסמה\\. לפרטים פנה למנהל\\.",
                 parse_mode=ParseMode.MARKDOWN_V2,
             )
+            await log_sent_message(target_id, block_msg, kind="block")
         except Exception:
             pass
         users = await get_all_users()
@@ -822,11 +838,13 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         target_id = int(parts[2])
         await unblock_user(target_id)
         try:
+            unblock_msg = "✅ החסימה שלך הוסרה. תוכל להמשיך להשתמש בבוט."
             await context.bot.send_message(
                 target_id,
                 "✅ החסימה שלך הוסרה\\. תוכל להמשיך להשתמש בבוט\\.",
                 parse_mode=ParseMode.MARKDOWN_V2,
             )
+            await log_sent_message(target_id, unblock_msg, kind="unblock")
         except Exception:
             pass
         users = await get_all_users()
@@ -1549,6 +1567,7 @@ async def handle_successful_payment(update: Update, context: ContextTypes.DEFAUL
         parse_mode=ParseMode.MARKDOWN_V2,
         reply_markup=ReplyKeyboardRemove(),
     )
+    await log_sent_message(user_id, f"✅ תשלום התקבל! נוספו {searches} בדיקות — ₪{amount_ils}", kind="payment")
 
     # Notify admin
     uname = f"@{update.effective_user.username}" if update.effective_user.username else f"id:{user_id}"
@@ -1658,11 +1677,13 @@ async def handle_admin_message(update: Update, context: ContextTypes.DEFAULT_TYP
         return
     target_id = int(match.group(1))
     try:
+        dm_text = f"📩 הודעה מהמנהל: {msg.text}"
         await context.bot.send_message(
             target_id,
             f"📩 *הודעה מהמנהל:*\n\n{msg.text}",
             parse_mode=ParseMode.MARKDOWN_V2,
         )
+        await log_sent_message(target_id, dm_text, kind="admin_dm")
         await msg.reply_text(f"✅ נשלח למשתמש `{target_id}`\\.", parse_mode=ParseMode.MARKDOWN_V2)
     except Exception as e:
         await msg.reply_text(f"❌ שגיאה בשליחה: `{e}`", parse_mode=ParseMode.MARKDOWN_V2)
@@ -1821,16 +1842,24 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             )
             from telegram.helpers import escape_markdown
             escaped_msg = escape_markdown(raw, version=2)
+            broadcast_log_text = f"📢 הודעה מהמנהל: {raw}"
+            _bc_optout_kb = InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔕 הסר אותי מהתפוצה", callback_data="broadcast_optout"),
+            ]])
             for u in tg_users:
                 uid = u["user_id"]
                 if uid == ADMIN_ID:
+                    continue
+                if not u.get("broadcast_consent", 1):
                     continue
                 try:
                     await context.bot.send_message(
                         uid,
                         f"📢 *הודעה מהמנהל:*\n\n{escaped_msg}",
                         parse_mode=ParseMode.MARKDOWN_V2,
+                        reply_markup=_bc_optout_kb,
                     )
+                    await log_sent_message(uid, broadcast_log_text, kind="broadcast")
                     sent_ok += 1
                 except Exception as e:
                     logger.warning("Broadcast failed for uid=%s: %s", uid, e)
@@ -2097,6 +2126,62 @@ async def handle_pdf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 
+async def handle_broadcast_consent_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle broadcast opt-out / opt-in inline buttons."""
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    action = query.data  # "broadcast_optout" or "broadcast_optin"
+
+    if action == "broadcast_optout":
+        await set_broadcast_consent(user_id, False)
+        await query.edit_message_reply_markup(
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔔 חזור לרשימת התפוצה", callback_data="broadcast_optin"),
+            ]])
+        )
+        await context.bot.send_message(
+            user_id,
+            "🔕 *הוסרת מרשימת השידורים*\n\n"
+            "לא תקבל עוד הודעות שידור מהמנהל\\.\n"
+            "הודעות מערכת חיוניות \\(אישורי רכישה וכו׳\\) עדיין יישלחו\\.\n\n"
+            "לחזרה לרשימה שלח `/optin`\\.",
+            parse_mode=ParseMode.MARKDOWN_V2,
+        )
+    elif action == "broadcast_optin":
+        await set_broadcast_consent(user_id, True)
+        await query.edit_message_reply_markup(
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔕 הסר אותי מהתפוצה", callback_data="broadcast_optout"),
+            ]])
+        )
+        await context.bot.send_message(
+            user_id,
+            "🔔 *נרשמת מחדש לרשימת השידורים\\!*\n\nתקבל עדכונים ומבצעים מהמנהל\\.",
+            parse_mode=ParseMode.MARKDOWN_V2,
+        )
+
+
+async def cmd_optout(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = update.effective_user.id
+    await set_broadcast_consent(user_id, False)
+    await update.message.reply_text(
+        "🔕 *הוסרת מרשימת השידורים*\n\n"
+        "לא תקבל עוד הודעות שידור\\.\n"
+        "לחזרה לרשימה שלח `/optin`\\.",
+        parse_mode=ParseMode.MARKDOWN_V2,
+    )
+
+
+async def cmd_optin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = update.effective_user.id
+    await set_broadcast_consent(user_id, True)
+    await update.message.reply_text(
+        "🔔 *נרשמת מחדש לרשימת השידורים\\!*\n\nתקבל עדכונים ומבצעים מהמנהל\\.",
+        parse_mode=ParseMode.MARKDOWN_V2,
+    )
+
+
 async def _cache_cleanup_job():
     """Clear expired cache entries every 10 minutes."""
     while True:
@@ -2116,14 +2201,6 @@ async def _yad2_watch_job(context) -> None:
     try:
         watches = await get_all_active_watches()
         if not watches:
-            try:
-                await context.bot.send_message(
-                    ADMIN_ID,
-                    "🔍 *בדיקת מעקב יד2 בוצעה* — אין מעקבים פעילים",
-                    parse_mode=ParseMode.MARKDOWN_V2,
-                )
-            except Exception:
-                pass
             return
 
         for w in watches:
@@ -2203,6 +2280,7 @@ async def _yad2_watch_job(context) -> None:
                             w["user_id"], text,
                             parse_mode=ParseMode.MARKDOWN_V2,
                         )
+                        await log_sent_message(w["user_id"], f"🔔 התראת מעקב יד2: {label} — {count} מודעות חדשות", kind="watch_alert")
                     except Exception as e:
                         logger.warning("Watch notify failed user=%s: %s", w["user_id"], e)
 
@@ -2267,26 +2345,34 @@ def main() -> None:
     async def _notify_payment_approved(user_id: int, label: str, searches: int):
         try:
             desc = "ללא הגבלה" if searches == -1 else f"{searches} חיפושים"
+            approved_msg = f"✅ תשלומך אושר! {label} — {desc} נוספו לחשבונך"
             await app.bot.send_message(
                 user_id,
                 f"✅ *תשלומך אושר!*\n📦 {label}\n🔍 {desc} נוספו לחשבונך",
                 parse_mode="Markdown"
             )
+            await log_sent_message(user_id, approved_msg, kind="payment")
         except Exception:
             pass
 
     async def _notify_payment_declined(user_id: int, label: str):
         try:
+            declined_msg = f"❌ בקשת התשלום נדחתה — {label}"
             await app.bot.send_message(
                 user_id,
                 f"❌ *בקשת התשלום נדחתה*\n📦 {label}\nלפרטים פנה לתמיכה.",
                 parse_mode="Markdown"
             )
+            await log_sent_message(user_id, declined_msg, kind="payment")
         except Exception:
             pass
 
     from src.notifier import register_payment_result_notifiers
     register_payment_result_notifiers(_notify_payment_approved, _notify_payment_declined)
+
+    _optout_kb = InlineKeyboardMarkup([[
+        InlineKeyboardButton("🔕 הסר אותי מהתפוצה", callback_data="broadcast_optout"),
+    ]])
 
     async def _do_broadcast(message: str) -> dict:
         from src.users import get_all_users
@@ -2296,8 +2382,10 @@ def main() -> None:
             uid = u.get("user_id")
             if not uid or uid == ADMIN_ID:
                 continue
+            if not u.get("broadcast_consent", 1):
+                continue
             try:
-                await app.bot.send_message(uid, message)
+                await app.bot.send_message(uid, message, reply_markup=_optout_kb)
                 await log_sent_message(uid, message, kind="broadcast")
                 sent += 1
             except Exception:
@@ -2344,6 +2432,8 @@ def main() -> None:
             uid = u.get("user_id")
             if not uid or uid == ADMIN_ID or u.get("blocked"):
                 continue
+            if not u.get("broadcast_consent", 1):
+                continue
             try:
                 if photo_bytes:
                     await app.bot.send_photo(
@@ -2351,9 +2441,10 @@ def main() -> None:
                         photo=_io.BytesIO(photo_bytes),
                         caption=message,
                         parse_mode="Markdown",
+                        reply_markup=_optout_kb,
                     )
                 else:
-                    await app.bot.send_message(uid, message, parse_mode="Markdown")
+                    await app.bot.send_message(uid, message, parse_mode="Markdown", reply_markup=_optout_kb)
                 await log_sent_message(uid, message, kind="broadcast")
                 sent += 1
             except Exception:
@@ -2419,6 +2510,9 @@ def main() -> None:
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("code",   cmd_code))
     app.add_handler(CommandHandler("admin",  cmd_admin))
+    app.add_handler(CommandHandler("optout", cmd_optout))
+    app.add_handler(CommandHandler("optin",  cmd_optin))
+    app.add_handler(CallbackQueryHandler(handle_broadcast_consent_callback, pattern=r"^broadcast_(optout|optin)$"))
     app.add_handler(CallbackQueryHandler(handle_user_callback,   pattern=r"^(usr|ugrant|utoggle)\|"))
     app.add_handler(CallbackQueryHandler(handle_admin_callback,  pattern=r"^adm\|"))
     app.add_handler(CommandHandler("buy", cmd_buy))
@@ -2500,6 +2594,14 @@ def main() -> None:
         except Exception as e:
             logger.warning("Expiry reminder job (days=%d) error: %s", days, e)
 
+    async def _expire_subscriptions_job(context):
+        try:
+            expired = await expire_subscriptions()
+            if expired:
+                logger.info("Expired subscriptions downgraded: %s", expired)
+        except Exception as e:
+            logger.warning("Expire subscriptions job error: %s", e)
+
     if app.job_queue:
         import datetime as _dt
         # 9:00 Israel time = 06:00 UTC (UTC+3 in summer)
@@ -2511,6 +2613,13 @@ def main() -> None:
                 time=_notify_time,
                 name=f"expiry_notify_{_days}d",
             )
+        # Run at startup and then every hour to downgrade expired subscriptions promptly
+        app.job_queue.run_repeating(
+            _expire_subscriptions_job,
+            interval=3600,
+            first=10,
+            name="expire_subscriptions",
+        )
         app.job_queue.run_repeating(
             _yad2_watch_job,
             interval=30 * 60,

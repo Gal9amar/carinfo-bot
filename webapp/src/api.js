@@ -62,6 +62,7 @@ export async function confirmPayment(ref, packageId) {
 
 export async function fetchVehicle(plate) {
   const r = await fetch(`${BASE}/api/vehicle/${plate}`, { headers: headers(), cache: 'no-store' })
+  if (r.status === 403) throw new Error('QUOTA_EXCEEDED')
   if (!r.ok) throw new Error('Vehicle not found')
   return r.json()
 }
@@ -363,11 +364,24 @@ export async function adminToggleBlock(userId) {
   return r.json()
 }
 
+export async function adminToggleBroadcastConsent(userId) {
+  const r = await fetch(`${BASE}/api/admin/users/${userId}/broadcast-consent`, { method: 'POST', headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
 // Direct message to user
 export async function adminSendUserMessage(userId, message) {
   const r = await fetch(`${BASE}/api/admin/users/${userId}/message`, {
     method: 'POST', headers: headers(), body: JSON.stringify({ message }),
   })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+// All referrals (admin view)
+export async function adminFetchAllReferrals() {
+  const r = await fetch(`${BASE}/api/admin/referrals`, { headers: headers() })
   if (!r.ok) throw new Error('Failed')
   return r.json()
 }

@@ -440,6 +440,7 @@ async def get_all_users() -> list[dict]:
     r = await execute(
         "SELECT u.user_id, u.username, u.full_name, u.searches_done, u.searches_quota, "
         "u.first_seen, u.last_seen, u.blocked, u.channel, u.quota_expires, u.member_id, u.watch_quota, "
+        "u.referred_by, u.broadcast_consent, "
         "CASE WHEN ugm.user_id IS NOT NULL THEN 1 ELSE 0 END as is_subscriber "
         "FROM users u "
         "LEFT JOIN user_group_members ugm ON ugm.user_id = u.user_id "
@@ -615,6 +616,24 @@ async def admin_stats() -> dict:
     }
 
 
+async def set_broadcast_consent(user_id: int, consent: bool) -> None:
+    await execute(
+        "UPDATE users SET broadcast_consent = ? WHERE user_id = ?",
+        [1 if consent else 0, user_id],
+    )
+
+
+async def get_broadcast_consent(user_id: int) -> bool:
+    r = await execute(
+        "SELECT broadcast_consent FROM users WHERE user_id = ?",
+        [user_id],
+    )
+    if not r.rows:
+        return True
+    val = r.rows[0][0]
+    return val is None or bool(val)
+
+
 async def log_sent_message(user_id: int, text: str, kind: str = "system") -> None:
     await execute(
         "INSERT INTO sent_messages (user_id, kind, text) VALUES (?, ?, ?)",
@@ -641,3 +660,30 @@ async def get_users_expiring_in_days(days: int) -> list[int]:
 
 async def get_users_expiring_today() -> list[int]:
     return await get_users_expiring_in_days(0)
+
+
+async def expire_subscriptions() -> list[int]:
+    """Downgrade all users whose subscription has already expired.
+
+    Resets quota to 0, clears quota_expires, removes from subscribers group.
+    Returns list of affected user_ids.
+    """
+    r = await execute(
+        "SELECT user_id FROM users WHERE searches_quota = -1 "
+        "AND quota_expires IS NOT NULL AND quota_expires <= datetime('now')"
+    )
+    expired_ids = [row[0] for row in r.rows]
+    if not expired_ids:
+        return []
+    await execute(
+        "UPDATE users SET searches_quota = 0, quota_expires = NULL "
+        "WHERE searches_quota = -1 AND quota_expires IS NOT NULL AND quota_expires <= datetime('now')"
+    )
+    gid = await _get_subscribers_group_id()
+    if gid:
+        for uid in expired_ids:
+            await execute(
+                "DELETE FROM user_group_members WHERE group_id=? AND user_id=?",
+                [gid, uid],
+            )
+    return expired_ids

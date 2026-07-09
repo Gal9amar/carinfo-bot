@@ -401,11 +401,11 @@ def fetch_listings(make: str, model: str, year: int | str | None) -> list[dict]:
 
     def _fetch_oracle(model_param: str) -> list:
         proxy_secret = os.environ.get("YAD2_PROXY_SECRET", "carinfo2026")
-        url = f"{_ORACLE_PROXY}?manufacturer={mid}{model_param}&rows=100"
+        url = f"{_ORACLE_PROXY}?manufacturer={mid}{model_param}&rows=100&type=feed"
         if y:
             url += f"&year={y}-{y}"
         url += f"&secret={proxy_secret}"
-        _logger.info(f"fetch_listings (oracle): {url}")
+        _logger.info(f"fetch_listings (oracle/feed): {url}")
         import urllib.request as _ur
         with _ur.urlopen(_ur.Request(url), timeout=15) as resp:
             return _parse_response(resp.read())

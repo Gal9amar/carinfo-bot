@@ -16,6 +16,7 @@ import {
   adminToggleBlock,
   adminSendUserMessage,
   adminFetchUserHistory,
+  adminFetchAllReferrals,
   adminFetchUserReferrals,
   adminFetchUserSentMessages,
   adminFetchPaymentMethods,
@@ -34,6 +35,7 @@ import {
   adminFetchWatches, adminCreateWatch, adminDeleteWatch, adminToggleWatch,
   adminWatchMakes, adminWatchModels, adminWatchPreview,
   adminSetWatchQuota,
+  adminToggleBroadcastConsent,
 } from '../api.js'
 import BackButton from '../components/BackButton.jsx'
 
@@ -43,7 +45,9 @@ const TABS = [
   { id: 'payments', icon: '💳', label: 'הזמנות' },
   { id: 'packages', icon: '🛒', label: 'מוצרים' },
   { id: 'grants',   icon: '🎁', label: 'הטבות מנהל' },
-  { id: 'users',    icon: '👥', label: 'משתמשים' },
+  { id: 'codes',    icon: '🔑', label: 'קודים' },
+  { id: 'users',     icon: '👥', label: 'משתמשים' },
+  { id: 'referrals', icon: '🤝', label: 'הפניות' },
   { id: 'groups',   icon: '👥', label: 'קבוצות' },
   { id: 'features', icon: '⭐', label: 'פיצ\'רים' },
   { id: 'promo',    icon: '🎉', label: 'מבצעי הצטרפות' },
@@ -89,7 +93,9 @@ export default function AdminPage({ user, onBack }) {
       {tab === 'payments' && <PaymentsTab />}
       {tab === 'packages' && <PackagesTab />}
       {tab === 'grants'   && <AdminGrantsTab />}
+      {tab === 'codes'    && <CodesSection standalone />}
       {tab === 'users'     && <UsersTab />}
+      {tab === 'referrals' && <ReferralsTab />}
       {tab === 'groups'    && <GroupsTab />}
       {tab === 'features'  && <FeaturesTab />}
       {tab === 'promo'     && <PromoTab />}
@@ -1106,7 +1112,7 @@ function PaymentsTab() {
   )
 }
 
-function CodesSection() {
+function CodesSection({ standalone }) {
   const [codes, setCodes] = useState(null)
   const [form, setForm] = useState({ searches: 50, unlimited: false, single_use: true, monthly: false })
   const [creating, setCreating] = useState(false)
@@ -1386,6 +1392,7 @@ function getInitials(u) {
 
 function UserCard({ u, expanded, onToggle, onEdit, onMessage, onHistory, onReload }) {
   const [blocking, setBlocking] = useState(false)
+  const [togglingConsent, setTogglingConsent] = useState(false)
   const st = userStatus(u)
   const left = u.searches_left === -1 ? '∞' : u.searches_left
   const displayName = u.username ? `@${u.username}` : u.full_name || `id:${u.user_id}`
@@ -1397,6 +1404,21 @@ function UserCard({ u, expanded, onToggle, onEdit, onMessage, onHistory, onReloa
     try { await adminToggleBlock(u.user_id); onReload() }
     catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
     setBlocking(false)
+  }
+
+  async function toggleConsent(e) {
+    e.stopPropagation()
+    const isOptedOut = u.broadcast_consent === 0
+    const msg = isOptedOut
+      ? `להחזיר שידורים ל-${displayName}?`
+      : `לבטל שידורים ל-${displayName}?`
+    window.Telegram?.WebApp?.showConfirm(msg, async (ok) => {
+      if (!ok) return
+      setTogglingConsent(true)
+      try { await adminToggleBroadcastConsent(u.user_id); onReload() }
+      catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+      setTogglingConsent(false)
+    })
   }
 
   return (
@@ -1450,10 +1472,11 @@ function UserCard({ u, expanded, onToggle, onEdit, onMessage, onHistory, onReloa
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', padding: '12px 13px' }}>
 
           {/* Stats mini-grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 7, marginBottom: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 7, marginBottom: 10 }}>
             {[
               { label: 'נעשו', value: u.searches_done, color: '#38bdf8' },
               { label: 'נותרו', value: left, color: st.color },
+              { label: 'קוטה', value: u.searches_quota === -1 ? '∞' : u.searches_quota, color: '#a78bfa' },
               { label: 'מזהה', value: u.user_id, mono: true },
             ].map(({ label, value, color, mono }) => (
               <div key={label} style={{
@@ -1461,7 +1484,7 @@ function UserCard({ u, expanded, onToggle, onEdit, onMessage, onHistory, onReloa
               }}>
                 <div style={{
                   fontWeight: 700,
-                  fontSize: mono ? 11 : 15,
+                  fontSize: mono ? 10 : 15,
                   color: color || 'var(--text)',
                   fontFamily: mono ? 'monospace' : undefined,
                   wordBreak: 'break-all',
@@ -1483,7 +1506,9 @@ function UserCard({ u, expanded, onToggle, onEdit, onMessage, onHistory, onReloa
             {u.first_seen && <div>📅 הצטרף: <span style={{ color: 'var(--text)' }}>{fmtDateIL(u.first_seen)}</span></div>}
             {u.last_seen  && <div>👁 נראה לאחרונה: <span style={{ color: 'var(--text)' }}>{fmtDateTime(u.last_seen)}</span></div>}
             {u.quota_expires && <div>⏰ פג תוקף: <span style={{ color: '#d69e2e', fontWeight: 600 }}>{u.quota_expires.slice(0, 10)}</span></div>}
+            {u.referred_by && <div>🤝 הופנה ע"י: <span style={{ color: '#38a169', fontWeight: 600 }}>{u.referred_by}</span></div>}
             {u.channel && <div>📡 ערוץ: <span style={{ color: 'var(--text)' }}>{u.channel}</span></div>}
+            <div>{u.broadcast_consent === 0 ? '🔕' : '🔔'} שידורים: <span style={{ color: u.broadcast_consent === 0 ? '#e53e3e' : '#38a169', fontWeight: 600 }}>{u.broadcast_consent === 0 ? 'הסכמה בוטלה' : 'פעיל'}</span></div>
           </div>
 
           {/* Action buttons */}
@@ -1520,6 +1545,149 @@ function UserCard({ u, expanded, onToggle, onEdit, onMessage, onHistory, onReloa
                 opacity: blocking ? 0.6 : 1,
               }}
             >{u.blocked ? '🔓 בטל חסימה' : '🚫 חסום'}</button>
+            {u.broadcast_consent === 0 && (
+              <button
+                onClick={toggleConsent}
+                disabled={togglingConsent}
+                style={{
+                  gridColumn: '1 / -1',
+                  padding: '9px 0', borderRadius: 9, border: 'none',
+                  background: '#38a16918', color: '#38a169',
+                  cursor: togglingConsent ? 'default' : 'pointer', fontSize: 12, fontWeight: 600,
+                  opacity: togglingConsent ? 0.6 : 1,
+                }}
+              >🔔 החזר שידורים למשתמש</button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ReferralsTab() {
+  const [data, setData]       = useState(null)
+  const [selected, setSelected] = useState(null)
+  const [search, setSearch]   = useState('')
+
+  useEffect(() => {
+    adminFetchAllReferrals().then(setData).catch(() => setData({ referrals: [], count: 0, total_bonus: 0 }))
+  }, [])
+
+  const filtered = data?.referrals.filter(r => {
+    if (!search) return true
+    const q = search.toLowerCase()
+    return (
+      r.referrer_name.toLowerCase().includes(q) ||
+      r.referee_name.toLowerCase().includes(q) ||
+      String(r.referrer_id).includes(q) ||
+      String(r.referee_id).includes(q)
+    )
+  }) ?? []
+
+  if (data === null) return <div className="loading" />
+
+  return (
+    <div>
+      {/* Summary */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+        <div style={{ background: 'var(--bg2)', borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#38a169' }}>{data.count}</div>
+          <div style={{ fontSize: 11, color: 'var(--hint)' }}>סה"כ הפניות</div>
+        </div>
+        <div style={{ background: 'var(--bg2)', borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#a78bfa' }}>+{data.total_bonus}</div>
+          <div style={{ fontSize: 11, color: 'var(--hint)' }}>חיפושים חולקו</div>
+        </div>
+      </div>
+
+      {/* Search */}
+      <input
+        className="input"
+        placeholder="חיפוש לפי שם או מזהה..."
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        style={{ marginBottom: 10 }}
+      />
+
+      {filtered.length === 0 && (
+        <div style={{ color: 'var(--hint)', fontSize: 13, textAlign: 'center', padding: 20 }}>
+          {search ? 'לא נמצאו תוצאות' : 'אין הפניות עדיין'}
+        </div>
+      )}
+
+      {filtered.map(ref => (
+        <div
+          key={ref.id}
+          onClick={() => setSelected(ref)}
+          style={{
+            background: 'var(--bg2)', borderRadius: 10, padding: '10px 12px',
+            marginBottom: 8, cursor: 'pointer', borderRight: '3px solid #38a169',
+            display: 'flex', alignItems: 'center', gap: 10,
+          }}
+        >
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 2 }}>
+              <span style={{ color: '#38bdf8' }}>{ref.referrer_name}</span>
+              <span style={{ color: 'var(--hint)', margin: '0 5px' }}>הפנה את</span>
+              <span>{ref.referee_name}</span>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--hint)' }}>
+              {ref.joined_at?.slice(0, 10)}
+            </div>
+          </div>
+          <span style={{
+            background: '#38a16920', color: '#38a169',
+            borderRadius: 20, padding: '3px 10px', fontSize: 12, fontWeight: 700, flexShrink: 0,
+          }}>
+            +{ref.bonus}
+          </span>
+          <span style={{ color: 'var(--hint)', fontSize: 16 }}>›</span>
+        </div>
+      ))}
+
+      {selected && (
+        <div className="modal-overlay" onClick={() => setSelected(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ padding: '20px 16px' }}>
+            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 16, color: 'var(--text)' }}>
+              🤝 פירוט הפניה
+            </div>
+
+            {/* Referrer */}
+            <div style={{ background: 'var(--bg)', borderRadius: 10, padding: '12px 14px', marginBottom: 10 }}>
+              <div style={{ fontSize: 11, color: '#38bdf8', fontWeight: 600, marginBottom: 6 }}>📤 המפנה (קיבל בונוס)</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>{selected.referrer_name}</div>
+              <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'var(--hint)' }}>
+                <span>מזהה: <b style={{ color: 'var(--text)', fontFamily: 'monospace' }}>{selected.referrer_id}</b></span>
+                <span>חיפושים נותרו: <b style={{ color: '#a78bfa' }}>{selected.referrer_searches_left === -1 ? '∞' : selected.referrer_searches_left}</b></span>
+              </div>
+            </div>
+
+            {/* Bonus */}
+            <div style={{
+              background: '#38a16918', border: '1px solid #38a16940',
+              borderRadius: 10, padding: '10px 14px', marginBottom: 10,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            }}>
+              <span style={{ fontSize: 13, color: 'var(--hint)' }}>🎁 בונוס שניתן</span>
+              <span style={{ fontSize: 18, fontWeight: 800, color: '#38a169' }}>+{selected.bonus} חיפושים</span>
+            </div>
+
+            {/* Referee */}
+            <div style={{ background: 'var(--bg)', borderRadius: 10, padding: '12px 14px', marginBottom: 14 }}>
+              <div style={{ fontSize: 11, color: '#f59e0b', fontWeight: 600, marginBottom: 6 }}>📥 המצטרף (הופנה)</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>{selected.referee_name}</div>
+              <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'var(--hint)' }}>
+                <span>מזהה: <b style={{ color: 'var(--text)', fontFamily: 'monospace' }}>{selected.referee_id}</b></span>
+                <span>חיפושים נותרו: <b style={{ color: '#a78bfa' }}>{selected.referee_searches_left === -1 ? '∞' : selected.referee_searches_left}</b></span>
+              </div>
+            </div>
+
+            <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 14, textAlign: 'center' }}>
+              📅 תאריך הצטרפות: {selected.joined_at?.slice(0, 16).replace('T', ' ')}
+            </div>
+
+            <button className="btn" onClick={() => setSelected(null)} style={{ width: '100%' }}>סגור</button>
           </div>
         </div>
       )}
@@ -1723,13 +1891,13 @@ function GrantModal({ user, onClose, onDone }) {
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: 4, marginBottom: 16, background: 'var(--bg)', borderRadius: 10, padding: 3 }}>
+        <div style={{ display: 'flex', gap: 4, marginBottom: 16, background: 'var(--bg)', borderRadius: 10, padding: 3, overflowX: 'auto', scrollbarWidth: 'none' }}>
           {TABS.map(([id, icon, label]) => (
             <button
               key={id}
               onClick={() => setMode(id)}
               style={{
-                flex: 1, padding: '6px 2px', fontSize: 10, borderRadius: 7, border: 'none',
+                flexShrink: 0, minWidth: 52, padding: '6px 8px', fontSize: 10, borderRadius: 7, border: 'none',
                 background: mode === id ? 'var(--bg2)' : 'transparent',
                 color: mode === id ? 'var(--text)' : 'var(--hint)',
                 cursor: 'pointer', fontWeight: mode === id ? 600 : 400,
@@ -1874,17 +2042,25 @@ function GrantModal({ user, onClose, onDone }) {
               </div>
             )}
             {history !== null && history.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {history.map((plate, i) => (
-                  <span
-                    key={i}
-                    style={{
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 2 }}>{history.length} חיפושים אחרונים</div>
+                {history.map((item, i) => (
+                  <div key={i} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    background: 'var(--bg)', borderRadius: 8, padding: '7px 10px',
+                  }}>
+                    <span style={{
                       background: '#f5c518', color: '#111', fontWeight: 700,
-                      borderRadius: 6, padding: '4px 10px', fontSize: 13, letterSpacing: 1,
-                    }}
-                  >
-                    {plate}
-                  </span>
+                      borderRadius: 6, padding: '3px 10px', fontSize: 13, letterSpacing: 1,
+                    }}>
+                      {item.plate ?? item}
+                    </span>
+                    {item.searched_at && (
+                      <span style={{ fontSize: 11, color: 'var(--hint)' }}>
+                        {item.searched_at.slice(0, 16).replace('T', ' ')}
+                      </span>
+                    )}
+                  </div>
                 ))}
               </div>
             )}
@@ -1952,12 +2128,19 @@ function GrantModal({ user, onClose, onDone }) {
                 {sentMessages.map(msg => {
                   const kindColors = {
                     grant:           { bg: '#7c3aed18', border: '#7c3aed55', icon: '🎁' },
-                    payment:         { bg: '#38a16918', border: '#38a16955', icon: '💳' },
+                    referral_bonus:  { bg: '#38a16918', border: '#38a16955', icon: '🤝' },
+                    referral_info:   { bg: '#f59e0b18', border: '#f59e0b55', icon: 'ℹ️' },
+                    payment:         { bg: '#16a34a18', border: '#16a34a55', icon: '💳' },
                     broadcast:       { bg: '#0ea5e918', border: '#0ea5e955', icon: '📢' },
                     expiry_reminder: { bg: '#f59e0b18', border: '#f59e0b55', icon: '⏰' },
                     block:           { bg: '#e53e3e18', border: '#e53e3e55', icon: '🚫' },
+                    unblock:         { bg: '#38a16918', border: '#38a16955', icon: '✅' },
                     ticket_reply:    { bg: '#6366f118', border: '#6366f155', icon: '💬' },
                     admin_dm:        { bg: '#ec489918', border: '#ec489955', icon: '✉️' },
+                    welcome:         { bg: '#0ea5e918', border: '#0ea5e955', icon: '👋' },
+                    promo_welcome:   { bg: '#f59e0b18', border: '#f59e0b55', icon: '🎉' },
+                    code_applied:    { bg: '#7c3aed18', border: '#7c3aed55', icon: '🔑' },
+                    watch_alert:     { bg: '#6366f118', border: '#6366f155', icon: '🔔' },
                   }
                   const style = kindColors[msg.kind] || { bg: 'var(--bg)', border: 'rgba(255,255,255,0.1)', icon: '📩' }
                   return (

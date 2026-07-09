@@ -538,7 +538,17 @@ async def get_user_history(user: dict = Depends(_get_user)):
 async def get_vehicle(plate: str, user: dict = Depends(_get_user)):
     from src.api.gov_api import fetch_vehicle_data
     from src.cache import cache
+    from src.users import is_allowed, increment_search
     plate = plate.replace("-", "").replace(" ", "")
+
+    uid      = int(user["id"])
+    username = user.get("username") or ""
+    fullname = user.get("first_name", "") + " " + user.get("last_name", "")
+
+    allowed, _ = await is_allowed(uid, username, fullname.strip())
+    if not allowed:
+        raise HTTPException(status_code=403, detail="quota_exceeded")
+
     record = cache.get(plate)
     if record is None:
         record = await fetch_vehicle_data(plate)
@@ -547,11 +557,10 @@ async def get_vehicle(plate: str, user: dict = Depends(_get_user)):
     if not record:
         raise HTTPException(status_code=404, detail="Vehicle not found")
 
-    uid  = int(user["id"])
-    name = user.get("username") or user.get("first_name", str(uid))
+    await increment_search(uid, plate)
     try:
         from src.activity import log as _log
-        await _log("search", f"חיפוש לוחית {plate}", uid, name)
+        await _log("search", f"חיפוש לוחית {plate}", uid, username)
     except Exception:
         pass
     return JSONResponse(content=record, headers={"Cache-Control": "no-store"})
@@ -1496,6 +1505,42 @@ async def admin_send_user_message(user_id: int, body: DirectMessageBody, _: dict
     return {"ok": ok}
 
 
+@api.get("/api/admin/referrals")
+async def admin_all_referrals(_: dict = Depends(_require_admin)):
+    from src.db import execute
+    r = await execute(
+        """SELECT rf.id, rf.referrer_id, rf.referee_id, rf.bonus, rf.joined_at,
+                  ru.username AS referrer_username, ru.full_name AS referrer_name,
+                  ru.searches_quota AS referrer_quota, ru.searches_done AS referrer_done,
+                  eu.username AS referee_username, eu.full_name AS referee_name,
+                  eu.searches_quota AS referee_quota, eu.searches_done AS referee_done
+           FROM referrals rf
+           LEFT JOIN users ru ON ru.user_id = rf.referrer_id
+           LEFT JOIN users eu ON eu.user_id = rf.referee_id
+           ORDER BY rf.joined_at DESC"""
+    )
+    rows = []
+    for row in r.rows:
+        def _name(uid, uname, fname):
+            if uname: return f"@{uname}"
+            if fname: return fname
+            return f"id:{uid}"
+        referrer_quota = row[7]
+        referee_quota  = row[11]
+        rows.append({
+            "id":                    row[0],
+            "referrer_id":           row[1],
+            "referee_id":            row[2],
+            "bonus":                 row[3],
+            "joined_at":             row[4],
+            "referrer_name":         _name(row[1], row[5], row[6]),
+            "referrer_searches_left": -1 if referrer_quota == -1 else max(0, (referrer_quota or 0) - (row[8] or 0)),
+            "referee_name":          _name(row[2], row[9], row[10]),
+            "referee_searches_left": -1 if referee_quota == -1 else max(0, (referee_quota or 0) - (row[12] or 0)),
+        })
+    return {"referrals": rows, "count": len(rows), "total_bonus": sum(r["bonus"] for r in rows)}
+
+
 @api.get("/api/admin/users/{user_id}/referrals")
 async def admin_user_referrals(user_id: int, _: dict = Depends(_require_admin)):
     from src.users import get_referrals
@@ -1506,14 +1551,28 @@ async def admin_user_referrals(user_id: int, _: dict = Depends(_require_admin)):
 
 @api.get("/api/admin/users/{user_id}/history")
 async def admin_user_history(user_id: int, _: dict = Depends(_require_admin)):
-    from src.users import get_search_history
-    return await get_search_history(user_id)
+    from src.db import execute
+    r = await execute(
+        "SELECT plate, searched_at FROM search_history WHERE user_id = ? "
+        "ORDER BY searched_at DESC LIMIT 100",
+        [user_id],
+    )
+    return [{"plate": row[0], "searched_at": row[1]} for row in r.rows]
 
 
 @api.get("/api/admin/users/{user_id}/sent-messages")
 async def admin_user_sent_messages(user_id: int, _: dict = Depends(_require_admin)):
     from src.users import get_sent_messages
     return await get_sent_messages(user_id)
+
+
+@api.post("/api/admin/users/{user_id}/broadcast-consent")
+async def admin_toggle_broadcast_consent(user_id: int, _: dict = Depends(_require_admin)):
+    from src.users import set_broadcast_consent, get_broadcast_consent
+    current = await get_broadcast_consent(user_id)
+    new_val = not current
+    await set_broadcast_consent(user_id, new_val)
+    return {"ok": True, "broadcast_consent": new_val}
 
 
 @api.post("/api/admin/users/{user_id}/block")
@@ -1714,8 +1773,9 @@ async def user_referral_info(user: dict = Depends(_get_user)):
 
 
 # ── Yad2 proxy (Israeli IP bypass) ──────────────────────────────────────────
-_YAD2_SECRET = os.environ.get("YAD2_PROXY_SECRET", "carinfo2026")
-_YAD2_BASE   = "https://gw.yad2.co.il/lookalike/vehicles/cars"
+_YAD2_SECRET       = os.environ.get("YAD2_PROXY_SECRET", "carinfo2026")
+_YAD2_LOOKALIKE    = "https://gw.yad2.co.il/lookalike/vehicles/cars"
+_YAD2_FEED         = "https://gw.yad2.co.il/feed/vehicles/cars"
 _YAD2_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
     "Accept": "application/json, text/plain, */*",
@@ -1735,6 +1795,7 @@ async def yad2_proxy(
     model: Optional[str] = None,
     year: Optional[str] = None,
     rows: int = 100,
+    type: str = "lookalike",
 ):
     if secret != _YAD2_SECRET:
         raise HTTPException(status_code=403, detail="forbidden")
@@ -1742,12 +1803,13 @@ async def yad2_proxy(
     import urllib.request as _ureq, gzip as _gzip, zlib as _zlib
     from urllib.parse import urlencode as _ue
 
+    base = _YAD2_FEED if type == "feed" else _YAD2_LOOKALIKE
     params: dict = {"rows": rows}
     if manufacturer: params["manufacturer"] = manufacturer
     if model:        params["model"]        = model
     if year:         params["year"]         = year
 
-    yad2_url = f"{_YAD2_BASE}?{_ue(params)}"
+    yad2_url = f"{base}?{_ue(params)}"
     req = _ureq.Request(yad2_url, headers=_YAD2_HEADERS)
     try:
         with _ureq.urlopen(req, timeout=15) as resp:
@@ -1755,7 +1817,15 @@ async def yad2_proxy(
             encoding = resp.headers.get("Content-Encoding", "")
         if "gzip"    in encoding: raw = _gzip.decompress(raw)
         elif "deflate" in encoding: raw = _zlib.decompress(raw)
-        return JSONResponse(content=json.loads(raw.decode("utf-8")))
+        data = json.loads(raw.decode("utf-8"))
+        # Normalise feed response so callers get {data: [...items]}
+        if type == "feed":
+            items = (
+                data.get("data", {}).get("feed") if isinstance(data.get("data"), dict) else None
+            ) or data.get("data") or []
+            if not isinstance(items, list): items = []
+            data = {"data": items, "total": len(items)}
+        return JSONResponse(content=data)
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
 
