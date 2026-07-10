@@ -137,6 +137,32 @@ async def notify_admin_order(ref: str, status: str, label: str, amount, username
         await _notify_admin_order_fn(ref, status, label, amount, username, member_id)
 
 
+_notify_admin_product_delivery_fn: Optional[Callable[..., Awaitable[Any]]] = None
+
+
+def register_admin_product_delivery_notifier(fn: Callable[..., Awaitable[Any]]) -> None:
+    global _notify_admin_product_delivery_fn
+    _notify_admin_product_delivery_fn = fn
+
+
+async def notify_admin_product_delivery_needed(ref: str, user_id: int, label: str) -> None:
+    if _notify_admin_product_delivery_fn:
+        await _notify_admin_product_delivery_fn(ref, user_id, label)
+
+
+_notify_user_product_delivered_fn: Optional[Callable[..., Awaitable[Any]]] = None
+
+
+def register_user_product_delivered_notifier(fn: Callable[..., Awaitable[Any]]) -> None:
+    global _notify_user_product_delivered_fn
+    _notify_user_product_delivered_fn = fn
+
+
+async def notify_user_product_delivered(user_id: int, label: str, ref: str, content: str) -> None:
+    if _notify_user_product_delivered_fn:
+        await _notify_user_product_delivered_fn(user_id, label, ref, content)
+
+
 _send_user_document_fn: Optional[Callable[..., Awaitable[Any]]] = None
 
 

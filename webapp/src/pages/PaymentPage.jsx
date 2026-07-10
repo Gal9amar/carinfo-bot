@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { initiatePayment, promotePayment, fetchPaymentMethods } from '../api.js'
+import { initiatePayment, initiateProductPayment, promotePayment, fetchPaymentMethods } from '../api.js'
 import paypalLogo     from '../assets/paypal-logo.png'
 import visaLogo       from '../assets/visa.svg'
 import mastercardLogo from '../assets/mastercard.svg'
@@ -14,17 +14,19 @@ export default function PaymentPage({ pkg, onBack }) {
   const [preparing, setPreparing]   = useState(true)
   const [extraMethods, setExtraMethods] = useState([])
 
-  const qty        = pkg._qty ?? 1
+  const qty        = pkg._isProduct ? 1 : (pkg._qty ?? 1)
   const totalPrice = pkg.price * qty
   const isAlerts   = pkg.package_type === 'alerts' || (pkg.label ?? '').includes('התראות')
-  const desc       = isAlerts
-    ? `${qty} התראה${qty > 1 ? 'ות' : ''} נוספת ביד2`
-    : (pkg.searches === -1 ? 'ללא הגבלה' : `${(pkg.searches ?? 1) * qty} חיפושים`)
+  const desc       = pkg._isProduct
+    ? (pkg.description || pkg.delivery_time_note || '')
+    : isAlerts
+      ? `${qty} התראה${qty > 1 ? 'ות' : ''} נוספת ביד2`
+      : (pkg.searches === -1 ? 'ללא הגבלה' : `${(pkg.searches ?? 1) * qty} חיפושים`)
 
   useEffect(() => {
     Promise.all([
       fetchPaymentMethods().catch(() => []),
-      initiatePayment(pkg.id, qty, true).catch(() => null),
+      (pkg._isProduct ? initiateProductPayment(pkg.id, true) : initiatePayment(pkg.id, qty, true)).catch(() => null),
     ]).then(([dbMethods, data]) => {
       if (data) {
         setPaymentUrl(data.approval_url)

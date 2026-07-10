@@ -1536,6 +1536,20 @@ async def handle_decline_callback(update: Update, context: ContextTypes.DEFAULT_
         pass
 
 
+async def handle_deliver_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Admin taps 'שלח תוכן משלוח' on a pending-delivery product order — prompt
+    for the content, then handle_plate's admin_setting=='deliver_content' branch
+    picks up the reply and calls src.products.deliver_order()."""
+    query = update.callback_query
+    await query.answer()
+    if query.from_user.id != ADMIN_ID:
+        return
+    ref = query.data.split("|", 1)[1]
+    context.user_data["admin_setting"] = "deliver_content"
+    context.user_data["admin_deliver_ref"] = ref
+    await query.message.reply_text(f"✍️ שלח את תוכן המשלוח עבור הזמנה `{ref}`:", parse_mode=ParseMode.MARKDOWN)
+
+
 async def handle_pre_checkout(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Approve all valid checkout queries."""
     query = update.pre_checkout_query
@@ -1738,6 +1752,16 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     # Admin settings input
     if user_id == ADMIN_ID:
         setting = context.user_data.get("admin_setting")
+        if setting == "deliver_content":
+            ref = context.user_data.pop("admin_deliver_ref", None)
+            context.user_data.pop("admin_setting", None)
+            if not ref:
+                await update.message.reply_text("❌ שגיאה — הזמנה לא נמצאה.")
+                return
+            from src.products import deliver_order
+            ok = await deliver_order(ref, raw)
+            await update.message.reply_text("✅ נשלח ללקוח!" if ok else "❌ שגיאה — ייתכן שההזמנה כבר טופלה.")
+            return
         if setting == "free_count":
             if not raw.isdigit() or int(raw) < 0:
                 await update.message.reply_text("❌ שלח מספר שלם חיובי בלבד\\.", parse_mode=ParseMode.MARKDOWN_V2)
@@ -2466,6 +2490,7 @@ def main() -> None:
         'user_cancelled':   '↩️ בוטל על ידי המשתמש',
         'admin_approved':   '✅ אושר ע״י מנהל',
         'admin_cancelled':  '🚫 בוטל ע״י מנהל',
+        'pending_delivery': '📦 ממתין למשלוח ידני',
     }
 
     async def _notify_admin_order(ref, status, label, amount, username, member_id):
@@ -2487,6 +2512,43 @@ def main() -> None:
 
     from src.notifier import register_admin_order_notifier
     register_admin_order_notifier(_notify_admin_order)
+
+    async def _notify_admin_product_delivery(ref, user_id, label):
+        if not ADMIN_ID:
+            return
+        kb = InlineKeyboardMarkup([[
+            InlineKeyboardButton("📦 שלח תוכן משלוח", callback_data=f"deliver|{ref}"),
+        ]])
+        text = (
+            f"📦 *הזמנת מוצר ממתינה למשלוח ידני*\n"
+            f"🔖 הזמנה: `{ref}`\n"
+            f"👤 משתמש: {user_id}\n"
+            f"📦 מוצר: {label}\n\n"
+            f"לחץ על הכפתור כדי לשלוח את תוכן ההזמנה ללקוח."
+        )
+        try:
+            await app.bot.send_message(ADMIN_ID, text, parse_mode="Markdown", reply_markup=kb)
+        except Exception:
+            pass
+
+    from src.notifier import register_admin_product_delivery_notifier
+    register_admin_product_delivery_notifier(_notify_admin_product_delivery)
+
+    async def _notify_user_product_delivered(user_id, label, ref, content):
+        try:
+            msg = (
+                f"🎉 *ההזמנה שלך הושלמה!*\n"
+                f"📦 {label}\n"
+                f"🔖 מס' הזמנה: `{ref}`\n\n"
+                f"{content}"
+            )
+            await app.bot.send_message(user_id, msg, parse_mode="Markdown")
+            await log_sent_message(user_id, msg, kind="product_delivery")
+        except Exception:
+            pass
+
+    from src.notifier import register_user_product_delivered_notifier
+    register_user_product_delivered_notifier(_notify_user_product_delivered)
 
     async def _send_user_document(user_id: int, pdf_bytes: bytes, filename: str, caption: str = "") -> bool:
         import io as _io
@@ -2520,6 +2582,7 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(handle_paid_callback,    pattern=r"^paid\|"))
     app.add_handler(CallbackQueryHandler(handle_approve_callback, pattern=r"^approve\|"))
     app.add_handler(CallbackQueryHandler(handle_decline_callback, pattern=r"^decline\|"))
+    app.add_handler(CallbackQueryHandler(handle_deliver_callback, pattern=r"^deliver\|"))
     app.add_handler(PreCheckoutQueryHandler(handle_pre_checkout))
     app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, handle_successful_payment))
     app.add_handler(CallbackQueryHandler(handle_package_callback, pattern=r"^show_packages$|^pkg\|"))

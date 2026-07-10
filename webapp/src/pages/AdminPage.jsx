@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { fmtDateTime, fmtDate as fmtDateIL, fmtTimeShort } from '../utils/time.js'
-import { adminOrderApprove, adminOrderCancel } from '../api.js'
+import { adminOrderApprove, adminOrderCancel, adminDeliverOrder } from '../api.js'
 import {
   adminFetchStats, adminFetchUsers, adminFetchSettings,
   adminUpdateSettings, adminFetchPackages,
@@ -36,6 +36,8 @@ import {
   adminWatchMakes, adminWatchModels, adminWatchPreview,
   adminSetWatchQuota,
   adminToggleBroadcastConsent,
+  adminFetchProducts, adminAddProduct, adminUpdateProduct, adminDeleteProduct,
+  adminUploadProductStock, adminFetchProductStock,
 } from '../api.js'
 import BackButton from '../components/BackButton.jsx'
 
@@ -44,6 +46,7 @@ const TABS = [
   { id: 'activity', icon: '🕐', label: 'לוג פעילות' },
   { id: 'payments', icon: '💳', label: 'הזמנות' },
   { id: 'packages', icon: '🛒', label: 'מוצרים' },
+  { id: 'products', icon: '📦', label: 'מוצרים דיגיטליים' },
   { id: 'grants',   icon: '🎁', label: 'הטבות מנהל' },
   { id: 'codes',    icon: '🔑', label: 'קודים' },
   { id: 'users',     icon: '👥', label: 'משתמשים' },
@@ -92,6 +95,7 @@ export default function AdminPage({ user, onBack }) {
       {tab === 'activity' && <ActivityTab />}
       {tab === 'payments' && <PaymentsTab />}
       {tab === 'packages' && <PackagesTab />}
+      {tab === 'products' && <ProductsTab />}
       {tab === 'grants'   && <AdminGrantsTab />}
       {tab === 'codes'    && <CodesSection standalone />}
       {tab === 'users'     && <UsersTab />}
@@ -497,6 +501,286 @@ function PackagesTab() {
           suggestions={allChipsPool}
         />
       )}
+    </div>
+  )
+}
+
+function ProductsTab() {
+  const [prods, setProds] = useState(null)
+  const [editing, setEditing] = useState(null)
+  const [adding, setAdding] = useState(false)
+  const [stockTarget, setStockTarget] = useState(null)
+  const [form, setForm] = useState({ name: '', description: '', image_url: '', price: '', delivery_type: 'manual', delivery_time_note: '', quantity_stock: '', is_active: true })
+  const [saving, setSaving] = useState(false)
+
+  function load() { adminFetchProducts().then(setProds).catch(() => setProds([])) }
+  useEffect(() => { load() }, [])
+
+  function toBody(f) {
+    return {
+      name: f.name,
+      description: f.description || '',
+      image_url: f.image_url || '',
+      price: parseInt(f.price) || 0,
+      delivery_type: f.delivery_type || 'manual',
+      delivery_time_note: f.delivery_time_note || '',
+      quantity_stock: parseInt(f.quantity_stock) || 0,
+      is_active: f.is_active !== false,
+    }
+  }
+
+  async function saveEdit() {
+    setSaving(true)
+    try {
+      await adminUpdateProduct(editing.id, toBody(form))
+      load()
+      setEditing(null)
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    setSaving(false)
+  }
+
+  async function saveAdd() {
+    setSaving(true)
+    try {
+      await adminAddProduct(toBody(form))
+      load()
+      setAdding(false)
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    setSaving(false)
+  }
+
+  async function deleteProd(id) {
+    window.Telegram?.WebApp?.showConfirm('למחוק מוצר?', async (ok) => {
+      if (!ok) return
+      await adminDeleteProduct(id)
+      load()
+    })
+  }
+
+  if (!prods) return <div className="loading"></div>
+
+  return (
+    <div>
+      {prods.length === 0 && (
+        <div style={{ color: 'var(--hint)', textAlign: 'center', padding: 24 }}>אין מוצרים דיגיטליים עדיין</div>
+      )}
+      {prods.map(p => {
+        const isActive = p.is_active !== false
+        const deliveryLabel = p.delivery_type === 'auto' ? 'אוטומטי' : 'ידני'
+        return (
+          <div key={p.id} className="card" style={{ opacity: isActive ? 1 : 0.5 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span className="card-title">{p.name}</span>
+                  {!isActive && (
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#e53e3e22', color: '#e53e3e' }}>מושבת</span>
+                  )}
+                </div>
+                <div className="card-subtitle">₪{p.price} · {deliveryLabel} · מלאי: {p.stock_count ?? 0}</div>
+                {p.delivery_time_note && <div style={{ fontSize: 11, color: 'var(--hint)' }}>⏱ {p.delivery_time_note}</div>}
+              </div>
+              <div style={{ display: 'flex', gap: 4, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                {p.delivery_type === 'auto' && (
+                  <button className="btn" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
+                    onClick={() => setStockTarget(p)}>📤 מלאי</button>
+                )}
+                <button className="btn" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
+                  onClick={() => { setEditing(p); setForm({ name: p.name, description: p.description || '', image_url: p.image_url || '', price: String(p.price), delivery_type: p.delivery_type, delivery_time_note: p.delivery_time_note || '', quantity_stock: String(p.quantity_stock ?? 0), is_active: p.is_active !== false }) }}>
+                  ✏️
+                </button>
+                <button className="btn btn-danger" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
+                  onClick={() => deleteProd(p.id)}>🗑</button>
+              </div>
+            </div>
+          </div>
+        )
+      })}
+      <button className="btn btn-success" onClick={() => { setAdding(true); setForm({ name: '', description: '', image_url: '', price: '', delivery_type: 'manual', delivery_time_note: '', quantity_stock: '', is_active: true }) }}>
+        ➕ הוסף מוצר דיגיטלי
+      </button>
+
+      {editing && (
+        <ProductModal title="✏️ עריכת מוצר" form={form} setForm={setForm} saving={saving} onSave={saveEdit} onClose={() => setEditing(null)} />
+      )}
+      {adding && (
+        <ProductModal title="➕ מוצר דיגיטלי חדש" form={form} setForm={setForm} saving={saving} onSave={saveAdd} onClose={() => setAdding(false)} />
+      )}
+      {stockTarget && (
+        <ProductStockModal product={stockTarget} onClose={() => { setStockTarget(null); load() }} />
+      )}
+    </div>
+  )
+}
+
+function ProductModal({ title, form, setForm, saving, onSave, onClose }) {
+  const fileRef = useRef(null)
+  const [compressing, setCompressing] = useState(false)
+
+  function handleFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setCompressing(true)
+    const reader = new FileReader()
+    reader.onload = ev => {
+      const img = new Image()
+      img.onload = () => {
+        const MAX = 800
+        const ratio = Math.min(MAX / img.width, MAX / img.height, 1)
+        const canvas = document.createElement('canvas')
+        canvas.width  = Math.round(img.width  * ratio)
+        canvas.height = Math.round(img.height * ratio)
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+        setForm(f => ({ ...f, image_url: canvas.toDataURL('image/jpeg', 0.82) }))
+        setCompressing(false)
+      }
+      img.src = ev.target.result
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const valid = form.name?.trim() && parseInt(form.price) > 0
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-title">{title}</div>
+        <input
+          className="input"
+          placeholder="שם המוצר"
+          value={form.name}
+          onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+        />
+        <textarea
+          className="input"
+          placeholder="תיאור המוצר"
+          rows={3}
+          value={form.description}
+          onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+        />
+        <input
+          className="input"
+          placeholder="מחיר (₪)"
+          type="number"
+          value={form.price}
+          onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
+        />
+
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, fontSize: 13 }}>
+          <input type="checkbox" checked={form.is_active !== false} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} />
+          מוצר פעיל
+        </label>
+
+        <select
+          className="input"
+          value={form.delivery_type}
+          onChange={e => setForm(f => ({ ...f, delivery_type: e.target.value }))}
+        >
+          <option value="auto">אוטומטי (ממאגר מלאי)</option>
+          <option value="manual">ידני (אספקה על ידי מנהל)</option>
+        </select>
+
+        <input
+          className="input"
+          placeholder="הערת זמן משלוח (לדוגמה: 14m3h)"
+          value={form.delivery_time_note}
+          onChange={e => setForm(f => ({ ...f, delivery_time_note: e.target.value }))}
+        />
+
+        {form.delivery_type === 'manual' && (
+          <input
+            className="input"
+            placeholder="כמות במלאי"
+            type="number"
+            min="0"
+            value={form.quantity_stock}
+            onChange={e => setForm(f => ({ ...f, quantity_stock: e.target.value }))}
+          />
+        )}
+        {form.delivery_type === 'auto' && (
+          <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 12, lineHeight: 1.4 }}>
+            במצב אוטומטי המלאי מנוהל בטאב "📤 מלאי" — כל שורה שתעלה שם היא יחידת מלאי אחת (קוד/קישור).
+          </div>
+        )}
+
+        {form.image_url ? (
+          <div style={{ position: 'relative', marginBottom: 8 }}>
+            <img
+              src={form.image_url}
+              alt="תצוגה מקדימה"
+              style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 8, display: 'block' }}
+              onError={e => { e.target.style.display = 'none' }}
+            />
+            <button
+              onClick={() => setForm(f => ({ ...f, image_url: '' }))}
+              style={{
+                position: 'absolute', top: 6, left: 6,
+                background: 'rgba(0,0,0,0.55)', color: '#fff',
+                border: 'none', borderRadius: '50%', width: 28, height: 28,
+                fontSize: 14, cursor: 'pointer', lineHeight: 1,
+              }}
+            >✕</button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+            <button
+              type="button"
+              className="btn"
+              style={{ flex: 1, marginTop: 0 }}
+              disabled={compressing}
+              onClick={() => fileRef.current?.click()}
+            >{compressing ? '...' : '🖼 העלה תמונה'}</button>
+          </div>
+        )}
+        <input ref={fileRef} type="file" accept="image/*" hidden onChange={handleFile} />
+
+        <button className="btn" disabled={saving || !valid} onClick={onSave}>{saving ? '...' : 'שמור'}</button>
+        <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={onClose}>ביטול</button>
+      </div>
+    </div>
+  )
+}
+
+function ProductStockModal({ product, onClose }) {
+  const [text, setText] = useState('')
+  const [units, setUnits] = useState(null)
+  const [saving, setSaving] = useState(false)
+
+  function load() { adminFetchProductStock(product.id).then(setUnits).catch(() => setUnits([])) }
+  useEffect(() => { load() }, [])
+
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
+  const unused = units?.filter(u => !u.is_used).length ?? 0
+
+  async function upload() {
+    if (!lines.length) return
+    setSaving(true)
+    try {
+      await adminUploadProductStock(product.id, text)
+      setText('')
+      load()
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    setSaving(false)
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-title">📤 מלאי — {product.name}</div>
+        <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 10 }}>
+          {units === null ? 'טוען...' : `זמין: ${unused} / סה"כ: ${units.length}`}
+        </div>
+        <textarea
+          className="input"
+          placeholder={'כל שורה = יחידת מלאי אחת (קוד / קישור)'}
+          rows={6}
+          value={text}
+          onChange={e => setText(e.target.value)}
+        />
+        <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 10 }}>{lines.length} שורות</div>
+        <button className="btn" disabled={saving || !lines.length} onClick={upload}>{saving ? '...' : `➕ הוסף ${lines.length || ''} יחידות`}</button>
+        <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={onClose}>סגור</button>
+      </div>
     </div>
   )
 }
@@ -1024,13 +1308,17 @@ const STATUS_META = {
   user_cancelled:   { label: 'בוטל ע״י משתמש',    color: '#ff9800' },
   admin_approved:   { label: 'אושר ע״י מנהל',  color: '#4caf50' },
   admin_cancelled:  { label: 'בוטל ע״י מנהל',  color: '#ff9800' },
+  pending_delivery: { label: 'ממתין למשלוח',   color: '#ff9800' },
 }
 
 function PaypalTransactionRow({ tx, onRefresh }) {
   const [open, setOpen] = useState(false)
   const [working, setWorking] = useState(false)
+  const [deliverText, setDeliverText] = useState('')
+  const [delivering, setDelivering] = useState(false)
   const meta = STATUS_META[tx.status] || { label: tx.status, color: '#888' }
   const canAct = ['intent', 'created', 'cancelled'].includes(tx.status)
+  const needsDelivery = tx.package_type === 'product' && tx.status === 'pending_delivery'
 
   async function approve(e) {
     e.stopPropagation()
@@ -1046,6 +1334,14 @@ function PaypalTransactionRow({ tx, onRefresh }) {
     setWorking(true)
     try { await adminOrderCancel(tx.ref); onRefresh?.() } catch { alert('שגיאה') }
     setWorking(false)
+  }
+
+  async function sendDelivery(e) {
+    e.stopPropagation()
+    if (delivering || !deliverText.trim()) return
+    setDelivering(true)
+    try { await adminDeliverOrder(tx.ref, deliverText.trim()); setDeliverText(''); onRefresh?.() } catch { alert('שגיאה') }
+    setDelivering(false)
   }
 
   return (
@@ -1073,6 +1369,23 @@ function PaypalTransactionRow({ tx, onRefresh }) {
           <div style={{ marginBottom: 4 }}><span style={{ color: 'var(--hint)' }}>חיפושים: </span>{tx.searches === -1 ? '♾️ ללא הגבלה' : tx.searches}</div>
           <div style={{ marginBottom: 4 }}><span style={{ color: 'var(--hint)' }}>עדכון אחרון: </span>{fmtDateTime(tx.updated_at)}</div>
           {tx.error && <div style={{ marginTop: 6, color: '#f44336', wordBreak: 'break-all' }}>⚠️ {tx.error}</div>}
+          {needsDelivery && (
+            <div style={{ marginTop: 10 }}>
+              <textarea
+                className="input"
+                style={{ marginBottom: 6, fontSize: 12 }}
+                rows={3}
+                placeholder="תוכן המשלוח (קוד / קישור / פרטים) שיישלח ללקוח"
+                value={deliverText}
+                onChange={e => setDeliverText(e.target.value)}
+              />
+              <button
+                onClick={sendDelivery}
+                disabled={delivering || !deliverText.trim()}
+                style={{ width: '100%', padding: '7px 0', background: '#4caf50', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: delivering ? 'default' : 'pointer', opacity: delivering || !deliverText.trim() ? 0.6 : 1 }}
+              >📦 שלח משלוח</button>
+            </div>
+          )}
           {canAct && (
             <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
               <button

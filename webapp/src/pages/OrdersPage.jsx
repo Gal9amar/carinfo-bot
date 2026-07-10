@@ -14,6 +14,7 @@ const STATUS_META = {
   user_cancelled:   { label: 'בוטל ע״י משתמש',   color: '#ff9800', icon: '🚫' },
   admin_approved:   { label: 'אושר ע״י מנהל',  color: '#4caf50', icon: '✅' },
   admin_cancelled:  { label: 'בוטל ע״י מנהל',  color: '#ff9800', icon: '🚫' },
+  pending_delivery: { label: 'ממתין למשלוח',   color: '#ff9800', icon: '📦' },
 }
 
 function OrderRow({ order }) {
@@ -66,7 +67,27 @@ function OrderRow({ order }) {
           <div>מזהה הזמנה: <span style={{ fontFamily: 'monospace' }}>{order.ref}</span></div>
           <div>מוצר: {order.label}</div>
           <div>סכום: ₪{order.amount}</div>
-          {order.searches === -1
+          {order.package_type === 'product' ? (
+            <>
+              <div>אספקה: {order.delivery_type === 'auto' ? '⚡ מיידית' : '🕐 ידנית'}</div>
+              {order.status === 'pending_delivery' && (
+                <div style={{
+                  background: 'rgba(255,152,0,0.1)', borderRadius: 8,
+                  padding: '8px 12px', margin: '8px 0', color: '#ff9800', fontSize: 13,
+                }}>
+                  ⏳ ההזמנה התקבלה ובתהליך עיבוד — תישלח הודעה עם פרטי ההזמנה כשתושלם
+                </div>
+              )}
+              {order.delivery_content && (
+                <div style={{
+                  background: 'var(--bg)', borderRadius: 8, padding: '8px 12px', margin: '8px 0',
+                  fontFamily: 'monospace', fontSize: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-all',
+                }}>
+                  {order.delivery_content}
+                </div>
+              )}
+            </>
+          ) : order.searches === -1
             ? <div>גישה: ללא הגבלה</div>
             : <div>חיפושים: {order.searches}</div>
           }

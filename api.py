@@ -120,6 +120,22 @@ async def list_payment_methods():
     return await get_payment_methods(active_only=True)
 
 
+@api.get("/api/products")
+async def list_products():
+    from src.products import get_products, available_stock_count
+    prods = await get_products(active_only=True)
+    out = []
+    for p in prods:
+        pid, name, description, image_url, price, delivery_type, delivery_time_note, quantity_stock, display_order, is_active = p
+        stock = await available_stock_count(pid, delivery_type)
+        out.append({
+            "id": pid, "name": name, "description": description, "image_url": image_url,
+            "price": price, "delivery_type": delivery_type, "delivery_time_note": delivery_time_note,
+            "display_order": display_order, "in_stock": stock > 0, "stock_count": stock,
+        })
+    return out
+
+
 @api.get("/api/user")
 async def get_user_info(user: dict = Depends(_get_user)):
     from src.users import get_user_by_id
@@ -223,7 +239,8 @@ async def get_user_info(user: dict = Depends(_get_user)):
 
 
 class PaymentInitRequest(BaseModel):
-    package_id: int
+    package_id: int | None = None
+    product_id: int | None = None
     quantity: int = 1
     intent_only: bool = False
 
@@ -231,21 +248,45 @@ class PaymentInitRequest(BaseModel):
 @api.post("/api/payment/initiate")
 async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_user)):
     import os as _os
-    from src.packages import get_packages
     from src.db import execute, set_bot_setting, get_bot_setting, execute as _dbexec
-    pkgs = await get_packages()
-    pkg = next((p for p in pkgs if p[0] == body.package_id), None)
-    if not pkg:
-        raise HTTPException(status_code=404, detail="Package not found")
-    pid, label, searches, price, _img, _order = pkg[:6]
-    duration_months = pkg[6] if len(pkg) > 6 else 1
-    package_type = pkg[9] if len(pkg) > 9 else "searches"
-    # Alert packs: qty = number of extra alerts (max 8)
-    max_qty = 8 if package_type == "alerts" else 10
-    qty = max(1, min(max_qty, body.quantity))
-    total_price = price * qty
-    total_searches = -1 if searches == -1 else searches * qty
-    qty_label = f"{label} ×{qty}" if qty > 1 else label
+
+    if (body.package_id is None) == (body.product_id is None):
+        raise HTTPException(status_code=400, detail="Exactly one of package_id or product_id is required")
+
+    product_id = None
+    delivery_type = None
+    if body.product_id is not None:
+        from src.products import get_product, available_stock_count
+        prod = await get_product(body.product_id)
+        if not prod:
+            raise HTTPException(status_code=404, detail="Product not found")
+        product_id, name, description, _img, price, delivery_type, delivery_time_note, quantity_stock, _order, is_active = prod
+        if not is_active:
+            raise HTTPException(status_code=400, detail="Product unavailable")
+        stock = await available_stock_count(product_id, delivery_type)
+        if stock <= 0:
+            raise HTTPException(status_code=400, detail="Out of stock")
+        qty = 1
+        total_price = price
+        total_searches = 0
+        qty_label = name
+        duration_months = 1
+        package_type = "product"
+    else:
+        from src.packages import get_packages
+        pkgs = await get_packages()
+        pkg = next((p for p in pkgs if p[0] == body.package_id), None)
+        if not pkg:
+            raise HTTPException(status_code=404, detail="Package not found")
+        pid, label, searches, price, _img, _order = pkg[:6]
+        duration_months = pkg[6] if len(pkg) > 6 else 1
+        package_type = pkg[9] if len(pkg) > 9 else "searches"
+        # Alert packs: qty = number of extra alerts (max 8)
+        max_qty = 8 if package_type == "alerts" else 10
+        qty = max(1, min(max_qty, body.quantity))
+        total_price = price * qty
+        total_searches = -1 if searches == -1 else searches * qty
+        qty_label = f"{label} ×{qty}" if qty > 1 else label
     uid = int(user["id"])
     mid_r = await _dbexec("SELECT member_id FROM users WHERE user_id=?", [uid])
     member_id = mid_r.rows[0][0] if mid_r.rows and mid_r.rows[0][0] else uid
@@ -283,12 +324,12 @@ async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_u
 
     init_status = "intent" if body.intent_only else "created"
     await execute(
-        "INSERT OR IGNORE INTO pending_payments (ref, phone, searches, price, label, paypal_order_id, duration_months, package_type) VALUES (?,?,?,?,?,?,?,?)",
-        [ref, str(uid), total_searches, total_price, qty_label, paypal_order_id, duration_months, package_type],
+        "INSERT OR IGNORE INTO pending_payments (ref, phone, searches, price, label, paypal_order_id, duration_months, package_type, product_id) VALUES (?,?,?,?,?,?,?,?,?)",
+        [ref, str(uid), total_searches, total_price, qty_label, paypal_order_id, duration_months, package_type, product_id],
     )
     await execute(
-        "INSERT INTO paypal_transactions (ref, paypal_order_id, user_id, amount, currency, label, searches, status, duration_months) VALUES (?,?,?,?,?,?,?,?,?)",
-        [ref, paypal_order_id, uid, total_price, "ILS", qty_label, total_searches, init_status, duration_months],
+        "INSERT INTO paypal_transactions (ref, paypal_order_id, user_id, amount, currency, label, searches, status, duration_months, package_type, product_id, delivery_type) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        [ref, paypal_order_id, uid, total_price, "ILS", qty_label, total_searches, init_status, duration_months, package_type, product_id, delivery_type],
     )
     if not body.intent_only:
         try:
@@ -440,8 +481,13 @@ async def _order_notify(ref: str, status: str, label: str = "", amount=None) -> 
         pass
 
 
-async def _grant_payment(user_id: int, searches: int, label: str, duration_months: int, package_type: str) -> None:
-    """Apply the reward for an approved payment based on package_type."""
+async def _grant_payment(
+    user_id: int, searches: int, label: str, duration_months: int, package_type: str,
+    ref: str = "", product_id: int | None = None,
+) -> str:
+    """Apply the reward for an approved payment based on package_type.
+    Returns 'completed' or 'pending_delivery' (only 'product'+manual-delivery,
+    or an auto-delivery product that raced out of stock, can return the latter)."""
     from src.db import execute
     if package_type == "alerts":
         # Add watches quota: current + quantity (capped at 10)
@@ -450,33 +496,76 @@ async def _grant_payment(user_id: int, searches: int, label: str, duration_month
         current_max = await _get_max_for_user(user_id)
         new_max = min(10, current_max + searches)
         await execute("UPDATE users SET watch_quota=? WHERE user_id=?", [new_max, user_id])
+        return "completed"
+    elif package_type == "product":
+        from src.products import get_product, claim_stock_unit, decrement_manual_stock
+        prod = await get_product(product_id) if product_id else None
+        if not prod:
+            # Product deleted after purchase — degrade gracefully; admin must handle manually.
+            return "pending_delivery"
+        delivery_type = prod[5]
+        if delivery_type == "auto":
+            content = await claim_stock_unit(product_id, ref)
+            if content:
+                await execute("UPDATE paypal_transactions SET delivery_content=? WHERE ref=?", [content, ref])
+                try:
+                    from src.notifier import send_user_message
+                    await send_user_message(user_id, f"📦 ההזמנה שלך מוכנה!\n\n{content}")
+                except Exception:
+                    pass
+                return "completed"
+            # Race: stock ran out between purchase and grant — fall back to manual delivery.
+            try:
+                from src.notifier import notify_admin_product_delivery_needed
+                await notify_admin_product_delivery_needed(ref, user_id, label)
+            except Exception:
+                pass
+            return "pending_delivery"
+        else:
+            await decrement_manual_stock(product_id)
+            try:
+                from src.notifier import notify_admin_product_delivery_needed
+                await notify_admin_product_delivery_needed(ref, user_id, label)
+            except Exception:
+                pass
+            return "pending_delivery"
     else:
         from src.users import admin_grant, add_to_subscribers
         await admin_grant(0, user_id, searches, duration_months=duration_months)
         await add_to_subscribers(user_id)
+        return "completed"
 
 
 async def _auto_approve_payment(ref: str) -> None:
     from src.db import execute
-    r = await execute("SELECT phone, searches, label, COALESCE(duration_months,1), COALESCE(package_type,'searches') FROM pending_payments WHERE ref=?", [ref])
+    r = await execute(
+        "SELECT phone, searches, label, COALESCE(duration_months,1), COALESCE(package_type,'searches'), product_id "
+        "FROM pending_payments WHERE ref=?", [ref])
     if not r.rows:
         return  # already processed
-    user_id, searches, label, duration_months, package_type = int(r.rows[0][0]), r.rows[0][1], r.rows[0][2], int(r.rows[0][3]), r.rows[0][4]
-    await _grant_payment(user_id, searches, label, duration_months, package_type)
+    user_id, searches, label, duration_months, package_type, product_id = (
+        int(r.rows[0][0]), r.rows[0][1], r.rows[0][2], int(r.rows[0][3]), r.rows[0][4], r.rows[0][5],
+    )
+    result_status = await _grant_payment(user_id, searches, label, duration_months, package_type, ref=ref, product_id=product_id)
     await execute("DELETE FROM pending_payments WHERE ref=?", [ref])
     await execute(
-        "UPDATE paypal_transactions SET status='completed', updated_at=datetime('now') WHERE ref=?",
-        [ref],
+        "UPDATE paypal_transactions SET status=?, updated_at=datetime('now') WHERE ref=?",
+        [result_status, ref],
     )
-    await _order_notify(ref, "completed")
-    try:
-        from src.notifier import notify_user_payment_approved
-        await notify_user_payment_approved(user_id, label, searches)
-    except Exception:
-        pass
+    await _order_notify(ref, result_status)
+    if result_status == "completed":
+        try:
+            from src.notifier import notify_user_payment_approved
+            await notify_user_payment_approved(user_id, label, searches)
+        except Exception:
+            pass
     try:
         from src.activity import log as _alog
-        desc = f"PayPal אוטומטי: {label} ({'התראות' if package_type == 'alerts' else f'{searches} חיפושים'}) למשתמש {user_id}"
+        if package_type == "product":
+            reward_desc = "ממתין למשלוח ידני" if result_status == "pending_delivery" else "נשלח אוטומטית"
+        else:
+            reward_desc = "התראות" if package_type == "alerts" else f"{searches} חיפושים"
+        desc = f"PayPal אוטומטי: {label} ({reward_desc}) למשתמש {user_id}"
         await _alog("payment_approved", desc)
     except Exception:
         pass
@@ -488,7 +577,8 @@ async def get_user_orders(user: dict = Depends(_get_user)):
     from src.db import execute as _dbexec
     uid = int(user["id"])
     r = await _dbexec(
-        "SELECT id, ref, amount, currency, label, searches, status, created_at "
+        "SELECT id, ref, amount, currency, label, searches, status, created_at, "
+        "COALESCE(package_type,'searches'), product_id, delivery_type, COALESCE(delivery_content,'') "
         "FROM paypal_transactions WHERE user_id=? AND status != 'intent' ORDER BY created_at DESC LIMIT 50",
         [uid],
     )
@@ -497,6 +587,7 @@ async def get_user_orders(user: dict = Depends(_get_user)):
         orders.append({
             "id": row[0], "ref": row[1], "amount": row[2], "currency": row[3],
             "label": row[4], "searches": row[5], "status": row[6], "created_at": row[7],
+            "package_type": row[8], "product_id": row[9], "delivery_type": row[10], "delivery_content": row[11],
         })
     return orders
 
@@ -952,6 +1043,121 @@ async def admin_delete_package(pkg_id: int, _: dict = Depends(_require_admin)):
     return {"ok": True}
 
 
+def _product_json(p) -> dict:
+    pid, name, description, image_url, price, delivery_type, delivery_time_note, quantity_stock, display_order, is_active = p
+    return {
+        "id": pid, "name": name, "description": description, "image_url": image_url, "price": price,
+        "delivery_type": delivery_type, "delivery_time_note": delivery_time_note,
+        "quantity_stock": quantity_stock, "display_order": display_order, "is_active": bool(is_active),
+    }
+
+
+class ProductBody(BaseModel):
+    name: str
+    description: str = ""
+    image_url: str = ""
+    price: int
+    delivery_type: str = "manual"
+    delivery_time_note: str = ""
+    quantity_stock: int = 0
+    is_active: bool = True
+
+
+class ProductReorderBody(BaseModel):
+    order: list[int]
+
+
+class ProductStockBody(BaseModel):
+    text: str
+
+
+@api.get("/api/admin/products")
+async def admin_list_products(_: dict = Depends(_require_admin)):
+    from src.products import get_products, available_stock_count
+    prods = await get_products(force_reload=True)
+    out = []
+    for p in prods:
+        item = _product_json(p)
+        item["stock_count"] = await available_stock_count(p[0], p[5])
+        out.append(item)
+    return out
+
+
+@api.put("/api/admin/products/reorder")
+async def admin_reorder_products(body: ProductReorderBody, _: dict = Depends(_require_admin)):
+    from src.products import reorder_products, get_products
+    if not body.order:
+        raise HTTPException(status_code=400, detail="Order list required")
+    await reorder_products(body.order)
+    prods = await get_products(force_reload=True)
+    return [_product_json(p) for p in prods]
+
+
+@api.post("/api/admin/products")
+async def admin_add_product(body: ProductBody, admin: dict = Depends(_require_admin)):
+    from src.products import add_product
+    pid = await add_product(
+        body.name, body.description, body.image_url, body.price, body.delivery_type,
+        body.delivery_time_note, body.quantity_stock, is_active=int(body.is_active),
+    )
+    try:
+        from src.activity import log as _log
+        await _log("product_created", f"מוצר נוצר: {body.name}", int(admin["id"]))
+    except Exception:
+        pass
+    return {"ok": True, "id": pid}
+
+
+@api.put("/api/admin/products/{product_id}")
+async def admin_update_product(product_id: int, body: ProductBody, admin: dict = Depends(_require_admin)):
+    from src.products import update_product
+    await update_product(
+        product_id, name=body.name, description=body.description, image_url=body.image_url,
+        price=body.price, delivery_type=body.delivery_type, delivery_time_note=body.delivery_time_note,
+        quantity_stock=body.quantity_stock, is_active=int(body.is_active),
+    )
+    try:
+        from src.activity import log as _log
+        await _log("product_updated", f"מוצר עודכן: {body.name} (#{product_id})", int(admin["id"]))
+    except Exception:
+        pass
+    return {"ok": True}
+
+
+@api.delete("/api/admin/products/{product_id}")
+async def admin_delete_product(product_id: int, admin: dict = Depends(_require_admin)):
+    from src.products import delete_product
+    await delete_product(product_id)
+    try:
+        from src.activity import log as _log
+        await _log("product_deleted", f"מוצר נמחק: #{product_id}", int(admin["id"]))
+    except Exception:
+        pass
+    return {"ok": True}
+
+
+@api.post("/api/admin/products/{product_id}/stock")
+async def admin_add_product_stock(product_id: int, body: ProductStockBody, admin: dict = Depends(_require_admin)):
+    from src.products import add_stock_units, available_stock_count, get_product
+    prod = await get_product(product_id)
+    if not prod:
+        raise HTTPException(status_code=404, detail="Product not found")
+    lines = [line for line in body.text.splitlines() if line.strip()]
+    added = await add_stock_units(product_id, lines)
+    try:
+        from src.activity import log as _log
+        await _log("product_stock_added", f"נוסף מלאי: +{added} ל-{prod[1]} (#{product_id})", int(admin["id"]))
+    except Exception:
+        pass
+    return {"added": added, "stock_count": await available_stock_count(product_id, "auto")}
+
+
+@api.get("/api/admin/products/{product_id}/stock")
+async def admin_list_product_stock(product_id: int, _: dict = Depends(_require_admin)):
+    from src.products import get_stock_units
+    return await get_stock_units(product_id)
+
+
 _UPLOADS_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 os.makedirs(_UPLOADS_DIR, exist_ok=True)
 
@@ -1249,24 +1455,33 @@ async def admin_list_payments(_: dict = Depends(_require_admin)):
 @api.post("/api/admin/payments/{ref}/approve")
 async def admin_approve_payment(ref: str, admin: dict = Depends(_require_admin)):
     from src.db import execute
-    r = await execute("SELECT phone, searches, label, COALESCE(duration_months,1), COALESCE(package_type,'searches') FROM pending_payments WHERE ref=?", [ref])
+    r = await execute(
+        "SELECT phone, searches, label, COALESCE(duration_months,1), COALESCE(package_type,'searches'), product_id "
+        "FROM pending_payments WHERE ref=?", [ref])
     if not r.rows:
         raise HTTPException(status_code=404, detail="Payment not found")
-    user_id, searches, label, duration_months, package_type = int(r.rows[0][0]), r.rows[0][1], r.rows[0][2], int(r.rows[0][3]), r.rows[0][4]
-    await _grant_payment(user_id, searches, label, duration_months, package_type)
+    user_id, searches, label, duration_months, package_type, product_id = (
+        int(r.rows[0][0]), r.rows[0][1], r.rows[0][2], int(r.rows[0][3]), r.rows[0][4], r.rows[0][5],
+    )
+    result_status = await _grant_payment(user_id, searches, label, duration_months, package_type, ref=ref, product_id=product_id)
     await execute("DELETE FROM pending_payments WHERE ref=?", [ref])
     await execute(
-        "UPDATE paypal_transactions SET status='completed', updated_at=datetime('now') WHERE ref=?", [ref]
+        "UPDATE paypal_transactions SET status=?, updated_at=datetime('now') WHERE ref=?", [result_status, ref]
     )
-    await _order_notify(ref, "completed")
-    try:
-        from src.notifier import notify_user_payment_approved
-        await notify_user_payment_approved(user_id, label, searches)
-    except Exception:
-        pass
+    await _order_notify(ref, result_status)
+    if result_status == "completed":
+        try:
+            from src.notifier import notify_user_payment_approved
+            await notify_user_payment_approved(user_id, label, searches)
+        except Exception:
+            pass
     try:
         from src.activity import log as _log
-        desc = f"תשלום אושר: {label} ({'התראות' if package_type == 'alerts' else f'{searches} חיפושים'}) למשתמש {user_id}"
+        if package_type == "product":
+            reward_desc = "ממתין למשלוח ידני" if result_status == "pending_delivery" else "נשלח אוטומטית"
+        else:
+            reward_desc = "התראות" if package_type == "alerts" else f"{searches} חיפושים"
+        desc = f"תשלום אושר: {label} ({reward_desc}) למשתמש {user_id}"
         await _log("payment_approved", desc)
     except Exception:
         pass
@@ -1317,29 +1532,38 @@ async def admin_decline_payment(ref: str, _: dict = Depends(_require_admin)):
 
 @api.post("/api/admin/orders/{ref}/approve")
 async def admin_order_approve(ref: str, admin: dict = Depends(_require_admin)):
-    """Admin manually approves an order regardless of PayPal status."""
+    """Admin manually approves an order regardless of PayPal status.
+
+    Routes through _grant_payment (like admin_approve_payment already does)
+    instead of hardcoding a search-package grant — a prior version of this
+    endpoint always called admin_grant+add_to_subscribers regardless of
+    package_type, which incorrectly granted search credits for 'alerts' and
+    'product' orders approved from this endpoint."""
     from src.db import execute as _dbexec
-    from src.users import admin_grant, add_to_subscribers
     r = await _dbexec(
-        "SELECT user_id, label, searches, COALESCE(duration_months,1) FROM paypal_transactions WHERE ref=?",
+        "SELECT user_id, label, searches, COALESCE(duration_months,1), COALESCE(package_type,'searches'), product_id "
+        "FROM paypal_transactions WHERE ref=?",
         [ref],
     )
     if not r.rows:
         raise HTTPException(status_code=404, detail="Order not found")
-    user_id, label, searches, duration_months = int(r.rows[0][0]), r.rows[0][1], r.rows[0][2], int(r.rows[0][3])
-    await admin_grant(int(admin["id"]), user_id, searches, duration_months=duration_months)
-    await add_to_subscribers(user_id)
-    await _dbexec("DELETE FROM pending_payments WHERE ref=?", [ref])
-    await _dbexec(
-        "UPDATE paypal_transactions SET status='admin_approved', updated_at=datetime('now') WHERE ref=?",
-        [ref],
+    user_id, label, searches, duration_months, package_type, product_id = (
+        int(r.rows[0][0]), r.rows[0][1], r.rows[0][2], int(r.rows[0][3]), r.rows[0][4], r.rows[0][5],
     )
-    await _order_notify(ref, "admin_approved")
-    try:
-        from src.notifier import notify_user_payment_approved
-        await notify_user_payment_approved(user_id, label, searches)
-    except Exception:
-        pass
+    result_status = await _grant_payment(user_id, searches, label, duration_months, package_type, ref=ref, product_id=product_id)
+    await _dbexec("DELETE FROM pending_payments WHERE ref=?", [ref])
+    status_label = "admin_approved" if result_status == "completed" else result_status
+    await _dbexec(
+        "UPDATE paypal_transactions SET status=?, updated_at=datetime('now') WHERE ref=?",
+        [status_label, ref],
+    )
+    await _order_notify(ref, status_label)
+    if result_status == "completed":
+        try:
+            from src.notifier import notify_user_payment_approved
+            await notify_user_payment_approved(user_id, label, searches)
+        except Exception:
+            pass
     try:
         from src.activity import log as _alog
         await _alog("payment_approved", f"אישור מנהל ידני: {label} למשתמש {user_id}")
@@ -1350,11 +1574,21 @@ async def admin_order_approve(ref: str, admin: dict = Depends(_require_admin)):
 
 @api.post("/api/admin/orders/{ref}/cancel")
 async def admin_order_cancel(ref: str, _: dict = Depends(_require_admin)):
-    """Admin manually cancels an order immediately."""
+    """Admin manually cancels an order immediately. For product orders,
+    restores any stock already claimed/decremented at capture time."""
     from src.db import execute as _dbexec
-    r = await _dbexec("SELECT user_id, label FROM paypal_transactions WHERE ref=?", [ref])
+    r = await _dbexec(
+        "SELECT user_id, label, COALESCE(package_type,'searches'), product_id, delivery_type, status, delivery_content "
+        "FROM paypal_transactions WHERE ref=?", [ref])
     if not r.rows:
         raise HTTPException(status_code=404, detail="Order not found")
+    user_id, label, package_type, product_id, delivery_type, status, delivery_content = r.rows[0]
+    if package_type == "product" and product_id:
+        from src.products import restore_stock_unit, restore_manual_stock
+        if delivery_type == "auto" and delivery_content:
+            await restore_stock_unit(ref)
+        elif delivery_type == "manual" and status == "pending_delivery":
+            await restore_manual_stock(int(product_id))
     await _dbexec("DELETE FROM pending_payments WHERE ref=?", [ref])
     await _dbexec(
         "UPDATE paypal_transactions SET status='admin_cancelled', updated_at=datetime('now') WHERE ref=?",
@@ -1369,13 +1603,28 @@ async def admin_order_cancel(ref: str, _: dict = Depends(_require_admin)):
     return {"ok": True}
 
 
+@api.post("/api/admin/orders/{ref}/deliver")
+async def admin_deliver_order(ref: str, body: dict, admin: dict = Depends(_require_admin)):
+    """Admin sends manual-delivery content for a pending_delivery product order."""
+    content = (body.get("content") or "").strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="content is required")
+    from src.products import deliver_order
+    ok = await deliver_order(ref, content)
+    if not ok:
+        raise HTTPException(status_code=400, detail="Order not found or not pending delivery")
+    await _order_notify(ref, "completed")
+    return {"ok": True}
+
+
 @api.get("/api/admin/paypal/transactions")
 async def admin_paypal_transactions(_: dict = Depends(_require_admin)):
     from src.db import execute
     r = await execute(
         "SELECT pt.id, pt.ref, pt.paypal_order_id, pt.user_id, "
         "COALESCE(u.username, ''), COALESCE(u.full_name, ''), "
-        "pt.amount, pt.currency, pt.label, pt.searches, pt.status, pt.error, pt.created_at, pt.updated_at "
+        "pt.amount, pt.currency, pt.label, pt.searches, pt.status, pt.error, pt.created_at, pt.updated_at, "
+        "COALESCE(pt.package_type,'searches'), pt.product_id, pt.delivery_type "
         "FROM paypal_transactions pt "
         "LEFT JOIN users u ON u.user_id = pt.user_id "
         "ORDER BY pt.created_at DESC LIMIT 200"
@@ -1387,6 +1636,7 @@ async def admin_paypal_transactions(_: dict = Depends(_require_admin)):
             "username": row[4], "full_name": row[5],
             "amount": row[6], "currency": row[7], "label": row[8], "searches": row[9],
             "status": row[10], "error": row[11], "created_at": row[12], "updated_at": row[13],
+            "package_type": row[14], "product_id": row[15], "delivery_type": row[16],
         })
     return results
 

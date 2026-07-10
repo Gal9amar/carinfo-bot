@@ -19,6 +19,11 @@ ICONS = {
     "unblock":           "🔓",
     "broadcast":         "📢",
     "message":           "💌",
+    "product_created":         "📦",
+    "product_updated":         "✏️",
+    "product_deleted":         "🗑️",
+    "product_stock_added":     "📤",
+    "product_order_delivered": "🎉",
 }
 
 

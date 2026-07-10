@@ -212,6 +212,11 @@ async def init_db() -> None:
     PRIMARY KEY (user_id, plate)
 )""")
     migrations.append("ALTER TABLE users ADD COLUMN broadcast_consent INTEGER DEFAULT 1")
+    migrations.append("ALTER TABLE pending_payments ADD COLUMN product_id INTEGER DEFAULT NULL")
+    migrations.append("ALTER TABLE paypal_transactions ADD COLUMN product_id INTEGER DEFAULT NULL")
+    migrations.append("ALTER TABLE paypal_transactions ADD COLUMN delivery_type TEXT DEFAULT NULL")
+    migrations.append("ALTER TABLE paypal_transactions ADD COLUMN delivery_content TEXT DEFAULT ''")
+    migrations.append("ALTER TABLE paypal_transactions ADD COLUMN package_type TEXT DEFAULT 'searches'")
     for sql in statements:
         conn.execute(sql)
     for sql in migrations:
@@ -294,6 +299,8 @@ async def init_db() -> None:
     await init_packages()
     from src.admin_grants import init_admin_grants
     await init_admin_grants()
+    from src.products import init_products
+    await init_products()
 
 
 async def get_vehicle_note(user_id: int, plate: str) -> str:

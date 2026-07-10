@@ -42,12 +42,28 @@ export async function initiatePayment(packageId, quantity = 1, intentOnly = fals
   return r.json()
 }
 
+export async function initiateProductPayment(productId, intentOnly = false) {
+  const r = await fetch(`${BASE}/api/payment/initiate`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ product_id: productId, quantity: 1, intent_only: intentOnly }),
+  })
+  if (!r.ok) throw new Error('Payment init failed')
+  return r.json()
+}
+
 export function promotePayment(ref) {
   fetch(`${BASE}/api/payment/promote`, {
     method: 'POST',
     headers: headers(),
     body: JSON.stringify({ ref }),
   }).catch(() => {})
+}
+
+export async function fetchProducts() {
+  const r = await fetch(`${BASE}/api/products`)
+  if (!r.ok) throw new Error('Failed to load products')
+  return r.json()
 }
 
 export async function confirmPayment(ref, packageId) {
@@ -319,6 +335,65 @@ export async function adminOrderApprove(ref) {
 }
 export async function adminOrderCancel(ref) {
   const r = await fetch(`${BASE}/api/admin/orders/${ref}/cancel`, { method: 'POST', headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+export async function adminDeliverOrder(ref, content) {
+  const r = await fetch(`${BASE}/api/admin/orders/${ref}/deliver`, {
+    method: 'POST', headers: headers(), body: JSON.stringify({ content }),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+// Manual digital products (admin)
+export async function adminFetchProducts() {
+  const r = await fetch(`${BASE}/api/admin/products`, { headers: headers() })
+  if (!r.ok) throw new Error('Unauthorized')
+  return r.json()
+}
+
+export async function adminAddProduct(data) {
+  const r = await fetch(`${BASE}/api/admin/products`, {
+    method: 'POST', headers: headers(), body: JSON.stringify(data),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+export async function adminUpdateProduct(id, data) {
+  const r = await fetch(`${BASE}/api/admin/products/${id}`, {
+    method: 'PUT', headers: headers(), body: JSON.stringify(data),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+export async function adminDeleteProduct(id) {
+  const r = await fetch(`${BASE}/api/admin/products/${id}`, { method: 'DELETE', headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+export async function adminReorderProducts(order) {
+  const r = await fetch(`${BASE}/api/admin/products/reorder`, {
+    method: 'PUT', headers: headers(), body: JSON.stringify({ order }),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+export async function adminUploadProductStock(id, text) {
+  const r = await fetch(`${BASE}/api/admin/products/${id}/stock`, {
+    method: 'POST', headers: headers(), body: JSON.stringify({ text }),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+export async function adminFetchProductStock(id) {
+  const r = await fetch(`${BASE}/api/admin/products/${id}/stock`, { headers: headers() })
   if (!r.ok) throw new Error('Failed')
   return r.json()
 }

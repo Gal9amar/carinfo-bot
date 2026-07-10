@@ -1,14 +1,19 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import BackButton from '../components/BackButton.jsx'
+import { fetchProducts } from '../api.js'
 
 export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSupport, onReferral, onBack }) {
   const [quantities, setQuantities] = useState({})
+  const [products, setProducts] = useState([])
   function getQty(id) { return quantities[id] ?? 1 }
   function setQty(id, val, max = 10) {
     setQuantities(q => ({ ...q, [id]: Math.max(1, Math.min(max, val)) }))
   }
 
+  useEffect(() => { fetchProducts().then(setProducts).catch(() => setProducts([])) }, [])
+
   function handleSelect(pkg) { onSelect(pkg) }
+  function handleSelectProduct(p) { onSelect({ ...p, label: p.name, _isProduct: true }) }
 
   const isFreeUser = user && !user.is_subscriber
   const subLabel   = user?.subscription_label || null
@@ -486,6 +491,92 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
                       cursor: 'pointer', boxShadow: '0 4px 14px rgba(0,0,0,0.25)', letterSpacing: 0.4,
                     }}
                   >🔔 רכישת חבילת התראות</button>
+                </div>
+              </div>
+            )
+          })}
+        </>
+      )}
+
+      {/* ── Section: מוצרים דיגיטליים ── */}
+      {products.length > 0 && (
+        <>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, marginTop: 8, color: 'var(--text)' }}>
+            🛍️ מוצרים דיגיטליים
+          </div>
+          {products.map(p => {
+            const accent = '#f59e0b'
+            const grad   = 'linear-gradient(135deg,#92400e,#f59e0b)'
+            return (
+              <div key={p.id} style={{
+                borderRadius: 20, overflow: 'hidden', marginBottom: 22, position: 'relative',
+                boxShadow: '0 6px 28px rgba(0,0,0,0.18), 0 0 0 1px rgba(255,255,255,0.07)',
+                background: 'var(--bg2)', opacity: p.in_stock ? 1 : 0.6,
+              }}>
+                {!p.in_stock && (
+                  <div style={{
+                    position: 'absolute', top: 10, left: 10, zIndex: 1,
+                    background: '#e53e3e', color: '#fff', fontSize: 11, fontWeight: 700,
+                    borderRadius: 20, padding: '3px 10px',
+                  }}>אזל המלאי</div>
+                )}
+                <div style={{ position: 'relative', height: p.image_url ? 170 : 150 }}>
+                  {p.image_url
+                    ? <img src={p.image_url} alt={p.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    : <div style={{ width: '100%', height: '100%', background: grad,
+                        display: 'flex', flexDirection: 'column',
+                        alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                        <span style={{ fontSize: 52, lineHeight: 1 }}>📦</span>
+                      </div>
+                  }
+                  <div style={{
+                    position: 'absolute', inset: 0,
+                    background: 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, transparent 55%)',
+                    display: 'flex', alignItems: 'flex-end', padding: '12px 14px',
+                  }}>
+                    <span style={{
+                      fontSize: 13, fontWeight: 400, padding: '4px 12px',
+                      background: accent, color: '#000', borderRadius: 20, whiteSpace: 'nowrap',
+                    }}>📦 {p.name}</span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 7, padding: '14px 14px 10px', flexWrap: 'wrap' }}>
+                  <Chip accent={accent}>{p.delivery_type === 'auto' ? '⚡ אספקה מיידית' : '🕐 אספקה ידנית'}</Chip>
+                  {p.delivery_time_note && <Chip accent={accent}>⏱ {p.delivery_time_note}</Chip>}
+                </div>
+
+                {p.description && (
+                  <>
+                    <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 14px' }} />
+                    <div style={{ padding: '12px 16px', fontSize: 13, color: 'var(--hint)', lineHeight: 1.7 }}>
+                      {p.description}
+                    </div>
+                  </>
+                )}
+
+                <div style={{ padding: '10px 14px 16px' }}>
+                  <div style={{
+                    display: 'flex', alignItems: 'baseline', justifyContent: 'center',
+                    gap: 6, marginBottom: 12,
+                  }}>
+                    <span style={{ fontSize: 40, fontWeight: 900, color: accent, lineHeight: 1 }}>
+                      ₪{p.price}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => handleSelectProduct(p)}
+                    disabled={!p.in_stock}
+                    style={{
+                      width: '100%', padding: '14px 0', border: 'none', borderRadius: 14,
+                      background: p.in_stock ? grad : 'var(--bg)',
+                      color: p.in_stock ? '#fff' : 'var(--hint)', fontSize: 16, fontWeight: 700,
+                      cursor: p.in_stock ? 'pointer' : 'default',
+                      boxShadow: p.in_stock ? '0 4px 14px rgba(0,0,0,0.25)' : 'none',
+                      letterSpacing: 0.4,
+                    }}
+                  >{p.in_stock ? '🛍️ רכישה' : 'אזל המלאי'}</button>
                 </div>
               </div>
             )
