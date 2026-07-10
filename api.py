@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 BOT_TOKEN    = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 ADMIN_ID     = int(os.environ.get("ADMIN_TELEGRAM_ID", "594206475"))
-PAYPAL_ME    = os.environ.get("PAYPAL_ME", "https://www.paypal.me/G9ST")
+PAYPAL_ME    = os.environ.get("PAYPAL_ME", "https://paypal.me/carinfo")
 PAYBOX_URL   = os.environ.get("PAYBOX_URL", "https://links.payboxapp.com/xjZpYBP2n3b")
 BOT_USERNAME = os.environ.get("BOT_USERNAME", "israelcarinfobot")
 WEBAPP_URL   = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
