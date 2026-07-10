@@ -126,12 +126,14 @@ async def list_products():
     prods = await get_products(active_only=True)
     out = []
     for p in prods:
-        pid, name, description, image_url, price, delivery_type, delivery_time_note, quantity_stock, display_order, is_active = p
+        (pid, name, description, image_url, price, delivery_type, delivery_time_note, quantity_stock,
+         display_order, is_active, availability_status, features) = p
         stock = await available_stock_count(pid, delivery_type)
         out.append({
             "id": pid, "name": name, "description": description, "image_url": image_url,
             "price": price, "delivery_type": delivery_type, "delivery_time_note": delivery_time_note,
             "display_order": display_order, "in_stock": stock > 0, "stock_count": stock,
+            "availability_status": availability_status, "features": features,
         })
     return out
 
@@ -260,9 +262,12 @@ async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_u
         prod = await get_product(body.product_id)
         if not prod:
             raise HTTPException(status_code=404, detail="Product not found")
-        product_id, name, description, _img, price, delivery_type, delivery_time_note, quantity_stock, _order, is_active = prod
+        (product_id, name, description, _img, price, delivery_type, delivery_time_note, quantity_stock,
+         _order, is_active, availability_status, _features) = prod
         if not is_active:
             raise HTTPException(status_code=400, detail="Product unavailable")
+        if availability_status == "coming_soon":
+            raise HTTPException(status_code=400, detail="Product not yet available")
         stock = await available_stock_count(product_id, delivery_type)
         if stock <= 0:
             raise HTTPException(status_code=400, detail="Out of stock")
@@ -386,7 +391,7 @@ async def _order_notify(ref: str, status: str, label: str = "", amount=None) -> 
 
 async def _grant_payment(
     user_id: int, searches: int, label: str, duration_months: int, package_type: str,
-    ref: str = "", product_id: int | None = None,
+    ref: str = "", product_id: int | None = None, product_quantity: int = 1,
 ) -> str:
     """Apply the reward for an approved payment based on package_type.
     Returns 'completed' or 'pending_delivery' (only 'product'+manual-delivery,
@@ -407,21 +412,47 @@ async def _grant_payment(
             # Product deleted after purchase — degrade gracefully; admin must handle manually.
             return "pending_delivery"
         delivery_type = prod[5]
+        qty = max(1, product_quantity)
         if delivery_type == "auto":
-            content = await claim_stock_unit(product_id, ref)
-            if content:
-                await execute("UPDATE paypal_transactions SET delivery_content=? WHERE ref=?", [content, ref])
+            claimed: list[str] = []
+            for _ in range(qty):
+                content = await claim_stock_unit(product_id, ref)
+                if not content:
+                    break
+                claimed.append(content)
+            if claimed:
+                combined = "\n\n".join(claimed)
+                await execute("UPDATE paypal_transactions SET delivery_content=? WHERE ref=?", [combined, ref])
                 try:
                     from src.notifier import send_user_message
-                    await send_user_message(user_id, f"📦 ההזמנה שלך מוכנה!\n\n{content}")
+                    for content in claimed:
+                        await send_user_message(user_id, f"📦 ההזמנה שלך מוכנה!\n\n{content}")
                 except Exception:
                     pass
+                if len(claimed) < qty:
+                    # Partial fulfillment — remaining units go through manual delivery.
+                    try:
+                        from src.notifier import notify_admin_product_delivery_needed
+                        await notify_admin_product_delivery_needed(
+                            ref, user_id, f"{label} (נותרו {qty - len(claimed)} יחידות למשלוח ידני)",
+                        )
+                    except Exception:
+                        pass
+                    try:
+                        from src.notifier import notify_admin_order_delivered
+                        price = prod[4]
+                        uname_r = await execute("SELECT COALESCE(username,'') FROM users WHERE user_id=?", [user_id])
+                        username = uname_r.rows[0][0] if uname_r.rows else ""
+                        await notify_admin_order_delivered(ref, user_id, username, label, price, combined, auto=True)
+                    except Exception:
+                        pass
+                    return "pending_delivery"
                 try:
                     from src.notifier import notify_admin_order_delivered
                     price = prod[4]
                     uname_r = await execute("SELECT COALESCE(username,'') FROM users WHERE user_id=?", [user_id])
                     username = uname_r.rows[0][0] if uname_r.rows else ""
-                    await notify_admin_order_delivered(ref, user_id, username, label, price, content, auto=True)
+                    await notify_admin_order_delivered(ref, user_id, username, label, price, combined, auto=True)
                 except Exception:
                     pass
                 return "completed"
@@ -433,7 +464,8 @@ async def _grant_payment(
                 pass
             return "pending_delivery"
         else:
-            await decrement_manual_stock(product_id)
+            for _ in range(qty):
+                await decrement_manual_stock(product_id)
             try:
                 from src.notifier import notify_admin_product_delivery_needed
                 await notify_admin_product_delivery_needed(ref, user_id, label)
@@ -921,11 +953,13 @@ async def admin_delete_package(pkg_id: int, _: dict = Depends(_require_admin)):
 
 
 def _product_json(p) -> dict:
-    pid, name, description, image_url, price, delivery_type, delivery_time_note, quantity_stock, display_order, is_active = p
+    (pid, name, description, image_url, price, delivery_type, delivery_time_note, quantity_stock,
+     display_order, is_active, availability_status, features) = p
     return {
         "id": pid, "name": name, "description": description, "image_url": image_url, "price": price,
         "delivery_type": delivery_type, "delivery_time_note": delivery_time_note,
         "quantity_stock": quantity_stock, "display_order": display_order, "is_active": bool(is_active),
+        "availability_status": availability_status, "features": features,
     }
 
 
@@ -938,6 +972,8 @@ class ProductBody(BaseModel):
     delivery_time_note: str = ""
     quantity_stock: int = 0
     is_active: bool = True
+    availability_status: str = "available"
+    features: list = []
 
 
 class ProductReorderBody(BaseModel):
@@ -976,6 +1012,7 @@ async def admin_add_product(body: ProductBody, admin: dict = Depends(_require_ad
     pid = await add_product(
         body.name, body.description, body.image_url, body.price, body.delivery_type,
         body.delivery_time_note, body.quantity_stock, is_active=int(body.is_active),
+        availability_status=body.availability_status, features=body.features,
     )
     try:
         from src.activity import log as _log
@@ -992,6 +1029,7 @@ async def admin_update_product(product_id: int, body: ProductBody, admin: dict =
         product_id, name=body.name, description=body.description, image_url=body.image_url,
         price=body.price, delivery_type=body.delivery_type, delivery_time_note=body.delivery_time_note,
         quantity_stock=body.quantity_stock, is_active=int(body.is_active),
+        availability_status=body.availability_status, features=body.features,
     )
     try:
         from src.activity import log as _log
@@ -1347,14 +1385,17 @@ async def admin_list_payments(_: dict = Depends(_require_admin)):
 async def admin_approve_payment(ref: str, admin: dict = Depends(_require_admin)):
     from src.db import execute
     r = await execute(
-        "SELECT phone, searches, label, COALESCE(duration_months,1), COALESCE(package_type,'searches'), product_id "
-        "FROM pending_payments WHERE ref=?", [ref])
+        "SELECT phone, searches, label, COALESCE(duration_months,1), COALESCE(package_type,'searches'), product_id, "
+        "COALESCE(product_quantity,1) FROM pending_payments WHERE ref=?", [ref])
     if not r.rows:
         raise HTTPException(status_code=404, detail="Payment not found")
-    user_id, searches, label, duration_months, package_type, product_id = (
-        int(r.rows[0][0]), r.rows[0][1], r.rows[0][2], int(r.rows[0][3]), r.rows[0][4], r.rows[0][5],
+    user_id, searches, label, duration_months, package_type, product_id, product_quantity = (
+        int(r.rows[0][0]), r.rows[0][1], r.rows[0][2], int(r.rows[0][3]), r.rows[0][4], r.rows[0][5], int(r.rows[0][6]),
     )
-    result_status = await _grant_payment(user_id, searches, label, duration_months, package_type, ref=ref, product_id=product_id)
+    result_status = await _grant_payment(
+        user_id, searches, label, duration_months, package_type,
+        ref=ref, product_id=product_id, product_quantity=product_quantity,
+    )
     await execute("DELETE FROM pending_payments WHERE ref=?", [ref])
     await execute(
         "UPDATE paypal_transactions SET status=?, updated_at=datetime('now') WHERE ref=?", [result_status, ref]
@@ -1435,16 +1476,19 @@ async def admin_order_approve(ref: str, admin: dict = Depends(_require_admin)):
     'product' orders approved from this endpoint."""
     from src.db import execute as _dbexec
     r = await _dbexec(
-        "SELECT user_id, label, searches, COALESCE(duration_months,1), COALESCE(package_type,'searches'), product_id "
-        "FROM paypal_transactions WHERE ref=?",
+        "SELECT user_id, label, searches, COALESCE(duration_months,1), COALESCE(package_type,'searches'), product_id, "
+        "COALESCE(product_quantity,1) FROM paypal_transactions WHERE ref=?",
         [ref],
     )
     if not r.rows:
         raise HTTPException(status_code=404, detail="Order not found")
-    user_id, label, searches, duration_months, package_type, product_id = (
-        int(r.rows[0][0]), r.rows[0][1], r.rows[0][2], int(r.rows[0][3]), r.rows[0][4], r.rows[0][5],
+    user_id, label, searches, duration_months, package_type, product_id, product_quantity = (
+        int(r.rows[0][0]), r.rows[0][1], r.rows[0][2], int(r.rows[0][3]), r.rows[0][4], r.rows[0][5], int(r.rows[0][6]),
     )
-    result_status = await _grant_payment(user_id, searches, label, duration_months, package_type, ref=ref, product_id=product_id)
+    result_status = await _grant_payment(
+        user_id, searches, label, duration_months, package_type,
+        ref=ref, product_id=product_id, product_quantity=product_quantity,
+    )
     await _dbexec("DELETE FROM pending_payments WHERE ref=?", [ref])
     status_label = "admin_approved" if result_status == "completed" else result_status
     await _dbexec(

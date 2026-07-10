@@ -14,7 +14,7 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
   useEffect(() => { fetchProducts().then(setProducts).catch(() => setProducts([])) }, [])
 
   function handleSelect(pkg) { onSelect(pkg) }
-  function handleSelectProduct(p) { onSelect({ ...p, label: p.name, _isProduct: true }) }
+  function handleSelectProduct(p, qty = 1) { onSelect({ ...p, label: p.name, _isProduct: true, _qty: qty }) }
 
   const isFreeUser = user && !user.is_subscriber
   const subLabel   = user?.subscription_label || null
@@ -105,18 +105,24 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
           {products.map(p => {
             const accent = '#f59e0b'
             const grad   = 'linear-gradient(135deg,#92400e,#f59e0b)'
+            const maxQty = Math.max(1, Math.min(10, p.stock_count ?? 1))
+            const qty    = Math.min(getQty(p.id), maxQty)
+            const totalPrice = p.price * qty
+            const isComingSoon = p.availability_status === 'coming_soon'
+            const isBuyable = p.in_stock && !isComingSoon
+            const ribbon = isComingSoon ? { text: '🔜 בקרוב', bg: '#3182ce' } : !p.in_stock ? { text: 'אזל המלאי', bg: '#e53e3e' } : null
             return (
               <div key={p.id} style={{
                 borderRadius: 20, overflow: 'hidden', marginBottom: 22, position: 'relative',
                 boxShadow: '0 6px 28px rgba(0,0,0,0.18), 0 0 0 1px rgba(255,255,255,0.07)',
-                background: 'var(--bg2)', opacity: p.in_stock ? 1 : 0.6,
+                background: 'var(--bg2)', opacity: isBuyable ? 1 : 0.6,
               }}>
-                {!p.in_stock && (
+                {ribbon && (
                   <div style={{
                     position: 'absolute', top: 10, left: 10, zIndex: 1,
-                    background: '#e53e3e', color: '#fff', fontSize: 11, fontWeight: 700,
+                    background: ribbon.bg, color: '#fff', fontSize: 11, fontWeight: 700,
                     borderRadius: 20, padding: '3px 10px',
-                  }}>אזל המלאי</div>
+                  }}>{ribbon.text}</div>
                 )}
                 <div style={{ position: 'relative', height: p.image_url ? 170 : 150 }}>
                   {p.image_url
@@ -156,27 +162,78 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
                   </>
                 )}
 
+                {p.features?.length > 0 && (
+                  <>
+                    <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 14px' }} />
+                    <div style={{ padding: '12px 16px', fontSize: 13, lineHeight: 1.9 }}>
+                      {p.features.map((f, i) => {
+                        if (f.state === 'plain') {
+                          return <div key={i} style={{ color: 'var(--hint)' }}>{f.text}</div>
+                        }
+                        const included = f.state === 'included'
+                        return (
+                          <div key={i} style={{ color: included ? 'var(--hint)' : '#e53e3e', opacity: included ? 1 : 0.75 }}>
+                            {included ? '✅' : '✗'} {f.text}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </>
+                )}
+
+                {isBuyable && maxQty > 1 && (
+                  <>
+                    <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 14px' }} />
+                    <div style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '12px 16px',
+                    }}>
+                      <span style={{ fontSize: 13, color: 'var(--hint)' }}>כמות</span>
+                      <div style={{ display: 'flex', alignItems: 'center',
+                        background: 'var(--bg)', borderRadius: 12, overflow: 'hidden' }}>
+                        <button onClick={() => setQty(p.id, qty - 1, maxQty)} disabled={qty <= 1} style={{
+                          width: 44, height: 40, border: 'none', background: 'transparent',
+                          fontSize: 22, cursor: qty <= 1 ? 'default' : 'pointer',
+                          color: qty <= 1 ? 'var(--hint)' : accent, fontWeight: 700,
+                        }}>−</button>
+                        <span style={{ width: 34, textAlign: 'center', fontWeight: 800, fontSize: 16 }}>{qty}</span>
+                        <button onClick={() => setQty(p.id, qty + 1, maxQty)} disabled={qty >= maxQty} style={{
+                          width: 44, height: 40, border: 'none', background: 'transparent',
+                          fontSize: 22, cursor: qty >= maxQty ? 'default' : 'pointer',
+                          color: qty >= maxQty ? 'var(--hint)' : accent, fontWeight: 700,
+                        }}>+</button>
+                      </div>
+                      <span style={{ fontSize: 13, color: 'var(--hint)' }}>
+                        מקסימום <strong style={{ color: 'var(--text)' }}>{maxQty}</strong>
+                      </span>
+                    </div>
+                  </>
+                )}
+
                 <div style={{ padding: '10px 14px 16px' }}>
                   <div style={{
                     display: 'flex', alignItems: 'baseline', justifyContent: 'center',
                     gap: 6, marginBottom: 12,
                   }}>
                     <span style={{ fontSize: 40, fontWeight: 900, color: accent, lineHeight: 1 }}>
-                      ₪{p.price}
+                      ₪{totalPrice}
                     </span>
+                    {qty > 1 && (
+                      <span style={{ fontSize: 12, color: 'var(--hint)' }}>({qty} × ₪{p.price})</span>
+                    )}
                   </div>
                   <button
-                    onClick={() => handleSelectProduct(p)}
-                    disabled={!p.in_stock}
+                    onClick={() => handleSelectProduct(p, qty)}
+                    disabled={!isBuyable}
                     style={{
                       width: '100%', padding: '14px 0', border: 'none', borderRadius: 14,
-                      background: p.in_stock ? grad : 'var(--bg)',
-                      color: p.in_stock ? '#fff' : 'var(--hint)', fontSize: 16, fontWeight: 700,
-                      cursor: p.in_stock ? 'pointer' : 'default',
-                      boxShadow: p.in_stock ? '0 4px 14px rgba(0,0,0,0.25)' : 'none',
+                      background: isBuyable ? grad : 'var(--bg)',
+                      color: isBuyable ? '#fff' : 'var(--hint)', fontSize: 16, fontWeight: 700,
+                      cursor: isBuyable ? 'pointer' : 'default',
+                      boxShadow: isBuyable ? '0 4px 14px rgba(0,0,0,0.25)' : 'none',
                       letterSpacing: 0.4,
                     }}
-                  >{p.in_stock ? '🛍️ רכישה' : 'אזל המלאי'}</button>
+                  >{isComingSoon ? '🔜 בקרוב' : isBuyable ? '🛍️ רכישה' : 'אזל המלאי'}</button>
                 </div>
               </div>
             )

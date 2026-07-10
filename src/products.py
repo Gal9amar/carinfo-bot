@@ -8,9 +8,10 @@ Two stock modes:
                                admin webapp, see deliver_order()).
 """
 
+import json
 from src.db import execute
 
-_cache: list[tuple] | None = None  # (id, name, description, image_url, price, delivery_type, delivery_time_note, quantity_stock, display_order, is_active)
+_cache: list[tuple] | None = None  # (id, name, description, image_url, price, delivery_type, delivery_time_note, quantity_stock, display_order, is_active, availability_status, features)
 
 
 async def init_products() -> None:
@@ -43,20 +44,50 @@ async def init_products() -> None:
         await execute("CREATE INDEX IF NOT EXISTS idx_product_stock_unused ON product_stock(product_id, is_used)")
     except Exception:
         pass
+    for migration in [
+        "ALTER TABLE products ADD COLUMN availability_status TEXT DEFAULT 'available'",
+        "ALTER TABLE products ADD COLUMN features TEXT DEFAULT '[]'",
+    ]:
+        try:
+            await execute(migration)
+        except Exception:
+            pass
     await get_products(force_reload=True)
+
+
+def _normalize_features(raw) -> list:
+    """Feature entries are {text, state} where state is 'included' (✓),
+    'excluded' (✗), or 'plain' (no icon, just text). Accepts a JSON string
+    (from DB) or a Python list (from API body); tolerates the older
+    {text, included: bool} shape too."""
+    try:
+        data = json.loads(raw) if isinstance(raw, str) else (raw or [])
+        result = []
+        for item in data:
+            if not isinstance(item, dict) or "text" not in item:
+                continue
+            if "state" in item and item["state"] in ("included", "excluded", "plain"):
+                state = item["state"]
+            else:
+                state = "included" if item.get("included", True) else "excluded"
+            result.append({"text": item["text"], "state": state})
+        return result
+    except Exception:
+        return []
 
 
 async def get_products(force_reload: bool = False, active_only: bool = False) -> list[tuple]:
     """Returns (id, name, description, image_url, price, delivery_type, delivery_time_note,
-    quantity_stock, display_order, is_active) sorted by display_order."""
+    quantity_stock, display_order, is_active, availability_status, features) sorted by display_order."""
     global _cache
     if _cache is None or force_reload:
         r = await execute(
             "SELECT id, name, COALESCE(description,''), COALESCE(image_url,''), price, "
             "delivery_type, COALESCE(delivery_time_note,''), COALESCE(quantity_stock,0), "
-            "display_order, COALESCE(is_active,1) FROM products ORDER BY display_order, id"
+            "display_order, COALESCE(is_active,1), COALESCE(availability_status,'available'), "
+            "COALESCE(features,'[]') FROM products ORDER BY display_order, id"
         )
-        _cache = [tuple(row) for row in r.rows]
+        _cache = [tuple(row[:11]) + (_normalize_features(row[11]),) for row in r.rows]
     if active_only:
         return [p for p in _cache if p[9] == 1]
     return _cache
@@ -70,14 +101,16 @@ async def get_product(product_id: int) -> tuple | None:
 async def add_product(
     name: str, description: str = "", image_url: str = "", price: int = 0,
     delivery_type: str = "manual", delivery_time_note: str = "", quantity_stock: int = 0,
-    is_active: int = 1,
+    is_active: int = 1, availability_status: str = "available", features: list | None = None,
 ) -> int:
     r = await execute("SELECT COALESCE(MAX(display_order), 0) + 1 FROM products")
     next_order = r.rows[0][0] if r.rows else 1
+    features_json = json.dumps(_normalize_features(features), ensure_ascii=False)
     r2 = await execute(
         "INSERT INTO products (name, description, image_url, price, delivery_type, delivery_time_note, "
-        "quantity_stock, display_order, is_active) VALUES (?,?,?,?,?,?,?,?,?) RETURNING id",
-        [name, description, image_url, price, delivery_type, delivery_time_note, quantity_stock, next_order, is_active],
+        "quantity_stock, display_order, is_active, availability_status, features) VALUES (?,?,?,?,?,?,?,?,?,?,?) RETURNING id",
+        [name, description, image_url, price, delivery_type, delivery_time_note, quantity_stock, next_order,
+         is_active, availability_status, features_json],
     )
     await get_products(force_reload=True)
     return r2.rows[0][0] if r2.rows else 0
@@ -85,10 +118,12 @@ async def add_product(
 
 async def update_product(product_id: int, **kwargs) -> None:
     allowed = {"name", "description", "image_url", "price", "delivery_type",
-               "delivery_time_note", "quantity_stock", "is_active"}
+               "delivery_time_note", "quantity_stock", "is_active", "availability_status", "features"}
     fields = {k: v for k, v in kwargs.items() if k in allowed}
     if not fields:
         return
+    if "features" in fields:
+        fields["features"] = json.dumps(_normalize_features(fields["features"]), ensure_ascii=False)
     set_clause = ", ".join(f"{k}=?" for k in fields)
     await execute(f"UPDATE products SET {set_clause} WHERE id=?", [*fields.values(), product_id])
     await get_products(force_reload=True)

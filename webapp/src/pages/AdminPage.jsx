@@ -510,7 +510,7 @@ function ProductsTab() {
   const [editing, setEditing] = useState(null)
   const [adding, setAdding] = useState(false)
   const [stockTarget, setStockTarget] = useState(null)
-  const [form, setForm] = useState({ name: '', description: '', image_url: '', price: '', delivery_type: 'manual', delivery_time_note: '', quantity_stock: '', is_active: true })
+  const [form, setForm] = useState({ name: '', description: '', image_url: '', price: '', delivery_type: 'manual', delivery_time_note: '', quantity_stock: '', is_active: true, availability_status: 'available', features: [] })
   const [saving, setSaving] = useState(false)
 
   function load() { adminFetchProducts().then(setProds).catch(() => setProds([])) }
@@ -526,6 +526,8 @@ function ProductsTab() {
       delivery_time_note: f.delivery_time_note || '',
       quantity_stock: parseInt(f.quantity_stock) || 0,
       is_active: f.is_active !== false,
+      availability_status: f.availability_status || 'available',
+      features: f.features || [],
     }
   }
 
@@ -583,6 +585,9 @@ function ProductsTab() {
                 </div>
                 <div className="card-subtitle">₪{p.price} · {deliveryLabel} · מלאי: {p.stock_count ?? 0}</div>
                 {p.delivery_time_note && <div style={{ fontSize: 11, color: 'var(--hint)' }}>⏱ {p.delivery_time_note}</div>}
+                {p.availability_status === 'coming_soon' && (
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#3182ce22', color: '#3182ce' }}>🔜 בקרוב</span>
+                )}
               </div>
               <div style={{ display: 'flex', gap: 4, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                 {p.delivery_type === 'auto' && (
@@ -590,7 +595,7 @@ function ProductsTab() {
                     onClick={() => setStockTarget(p)}>📤 מלאי</button>
                 )}
                 <button className="btn" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
-                  onClick={() => { setEditing(p); setForm({ name: p.name, description: p.description || '', image_url: p.image_url || '', price: String(p.price), delivery_type: p.delivery_type, delivery_time_note: p.delivery_time_note || '', quantity_stock: String(p.quantity_stock ?? 0), is_active: p.is_active !== false }) }}>
+                  onClick={() => { setEditing(p); setForm({ name: p.name, description: p.description || '', image_url: p.image_url || '', price: String(p.price), delivery_type: p.delivery_type, delivery_time_note: p.delivery_time_note || '', quantity_stock: String(p.quantity_stock ?? 0), is_active: p.is_active !== false, availability_status: p.availability_status || 'available', features: p.features || [] }) }}>
                   ✏️
                 </button>
                 <button className="btn btn-danger" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
@@ -600,7 +605,7 @@ function ProductsTab() {
           </div>
         )
       })}
-      <button className="btn btn-success" onClick={() => { setAdding(true); setForm({ name: '', description: '', image_url: '', price: '', delivery_type: 'manual', delivery_time_note: '', quantity_stock: '', stock_text: '', is_active: true }) }}>
+      <button className="btn btn-success" onClick={() => { setAdding(true); setForm({ name: '', description: '', image_url: '', price: '', delivery_type: 'manual', delivery_time_note: '', quantity_stock: '', stock_text: '', is_active: true, availability_status: 'available', features: [] }) }}>
         ➕ הוסף מוצר דיגיטלי
       </button>
 
@@ -613,6 +618,92 @@ function ProductsTab() {
       {stockTarget && (
         <ProductStockModal product={stockTarget} onClose={() => { setStockTarget(null); load() }} />
       )}
+    </div>
+  )
+}
+
+function ProductFeaturesEditor({ features, onChange }) {
+  const [newFeature, setNewFeature] = useState('')
+
+  function setFeatureState(text, state) {
+    onChange(features.map(f => f.text === text ? { ...f, state } : f))
+  }
+
+  function moveFeature(idx, dir) {
+    const arr = [...features]
+    const to = idx + dir
+    if (to < 0 || to >= arr.length) return
+    ;[arr[idx], arr[to]] = [arr[to], arr[idx]]
+    onChange(arr)
+  }
+
+  function addCustomFeature() {
+    const text = newFeature.trim()
+    if (!text || features.find(f => f.text === text)) return
+    onChange([...features, { text, state: 'included' }])
+    setNewFeature('')
+  }
+
+  function removeFeature(text) {
+    onChange(features.filter(f => f.text !== text))
+  }
+
+  const STATES = [
+    { state: 'included', icon: '✓', color: '#38a169', title: 'קיים' },
+    { state: 'excluded', icon: '✗', color: '#e53e3e', title: 'לא קיים' },
+    { state: 'plain', icon: '•', color: 'var(--hint)', title: 'טקסט בלבד (ללא אייקון)' },
+  ]
+
+  return (
+    <div style={{ marginTop: 4, marginBottom: 12 }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--hint)', marginBottom: 8 }}>
+        תכונות המוצר
+        <span style={{ fontWeight: 400, marginRight: 6 }}>· ✓ קיים &nbsp; ✗ לא קיים &nbsp; • טקסט בלבד</span>
+      </div>
+
+      {features.map((item, idx) => (
+        <div key={item.text} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 7 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 1, flexShrink: 0 }}>
+            <button type="button" onClick={() => moveFeature(idx, -1)} disabled={idx === 0}
+              style={{ width: 20, height: 18, border: '1px solid rgba(255,255,255,0.15)', borderRadius: 4, background: 'transparent', color: idx === 0 ? 'rgba(255,255,255,0.15)' : 'var(--hint)', cursor: idx === 0 ? 'default' : 'pointer', fontSize: 10, lineHeight: 1, padding: 0 }}>▲</button>
+            <button type="button" onClick={() => moveFeature(idx, 1)} disabled={idx === features.length - 1}
+              style={{ width: 20, height: 18, border: '1px solid rgba(255,255,255,0.15)', borderRadius: 4, background: 'transparent', color: idx === features.length - 1 ? 'rgba(255,255,255,0.15)' : 'var(--hint)', cursor: idx === features.length - 1 ? 'default' : 'pointer', fontSize: 10, lineHeight: 1, padding: 0 }}>▼</button>
+          </div>
+          <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+            {STATES.map(s => (
+              <button key={s.state} type="button" onClick={() => setFeatureState(item.text, s.state)}
+                style={{
+                  width: 28, height: 28, border: '1.5px solid', borderRadius: 7,
+                  borderColor: item.state === s.state ? s.color : 'rgba(255,255,255,0.2)',
+                  background: item.state === s.state ? `${s.color}22` : 'transparent',
+                  color: item.state === s.state ? s.color : 'var(--hint)',
+                  cursor: 'pointer', fontSize: 14, lineHeight: 1, fontWeight: 700,
+                }} title={s.title}>{s.icon}</button>
+            ))}
+          </div>
+          <span style={{ fontSize: 13, flex: 1, lineHeight: 1.4 }}>{item.text}</span>
+          <button type="button" onClick={() => removeFeature(item.text)}
+            style={{ background: 'none', border: 'none', color: 'var(--hint)', cursor: 'pointer', fontSize: 15, padding: '0 2px', flexShrink: 0 }} title="הסר">✕</button>
+        </div>
+      ))}
+
+      <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+        <input
+          className="input"
+          style={{ flex: 1, marginBottom: 0, fontSize: 13 }}
+          placeholder="הוסף תכונה חדשה..."
+          value={newFeature}
+          onChange={e => setNewFeature(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && addCustomFeature()}
+        />
+        <button
+          type="button"
+          className="btn"
+          style={{ width: 'auto', padding: '0 14px', marginTop: 0, fontSize: 13, flexShrink: 0 }}
+          disabled={!newFeature.trim()}
+          onClick={addCustomFeature}
+        >+</button>
+      </div>
     </div>
   )
 }
@@ -681,6 +772,16 @@ function ProductModal({ title, form, setForm, saving, onSave, onClose, isNew }) 
           מוצר פעיל
         </label>
 
+        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--hint)', marginBottom: 6 }}>סטטוס זמינות</div>
+        <select
+          className="input"
+          value={form.availability_status || 'available'}
+          onChange={e => setForm(f => ({ ...f, availability_status: e.target.value }))}
+        >
+          <option value="available">✅ זמין</option>
+          <option value="coming_soon">🔜 בקרוב</option>
+        </select>
+
         <select
           className="input"
           value={form.delivery_type}
@@ -727,6 +828,11 @@ function ProductModal({ title, form, setForm, saving, onSave, onClose, isNew }) 
             </div>
           )
         )}
+
+        <ProductFeaturesEditor
+          features={form.features || []}
+          onChange={features => setForm(f => ({ ...f, features }))}
+        />
 
         {form.image_url ? (
           <div style={{ position: 'relative', marginBottom: 8 }}>
