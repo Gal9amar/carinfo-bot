@@ -643,7 +643,7 @@ function ProductModal({ title, form, setForm, saving, onSave, onClose, isNew }) 
     reader.readAsDataURL(file)
   }
 
-  const valid = form.name?.trim() && parseInt(form.price) > 0
+  const valid = form.name?.trim() && form.price !== '' && parseInt(form.price) >= 0
 
   return (
     <div className="modal-overlay-full">

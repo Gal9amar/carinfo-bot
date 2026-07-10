@@ -247,7 +247,6 @@ class PaymentInitRequest(BaseModel):
 
 @api.post("/api/payment/initiate")
 async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_user)):
-    import os as _os
     from src.db import execute, set_bot_setting, get_bot_setting, execute as _dbexec
 
     if (body.package_id is None) == (body.product_id is None):
@@ -401,8 +400,8 @@ async def _grant_payment(
         return "completed"
     elif package_type == "product":
         from src.products import get_product, claim_stock_unit, decrement_manual_stock
-        prod = await get_product(product_id) if product_id else None
-        if not prod:
+        prod = await get_product(product_id) if product_id is not None else None
+        if not prod or product_id is None:
             # Product deleted after purchase — degrade gracefully; admin must handle manually.
             return "pending_delivery"
         delivery_type = prod[5]
@@ -543,6 +542,7 @@ async def get_vehicle_pdf(plate: str, user: dict = Depends(_get_user)):
                 authorized = True
         if not authorized:
             # Unlimited quota (admin grants) qualifies
+            from src.users import get_user_by_id
             db_u = await get_user_by_id(user_id)
             if db_u and db_u.get("searches_quota") == -1:
                 authorized = True
@@ -1033,8 +1033,8 @@ async def admin_upload_logo(request: Request, _: dict = Depends(_require_admin))
     import uuid, shutil
     from fastapi import UploadFile
     form = await request.form()
-    file: UploadFile = form.get("file")
-    if not file:
+    file = form.get("file")
+    if not file or not isinstance(file, UploadFile):
         raise HTTPException(status_code=400, detail="No file")
     ext = os.path.splitext(file.filename)[1].lower() if file.filename else ".png"
     if ext not in (".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif"):
@@ -1824,7 +1824,7 @@ async def vehicle_market_price(plate: str, user: dict = Depends(_get_user)):
 
     make  = str(record.get("tozeret_nm") or "").strip()
     model = str(record.get("kinuy_mishari") or record.get("degem_nm") or "").strip()
-    year  = record.get("shnat_yitzur")
+    year  = record.get("shnat_yitzur") or ""
     market = get_market_price(make, model, year)
 
     public_label = (await get_bot_setting("yad2_market_public_label")) or "" if public_on else ""
@@ -1854,7 +1854,7 @@ async def admin_market_price(plate: str, _: dict = Depends(_require_admin)):
 
     make  = str(record.get("tozeret_nm") or "").strip()
     model = str(record.get("kinuy_mishari") or record.get("degem_nm") or "").strip()
-    year  = record.get("shnat_yitzur")
+    year  = record.get("shnat_yitzur") or ""
 
     market = get_market_price(make, model, year)
 
