@@ -542,7 +542,11 @@ function ProductsTab() {
   async function saveAdd() {
     setSaving(true)
     try {
-      await adminAddProduct(toBody(form))
+      const res = await adminAddProduct(toBody(form))
+      const lines = (form.stock_text || '').split('\n').map(l => l.trim()).filter(Boolean)
+      if (form.delivery_type === 'auto' && lines.length && res?.id) {
+        await adminUploadProductStock(res.id, form.stock_text)
+      }
       load()
       setAdding(false)
     } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
@@ -596,7 +600,7 @@ function ProductsTab() {
           </div>
         )
       })}
-      <button className="btn btn-success" onClick={() => { setAdding(true); setForm({ name: '', description: '', image_url: '', price: '', delivery_type: 'manual', delivery_time_note: '', quantity_stock: '', is_active: true }) }}>
+      <button className="btn btn-success" onClick={() => { setAdding(true); setForm({ name: '', description: '', image_url: '', price: '', delivery_type: 'manual', delivery_time_note: '', quantity_stock: '', stock_text: '', is_active: true }) }}>
         ➕ הוסף מוצר דיגיטלי
       </button>
 
@@ -604,7 +608,7 @@ function ProductsTab() {
         <ProductModal title="✏️ עריכת מוצר" form={form} setForm={setForm} saving={saving} onSave={saveEdit} onClose={() => setEditing(null)} />
       )}
       {adding && (
-        <ProductModal title="➕ מוצר דיגיטלי חדש" form={form} setForm={setForm} saving={saving} onSave={saveAdd} onClose={() => setAdding(false)} />
+        <ProductModal title="➕ מוצר דיגיטלי חדש" form={form} setForm={setForm} saving={saving} onSave={saveAdd} onClose={() => setAdding(false)} isNew />
       )}
       {stockTarget && (
         <ProductStockModal product={stockTarget} onClose={() => { setStockTarget(null); load() }} />
@@ -613,7 +617,7 @@ function ProductsTab() {
   )
 }
 
-function ProductModal({ title, form, setForm, saving, onSave, onClose }) {
+function ProductModal({ title, form, setForm, saving, onSave, onClose, isNew }) {
   const fileRef = useRef(null)
   const [compressing, setCompressing] = useState(false)
 
@@ -698,9 +702,24 @@ function ProductModal({ title, form, setForm, saving, onSave, onClose }) {
           />
         )}
         {form.delivery_type === 'auto' && (
-          <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 12, lineHeight: 1.4 }}>
-            במצב אוטומטי המלאי מנוהל בטאב "📤 מלאי" — כל שורה שתעלה שם היא יחידת מלאי אחת (קוד/קישור).
-          </div>
+          isNew ? (
+            <>
+              <textarea
+                className="input"
+                placeholder={'מלאי התחלתי — כל שורה = יחידת מלאי אחת (קוד/קישור)'}
+                rows={4}
+                value={form.stock_text || ''}
+                onChange={e => setForm(f => ({ ...f, stock_text: e.target.value }))}
+              />
+              <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 12, lineHeight: 1.4 }}>
+                ניתן להוסיף עוד מלאי בהמשך דרך כפתור "📤 מלאי" בכרטיס המוצר.
+              </div>
+            </>
+          ) : (
+            <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 12, lineHeight: 1.4 }}>
+              במצב אוטומטי המלאי מנוהל דרך כפתור "📤 מלאי" בכרטיס המוצר — כל שורה שתעלה שם היא יחידת מלאי אחת (קוד/קישור).
+            </div>
+          )
         )}
 
         {form.image_url ? (
