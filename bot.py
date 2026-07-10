@@ -2550,6 +2550,37 @@ def main() -> None:
     from src.notifier import register_user_product_delivered_notifier
     register_user_product_delivered_notifier(_notify_user_product_delivered)
 
+    async def _notify_admin_order_delivered(ref, user_id, username, label, price, content, auto):
+        if not ADMIN_ID:
+            return
+        kind_txt = "אוטומטית" if auto else "ידנית"
+        user_txt = f"@{username}" if username else str(user_id)
+        text = (
+            f"🔒 *הודעה למנהל בלבד*\n\n"
+            f"✅ *הזמנת מוצר הושלמה ({kind_txt})*\n\n"
+            f"👤 {user_txt} \\(ID: `{user_id}`\\)\n"
+            f"🛒 מוצר: {label}\n"
+            f"💰 מחיר: ₪{price}\n"
+            f"🆔 הזמנה #{ref}\n\n"
+            f"📦 *נשלח:*\n{content}"
+        )
+        try:
+            await app.bot.send_message(ADMIN_ID, text, parse_mode=ParseMode.MARKDOWN_V2)
+        except Exception:
+            try:
+                # Fall back to plain text if the delivered content breaks MarkdownV2 escaping
+                await app.bot.send_message(
+                    ADMIN_ID,
+                    f"🔒 הודעה למנהל בלבד\n\n✅ הזמנת מוצר הושלמה ({kind_txt})\n\n"
+                    f"👤 {user_txt} (ID: {user_id})\n🛒 מוצר: {label}\n💰 מחיר: ₪{price}\n"
+                    f"🆔 הזמנה #{ref}\n\n📦 נשלח:\n{content}",
+                )
+            except Exception:
+                pass
+
+    from src.notifier import register_admin_order_delivered_notifier
+    register_admin_order_delivered_notifier(_notify_admin_order_delivered)
+
     async def _send_user_document(user_id: int, pdf_bytes: bytes, filename: str, caption: str = "") -> bool:
         import io as _io
         try:

@@ -414,6 +414,14 @@ async def _grant_payment(
                     await send_user_message(user_id, f"📦 ההזמנה שלך מוכנה!\n\n{content}")
                 except Exception:
                     pass
+                try:
+                    from src.notifier import notify_admin_order_delivered
+                    price = prod[4]
+                    uname_r = await execute("SELECT COALESCE(username,'') FROM users WHERE user_id=?", [user_id])
+                    username = uname_r.rows[0][0] if uname_r.rows else ""
+                    await notify_admin_order_delivered(ref, user_id, username, label, price, content, auto=True)
+                except Exception:
+                    pass
                 return "completed"
             # Race: stock ran out between purchase and grant — fall back to manual delivery.
             try:
@@ -1025,6 +1033,20 @@ async def admin_list_product_stock(product_id: int, _: dict = Depends(_require_a
     return await get_stock_units(product_id)
 
 
+@api.delete("/api/admin/products/{product_id}/stock/{unit_id}")
+async def admin_delete_product_stock_unit(product_id: int, unit_id: int, admin: dict = Depends(_require_admin)):
+    from src.products import delete_stock_unit, available_stock_count
+    ok = await delete_stock_unit(product_id, unit_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Stock unit not found or already used")
+    try:
+        from src.activity import log as _log
+        await _log("product_stock_added", f"יחידת מלאי הוסרה: #{unit_id} ממוצר #{product_id}", int(admin["id"]))
+    except Exception:
+        pass
+    return {"ok": True, "stock_count": await available_stock_count(product_id, "auto")}
+
+
 _UPLOADS_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 os.makedirs(_UPLOADS_DIR, exist_ok=True)
 
@@ -1336,7 +1358,10 @@ async def admin_approve_payment(ref: str, admin: dict = Depends(_require_admin))
         "UPDATE paypal_transactions SET status=?, updated_at=datetime('now') WHERE ref=?", [result_status, ref]
     )
     await _order_notify(ref, result_status)
-    if result_status == "completed":
+    # Product orders get their own delivery-specific message from
+    # _grant_payment/deliver_order — the generic "X searches added" wording
+    # doesn't apply and would additionally double-notify the buyer.
+    if result_status == "completed" and package_type != "product":
         try:
             from src.notifier import notify_user_payment_approved
             await notify_user_payment_approved(user_id, label, searches)
@@ -1425,7 +1450,9 @@ async def admin_order_approve(ref: str, admin: dict = Depends(_require_admin)):
         [status_label, ref],
     )
     await _order_notify(ref, status_label)
-    if result_status == "completed":
+    # Product orders get their own delivery-specific message from
+    # _grant_payment/deliver_order — skip the generic "X searches added" DM.
+    if result_status == "completed" and package_type != "product":
         try:
             from src.notifier import notify_user_payment_approved
             await notify_user_payment_approved(user_id, label, searches)

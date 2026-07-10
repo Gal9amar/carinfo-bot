@@ -163,6 +163,23 @@ async def notify_user_product_delivered(user_id: int, label: str, ref: str, cont
         await _notify_user_product_delivered_fn(user_id, label, ref, content)
 
 
+_notify_admin_order_delivered_fn: Optional[Callable[..., Awaitable[Any]]] = None
+
+
+def register_admin_order_delivered_notifier(fn: Callable[..., Awaitable[Any]]) -> None:
+    global _notify_admin_order_delivered_fn
+    _notify_admin_order_delivered_fn = fn
+
+
+async def notify_admin_order_delivered(
+    ref: str, user_id: int, username: str, label: str, price, content: str, auto: bool,
+) -> None:
+    """Admin-only audit copy of a completed product order — includes the
+    delivered content, unlike notify_admin_order (which never carries it)."""
+    if _notify_admin_order_delivered_fn:
+        await _notify_admin_order_delivered_fn(ref, user_id, username, label, price, content, auto)
+
+
 _send_user_document_fn: Optional[Callable[..., Awaitable[Any]]] = None
 
 

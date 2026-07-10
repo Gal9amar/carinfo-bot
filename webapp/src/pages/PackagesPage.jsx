@@ -142,6 +142,7 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
                 <div style={{ display: 'flex', gap: 7, padding: '14px 14px 10px', flexWrap: 'wrap' }}>
                   <Chip accent={accent}>{p.delivery_type === 'auto' ? '⚡ אספקה מיידית' : '🕐 אספקה ידנית'}</Chip>
                   {p.delivery_time_note && <Chip accent={accent}>⏱ {p.delivery_time_note}</Chip>}
+                  {p.in_stock && <Chip accent={accent}>📦 במלאי: {p.stock_count}</Chip>}
                 </div>
 
                 {p.description && (

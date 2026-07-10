@@ -8,7 +8,6 @@ Two stock modes:
                                admin webapp, see deliver_order()).
 """
 
-import json
 from src.db import execute
 
 _cache: list[tuple] | None = None  # (id, name, description, image_url, price, delivery_type, delivery_time_note, quantity_stock, display_order, is_active)
@@ -174,6 +173,26 @@ async def restore_stock_unit(order_ref: str) -> None:
     )
 
 
+async def delete_stock_unit(product_id: int, unit_id: int) -> bool:
+    """Remove a single unused stock unit. Used units are never deletable this
+    way — they belong to an already-placed order (see restore_stock_unit for
+    reversing a claim on cancel/decline instead)."""
+    r = await execute(
+        "DELETE FROM product_stock WHERE id=? AND product_id=? AND is_used=0 RETURNING id",
+        [unit_id, product_id],
+    )
+    if r.rows:
+        return True
+    # RETURNING may not be supported — fall back to check-then-delete.
+    check = await execute(
+        "SELECT 1 FROM product_stock WHERE id=? AND product_id=? AND is_used=0", [unit_id, product_id]
+    )
+    if not check.rows:
+        return False
+    await execute("DELETE FROM product_stock WHERE id=? AND product_id=?", [unit_id, product_id])
+    return True
+
+
 async def available_stock_count(product_id: int, delivery_type: str) -> int:
     if delivery_type == "auto":
         r = await execute(
@@ -206,11 +225,13 @@ async def deliver_order(ref: str, content: str) -> bool:
     """Shared fulfillment logic — called from both the admin webapp endpoint
     and the bot.py admin-reply flow, so both converge on identical behavior."""
     r = await execute(
-        "SELECT user_id, label, status FROM paypal_transactions WHERE ref=?", [ref]
+        "SELECT pt.user_id, pt.label, pt.status, pt.amount, COALESCE(u.username,'') "
+        "FROM paypal_transactions pt LEFT JOIN users u ON u.user_id=pt.user_id "
+        "WHERE pt.ref=?", [ref]
     )
     if not r.rows:
         return False
-    user_id, label, status = r.rows[0]
+    user_id, label, status, amount, username = r.rows[0]
     if status != "pending_delivery":
         return False
     await execute(
@@ -220,6 +241,11 @@ async def deliver_order(ref: str, content: str) -> bool:
     try:
         from src.notifier import notify_user_product_delivered
         await notify_user_product_delivered(int(user_id), label, ref, content)
+    except Exception:
+        pass
+    try:
+        from src.notifier import notify_admin_order_delivered
+        await notify_admin_order_delivered(ref, int(user_id), username, label, amount, content, auto=False)
     except Exception:
         pass
     try:

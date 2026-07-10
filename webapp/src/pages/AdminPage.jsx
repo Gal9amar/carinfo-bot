@@ -37,7 +37,7 @@ import {
   adminSetWatchQuota,
   adminToggleBroadcastConsent,
   adminFetchProducts, adminAddProduct, adminUpdateProduct, adminDeleteProduct,
-  adminUploadProductStock, adminFetchProductStock,
+  adminUploadProductStock, adminFetchProductStock, adminDeleteProductStockUnit,
 } from '../api.js'
 import BackButton from '../components/BackButton.jsx'
 
@@ -770,12 +770,15 @@ function ProductStockModal({ product, onClose }) {
   const [text, setText] = useState('')
   const [units, setUnits] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [removingId, setRemovingId] = useState(null)
 
   function load() { adminFetchProductStock(product.id).then(setUnits).catch(() => setUnits([])) }
   useEffect(() => { load() }, [])
 
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
   const unused = units?.filter(u => !u.is_used).length ?? 0
+  const unusedUnits = units?.filter(u => !u.is_used) ?? []
+  const usedUnits = units?.filter(u => u.is_used) ?? []
 
   async function upload() {
     if (!lines.length) return
@@ -788,6 +791,15 @@ function ProductStockModal({ product, onClose }) {
     setSaving(false)
   }
 
+  async function removeUnit(unitId) {
+    setRemovingId(unitId)
+    try {
+      await adminDeleteProductStockUnit(product.id, unitId)
+      load()
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    setRemovingId(null)
+  }
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
@@ -795,6 +807,40 @@ function ProductStockModal({ product, onClose }) {
         <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 10 }}>
           {units === null ? 'טוען...' : `זמין: ${unused} / סה"כ: ${units.length}`}
         </div>
+
+        {units !== null && units.length > 0 && (
+          <div style={{ maxHeight: 220, overflowY: 'auto', marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {unusedUnits.map(u => (
+              <div key={u.id} style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                background: 'var(--bg2)', borderRadius: 8, padding: '7px 10px',
+              }}>
+                <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontFamily: 'monospace', wordBreak: 'break-all' }}>{u.content}</span>
+                <button
+                  type="button"
+                  disabled={removingId === u.id}
+                  onClick={() => removeUnit(u.id)}
+                  style={{
+                    flexShrink: 0, background: 'none', border: 'none', color: '#e53e3e',
+                    cursor: removingId === u.id ? 'default' : 'pointer', fontSize: 15, padding: 4,
+                    opacity: removingId === u.id ? 0.5 : 1,
+                  }}
+                  title="הסר יחידת מלאי"
+                >🗑</button>
+              </div>
+            ))}
+            {usedUnits.map(u => (
+              <div key={u.id} style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                background: 'var(--bg2)', borderRadius: 8, padding: '7px 10px', opacity: 0.5,
+              }}>
+                <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontFamily: 'monospace', wordBreak: 'break-all', textDecoration: 'line-through' }}>{u.content}</span>
+                <span style={{ flexShrink: 0, fontSize: 10, color: 'var(--hint)' }}>נמכר</span>
+              </div>
+            ))}
+          </div>
+        )}
+
         <textarea
           className="input"
           placeholder={'כל שורה = יחידת מלאי אחת (קוד / קישור)'}

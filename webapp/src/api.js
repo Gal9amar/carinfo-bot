@@ -398,6 +398,14 @@ export async function adminFetchProductStock(id) {
   return r.json()
 }
 
+export async function adminDeleteProductStockUnit(productId, unitId) {
+  const r = await fetch(`${BASE}/api/admin/products/${productId}/stock/${unitId}`, {
+    method: 'DELETE', headers: headers(),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
 // Codes admin
 export async function adminFetchCodes() {
   const r = await fetch(`${BASE}/api/admin/codes`, { headers: headers() })
