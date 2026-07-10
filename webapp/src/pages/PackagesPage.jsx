@@ -103,8 +103,8 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
             🛍️ מוצרים דיגיטליים
           </div>
           {products.map(p => {
-            const accent = '#f59e0b'
-            const grad   = 'linear-gradient(135deg,#92400e,#f59e0b)'
+            const accent = '#38bdf8'
+            const grad   = 'linear-gradient(135deg,#1e40af,#0ea5e9)'
             const maxQty = Math.max(1, Math.min(10, p.stock_count ?? 1))
             const qty    = Math.min(getQty(p.id), maxQty)
             const totalPrice = p.price * qty
