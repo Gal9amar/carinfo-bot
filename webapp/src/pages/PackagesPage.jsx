@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import BackButton from '../components/BackButton.jsx'
 import { fetchProducts } from '../api.js'
+import { safeDescriptionHtml } from '../utils/safeHtml.js'
 
 export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSupport, onReferral, onBack }) {
   const [quantities, setQuantities] = useState({})
@@ -148,9 +149,10 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
                 {p.description && (
                   <>
                     <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 14px' }} />
-                    <div style={{ padding: '12px 16px', fontSize: 13, color: 'var(--hint)', lineHeight: 1.7 }}>
-                      {p.description}
-                    </div>
+                    <div
+                      style={{ padding: '12px 16px', fontSize: 13, color: 'var(--hint)', lineHeight: 1.7 }}
+                      dangerouslySetInnerHTML={{ __html: safeDescriptionHtml(p.description) }}
+                    />
                   </>
                 )}
 

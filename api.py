@@ -254,6 +254,7 @@ async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_u
 
     product_id = None
     delivery_type = None
+    product_qty = 1
     if body.product_id is not None:
         from src.products import get_product, available_stock_count
         prod = await get_product(body.product_id)
@@ -265,10 +266,11 @@ async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_u
         stock = await available_stock_count(product_id, delivery_type)
         if stock <= 0:
             raise HTTPException(status_code=400, detail="Out of stock")
+        product_qty = max(1, min(10, body.quantity, stock))
         qty = 1
-        total_price = price
+        total_price = price * product_qty
         total_searches = 0
-        qty_label = name
+        qty_label = f"{name} ×{product_qty}" if product_qty > 1 else name
         duration_months = 1
         package_type = "product"
     else:
@@ -301,12 +303,12 @@ async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_u
 
     init_status = "intent" if body.intent_only else "created"
     await execute(
-        "INSERT OR IGNORE INTO pending_payments (ref, phone, searches, price, label, paypal_order_id, duration_months, package_type, product_id) VALUES (?,?,?,?,?,?,?,?,?)",
-        [ref, str(uid), total_searches, total_price, qty_label, paypal_order_id, duration_months, package_type, product_id],
+        "INSERT OR IGNORE INTO pending_payments (ref, phone, searches, price, label, paypal_order_id, duration_months, package_type, product_id, product_quantity) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        [ref, str(uid), total_searches, total_price, qty_label, paypal_order_id, duration_months, package_type, product_id, product_qty],
     )
     await execute(
-        "INSERT INTO paypal_transactions (ref, paypal_order_id, user_id, amount, currency, label, searches, status, duration_months, package_type, product_id, delivery_type) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-        [ref, paypal_order_id, uid, total_price, "ILS", qty_label, total_searches, init_status, duration_months, package_type, product_id, delivery_type],
+        "INSERT INTO paypal_transactions (ref, paypal_order_id, user_id, amount, currency, label, searches, status, duration_months, package_type, product_id, delivery_type, product_quantity) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        [ref, paypal_order_id, uid, total_price, "ILS", qty_label, total_searches, init_status, duration_months, package_type, product_id, delivery_type, product_qty],
     )
     if not body.intent_only:
         try:

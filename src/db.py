@@ -217,6 +217,8 @@ async def init_db() -> None:
     migrations.append("ALTER TABLE paypal_transactions ADD COLUMN delivery_type TEXT DEFAULT NULL")
     migrations.append("ALTER TABLE paypal_transactions ADD COLUMN delivery_content TEXT DEFAULT ''")
     migrations.append("ALTER TABLE paypal_transactions ADD COLUMN package_type TEXT DEFAULT 'searches'")
+    migrations.append("ALTER TABLE pending_payments ADD COLUMN product_quantity INTEGER DEFAULT 1")
+    migrations.append("ALTER TABLE paypal_transactions ADD COLUMN product_quantity INTEGER DEFAULT 1")
     for sql in statements:
         conn.execute(sql)
     for sql in migrations:
