@@ -295,32 +295,10 @@ async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_u
     await set_bot_setting("order_sequence", str(seq))
     ref = f"{member_id}-{seq:05d}"
 
-    paypal_client_id = _os.environ.get("PAYPAL_CLIENT_ID", "")
-    paypal_client_secret = _os.environ.get("PAYPAL_CLIENT_SECRET", "")
-    use_api = bool(paypal_client_id and paypal_client_secret)
-
-    if use_api:
-        from src.paypal import create_order
-        try:
-            order = await create_order(
-                amount=f"{total_price:.2f}",
-                currency="ILS",
-                custom_id=ref,
-                description=qty_label,
-                return_url=f"{WEBAPP_URL}/api/payment/return/{ref}",
-                cancel_url=f"{WEBAPP_URL}/api/payment/cancel/{ref}",
-            )
-            approval_url = next(
-                (lnk["href"] for lnk in order.get("links", []) if lnk.get("rel") == "approve"),
-                None,
-            )
-            paypal_order_id = order.get("id", "")
-        except Exception as e:
-            raise HTTPException(status_code=502, detail=f"PayPal error: {e}")
-    else:
-        # Fallback to PayPal.me link when API credentials are not configured
-        approval_url = f"{PAYPAL_ME}/{total_price:.0f}ILS"
-        paypal_order_id = ""
+    # PayPal.me static link — every order requires manual admin approval
+    # (no PayPal Orders API / webhook auto-capture).
+    approval_url = f"{PAYPAL_ME}/{total_price:.0f}ILS"
+    paypal_order_id = ""
 
     init_status = "intent" if body.intent_only else "created"
     await execute(
@@ -374,7 +352,7 @@ async def promote_payment(body: dict, user: dict = Depends(_get_user)):
 
 @api.get("/api/payment/cancel/{ref}")
 async def payment_cancel(ref: str):
-    """PayPal cancel_url — user pressed Cancel on PayPal. Mark order user_cancelled and send back to Telegram."""
+    """User pressed Cancel. Mark order user_cancelled and send back to Telegram."""
     from src.db import execute as _dbexec
     from fastapi.responses import RedirectResponse
     await _dbexec(
@@ -385,82 +363,6 @@ async def payment_cancel(ref: str):
     await _dbexec("DELETE FROM pending_payments WHERE ref=?", [ref])
     await _order_notify(ref, "user_cancelled")
     return RedirectResponse(url=f"https://t.me/{BOT_USERNAME}", status_code=302)
-
-
-@api.get("/api/payment/return/{ref}")
-async def payment_return(ref: str):
-    """PayPal return_url — user completed checkout flow. Webhook handles approval; just send back to Telegram."""
-    from fastapi.responses import RedirectResponse
-    return RedirectResponse(url=f"https://t.me/{BOT_USERNAME}", status_code=302)
-
-
-class PaymentConfirmRequest(BaseModel):
-    ref: str
-    package_id: int
-
-
-@api.post("/api/webhooks/paypal")
-async def paypal_webhook(request: Request):
-    """PayPal webhook — auto-approve payments on CHECKOUT.ORDER.APPROVED."""
-    from src.paypal import verify_webhook, capture_order
-    from src.db import execute
-    import logging as _logging
-    _log = _logging.getLogger("paypal_webhook")
-
-    body_bytes = await request.body()
-    try:
-        body_json = json.loads(body_bytes)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON")
-
-    headers_lc = {k.lower(): v for k, v in request.headers.items()}
-    if not await verify_webhook(headers_lc, body_json):
-        raise HTTPException(status_code=400, detail="Webhook verification failed")
-
-    event_type = body_json.get("event_type", "")
-    resource   = body_json.get("resource", {})
-
-    if event_type == "CHECKOUT.ORDER.APPROVED":
-        order_id = resource.get("id")
-        custom_id = (resource.get("purchase_units") or [{}])[0].get("custom_id", "")
-        if not order_id:
-            return {"ok": True}
-        await execute(
-            "UPDATE paypal_transactions SET status='approved', updated_at=datetime('now') WHERE paypal_order_id=?",
-            [order_id],
-        )
-        if custom_id:
-            await _order_notify(custom_id, "approved")
-        try:
-            capture = await capture_order(order_id)
-            if not custom_id:
-                custom_id = (capture.get("purchase_units") or [{}])[0].get("custom_id", "")
-            await execute(
-                "UPDATE paypal_transactions SET status='captured', updated_at=datetime('now') WHERE paypal_order_id=?",
-                [order_id],
-            )
-            if custom_id:
-                await _order_notify(custom_id, "captured")
-        except Exception as e:
-            _log.warning("Failed to capture order %s: %s", order_id, e)
-            await execute(
-                "UPDATE paypal_transactions SET status='failed', error=?, updated_at=datetime('now') WHERE paypal_order_id=?",
-                [str(e), order_id],
-            )
-            if custom_id:
-                await _order_notify(custom_id, "failed")
-            return {"ok": True}
-        if custom_id:
-            await _auto_approve_payment(custom_id)
-
-    elif event_type == "PAYMENT.CAPTURE.COMPLETED":
-        order_id = resource.get("supplementary_data", {}).get("related_ids", {}).get("order_id", "")
-        if order_id:
-            r = await execute("SELECT ref FROM pending_payments WHERE paypal_order_id=?", [order_id])
-            if r.rows:
-                await _auto_approve_payment(r.rows[0][0])
-
-    return {"ok": True}
 
 
 async def _order_notify(ref: str, status: str, label: str = "", amount=None) -> None:
@@ -534,41 +436,6 @@ async def _grant_payment(
         await admin_grant(0, user_id, searches, duration_months=duration_months)
         await add_to_subscribers(user_id)
         return "completed"
-
-
-async def _auto_approve_payment(ref: str) -> None:
-    from src.db import execute
-    r = await execute(
-        "SELECT phone, searches, label, COALESCE(duration_months,1), COALESCE(package_type,'searches'), product_id "
-        "FROM pending_payments WHERE ref=?", [ref])
-    if not r.rows:
-        return  # already processed
-    user_id, searches, label, duration_months, package_type, product_id = (
-        int(r.rows[0][0]), r.rows[0][1], r.rows[0][2], int(r.rows[0][3]), r.rows[0][4], r.rows[0][5],
-    )
-    result_status = await _grant_payment(user_id, searches, label, duration_months, package_type, ref=ref, product_id=product_id)
-    await execute("DELETE FROM pending_payments WHERE ref=?", [ref])
-    await execute(
-        "UPDATE paypal_transactions SET status=?, updated_at=datetime('now') WHERE ref=?",
-        [result_status, ref],
-    )
-    await _order_notify(ref, result_status)
-    if result_status == "completed":
-        try:
-            from src.notifier import notify_user_payment_approved
-            await notify_user_payment_approved(user_id, label, searches)
-        except Exception:
-            pass
-    try:
-        from src.activity import log as _alog
-        if package_type == "product":
-            reward_desc = "ממתין למשלוח ידני" if result_status == "pending_delivery" else "נשלח אוטומטית"
-        else:
-            reward_desc = "התראות" if package_type == "alerts" else f"{searches} חיפושים"
-        desc = f"PayPal אוטומטי: {label} ({reward_desc}) למשתמש {user_id}"
-        await _alog("payment_approved", desc)
-    except Exception:
-        pass
 
 
 # ── User history ─────────────────────────────────────────────────────────────

@@ -288,6 +288,21 @@ body {
   margin-bottom: 16px;
 }
 
+/* Full-screen variant — fills the viewport like a page instead of a
+   centered popup, for forms too long to feel comfortable capped at 85vh. */
+.modal-overlay-full {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 100;
+  overflow-y: auto;
+}
+
+.modal-full {
+  min-height: 100%;
+  padding: 20px;
+}
+
 /* ── Page enter animation ─────────────────────────────── */
 @keyframes pageEnter {
   from { opacity: 0; transform: translateY(14px); }

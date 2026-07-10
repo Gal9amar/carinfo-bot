@@ -84,9 +84,9 @@ export default function PaymentPage({ pkg, onBack }) {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {/* PayPal — always first, auto-approved */}
+          {/* PayPal — always first, requires manual admin approval */}
           <div style={{ fontSize: 12, color: 'var(--hint)', paddingRight: 2 }}>
-            ✅ אישור אוטומטי — גישה מיידית לאחר התשלום
+            ⏳ אישור ידני — המנהל יאשר תוך זמן קצר
           </div>
           <button
             onClick={openPaypal}

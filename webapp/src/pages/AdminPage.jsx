@@ -646,8 +646,14 @@ function ProductModal({ title, form, setForm, saving, onSave, onClose, isNew }) 
   const valid = form.name?.trim() && parseInt(form.price) > 0
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
+    <div className="modal-overlay-full">
+      <div className="modal-full">
+        <button
+          type="button"
+          className="btn btn-secondary"
+          style={{ marginBottom: 16, width: 'auto', padding: '8px 16px' }}
+          onClick={onClose}
+        >← חזרה</button>
         <div className="modal-title">{title}</div>
         <input
           className="input"
