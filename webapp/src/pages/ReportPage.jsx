@@ -625,7 +625,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
     <div className="page">
       {onBack && <BackButton onClick={onBack} />}
 
-      {activeTab === 'full' && <PageBanners page="report" onNavigate={onNavigate} />}
+      <PageBanners page="report" onNavigate={onNavigate} />
 
       {/* ── Header ── */}
       <div style={{ textAlign: 'center', marginBottom: 16 }}>
