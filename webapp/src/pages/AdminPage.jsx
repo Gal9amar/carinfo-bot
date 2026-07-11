@@ -710,6 +710,16 @@ function BannersTab() {
     })
   }
 
+  async function toggleActive(b) {
+    setBanners(prev => prev.map(x => x.id === b.id ? { ...x, is_active: !x.is_active } : x))
+    try {
+      await adminUpdateBanner(b.id, toBody({ ...b, is_active: !b.is_active }))
+    } catch {
+      window.Telegram?.WebApp?.showAlert('שגיאה')
+      load()
+    }
+  }
+
   if (!banners) return <div className="loading"></div>
 
   return (
@@ -760,6 +770,8 @@ function BannersTab() {
                   disabled={idx === 0 || reordering} onClick={() => moveBanner(idx, idx - 1)} title="הזז למעלה">↑</button>
                 <button className="btn" style={{ width: 'auto', padding: '4px 8px', marginTop: 0, fontSize: 12 }}
                   disabled={idx === banners.length - 1 || reordering} onClick={() => moveBanner(idx, idx + 1)} title="הזז למטה">↓</button>
+                <button className="btn" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
+                  onClick={() => toggleActive(b)} title={isActive ? 'הסתר מהאתר' : 'הצג באתר'}>{isActive ? '👁️' : '🚫'}</button>
                 <button className="btn" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
                   onClick={() => { setEditing(b); setForm({ ...b }) }}>✏️</button>
                 <button className="btn btn-danger" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
@@ -856,9 +868,31 @@ function BannerModal({ title, form, setForm, saving, onSave, onClose }) {
           </label>
         </div>
 
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, fontSize: 13 }}>
-          <input type="checkbox" checked={form.is_active !== false} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} />
-          באנר פעיל
+        <label style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          background: 'var(--bg2)', borderRadius: 10, padding: '10px 14px', marginBottom: 12,
+          cursor: 'pointer', userSelect: 'none',
+        }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>הצג באתר</div>
+            <div style={{ fontSize: 11, color: 'var(--hint)', marginTop: 2 }}>
+              {form.is_active !== false ? 'מוצג בעמוד הבית' : 'מוסתר — לא מוצג בעמוד הבית'}
+            </div>
+          </div>
+          <div
+            onClick={() => setForm(f => ({ ...f, is_active: f.is_active === false }))}
+            style={{
+              width: 44, height: 24, borderRadius: 12, flexShrink: 0,
+              background: form.is_active !== false ? '#38a169' : 'rgba(255,255,255,0.15)',
+              position: 'relative', transition: 'background 0.2s', cursor: 'pointer',
+            }}
+          >
+            <div style={{
+              position: 'absolute', top: 3, width: 18, height: 18, borderRadius: '50%',
+              background: '#fff', transition: 'left 0.2s',
+              left: form.is_active !== false ? 23 : 3,
+            }} />
+          </div>
         </label>
 
         <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--hint)', marginBottom: 6 }}>לאן להפנות בלחיצה</div>
