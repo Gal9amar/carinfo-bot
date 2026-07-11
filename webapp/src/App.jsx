@@ -66,6 +66,7 @@ export default function App() {
           plate={reportPlate}
           onBack={(dest) => setScreen(dest ?? 'home')}
           user={user}
+          onNavigate={navigate}
         />
       </div>
     )
@@ -74,7 +75,7 @@ export default function App() {
   if (screen === 'privacy') {
     return (
       <div key="privacy" className="page-enter">
-        <PrivacyPolicyPage onBack={() => setScreen('home')} onContact={() => setScreen('ticket')} />
+        <PrivacyPolicyPage onBack={() => setScreen('home')} onContact={() => setScreen('ticket')} onNavigate={navigate} />
       </div>
     )
   }
@@ -83,7 +84,7 @@ export default function App() {
     return (
       <>
         <div key="ticket" className="page-enter" style={{ paddingBottom: 78 }}>
-          <TicketPage onBack={() => setScreen('home')} />
+          <TicketPage onBack={() => setScreen('home')} onNavigate={navigate} />
         </div>
         <BottomNav screen={screen} onNavigate={navigate} />
       </>
@@ -93,7 +94,7 @@ export default function App() {
   if (screen === 'howItWorks') {
     return (
       <div key="howItWorks" className="page-enter">
-        <HowItWorksPage onBack={() => setScreen('home')} freeSearches={user?.free_searches ?? 10} onPrivacy={() => setScreen('privacy')} />
+        <HowItWorksPage onBack={() => setScreen('home')} freeSearches={user?.free_searches ?? 10} onPrivacy={() => setScreen('privacy')} onNavigate={navigate} />
       </div>
     )
   }
@@ -105,6 +106,7 @@ export default function App() {
           <HistoryPage
             onBack={() => setScreen('home')}
             onViewPlate={plate => { setReportPlate(plate); setScreen('report') }}
+            onNavigate={navigate}
           />
         </div>
         <BottomNav screen={screen} onNavigate={navigate} />
@@ -116,7 +118,7 @@ export default function App() {
     return (
       <>
         <div key="referral" className="page-enter" style={{ paddingBottom: 78 }}>
-          <ReferralPage onBack={() => setScreen('home')} />
+          <ReferralPage onBack={() => setScreen('home')} onNavigate={navigate} />
         </div>
         <BottomNav screen={screen} onNavigate={navigate} />
       </>
@@ -126,7 +128,7 @@ export default function App() {
   if (screen === 'orders') {
     return (
       <div key="orders" className="page-enter">
-        <OrdersPage onBack={() => setScreen('home')} />
+        <OrdersPage onBack={() => setScreen('home')} onNavigate={navigate} />
       </div>
     )
   }
@@ -134,7 +136,7 @@ export default function App() {
   if (screen === 'watches') {
     return (
       <div key="watches" className="page-enter">
-        <WatchesPage onBack={() => setScreen('home')} onPackages={() => setScreen('packages')} user={user} />
+        <WatchesPage onBack={() => setScreen('home')} onPackages={() => setScreen('packages')} user={user} onNavigate={navigate} />
       </div>
     )
   }
@@ -206,6 +208,7 @@ export default function App() {
             onSupport={() => setScreen('ticket')}
             onReferral={() => setScreen('referral')}
             onBack={() => setScreen('home')}
+            onNavigate={navigate}
           />
         </div>
         <BottomNav screen={screen} onNavigate={navigate} />

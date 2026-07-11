@@ -2,12 +2,13 @@ import { useState, useEffect, useRef } from 'react'
 import { createTicket, fetchMyTickets, fetchTicket, replyTicket } from '../api.js'
 import { fmtDateTime, fmtDate } from '../utils/time.js'
 import BackButton from '../components/BackButton.jsx'
+import PageBanners from '../components/PageBanners.jsx'
 
 const STATUS_LABEL = { open: 'פתוח', in_progress: 'בטיפול', closed: 'סגור' }
 const STATUS_COLOR = { open: '#e07b00', in_progress: '#2481cc', closed: '#38a169' }
 const STATUS_ICON  = { open: '🔴', in_progress: '🟡', closed: '🟢' }
 
-export default function TicketPage({ onBack }) {
+export default function TicketPage({ onBack, onNavigate }) {
   const [view, setView] = useState('list') // 'list' | 'create' | 'thread'
   const [tickets, setTickets] = useState([])
   const [selected, setSelected] = useState(null)
@@ -52,6 +53,8 @@ export default function TicketPage({ onBack }) {
     <div className="page">
       {onBack && <BackButton onClick={onBack} />}
       <div className="page-title">🎫 הפניות שלי</div>
+
+      <PageBanners page="ticket" onNavigate={onNavigate} />
 
       <button className="btn btn-success" style={{ marginBottom: 16 }} onClick={() => setView('create')}>
         ✉️ פנייה חדשה

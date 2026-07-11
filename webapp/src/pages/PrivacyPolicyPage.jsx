@@ -4,12 +4,15 @@ const BOT_HANDLE   = '@israelcarinfobot'
 const CONTACT_URL  = 'https://t.me/israelcarinfobot'
 
 import BackButton from '../components/BackButton.jsx'
+import PageBanners from '../components/PageBanners.jsx'
 
-export default function PrivacyPolicyPage({ onBack, onContact }) {
+export default function PrivacyPolicyPage({ onBack, onContact, onNavigate }) {
   return (
     <div className="page" style={{ paddingBottom: 40 }}>
       {onBack && <BackButton onClick={onBack} />}
       <div className="page-title" style={{ fontSize: 17 }}>🔒 מדיניות פרטיות ותנאי שימוש</div>
+
+      <PageBanners page="privacy" onNavigate={onNavigate} />
       <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 6 }}>עודכן לאחרונה: {LAST_UPDATED}</div>
       <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 20 }}>
         מסמך זה מסדיר את תנאי השימוש ואת מדיניות הפרטיות של בוט {BOT_NAME} בטלגרם.

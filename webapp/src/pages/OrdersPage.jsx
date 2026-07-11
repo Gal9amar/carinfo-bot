@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { fetchUserOrders } from '../api.js'
 import { fmtDateTime } from '../utils/time.js'
+import PageBanners from '../components/PageBanners.jsx'
 
 const STATUS_META = {
   created:   { label: 'ממתין לתשלום', color: '#888',    icon: '⏳' },
@@ -99,7 +100,7 @@ function OrderRow({ order }) {
   )
 }
 
-export default function OrdersPage({ onBack }) {
+export default function OrdersPage({ onBack, onNavigate }) {
   const [orders, setOrders] = useState(null)
 
   useEffect(() => {
@@ -117,6 +118,8 @@ export default function OrdersPage({ onBack }) {
       </button>
 
       <div className="page-title">📦 הזמנות שלי</div>
+
+      <PageBanners page="orders" onNavigate={onNavigate} />
 
       {orders === null && (
         <div style={{ textAlign: 'center', color: 'var(--hint)', marginTop: 40 }}>טוען...</div>

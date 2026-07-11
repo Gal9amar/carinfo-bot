@@ -636,6 +636,20 @@ const BANNER_PAGE_OPTIONS = [
   { value: 'watches',    label: '🔔 התראות יד2' },
 ]
 
+// Where a banner can be displayed on the site
+const PLACEMENT_OPTIONS = [
+  { value: 'home',       label: '🏠 עמוד הבית' },
+  { value: 'packages',   label: '🛒 החנות' },
+  { value: 'report',     label: '📋 דוח רכב מלא' },
+  { value: 'history',    label: '📜 היסטוריית חיפושים' },
+  { value: 'referral',   label: '🤝 הפנה חבר' },
+  { value: 'ticket',     label: '🎫 תמיכה' },
+  { value: 'howItWorks', label: 'ℹ️ איך זה עובד' },
+  { value: 'privacy',    label: '🔒 פרטיות' },
+  { value: 'orders',     label: '📦 הזמנות שלי' },
+  { value: 'watches',    label: '🔔 התראות יד2' },
+]
+
 function BannersTab() {
   const [banners, setBanners] = useState(null)
   const [editing, setEditing] = useState(null)
@@ -649,7 +663,7 @@ function BannersTab() {
   useEffect(() => { load() }, [])
 
   function blankForm() {
-    return { title: '', subtitle: '', icon: '🎁', image_url: '', color_from: '#38a169', color_to: '#276749', link_type: 'page', link_value: 'packages', is_active: true }
+    return { title: '', subtitle: '', icon: '🎁', image_url: '', color_from: '#38a169', color_to: '#276749', link_type: 'page', link_value: 'packages', placements: ['home'], is_active: true }
   }
 
   async function applyReorder(next) {
@@ -678,6 +692,7 @@ function BannersTab() {
       title: f.title, subtitle: f.subtitle || '', icon: f.icon || '🎁', image_url: f.image_url || '',
       color_from: f.color_from || '#38a169', color_to: f.color_to || '#276749',
       link_type: f.link_type || 'page', link_value: f.link_value || 'packages',
+      placements: f.placements?.length ? f.placements : ['home'],
       is_active: f.is_active !== false,
     }
   }
@@ -763,6 +778,14 @@ function BannersTab() {
                     )}
                   </div>
                   <div className="card-subtitle">🔗 {linkLabel}</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                    {(b.placements?.length ? b.placements : ['home']).map(p => (
+                      <span key={p} style={{
+                        fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 10,
+                        background: 'var(--bg)', color: 'var(--hint)',
+                      }}>{PLACEMENT_OPTIONS.find(o => o.value === p)?.label || p}</span>
+                    ))}
+                  </div>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
@@ -876,7 +899,7 @@ function BannerModal({ title, form, setForm, saving, onSave, onClose }) {
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>הצג באתר</div>
             <div style={{ fontSize: 11, color: 'var(--hint)', marginTop: 2 }}>
-              {form.is_active !== false ? 'מוצג בעמוד הבית' : 'מוסתר — לא מוצג בעמוד הבית'}
+              {form.is_active !== false ? 'מוצג' : 'מוסתר — לא מוצג בשום מקום'}
             </div>
           </div>
           <div
@@ -894,6 +917,33 @@ function BannerModal({ title, form, setForm, saving, onSave, onClose }) {
             }} />
           </div>
         </label>
+
+        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--hint)', marginBottom: 6 }}>
+          באילו עמודים להציג
+          <span style={{ fontWeight: 400, marginRight: 6 }}>· ניתן לבחור כמה שרוצים</span>
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+          {PLACEMENT_OPTIONS.map(o => {
+            const active = (form.placements || ['home']).includes(o.value)
+            return (
+              <button
+                key={o.value}
+                type="button"
+                onClick={() => setForm(f => {
+                  const cur = f.placements?.length ? f.placements : ['home']
+                  const next = cur.includes(o.value) ? cur.filter(p => p !== o.value) : [...cur, o.value]
+                  return { ...f, placements: next }
+                })}
+                style={{
+                  fontSize: 12, fontWeight: 600, padding: '6px 12px', borderRadius: 20,
+                  border: `1.5px solid ${active ? 'var(--btn)' : 'rgba(255,255,255,0.15)'}`,
+                  background: active ? 'var(--btn)22' : 'transparent',
+                  color: active ? 'var(--text)' : 'var(--hint)', cursor: 'pointer',
+                }}
+              >{active ? '✓ ' : ''}{o.label}</button>
+            )
+          })}
+        </div>
 
         <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--hint)', marginBottom: 6 }}>לאן להפנות בלחיצה</div>
         <select

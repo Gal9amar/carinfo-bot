@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react'
 import { fetchSearchHistory } from '../api.js'
 import LicensePlate from '../components/LicensePlate.jsx'
 import BackButton from '../components/BackButton.jsx'
+import PageBanners from '../components/PageBanners.jsx'
 
-export default function HistoryPage({ onBack, onViewPlate }) {
+export default function HistoryPage({ onBack, onViewPlate, onNavigate }) {
   const [items, setItems]   = useState(null)
   const [query, setQuery]   = useState('')
 
@@ -22,6 +23,8 @@ export default function HistoryPage({ onBack, onViewPlate }) {
     <div className="page">
       <BackButton onClick={onBack} />
       <div className="page-title">📜 היסטוריית חיפושים</div>
+
+      <PageBanners page="history" onNavigate={onNavigate} />
 
       {items === null && <div className="loading"></div>}
 

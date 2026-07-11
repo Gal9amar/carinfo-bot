@@ -66,8 +66,9 @@ export async function fetchProducts() {
   return r.json()
 }
 
-export async function fetchBanners() {
-  const r = await fetch(`${BASE}/api/banners`)
+export async function fetchBanners(page) {
+  const url = page ? `${BASE}/api/banners?page=${encodeURIComponent(page)}` : `${BASE}/api/banners`
+  const r = await fetch(url)
   if (!r.ok) throw new Error('Failed to load banners')
   return r.json()
 }

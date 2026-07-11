@@ -3,6 +3,7 @@ import { fetchVehicle, fetchMarketPrice, requestPdfReport, fetchNote, saveNote, 
 import { MAKE_EN, MODEL_EN } from '../vehicleNames.js'
 import LicensePlate from '../components/LicensePlate.jsx'
 import BackButton from '../components/BackButton.jsx'
+import PageBanners from '../components/PageBanners.jsx'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -462,7 +463,7 @@ function Sec({ title, children }) {
 
 // ── main component ────────────────────────────────────────────────────────────
 
-export default function ReportPage({ plate, onBack, user }) {
+export default function ReportPage({ plate, onBack, user, onNavigate }) {
   const [activeTab, setActiveTab] = useState('full')
   const [record, setRecord] = useState(null)
   const [error, setError] = useState(null)
@@ -681,6 +682,8 @@ export default function ReportPage({ plate, onBack, user }) {
       )}
 
       {activeTab === 'full' && <>
+
+      <PageBanners page="report" onNavigate={onNavigate} />
 
       {/* ── Quick stats ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>

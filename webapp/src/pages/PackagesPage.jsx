@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import BackButton from '../components/BackButton.jsx'
+import PageBanners from '../components/PageBanners.jsx'
 import { fetchProducts } from '../api.js'
 import { safeDescriptionHtml } from '../utils/safeHtml.js'
 
-export default function PackagesPage({ packages, user, highlightProductId, onSelect, onPrivacy, onSupport, onReferral, onBack }) {
+export default function PackagesPage({ packages, user, highlightProductId, onSelect, onPrivacy, onSupport, onReferral, onBack, onNavigate }) {
   const [quantities, setQuantities] = useState({})
   const [products, setProducts] = useState([])
   function getQty(id) { return quantities[id] ?? 1 }
@@ -33,6 +34,8 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
     <div className="page" style={{ paddingBottom: 16 }}>
       {onBack && <BackButton onClick={onBack} />}
       <div className="page-title">🛒 החנות</div>
+
+      <PageBanners page="packages" onNavigate={onNavigate} />
 
       {user && (
         <div className="card" style={{ marginBottom: 16 }}>

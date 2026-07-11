@@ -1,10 +1,13 @@
 import BackButton from '../components/BackButton.jsx'
+import PageBanners from '../components/PageBanners.jsx'
 
-export default function HowItWorksPage({ onBack, freeSearches = 10, onPrivacy }) {
+export default function HowItWorksPage({ onBack, freeSearches = 10, onPrivacy, onNavigate }) {
   return (
     <div className="page" style={{ paddingBottom: 32 }}>
       <BackButton onClick={onBack} />
       <div className="page-title">ℹ️ איך CarInfo עובד?</div>
+
+      <PageBanners page="howItWorks" onNavigate={onNavigate} />
 
       {/* Hero */}
       <div style={{
