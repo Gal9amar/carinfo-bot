@@ -625,6 +625,8 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
     <div className="page">
       {onBack && <BackButton onClick={onBack} />}
 
+      {activeTab === 'full' && <PageBanners page="report" onNavigate={onNavigate} />}
+
       {/* ── Header ── */}
       <div style={{ textAlign: 'center', marginBottom: 16 }}>
         <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 8 }}>דוח רכב</div>
@@ -682,8 +684,6 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
       )}
 
       {activeTab === 'full' && <>
-
-      <PageBanners page="report" onNavigate={onNavigate} />
 
       {/* ── Quick stats ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
