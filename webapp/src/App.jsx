@@ -16,6 +16,7 @@ import BottomNav from './components/BottomNav.jsx'
 
 export default function App() {
   const [screen, setScreen] = useState('loading')
+  const [screenStack, setScreenStack] = useState([])
   const [packages, setPackages] = useState([])
   const [user, setUser] = useState(null)
   const [selectedPkg, setSelectedPkg] = useState(null)
@@ -54,18 +55,47 @@ export default function App() {
     init()
   }, [])
 
+  // Push the current screen onto the stack, then move to `dest`.
   function navigate(dest, meta) {
     setHighlightProductId(meta?.highlightProductId ?? null)
+    setScreenStack(s => [...s, screen])
     setScreen(dest)
   }
+
+  // Pop the previous screen off the stack — used by both the in-page back
+  // arrows and the phone/Telegram hardware back button, so both agree on
+  // where "back" leads.
+  function goBack() {
+    setScreenStack(s => {
+      if (s.length === 0) { setScreen('home'); return s }
+      setScreen(s[s.length - 1])
+      return s.slice(0, -1)
+    })
+  }
+
+  // Telegram's native back button (and the phone's hardware/gesture back,
+  // which Telegram routes to it) should navigate within the mini app
+  // instead of closing it.
+  useEffect(() => {
+    const tg = window.Telegram?.WebApp
+    if (!tg?.BackButton) return
+    if (screen === 'home' || screen === 'loading' || screen === 'error') {
+      tg.BackButton.hide()
+    } else {
+      tg.BackButton.show()
+    }
+    tg.BackButton.onClick(goBack)
+    return () => tg.BackButton.offClick(goBack)
+  }, [screen, screenStack])
 
   if (screen === 'report') {
     return (
       <div key="report" className="page-enter">
         <ReportPage
           plate={reportPlate}
-          onBack={(dest) => setScreen(dest ?? 'home')}
+          onBack={(dest) => dest ? navigate(dest) : goBack()}
           user={user}
+          onNavigate={navigate}
         />
       </div>
     )
@@ -74,7 +104,7 @@ export default function App() {
   if (screen === 'privacy') {
     return (
       <div key="privacy" className="page-enter">
-        <PrivacyPolicyPage onBack={() => setScreen('home')} onContact={() => setScreen('ticket')} />
+        <PrivacyPolicyPage onBack={goBack} onContact={() => navigate('ticket')} onNavigate={navigate} />
       </div>
     )
   }
@@ -83,7 +113,7 @@ export default function App() {
     return (
       <>
         <div key="ticket" className="page-enter" style={{ paddingBottom: 78 }}>
-          <TicketPage onBack={() => setScreen('home')} />
+          <TicketPage onBack={goBack} onNavigate={navigate} />
         </div>
         <BottomNav screen={screen} onNavigate={navigate} />
       </>
@@ -93,7 +123,7 @@ export default function App() {
   if (screen === 'howItWorks') {
     return (
       <div key="howItWorks" className="page-enter">
-        <HowItWorksPage onBack={() => setScreen('home')} freeSearches={user?.free_searches ?? 10} onPrivacy={() => setScreen('privacy')} />
+        <HowItWorksPage onBack={goBack} freeSearches={user?.free_searches ?? 10} onPrivacy={() => navigate('privacy')} onNavigate={navigate} />
       </div>
     )
   }
@@ -103,8 +133,9 @@ export default function App() {
       <>
         <div key="history" className="page-enter" style={{ paddingBottom: 78 }}>
           <HistoryPage
-            onBack={() => setScreen('home')}
-            onViewPlate={plate => { setReportPlate(plate); setScreen('report') }}
+            onBack={goBack}
+            onViewPlate={plate => { setReportPlate(plate); navigate('report') }}
+            onNavigate={navigate}
           />
         </div>
         <BottomNav screen={screen} onNavigate={navigate} />
@@ -116,7 +147,7 @@ export default function App() {
     return (
       <>
         <div key="referral" className="page-enter" style={{ paddingBottom: 78 }}>
-          <ReferralPage onBack={() => setScreen('home')} />
+          <ReferralPage onBack={goBack} onNavigate={navigate} />
         </div>
         <BottomNav screen={screen} onNavigate={navigate} />
       </>
@@ -126,7 +157,7 @@ export default function App() {
   if (screen === 'orders') {
     return (
       <div key="orders" className="page-enter">
-        <OrdersPage onBack={() => setScreen('home')} />
+        <OrdersPage onBack={goBack} onNavigate={navigate} />
       </div>
     )
   }
@@ -134,7 +165,7 @@ export default function App() {
   if (screen === 'watches') {
     return (
       <div key="watches" className="page-enter">
-        <WatchesPage onBack={() => setScreen('home')} onPackages={() => setScreen('packages')} user={user} />
+        <WatchesPage onBack={goBack} onPackages={() => navigate('packages')} user={user} onNavigate={navigate} />
       </div>
     )
   }
@@ -155,7 +186,7 @@ export default function App() {
     return (
       <div key="admin" className="page-enter">
         <Suspense fallback={<div className="loading"></div>}>
-          <AdminPage user={user} onBack={() => setScreen('home')} />
+          <AdminPage user={user} onBack={goBack} />
         </Suspense>
       </div>
     )
@@ -166,7 +197,7 @@ export default function App() {
       <div key="payment" className="page-enter">
         <PaymentPage
           pkg={selectedPkg}
-          onBack={() => setScreen('packages')}
+          onBack={goBack}
         />
       </div>
     )
@@ -181,7 +212,7 @@ export default function App() {
           <div className="success-text">
             נאשר את הרכישה בקרוב ותקבל הודעה בטלגרם.
           </div>
-          <button className="btn" onClick={() => setScreen('home')}>
+          <button className="btn" onClick={() => { setScreenStack([]); setScreen('home') }}>
             חזור לתפריט
           </button>
         </div>
@@ -200,12 +231,13 @@ export default function App() {
             onSelect={(pkg) => {
               setSelectedPkg(pkg)
               setPaymentData(null)
-              setScreen('payment')
+              navigate('payment')
             }}
-            onPrivacy={() => setScreen('privacy')}
-            onSupport={() => setScreen('ticket')}
-            onReferral={() => setScreen('referral')}
-            onBack={() => setScreen('home')}
+            onPrivacy={() => navigate('privacy')}
+            onSupport={() => navigate('ticket')}
+            onReferral={() => navigate('referral')}
+            onBack={goBack}
+            onNavigate={navigate}
           />
         </div>
         <BottomNav screen={screen} onNavigate={navigate} />

@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { fetchUserWatches, deleteUserWatch, toggleUserWatch, createUserWatch, fetchWatchMakes, fetchWatchModels } from '../api.js'
 import BackButton from '../components/BackButton.jsx'
+import PageBanners from '../components/PageBanners.jsx'
 
 const CURRENT_YEAR = new Date().getFullYear()
 const YEARS = Array.from({ length: 30 }, (_, i) => CURRENT_YEAR - i)
 
-export default function WatchesPage({ onBack, onPackages, user }) {
+export default function WatchesPage({ onBack, onPackages, user, onNavigate }) {
   const [watches, setWatches]   = useState(null)
   const [error, setError]       = useState(null)
   const [accessDenied, setAccessDenied] = useState(false)
@@ -130,6 +131,8 @@ export default function WatchesPage({ onBack, onPackages, user }) {
       <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 12 }}>
         תקבל הודעה בטלגרם כשתתווסף מודעה חדשה לסוג הרכב שבחרת.
       </div>
+
+      <PageBanners page="watches" onNavigate={onNavigate} />
 
       {/* ── Usage bar ── */}
       {watches && user?.watch_max != null && (() => {

@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react'
 import { fetchReferral, fetchReferrals } from '../api.js'
 import { fmtDate as fmtDateIL } from '../utils/time.js'
 import BackButton from '../components/BackButton.jsx'
+import PageBanners from '../components/PageBanners.jsx'
 
-export default function ReferralPage({ onBack }) {
+export default function ReferralPage({ onBack, onNavigate }) {
   const [info, setInfo]         = useState(null)
   const [referrals, setReferrals] = useState(null)
   const [tab, setTab]           = useState('share') // 'share' | 'history'
@@ -36,6 +37,8 @@ export default function ReferralPage({ onBack }) {
     <div className="page">
       {onBack && <BackButton onClick={onBack} />}
       <div className="page-title">🤝 הפנה חבר</div>
+
+      <PageBanners page="referral" onNavigate={onNavigate} />
 
       {/* Stats row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 16 }}>

@@ -121,9 +121,9 @@ async def list_payment_methods():
 
 
 @api.get("/api/banners")
-async def list_banners():
+async def list_banners(page: Optional[str] = None):
     from src.banners import get_banners
-    return [_banner_json(b) for b in await get_banners(active_only=True)]
+    return [_banner_json(b) for b in await get_banners(active_only=True, page=page)]
 
 
 @api.get("/api/products")
@@ -1095,11 +1095,11 @@ async def admin_delete_product_stock_unit(product_id: int, unit_id: int, admin: 
 
 def _banner_json(b) -> dict:
     (bid, title, subtitle, icon, image_url, color_from, color_to,
-     link_type, link_value, display_order, is_active) = b
+     link_type, link_value, placements, display_order, is_active) = b
     return {
         "id": bid, "title": title, "subtitle": subtitle, "icon": icon, "image_url": image_url,
         "color_from": color_from, "color_to": color_to, "link_type": link_type, "link_value": link_value,
-        "display_order": display_order, "is_active": bool(is_active),
+        "placements": placements, "display_order": display_order, "is_active": bool(is_active),
     }
 
 
@@ -1112,6 +1112,7 @@ class BannerBody(BaseModel):
     color_to: str = "#276749"
     link_type: str = "page"
     link_value: str = "packages"
+    placements: list[str] = ["home"]
     is_active: bool = True
 
 
@@ -1130,7 +1131,7 @@ async def admin_add_banner(body: BannerBody, admin: dict = Depends(_require_admi
     from src.banners import add_banner
     bid = await add_banner(
         body.title, body.subtitle, body.icon, body.image_url, body.color_from, body.color_to,
-        body.link_type, body.link_value, is_active=int(body.is_active),
+        body.link_type, body.link_value, placements=body.placements, is_active=int(body.is_active),
     )
     try:
         from src.activity import log as _log
@@ -1155,7 +1156,7 @@ async def admin_update_banner(banner_id: int, body: BannerBody, admin: dict = De
     await update_banner(
         banner_id, title=body.title, subtitle=body.subtitle, icon=body.icon, image_url=body.image_url,
         color_from=body.color_from, color_to=body.color_to, link_type=body.link_type,
-        link_value=body.link_value, is_active=int(body.is_active),
+        link_value=body.link_value, placements=body.placements, is_active=int(body.is_active),
     )
     try:
         from src.activity import log as _log
