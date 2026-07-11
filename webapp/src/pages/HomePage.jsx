@@ -115,6 +115,27 @@ export default function HomePage({ user, onNavigate }) {
         </div>
       </button>
 
+      {/* Gemini Pro AI banner */}
+      <button
+        onClick={() => onNavigate('packages')}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 14, width: '100%',
+          background: 'linear-gradient(135deg, #1e40af 0%, #0ea5e9 100%)',
+          border: 'none', borderRadius: 16, padding: '14px 18px',
+          marginBottom: 20, cursor: 'pointer', textAlign: 'right',
+        }}
+      >
+        <span style={{ fontSize: 34, flexShrink: 0 }}>🤖</span>
+        <div>
+          <div style={{ color: '#fff', fontWeight: 700, fontSize: 15, marginBottom: 2 }}>
+            Gemini Pro AI
+          </div>
+          <div style={{ color: 'rgba(255,255,255,0.82)', fontSize: 12 }}>
+            מוצר דיגיטלי חדש בחנות — לרכישה ←
+          </div>
+        </div>
+      </button>
+
       {/* Menu grid */}
       <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 10, fontWeight: 500 }}>
         תפריט ראשי
