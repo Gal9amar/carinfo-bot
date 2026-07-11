@@ -120,6 +120,12 @@ async def list_payment_methods():
     return await get_payment_methods(active_only=True)
 
 
+@api.get("/api/banners")
+async def list_banners():
+    from src.banners import get_banners
+    return [_banner_json(b) for b in await get_banners(active_only=True)]
+
+
 @api.get("/api/products")
 async def list_products():
     from src.products import get_products, available_stock_count
@@ -1085,6 +1091,90 @@ async def admin_delete_product_stock_unit(product_id: int, unit_id: int, admin: 
     except Exception:
         pass
     return {"ok": True, "stock_count": await available_stock_count(product_id, "auto")}
+
+
+def _banner_json(b) -> dict:
+    (bid, title, subtitle, icon, image_url, color_from, color_to,
+     link_type, link_value, display_order, is_active) = b
+    return {
+        "id": bid, "title": title, "subtitle": subtitle, "icon": icon, "image_url": image_url,
+        "color_from": color_from, "color_to": color_to, "link_type": link_type, "link_value": link_value,
+        "display_order": display_order, "is_active": bool(is_active),
+    }
+
+
+class BannerBody(BaseModel):
+    title: str
+    subtitle: str = ""
+    icon: str = "🎁"
+    image_url: str = ""
+    color_from: str = "#38a169"
+    color_to: str = "#276749"
+    link_type: str = "page"
+    link_value: str = "packages"
+    is_active: bool = True
+
+
+class BannerReorderBody(BaseModel):
+    order: list[int]
+
+
+@api.get("/api/admin/banners")
+async def admin_list_banners(_: dict = Depends(_require_admin)):
+    from src.banners import get_banners
+    return [_banner_json(b) for b in await get_banners(force_reload=True)]
+
+
+@api.post("/api/admin/banners")
+async def admin_add_banner(body: BannerBody, admin: dict = Depends(_require_admin)):
+    from src.banners import add_banner
+    bid = await add_banner(
+        body.title, body.subtitle, body.icon, body.image_url, body.color_from, body.color_to,
+        body.link_type, body.link_value, is_active=int(body.is_active),
+    )
+    try:
+        from src.activity import log as _log
+        await _log("banner_created", f"באנר נוצר: {body.title}", int(admin["id"]))
+    except Exception:
+        pass
+    return {"ok": True, "id": bid}
+
+
+@api.put("/api/admin/banners/reorder")
+async def admin_reorder_banners(body: BannerReorderBody, _: dict = Depends(_require_admin)):
+    from src.banners import reorder_banners, get_banners
+    if not body.order:
+        raise HTTPException(status_code=400, detail="Order list required")
+    await reorder_banners(body.order)
+    return [_banner_json(b) for b in await get_banners(force_reload=True)]
+
+
+@api.put("/api/admin/banners/{banner_id}")
+async def admin_update_banner(banner_id: int, body: BannerBody, admin: dict = Depends(_require_admin)):
+    from src.banners import update_banner
+    await update_banner(
+        banner_id, title=body.title, subtitle=body.subtitle, icon=body.icon, image_url=body.image_url,
+        color_from=body.color_from, color_to=body.color_to, link_type=body.link_type,
+        link_value=body.link_value, is_active=int(body.is_active),
+    )
+    try:
+        from src.activity import log as _log
+        await _log("banner_updated", f"באנר עודכן: {body.title} (#{banner_id})", int(admin["id"]))
+    except Exception:
+        pass
+    return {"ok": True}
+
+
+@api.delete("/api/admin/banners/{banner_id}")
+async def admin_delete_banner(banner_id: int, admin: dict = Depends(_require_admin)):
+    from src.banners import delete_banner
+    await delete_banner(banner_id)
+    try:
+        from src.activity import log as _log
+        await _log("banner_deleted", f"באנר נמחק: #{banner_id}", int(admin["id"]))
+    except Exception:
+        pass
+    return {"ok": True}
 
 
 _UPLOADS_DIR = os.path.join(os.path.dirname(__file__), "uploads")

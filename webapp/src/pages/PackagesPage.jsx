@@ -3,7 +3,7 @@ import BackButton from '../components/BackButton.jsx'
 import { fetchProducts } from '../api.js'
 import { safeDescriptionHtml } from '../utils/safeHtml.js'
 
-export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSupport, onReferral, onBack }) {
+export default function PackagesPage({ packages, user, highlightProductId, onSelect, onPrivacy, onSupport, onReferral, onBack }) {
   const [quantities, setQuantities] = useState({})
   const [products, setProducts] = useState([])
   function getQty(id) { return quantities[id] ?? 1 }
@@ -12,6 +12,12 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
   }
 
   useEffect(() => { fetchProducts().then(setProducts).catch(() => setProducts([])) }, [])
+
+  useEffect(() => {
+    if (!highlightProductId || products.length === 0) return
+    const el = document.getElementById(`product-${highlightProductId}`)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [highlightProductId, products])
 
   function handleSelect(pkg) { onSelect(pkg) }
   function handleSelectProduct(p, qty = 1) { onSelect({ ...p, label: p.name, _isProduct: true, _qty: qty }) }
@@ -111,10 +117,13 @@ export default function PackagesPage({ packages, user, onSelect, onPrivacy, onSu
             const isComingSoon = p.availability_status === 'coming_soon'
             const isBuyable = p.in_stock && !isComingSoon
             const ribbon = isComingSoon ? { text: '🔜 בקרוב', bg: '#3182ce' } : !p.in_stock ? { text: 'אזל המלאי', bg: '#e53e3e' } : null
+            const isHighlighted = String(highlightProductId) === String(p.id)
             return (
-              <div key={p.id} style={{
+              <div key={p.id} id={`product-${p.id}`} style={{
                 borderRadius: 20, overflow: 'hidden', marginBottom: 22, position: 'relative',
-                boxShadow: '0 6px 28px rgba(0,0,0,0.18), 0 0 0 1px rgba(255,255,255,0.07)',
+                boxShadow: isHighlighted
+                  ? '0 6px 28px rgba(0,0,0,0.18), 0 0 0 2px #38bdf8'
+                  : '0 6px 28px rgba(0,0,0,0.18), 0 0 0 1px rgba(255,255,255,0.07)',
                 background: 'var(--bg2)', opacity: isBuyable ? 1 : 0.6,
               }}>
                 {ribbon && (
