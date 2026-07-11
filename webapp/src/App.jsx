@@ -22,6 +22,7 @@ export default function App() {
   const [paymentData, setPaymentData] = useState(null)
   const [error, setError] = useState(null)
   const [reportPlate, setReportPlate] = useState(null)
+  const [highlightProductId, setHighlightProductId] = useState(null)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -53,7 +54,8 @@ export default function App() {
     init()
   }, [])
 
-  function navigate(dest) {
+  function navigate(dest, meta) {
+    setHighlightProductId(meta?.highlightProductId ?? null)
     setScreen(dest)
   }
 
@@ -194,6 +196,7 @@ export default function App() {
           <PackagesPage
             packages={packages}
             user={user}
+            highlightProductId={highlightProductId}
             onSelect={(pkg) => {
               setSelectedPkg(pkg)
               setPaymentData(null)

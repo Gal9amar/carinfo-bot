@@ -38,6 +38,7 @@ import {
   adminToggleBroadcastConsent,
   adminFetchProducts, adminAddProduct, adminUpdateProduct, adminDeleteProduct,
   adminUploadProductStock, adminFetchProductStock, adminDeleteProductStockUnit,
+  adminFetchBanners, adminAddBanner, adminUpdateBanner, adminDeleteBanner, adminReorderBanners,
 } from '../api.js'
 import BackButton from '../components/BackButton.jsx'
 
@@ -47,6 +48,7 @@ const TABS = [
   { id: 'payments', icon: '💳', label: 'הזמנות' },
   { id: 'packages', icon: '🛒', label: 'מוצרים' },
   { id: 'products', icon: '📦', label: 'מוצרים דיגיטליים' },
+  { id: 'banners',  icon: '🖼️', label: 'באנרים' },
   { id: 'grants',   icon: '🎁', label: 'הטבות מנהל' },
   { id: 'codes',    icon: '🔑', label: 'קודים' },
   { id: 'users',     icon: '👥', label: 'משתמשים' },
@@ -96,6 +98,7 @@ export default function AdminPage({ user, onBack }) {
       {tab === 'payments' && <PaymentsTab />}
       {tab === 'packages' && <PackagesTab />}
       {tab === 'products' && <ProductsTab />}
+      {tab === 'banners'  && <BannersTab />}
       {tab === 'grants'   && <AdminGrantsTab />}
       {tab === 'codes'    && <CodesSection standalone />}
       {tab === 'users'     && <UsersTab />}
@@ -618,6 +621,332 @@ function ProductsTab() {
       {stockTarget && (
         <ProductStockModal product={stockTarget} onClose={() => { setStockTarget(null); load() }} />
       )}
+    </div>
+  )
+}
+
+const BANNER_PAGE_OPTIONS = [
+  { value: 'packages',   label: '🛒 החנות' },
+  { value: 'orders',     label: '📦 הזמנות שלי' },
+  { value: 'history',    label: '📋 חיפושים שלי' },
+  { value: 'referral',   label: '🤝 הפנה חבר' },
+  { value: 'ticket',     label: '🎫 תמיכה' },
+  { value: 'howItWorks', label: 'ℹ️ איך זה עובד' },
+  { value: 'privacy',    label: '🔒 פרטיות' },
+  { value: 'watches',    label: '🔔 התראות יד2' },
+]
+
+function BannersTab() {
+  const [banners, setBanners] = useState(null)
+  const [editing, setEditing] = useState(null)
+  const [adding, setAdding] = useState(false)
+  const [form, setForm] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const [dragIdx, setDragIdx] = useState(null)
+  const [reordering, setReordering] = useState(false)
+
+  function load() { adminFetchBanners().then(setBanners).catch(() => setBanners([])) }
+  useEffect(() => { load() }, [])
+
+  function blankForm() {
+    return { title: '', subtitle: '', icon: '🎁', image_url: '', color_from: '#38a169', color_to: '#276749', link_type: 'page', link_value: 'packages', is_active: true }
+  }
+
+  async function applyReorder(next) {
+    setBanners(next)
+    setReordering(true)
+    try {
+      setBanners(await adminReorderBanners(next.map(b => b.id)))
+    } catch {
+      window.Telegram?.WebApp?.showAlert('שגיאה בעדכון הסדר')
+      load()
+    }
+    setReordering(false)
+  }
+
+  function moveBanner(fromIdx, toIdx) {
+    if (!banners) return
+    if (fromIdx === toIdx || fromIdx < 0 || toIdx < 0 || fromIdx >= banners.length || toIdx >= banners.length) return
+    const next = [...banners]
+    const [moved] = next.splice(fromIdx, 1)
+    next.splice(toIdx, 0, moved)
+    applyReorder(next)
+  }
+
+  function toBody(f) {
+    return {
+      title: f.title, subtitle: f.subtitle || '', icon: f.icon || '🎁', image_url: f.image_url || '',
+      color_from: f.color_from || '#38a169', color_to: f.color_to || '#276749',
+      link_type: f.link_type || 'page', link_value: f.link_value || 'packages',
+      is_active: f.is_active !== false,
+    }
+  }
+
+  async function saveEdit() {
+    setSaving(true)
+    try {
+      await adminUpdateBanner(editing.id, toBody(form))
+      load()
+      setEditing(null)
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    setSaving(false)
+  }
+
+  async function saveAdd() {
+    setSaving(true)
+    try {
+      await adminAddBanner(toBody(form))
+      load()
+      setAdding(false)
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    setSaving(false)
+  }
+
+  async function deleteBanner(id) {
+    window.Telegram?.WebApp?.showConfirm('למחוק באנר?', async (ok) => {
+      if (!ok) return
+      await adminDeleteBanner(id)
+      load()
+    })
+  }
+
+  async function toggleActive(b) {
+    setBanners(prev => prev.map(x => x.id === b.id ? { ...x, is_active: !x.is_active } : x))
+    try {
+      await adminUpdateBanner(b.id, toBody({ ...b, is_active: !b.is_active }))
+    } catch {
+      window.Telegram?.WebApp?.showAlert('שגיאה')
+      load()
+    }
+  }
+
+  if (!banners) return <div className="loading"></div>
+
+  return (
+    <div>
+      <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 10 }}>
+        באנרים אלו מוצגים בעמוד הבית של המיני-אפ · גרור ⠿ לשינוי סדר תצוגה
+      </div>
+      {banners.length === 0 && (
+        <div style={{ color: 'var(--hint)', textAlign: 'center', padding: 24 }}>אין באנרים עדיין</div>
+      )}
+      {banners.map((b, idx) => {
+        const isActive = b.is_active !== false
+        const isDragging = dragIdx === idx
+        const linkLabel = b.link_type === 'product'
+          ? `מוצר #${b.link_value}`
+          : (BANNER_PAGE_OPTIONS.find(o => o.value === b.link_value)?.label || b.link_value)
+        return (
+          <div
+            key={b.id}
+            draggable={!reordering}
+            onDragStart={() => setDragIdx(idx)}
+            onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
+            onDrop={() => { if (dragIdx !== null) moveBanner(dragIdx, idx); setDragIdx(null) }}
+            onDragEnd={() => setDragIdx(null)}
+            className="card"
+            style={{ opacity: isDragging ? 0.45 : isActive ? 1 : 0.5, cursor: reordering ? 'wait' : 'grab' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                <span style={{ fontSize: 20, color: 'var(--hint)', cursor: 'grab', userSelect: 'none', flexShrink: 0 }} title="גרור לשינוי סדר">⠿</span>
+                <div style={{
+                  width: 44, height: 44, borderRadius: 10, flexShrink: 0,
+                  background: `linear-gradient(135deg, ${b.color_from}, ${b.color_to})`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
+                }}>{b.icon}</div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span className="card-title">{b.title}</span>
+                    {!isActive && (
+                      <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#e53e3e22', color: '#e53e3e' }}>מושבת</span>
+                    )}
+                  </div>
+                  <div className="card-subtitle">🔗 {linkLabel}</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                <button className="btn" style={{ width: 'auto', padding: '4px 8px', marginTop: 0, fontSize: 12 }}
+                  disabled={idx === 0 || reordering} onClick={() => moveBanner(idx, idx - 1)} title="הזז למעלה">↑</button>
+                <button className="btn" style={{ width: 'auto', padding: '4px 8px', marginTop: 0, fontSize: 12 }}
+                  disabled={idx === banners.length - 1 || reordering} onClick={() => moveBanner(idx, idx + 1)} title="הזז למטה">↓</button>
+                <button className="btn" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
+                  onClick={() => toggleActive(b)} title={isActive ? 'הסתר מהאתר' : 'הצג באתר'}>{isActive ? '👁️' : '🚫'}</button>
+                <button className="btn" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
+                  onClick={() => { setEditing(b); setForm({ ...b }) }}>✏️</button>
+                <button className="btn btn-danger" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
+                  onClick={() => deleteBanner(b.id)}>🗑</button>
+              </div>
+            </div>
+          </div>
+        )
+      })}
+      <button className="btn btn-success" onClick={() => { setAdding(true); setForm(blankForm()) }}>
+        ➕ הוסף באנר
+      </button>
+
+      {editing && (
+        <BannerModal title="✏️ עריכת באנר" form={form} setForm={setForm} saving={saving} onSave={saveEdit} onClose={() => setEditing(null)} />
+      )}
+      {adding && (
+        <BannerModal title="➕ באנר חדש" form={form} setForm={setForm} saving={saving} onSave={saveAdd} onClose={() => setAdding(false)} />
+      )}
+    </div>
+  )
+}
+
+function BannerModal({ title, form, setForm, saving, onSave, onClose }) {
+  const fileRef = useRef(null)
+  const [compressing, setCompressing] = useState(false)
+  const [products, setProducts] = useState(null)
+
+  useEffect(() => {
+    if (form.link_type === 'product' && products === null) {
+      adminFetchProducts().then(setProducts).catch(() => setProducts([]))
+    }
+  }, [form.link_type])
+
+  function handleFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setCompressing(true)
+    const reader = new FileReader()
+    reader.onload = ev => {
+      const img = new Image()
+      img.onload = () => {
+        const MAX = 800
+        const ratio = Math.min(MAX / img.width, MAX / img.height, 1)
+        const canvas = document.createElement('canvas')
+        canvas.width  = Math.round(img.width  * ratio)
+        canvas.height = Math.round(img.height * ratio)
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+        setForm(f => ({ ...f, image_url: canvas.toDataURL('image/jpeg', 0.82) }))
+        setCompressing(false)
+      }
+      img.src = ev.target.result
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const valid = form.title?.trim() && form.link_value?.toString().trim()
+
+  return (
+    <div className="modal-overlay-full">
+      <div className="modal-full">
+        <button type="button" className="btn btn-secondary" style={{ marginBottom: 16, width: 'auto', padding: '8px 16px' }} onClick={onClose}>← חזרה</button>
+        <div className="modal-title">{title}</div>
+
+        {/* Live preview */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 14, width: '100%',
+          background: form.image_url
+            ? `linear-gradient(135deg, ${form.color_from}cc 0%, ${form.color_to}cc 100%), url(${form.image_url}) center/cover`
+            : `linear-gradient(135deg, ${form.color_from} 0%, ${form.color_to} 100%)`,
+          border: 'none', borderRadius: 16, padding: '14px 18px', marginBottom: 16,
+        }}>
+          <span style={{ fontSize: 34, flexShrink: 0 }}>{form.icon || '🎁'}</span>
+          <div>
+            <div style={{ color: '#fff', fontWeight: 700, fontSize: 15, marginBottom: 2 }}>{form.title || 'כותרת הבאנר'}</div>
+            {form.subtitle && <div style={{ color: 'rgba(255,255,255,0.82)', fontSize: 12 }}>{form.subtitle}</div>}
+          </div>
+        </div>
+
+        <input className="input" placeholder="כותרת" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
+        <input className="input" placeholder="כותרת משנה" value={form.subtitle} onChange={e => setForm(f => ({ ...f, subtitle: e.target.value }))} />
+        <input className="input" placeholder="אייקון (אימוג'י)" value={form.icon} onChange={e => setForm(f => ({ ...f, icon: e.target.value }))} />
+
+        <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+          <label style={{ flex: 1, fontSize: 12, color: 'var(--hint)' }}>
+            צבע התחלה
+            <input type="color" value={form.color_from} onChange={e => setForm(f => ({ ...f, color_from: e.target.value }))}
+              style={{ width: '100%', height: 36, borderRadius: 8, border: 'none', marginTop: 4, cursor: 'pointer' }} />
+          </label>
+          <label style={{ flex: 1, fontSize: 12, color: 'var(--hint)' }}>
+            צבע סיום
+            <input type="color" value={form.color_to} onChange={e => setForm(f => ({ ...f, color_to: e.target.value }))}
+              style={{ width: '100%', height: 36, borderRadius: 8, border: 'none', marginTop: 4, cursor: 'pointer' }} />
+          </label>
+        </div>
+
+        <label style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          background: 'var(--bg2)', borderRadius: 10, padding: '10px 14px', marginBottom: 12,
+          cursor: 'pointer', userSelect: 'none',
+        }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>הצג באתר</div>
+            <div style={{ fontSize: 11, color: 'var(--hint)', marginTop: 2 }}>
+              {form.is_active !== false ? 'מוצג בעמוד הבית' : 'מוסתר — לא מוצג בעמוד הבית'}
+            </div>
+          </div>
+          <div
+            onClick={() => setForm(f => ({ ...f, is_active: f.is_active === false }))}
+            style={{
+              width: 44, height: 24, borderRadius: 12, flexShrink: 0,
+              background: form.is_active !== false ? '#38a169' : 'rgba(255,255,255,0.15)',
+              position: 'relative', transition: 'background 0.2s', cursor: 'pointer',
+            }}
+          >
+            <div style={{
+              position: 'absolute', top: 3, width: 18, height: 18, borderRadius: '50%',
+              background: '#fff', transition: 'left 0.2s',
+              left: form.is_active !== false ? 23 : 3,
+            }} />
+          </div>
+        </label>
+
+        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--hint)', marginBottom: 6 }}>לאן להפנות בלחיצה</div>
+        <select
+          className="input"
+          value={form.link_type}
+          onChange={e => {
+            const link_type = e.target.value
+            setForm(f => ({ ...f, link_type, link_value: link_type === 'page' ? 'packages' : '' }))
+          }}
+        >
+          <option value="page">📄 מסך / תפריט באתר</option>
+          <option value="product">📦 מוצר דיגיטלי</option>
+        </select>
+
+        {form.link_type === 'page' && (
+          <select className="input" value={form.link_value} onChange={e => setForm(f => ({ ...f, link_value: e.target.value }))}>
+            {BANNER_PAGE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        )}
+
+        {form.link_type === 'product' && (
+          products === null ? (
+            <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 12 }}>טוען מוצרים...</div>
+          ) : products.length === 0 ? (
+            <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 12 }}>אין מוצרים דיגיטליים — הוסף מוצר בטאב "מוצרים דיגיטליים" קודם</div>
+          ) : (
+            <select className="input" value={form.link_value} onChange={e => setForm(f => ({ ...f, link_value: e.target.value }))}>
+              <option value="">— בחר מוצר —</option>
+              {products.map(p => <option key={p.id} value={p.id}>{p.name} · ₪{p.price}</option>)}
+            </select>
+          )
+        )}
+
+        {form.image_url ? (
+          <div style={{ position: 'relative', marginBottom: 8, marginTop: 4 }}>
+            <img src={form.image_url} alt="תצוגה מקדימה" style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 8, display: 'block' }} onError={e => { e.target.style.display = 'none' }} />
+            <button onClick={() => setForm(f => ({ ...f, image_url: '' }))} style={{
+              position: 'absolute', top: 6, left: 6, background: 'rgba(0,0,0,0.55)', color: '#fff',
+              border: 'none', borderRadius: '50%', width: 28, height: 28, fontSize: 14, cursor: 'pointer', lineHeight: 1,
+            }}>✕</button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: 8, marginBottom: 8, marginTop: 4 }}>
+            <button type="button" className="btn" style={{ flex: 1, marginTop: 0 }} disabled={compressing} onClick={() => fileRef.current?.click()}>
+              {compressing ? '...' : '🖼 העלה תמונת רקע (אופציונלי)'}
+            </button>
+          </div>
+        )}
+        <input ref={fileRef} type="file" accept="image/*" hidden onChange={handleFile} />
+
+        <button className="btn" disabled={saving || !valid} onClick={onSave}>{saving ? '...' : 'שמור'}</button>
+        <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={onClose}>ביטול</button>
+      </div>
     </div>
   )
 }

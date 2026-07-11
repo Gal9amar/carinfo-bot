@@ -66,6 +66,12 @@ export async function fetchProducts() {
   return r.json()
 }
 
+export async function fetchBanners() {
+  const r = await fetch(`${BASE}/api/banners`)
+  if (!r.ok) throw new Error('Failed to load banners')
+  return r.json()
+}
+
 export async function confirmPayment(ref, packageId) {
   const r = await fetch(`${BASE}/api/payment/confirm`, {
     method: 'POST',
@@ -401,6 +407,43 @@ export async function adminFetchProductStock(id) {
 export async function adminDeleteProductStockUnit(productId, unitId) {
   const r = await fetch(`${BASE}/api/admin/products/${productId}/stock/${unitId}`, {
     method: 'DELETE', headers: headers(),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+// Home-page banners (admin)
+export async function adminFetchBanners() {
+  const r = await fetch(`${BASE}/api/admin/banners`, { headers: headers() })
+  if (!r.ok) throw new Error('Unauthorized')
+  return r.json()
+}
+
+export async function adminAddBanner(data) {
+  const r = await fetch(`${BASE}/api/admin/banners`, {
+    method: 'POST', headers: headers(), body: JSON.stringify(data),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+export async function adminUpdateBanner(id, data) {
+  const r = await fetch(`${BASE}/api/admin/banners/${id}`, {
+    method: 'PUT', headers: headers(), body: JSON.stringify(data),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+export async function adminDeleteBanner(id) {
+  const r = await fetch(`${BASE}/api/admin/banners/${id}`, { method: 'DELETE', headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+export async function adminReorderBanners(order) {
+  const r = await fetch(`${BASE}/api/admin/banners/reorder`, {
+    method: 'PUT', headers: headers(), body: JSON.stringify({ order }),
   })
   if (!r.ok) throw new Error('Failed')
   return r.json()
