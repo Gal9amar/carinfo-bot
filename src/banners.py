@@ -57,22 +57,37 @@ async def init_banners() -> None:
              "#1e40af", "#0ea5e9", "page", "packages", json.dumps(["home"]), 2],
         )
 
-    # Backfill: the referral page used to have this banner hardcoded in the
-    # frontend. Insert it once (by title) so it becomes admin-editable even
-    # on databases that already ran the seed above before this existed.
-    referral_title = "הפנה חברים — קבל חיפושים על כל הצטרפות"
-    check = await execute("SELECT COUNT(*) FROM banners WHERE title=?", [referral_title])
-    if check.rows and check.rows[0][0] == 0:
-        r3 = await execute("SELECT COALESCE(MAX(display_order), 0) + 1 FROM banners")
-        next_order = r3.rows[0][0] if r3.rows else 3
-        await execute(
-            "INSERT INTO banners (title, subtitle, icon, color_from, color_to, link_type, link_value, placements, display_order) "
-            "VALUES (?,?,?,?,?,?,?,?,?)",
-            [referral_title, "כל חבר שמצטרף לבוט דרך הלינק שלך מוסיף לך חיפושים אוטומטית", "🎁",
-             "#2481cc", "#1a5fa8", "page", "packages", json.dumps(["referral"]), next_order],
-        )
+    # Backfill: banners that used to be hardcoded in the frontend. Each is
+    # inserted once (matched by title) so they become admin-editable even on
+    # databases that already ran the seed above before this existed.
+    await _backfill_banner(
+        "הפנה חברים — קבל חיפושים על כל הצטרפות",
+        "כל חבר שמצטרף לבוט דרך הלינק שלך מוסיף לך חיפושים אוטומטית", "🎁",
+        "#2481cc", "#1a5fa8", "page", "packages", ["referral"],
+    )
+    await _backfill_banner(
+        "רוצה חיפושים בחינם?",
+        "הפנה חברים וקבל חיפושים על כל הצטרפות ←", "🎁",
+        "#38a169", "#276749", "page", "referral", ["packages"],
+    )
 
     await get_banners(force_reload=True)
+
+
+async def _backfill_banner(
+    title: str, subtitle: str, icon: str, color_from: str, color_to: str,
+    link_type: str, link_value: str, placements: list,
+) -> None:
+    check = await execute("SELECT COUNT(*) FROM banners WHERE title=?", [title])
+    if check.rows and check.rows[0][0] > 0:
+        return
+    r = await execute("SELECT COALESCE(MAX(display_order), 0) + 1 FROM banners")
+    next_order = r.rows[0][0] if r.rows else 1
+    await execute(
+        "INSERT INTO banners (title, subtitle, icon, color_from, color_to, link_type, link_value, placements, display_order) "
+        "VALUES (?,?,?,?,?,?,?,?,?)",
+        [title, subtitle, icon, color_from, color_to, link_type, link_value, json.dumps(placements), next_order],
+    )
 
 
 async def get_banners(force_reload: bool = False, active_only: bool = False, page: str | None = None) -> list[tuple]:
