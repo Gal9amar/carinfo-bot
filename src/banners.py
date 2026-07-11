@@ -56,6 +56,22 @@ async def init_banners() -> None:
             ["Gemini Pro AI", "מוצר דיגיטלי חדש בחנות — לרכישה ←", "🤖",
              "#1e40af", "#0ea5e9", "page", "packages", json.dumps(["home"]), 2],
         )
+
+    # Backfill: the referral page used to have this banner hardcoded in the
+    # frontend. Insert it once (by title) so it becomes admin-editable even
+    # on databases that already ran the seed above before this existed.
+    referral_title = "הפנה חברים — קבל חיפושים על כל הצטרפות"
+    check = await execute("SELECT COUNT(*) FROM banners WHERE title=?", [referral_title])
+    if check.rows and check.rows[0][0] == 0:
+        r3 = await execute("SELECT COALESCE(MAX(display_order), 0) + 1 FROM banners")
+        next_order = r3.rows[0][0] if r3.rows else 3
+        await execute(
+            "INSERT INTO banners (title, subtitle, icon, color_from, color_to, link_type, link_value, placements, display_order) "
+            "VALUES (?,?,?,?,?,?,?,?,?)",
+            [referral_title, "כל חבר שמצטרף לבוט דרך הלינק שלך מוסיף לך חיפושים אוטומטית", "🎁",
+             "#2481cc", "#1a5fa8", "page", "packages", json.dumps(["referral"]), next_order],
+        )
+
     await get_banners(force_reload=True)
 
 

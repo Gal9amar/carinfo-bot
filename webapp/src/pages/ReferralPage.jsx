@@ -77,19 +77,6 @@ export default function ReferralPage({ onBack, onNavigate }) {
       {/* Share tab */}
       {tab === 'share' && (
         <div>
-          <div style={{
-            background: 'linear-gradient(135deg,#2481cc,#1a5fa8)',
-            borderRadius: 14, padding: '16px', marginBottom: 14, color: '#fff', textAlign: 'center',
-          }}>
-            <div style={{ fontSize: 32, marginBottom: 6 }}>🎁</div>
-            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
-              הפנה חברים — קבל {info?.bonus ?? 10} חיפושים לכל הצטרפות
-            </div>
-            <div style={{ fontSize: 13, opacity: 0.85 }}>
-              כל חבר שמצטרף לבוט דרך הלינק שלך<br />מוסיף לך {info?.bonus ?? 10} חיפושים אוטומטית
-            </div>
-          </div>
-
           <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8 }}>הלינק האישי שלך:</div>
           <div style={{
             background: 'var(--bg2)', borderRadius: 10, padding: '10px 12px',
