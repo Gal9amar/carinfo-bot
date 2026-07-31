@@ -2332,7 +2332,7 @@ async def _post_init(app) -> None:
     try:
         await app.bot.set_chat_menu_button(
             menu_button=MenuButtonWebApp(
-                text="פתח אפליקציה",
+                text="תפריט",
                 web_app=WebAppInfo(url=webapp_url),
             )
         )
