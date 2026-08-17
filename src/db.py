@@ -219,6 +219,18 @@ async def init_db() -> None:
     migrations.append("ALTER TABLE paypal_transactions ADD COLUMN package_type TEXT DEFAULT 'searches'")
     migrations.append("ALTER TABLE pending_payments ADD COLUMN product_quantity INTEGER DEFAULT 1")
     migrations.append("ALTER TABLE paypal_transactions ADD COLUMN product_quantity INTEGER DEFAULT 1")
+    migrations.append("""CREATE TABLE IF NOT EXISTS owned_vehicles (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id        INTEGER NOT NULL,
+    plate          TEXT NOT NULL,
+    vehicle_data   TEXT NOT NULL DEFAULT '{}',
+    purchase_price REAL NOT NULL,
+    purchase_km    INTEGER,
+    purchase_date  TEXT NOT NULL DEFAULT (datetime('now')),
+    status         TEXT NOT NULL DEFAULT 'owned',
+    sale_price     REAL,
+    sale_date      TEXT
+)""")
     for sql in statements:
         conn.execute(sql)
     for sql in migrations:
@@ -233,6 +245,7 @@ async def init_db() -> None:
         "CREATE INDEX IF NOT EXISTS idx_ugm_group  ON user_group_members(group_id)",
         "CREATE INDEX IF NOT EXISTS idx_sh_user    ON search_history(user_id)",
         "CREATE INDEX IF NOT EXISTS idx_users_exp  ON users(quota_expires) WHERE quota_expires IS NOT NULL",
+        "CREATE INDEX IF NOT EXISTS idx_ov_user    ON owned_vehicles(user_id)",
     ]
     for sql in indexes:
         try:

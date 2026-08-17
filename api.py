@@ -663,6 +663,56 @@ async def save_note(plate: str, body: NoteBody, user: dict = Depends(_get_user))
     return {"ok": True}
 
 
+# ── Garage ("רכבים שקניתי") ──────────────────────────────────────────────────
+class GarageAddBody(BaseModel):
+    plate: str
+    purchase_price: float
+    purchase_km: int | None = None
+    vehicle_data: dict
+
+
+class GarageSellBody(BaseModel):
+    sale_price: float
+
+
+@api.get("/api/user/garage")
+async def list_garage(user: dict = Depends(_get_user)):
+    from src.garage import get_owned_vehicles
+    return await get_owned_vehicles(int(user["id"]))
+
+
+@api.get("/api/user/garage/check/{plate}")
+async def check_garage(plate: str, user: dict = Depends(_get_user)):
+    from src.garage import get_active_owned_vehicle
+    plate = plate.replace("-", "").replace(" ", "")
+    entry = await get_active_owned_vehicle(int(user["id"]), plate)
+    return entry or {}
+
+
+@api.post("/api/user/garage")
+async def add_garage(body: GarageAddBody, user: dict = Depends(_get_user)):
+    from src.garage import add_owned_vehicle, get_active_owned_vehicle
+    uid = int(user["id"])
+    plate = body.plate.replace("-", "").replace(" ", "")
+    if await get_active_owned_vehicle(uid, plate):
+        raise HTTPException(status_code=400, detail="already_owned")
+    owned_id = await add_owned_vehicle(uid, plate, body.vehicle_data, body.purchase_price, body.purchase_km)
+    return {"id": owned_id}
+
+
+@api.post("/api/user/garage/{owned_id}/sell")
+async def sell_garage(owned_id: int, body: GarageSellBody, user: dict = Depends(_get_user)):
+    from src.garage import get_owned_vehicle, mark_sold
+    uid = int(user["id"])
+    record = await get_owned_vehicle(owned_id, uid)
+    if not record:
+        raise HTTPException(status_code=404, detail="not_found")
+    if record["status"] != "owned":
+        raise HTTPException(status_code=400, detail="already_sold")
+    await mark_sold(owned_id, uid, body.sale_price)
+    return {"ok": True}
+
+
 # ── Admin ────────────────────────────────────────────────────────────────────
 @api.get("/api/admin/stats")
 async def admin_stats_api(_: dict = Depends(_require_admin)):

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { fetchVehicle, fetchMarketPrice, requestPdfReport, fetchNote, saveNote, createUserWatch, fetchUserWatches } from '../api.js'
+import { fetchVehicle, fetchMarketPrice, requestPdfReport, fetchNote, saveNote, createUserWatch, fetchUserWatches, checkGarage, addToGarage } from '../api.js'
 import { MAKE_EN, MODEL_EN } from '../vehicleNames.js'
 import LicensePlate from '../components/LicensePlate.jsx'
 import BackButton from '../components/BackButton.jsx'
@@ -476,12 +476,18 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
   const [noteDirty, setNoteDirty] = useState(false)
   const [noteSaving, setNoteSaving] = useState(false)
   const [watchState, setWatchState] = useState('idle') // idle | loading | done | error | exists
+  const [garageEntry, setGarageEntry] = useState(undefined) // undefined=loading, null=none, obj=owned
+  const [buying, setBuying] = useState(false)
+  const [buyPrice, setBuyPrice] = useState('')
+  const [buyKm, setBuyKm] = useState('')
+  const [buySubmitting, setBuySubmitting] = useState(false)
 
   useEffect(() => {
     if (!plate) { setError('לא צוין מספר רכב'); return }
     fetchVehicle(plate)
       .then(r => {
         setRecord(r)
+        checkGarage(plate).then(setGarageEntry).catch(() => setGarageEntry(null))
         const mk = String(r.tozeret_nm || '').trim()
         const mdl = String(r.kinuy_mishari || r.degem_nm || '').trim()
         const yr = r.shnat_yitzur ? String(r.shnat_yitzur) : ''
@@ -551,6 +557,27 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
   const height = w.gova
   const towWith = w.kosher_grira_im_blamim
   const towWithout = w.kosher_grira_bli_blamim
+
+  async function handleConfirmBuy() {
+    const price = parseFloat(buyPrice)
+    if (!price || price <= 0) return
+    setBuySubmitting(true)
+    try {
+      await addToGarage({
+        plate: plateNum,
+        purchase_price: price,
+        purchase_km: buyKm ? parseInt(buyKm, 10) : null,
+        vehicle_data: record,
+      })
+      const entry = await checkGarage(plateNum)
+      setGarageEntry(entry)
+      setBuying(false)
+    } catch {
+      window.Telegram?.WebApp?.showAlert('שגיאה בשמירה. נסה שוב.')
+    } finally {
+      setBuySubmitting(false)
+    }
+  }
 
   async function handleCopy() {
     const text = buildFullText(record, ownership)
@@ -712,6 +739,50 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
           <div className="stat-label">🇮🇱 מספר הרכבים לדגם זה על כבישי ישראל</div>
         </div>
       </div>
+
+      {/* ── Garage ("רכבים שקניתי") ── */}
+      {garageEntry !== undefined && (
+        <div className="card" style={{ marginBottom: 12 }}>
+          {garageEntry ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <span style={{
+                  fontSize: 11, fontWeight: 700, background: '#38bdf822', color: '#38bdf8',
+                  borderRadius: 20, padding: '4px 10px',
+                }}>🚗 במלאי שלי</span>
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 10 }}>
+                הרכב הזה כבר נמצא ב"רכבים שקניתי" שלך.
+              </div>
+              <button className="btn btn-secondary" style={{ width: '100%' }}
+                onClick={() => onNavigate('garage')}>📂 עבור לרכבים שקניתי</button>
+            </>
+          ) : buying ? (
+            <>
+              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>💰 הוספה ל"רכבים שקניתי"</div>
+              <input
+                type="number" className="input" placeholder="מחיר רכישה (₪)"
+                value={buyPrice} onChange={e => setBuyPrice(e.target.value)}
+                style={{ marginBottom: 8 }}
+              />
+              <input
+                type="number" className="input" placeholder='ק"מ בזמן הרכישה'
+                value={buyKm} onChange={e => setBuyKm(e.target.value)}
+                style={{ marginBottom: 8 }}
+              />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn" style={{ flex: 1 }} disabled={buySubmitting || !buyPrice}
+                  onClick={handleConfirmBuy}>{buySubmitting ? '...' : 'שמור'}</button>
+                <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setBuying(false)}>ביטול</button>
+              </div>
+            </>
+          ) : (
+            <button className="btn" style={{ width: '100%' }} onClick={() => setBuying(true)}>
+              🚗 קניתי את הרכב הזה
+            </button>
+          )}
+        </div>
+      )}
 
       {/* ── Market Price ── */}
       {(() => {

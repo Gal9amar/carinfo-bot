@@ -608,6 +608,36 @@ export async function fetchMarketPrice(plate) {
   return r.json()
 }
 
+// Garage ("רכבים שקניתי")
+export async function fetchGarage() {
+  const r = await fetch(`${BASE}/api/user/garage`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+export async function checkGarage(plate) {
+  const r = await fetch(`${BASE}/api/user/garage/check/${encodeURIComponent(plate)}`, { headers: headers() })
+  if (!r.ok) return null
+  const d = await r.json()
+  return d && d.id ? d : null
+}
+
+export async function addToGarage(data) {
+  const r = await fetch(`${BASE}/api/user/garage`, {
+    method: 'POST', headers: headers(), body: JSON.stringify(data),
+  })
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.detail || 'Failed') }
+  return r.json()
+}
+
+export async function sellFromGarage(id, salePrice) {
+  const r = await fetch(`${BASE}/api/user/garage/${id}/sell`, {
+    method: 'POST', headers: headers(), body: JSON.stringify({ sale_price: salePrice }),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
 export async function fetchNote(plate) {
   const r = await fetch(`${BASE}/api/notes/${encodeURIComponent(plate)}`, { headers: headers() })
   if (!r.ok) return ''

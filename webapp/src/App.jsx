@@ -12,6 +12,7 @@ import HistoryPage from './pages/HistoryPage.jsx'
 import ReferralPage from './pages/ReferralPage.jsx'
 import OrdersPage from './pages/OrdersPage.jsx'
 import WatchesPage from './pages/WatchesPage.jsx'
+import GaragePage from './pages/GaragePage.jsx'
 import BottomNav from './components/BottomNav.jsx'
 
 export default function App() {
@@ -40,6 +41,7 @@ export default function App() {
     if (page === 'history') { setScreen('history'); return }
     if (page === 'ticket') { setScreen('ticket'); return }
     if (page === 'referral') { setScreen('referral'); return }
+    if (page === 'garage') { setScreen('garage'); return }
 
     async function init() {
       try {
@@ -148,6 +150,17 @@ export default function App() {
       <>
         <div key="referral" className="page-enter" style={{ paddingBottom: 78 }}>
           <ReferralPage onBack={goBack} onNavigate={navigate} />
+        </div>
+        <BottomNav screen={screen} onNavigate={navigate} />
+      </>
+    )
+  }
+
+  if (screen === 'garage') {
+    return (
+      <>
+        <div key="garage" className="page-enter" style={{ paddingBottom: 78 }}>
+          <GaragePage onBack={goBack} onNavigate={navigate} />
         </div>
         <BottomNav screen={screen} onNavigate={navigate} />
       </>

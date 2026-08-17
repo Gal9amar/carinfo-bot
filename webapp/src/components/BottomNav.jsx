@@ -1,6 +1,7 @@
 const NAV = [
   { id: 'home',     icon: '🏠', label: 'בית' },
   { id: 'history',  icon: '📋', label: 'חיפושים שלי' },
+  { id: 'garage',   icon: '🚘', label: 'רכבים שקניתי' },
   { id: 'packages', icon: '🛒', label: 'חנות' },
   { id: 'watches',  icon: '🔔', label: 'התראות' },
 ]
