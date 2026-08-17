@@ -572,8 +572,11 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
       const entry = await checkGarage(plateNum)
       setGarageEntry(entry)
       setBuying(false)
-    } catch {
-      window.Telegram?.WebApp?.showAlert('שגיאה בשמירה. נסה שוב.')
+    } catch (err) {
+      const msg = err?.message === 'already_owned'
+        ? 'הרכב הזה כבר קיים ב"רכבים שקניתי" שלך.'
+        : `שגיאה בשמירה${err?.message ? ` (${err.message})` : ''}. נסה שוב.`
+      window.Telegram?.WebApp?.showAlert(msg)
     } finally {
       setBuySubmitting(false)
     }

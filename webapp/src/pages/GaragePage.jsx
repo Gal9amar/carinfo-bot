@@ -91,8 +91,8 @@ function GarageCard({ item, onSell, onUpdate, onDelete }) {
     try {
       await onSell(item.id, price)
       setSelling(false)
-    } catch {
-      window.Telegram?.WebApp?.showAlert('שגיאה בשמירת המכירה. נסה שוב.')
+    } catch (err) {
+      window.Telegram?.WebApp?.showAlert(`שגיאה בשמירת המכירה${err?.message ? ` (${err.message})` : ''}. נסה שוב.`)
     } finally {
       setSubmitting(false)
     }
@@ -116,8 +116,8 @@ function GarageCard({ item, onSell, onUpdate, onDelete }) {
         sale_price: isSold && editSalePrice !== '' ? parseFloat(editSalePrice) : null,
       })
       setEditing(false)
-    } catch {
-      window.Telegram?.WebApp?.showAlert('שגיאה בשמירה. נסה שוב.')
+    } catch (err) {
+      window.Telegram?.WebApp?.showAlert(`שגיאה בשמירה${err?.message ? ` (${err.message})` : ''}. נסה שוב.`)
     } finally {
       setEditSubmitting(false)
     }
@@ -128,8 +128,8 @@ function GarageCard({ item, onSell, onUpdate, onDelete }) {
     if (!ok) return
     try {
       await onDelete(item.id)
-    } catch {
-      window.Telegram?.WebApp?.showAlert('שגיאה במחיקה. נסה שוב.')
+    } catch (err) {
+      window.Telegram?.WebApp?.showAlert(`שגיאה במחיקה${err?.message ? ` (${err.message})` : ''}. נסה שוב.`)
     }
   }
 
