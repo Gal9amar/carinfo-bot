@@ -14,6 +14,12 @@ export async function fetchPackages() {
   return r.json()
 }
 
+export async function fetchVersion() {
+  const r = await fetch(`${BASE}/api/version`, { cache: 'no-store' })
+  if (!r.ok) throw new Error('Failed to load version')
+  return r.json()
+}
+
 export async function fetchPaymentMethods() {
   const r = await fetch(`${BASE}/api/payment-methods`)
   if (!r.ok) throw new Error('Failed to load payment methods')

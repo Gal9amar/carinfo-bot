@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
-import { fetchPackages, fetchUser } from './api.js'
+import { fetchPackages, fetchUser, fetchVersion } from './api.js'
 import HomePage from './pages/HomePage.jsx'
 import PackagesPage from './pages/PackagesPage.jsx'
 import PaymentPage from './pages/PaymentPage.jsx'
@@ -55,6 +55,28 @@ export default function App() {
       }
     }
     init()
+  }, [])
+
+  // Detect a new deploy and force a fresh reload instead of running on a
+  // stale cached build. Runs on mount and then periodically, so it also
+  // catches a deploy that happens while the mini app is left open.
+  useEffect(() => {
+    const VERSION_KEY = 'app_version'
+    async function checkVersion() {
+      try {
+        const { version } = await fetchVersion()
+        const stored = localStorage.getItem(VERSION_KEY)
+        if (!stored) {
+          localStorage.setItem(VERSION_KEY, version)
+        } else if (stored !== version) {
+          localStorage.setItem(VERSION_KEY, version)
+          window.location.reload()
+        }
+      } catch { /* offline or version endpoint unreachable — ignore */ }
+    }
+    checkVersion()
+    const interval = setInterval(checkVersion, 5 * 60 * 1000)
+    return () => clearInterval(interval)
   }, [])
 
   // Push the current screen onto the stack, then move to `dest`.

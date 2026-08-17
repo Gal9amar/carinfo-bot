@@ -7,6 +7,7 @@ import hashlib
 import hmac
 import json
 import os
+import time
 from urllib.parse import parse_qsl
 
 from typing import Optional
@@ -23,6 +24,11 @@ PAYPAL_ME    = os.environ.get("PAYPAL_ME", "https://paypal.me/carinfo")
 PAYBOX_URL   = os.environ.get("PAYBOX_URL", "https://links.payboxapp.com/xjZpYBP2n3b")
 BOT_USERNAME = os.environ.get("BOT_USERNAME", "israelcarinfobot")
 WEBAPP_URL   = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
+
+# Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
+# webapp can detect a new release and force-reload instead of running stale
+# cached JS. Falls back to process start time for non-Render environments.
+APP_VERSION = os.environ.get("RENDER_GIT_COMMIT", "") or str(int(time.time()))
 
 api = FastAPI()
 
@@ -2412,6 +2418,11 @@ async def admin_watches_preview(make: str = "", model: str = "", year: Optional[
 
 
 
+@api.get("/api/version")
+async def get_version():
+    return JSONResponse(content={"version": APP_VERSION}, headers={"Cache-Control": "no-store"})
+
+
 # ── Serve React SPA (must be last) ──────────────────────────────────────────
 _DIST = os.path.join(os.path.dirname(__file__), "webapp", "dist")
 
@@ -2422,4 +2433,10 @@ if os.path.isdir(_DIST):
 
     @api.get("/{full_path:path}")
     async def serve_spa(full_path: str):
-        return FileResponse(os.path.join(_DIST, "index.html"))
+        # index.html must never be cached — it references the current
+        # content-hashed JS/CSS bundle. A cached stale index.html is what
+        # causes clients to keep running an old build after a deploy.
+        return FileResponse(
+            os.path.join(_DIST, "index.html"),
+            headers={"Cache-Control": "no-store, must-revalidate"},
+        )
