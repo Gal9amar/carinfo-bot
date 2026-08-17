@@ -1986,6 +1986,12 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if not is_repeat:
         await increment_search(user_id, plate)
         await set_last_plate(user_id, plate)
+        try:
+            from src.activity import log as _log
+            uname = tg_user.username or ""
+            await _log("search", f"חיפוש לוחית {plate}", user_id, uname)
+        except Exception:
+            pass
 
     try:
         card = f"🔖 לוחית: `{plate}`\n" + quick_summary(record)
