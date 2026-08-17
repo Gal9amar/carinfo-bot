@@ -225,22 +225,40 @@ function GarageCard({ item, onSell, onUpdate, onDelete, onAddExpense, onDeleteEx
         {color && <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 10 }}>{color}</div>}
       </div>
 
-      <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
-        <div className="stat-card" style={{ flex: 1, padding: 10 }}>
-          <div className="stat-value" style={{ fontSize: 16 }}>{fmtIls(item.purchase_price)}</div>
-          <div className="stat-label">מחיר רכישה</div>
+      <div style={{ borderRadius: 12, overflow: 'hidden', marginBottom: 10, background: 'var(--bg)' }}>
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          padding: '10px 14px', borderBottom: '1px solid var(--bg2)',
+        }}>
+          <span style={{ fontSize: 13, color: 'var(--hint)' }}>מחיר רכישה</span>
+          <span style={{ fontSize: 15, fontWeight: 700 }}>{fmtIls(item.purchase_price)}</span>
         </div>
+        {expenseItems.map(e => (
+          <div key={e.id} style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '7px 14px 7px 28px', borderBottom: '1px solid var(--bg2)', fontSize: 12,
+          }}>
+            <span style={{ color: 'var(--hint)' }}>↳ {e.description || 'הוצאה'}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ color: 'var(--hint)', fontWeight: 600 }}>+{fmtIls(e.amount)}</span>
+              <button
+                onClick={() => handleDeleteExpense(e.id)}
+                style={{ border: 'none', background: 'transparent', color: '#e53e3e', cursor: 'pointer', fontSize: 12, padding: 0 }}
+              >✕</button>
+            </div>
+          </div>
+        ))}
         {isSold ? (
-          <div className="stat-card" style={{ flex: 1, padding: 10 }}>
-            <div className="stat-value" style={{ fontSize: 16 }}>{fmtIls(item.sale_price)}</div>
-            <div className="stat-label">מחיר מכירה</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px' }}>
+            <span style={{ fontSize: 13, color: 'var(--hint)' }}>מחיר מכירה</span>
+            <span style={{ fontSize: 15, fontWeight: 700 }}>{fmtIls(item.sale_price)}</span>
           </div>
         ) : (
-          <div className="stat-card" style={{ flex: 1, padding: 10 }}>
-            <div className="stat-value" style={{ fontSize: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px' }}>
+            <span style={{ fontSize: 13, color: 'var(--hint)' }}>ק"מ ברכישה</span>
+            <span style={{ fontSize: 15, fontWeight: 700 }}>
               {item.purchase_km ? Number(item.purchase_km).toLocaleString('he-IL') : '—'}
-            </div>
-            <div className="stat-label">ק"מ ברכישה</div>
+            </span>
           </div>
         )}
       </div>
@@ -283,29 +301,6 @@ function GarageCard({ item, onSell, onUpdate, onDelete, onAddExpense, onDeleteEx
               <span style={{ fontWeight: 600, textAlign: 'end' }}>{String(val)}</span>
             </div>
           ))}
-
-          {expenseItems.length > 0 && (
-            <div style={{ paddingTop: 10 }}>
-              <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 6, fontWeight: 600 }}>
-                💸 פירוט הוצאות
-              </div>
-              {expenseItems.map(e => (
-                <div key={e.id} style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  padding: '6px 0', borderBottom: '1px solid var(--bg)', fontSize: 13, gap: 8,
-                }}>
-                  <span>{e.description || 'הוצאה'}</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontWeight: 600 }}>{fmtIls(e.amount)}</span>
-                    <button
-                      onClick={() => handleDeleteExpense(e.id)}
-                      style={{ border: 'none', background: 'transparent', color: '#e53e3e', cursor: 'pointer', fontSize: 13, padding: 0 }}
-                    >✕</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
 
           {item.notes && (
             <div style={{ paddingTop: 10 }}>
