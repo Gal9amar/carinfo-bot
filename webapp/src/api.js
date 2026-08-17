@@ -658,6 +658,20 @@ export async function deleteGarageItem(id) {
   return r.json()
 }
 
+export async function addGarageExpense(id, description, amount) {
+  const r = await fetch(`${BASE}/api/user/garage/${id}/expenses`, {
+    method: 'POST', headers: headers(), body: JSON.stringify({ description, amount }),
+  })
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(garageErrorDetail(e)) }
+  return r.json()
+}
+
+export async function deleteGarageExpense(id, expenseId) {
+  const r = await fetch(`${BASE}/api/user/garage/${id}/expenses/${expenseId}`, { method: 'DELETE', headers: headers() })
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(garageErrorDetail(e)) }
+  return r.json()
+}
+
 export async function fetchNote(plate) {
   const r = await fetch(`${BASE}/api/notes/${encodeURIComponent(plate)}`, { headers: headers() })
   if (!r.ok) return ''

@@ -27,6 +27,13 @@ _COLS = ("id, plate, vehicle_data, purchase_price, purchase_km, "
 _UPDATABLE_FIELDS = ("purchase_price", "purchase_km", "expenses", "sale_price", "notes")
 
 
+async def _attach_expenses(item: dict) -> dict:
+    items = await get_expense_items(item["id"])
+    item["expense_items"] = items
+    item["expenses_total"] = round(item["expenses"] + sum(e["amount"] for e in items), 2)
+    return item
+
+
 async def add_owned_vehicle(user_id: int, plate: str, vehicle_data: dict,
                              purchase_price: float, purchase_km: int | None,
                              notes: str = "") -> int:
@@ -44,7 +51,7 @@ async def get_owned_vehicles(user_id: int) -> list[dict]:
         f"SELECT {_COLS} FROM owned_vehicles WHERE user_id=? ORDER BY id DESC",
         [user_id],
     )
-    return [_row_to_dict(row) for row in r.rows]
+    return [await _attach_expenses(_row_to_dict(row)) for row in r.rows]
 
 
 async def get_owned_vehicle(owned_id: int, user_id: int) -> dict | None:
@@ -52,7 +59,9 @@ async def get_owned_vehicle(owned_id: int, user_id: int) -> dict | None:
         f"SELECT {_COLS} FROM owned_vehicles WHERE id=? AND user_id=?",
         [owned_id, user_id],
     )
-    return _row_to_dict(r.rows[0]) if r.rows else None
+    if not r.rows:
+        return None
+    return await _attach_expenses(_row_to_dict(r.rows[0]))
 
 
 async def get_active_owned_vehicle(user_id: int, plate: str) -> dict | None:
@@ -60,7 +69,9 @@ async def get_active_owned_vehicle(user_id: int, plate: str) -> dict | None:
         f"SELECT {_COLS} FROM owned_vehicles WHERE user_id=? AND plate=? AND status='owned'",
         [user_id, plate],
     )
-    return _row_to_dict(r.rows[0]) if r.rows else None
+    if not r.rows:
+        return None
+    return await _attach_expenses(_row_to_dict(r.rows[0]))
 
 
 async def mark_sold(owned_id: int, user_id: int, sale_price: float) -> None:
@@ -87,4 +98,30 @@ async def update_owned_vehicle(owned_id: int, user_id: int, **fields) -> None:
 
 
 async def delete_owned_vehicle(owned_id: int, user_id: int) -> None:
+    await execute("DELETE FROM owned_vehicle_expenses WHERE owned_vehicle_id=?", [owned_id])
     await execute("DELETE FROM owned_vehicles WHERE id=? AND user_id=?", [owned_id, user_id])
+
+
+# ── Itemized expenses ────────────────────────────────────────────────────────
+
+async def get_expense_items(owned_vehicle_id: int) -> list[dict]:
+    r = await execute(
+        "SELECT id, description, amount, created_at FROM owned_vehicle_expenses "
+        "WHERE owned_vehicle_id=? ORDER BY id ASC",
+        [owned_vehicle_id],
+    )
+    return [{"id": row[0], "description": row[1], "amount": row[2], "created_at": row[3]} for row in r.rows]
+
+
+async def add_expense_item(owned_vehicle_id: int, description: str, amount: float) -> None:
+    await execute(
+        "INSERT INTO owned_vehicle_expenses (owned_vehicle_id, description, amount) VALUES (?, ?, ?)",
+        [owned_vehicle_id, description, amount],
+    )
+
+
+async def delete_expense_item(expense_id: int, owned_vehicle_id: int) -> None:
+    await execute(
+        "DELETE FROM owned_vehicle_expenses WHERE id=? AND owned_vehicle_id=?",
+        [expense_id, owned_vehicle_id],
+    )

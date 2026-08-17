@@ -233,6 +233,13 @@ async def init_db() -> None:
 )""")
     migrations.append("ALTER TABLE owned_vehicles ADD COLUMN expenses REAL NOT NULL DEFAULT 0")
     migrations.append("ALTER TABLE owned_vehicles ADD COLUMN notes TEXT NOT NULL DEFAULT ''")
+    migrations.append("""CREATE TABLE IF NOT EXISTS owned_vehicle_expenses (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    owned_vehicle_id INTEGER NOT NULL,
+    description      TEXT NOT NULL DEFAULT '',
+    amount           REAL NOT NULL,
+    created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+)""")
     for sql in statements:
         conn.execute(sql)
     for sql in migrations:
@@ -248,6 +255,7 @@ async def init_db() -> None:
         "CREATE INDEX IF NOT EXISTS idx_sh_user    ON search_history(user_id)",
         "CREATE INDEX IF NOT EXISTS idx_users_exp  ON users(quota_expires) WHERE quota_expires IS NOT NULL",
         "CREATE INDEX IF NOT EXISTS idx_ov_user    ON owned_vehicles(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_ove_owned  ON owned_vehicle_expenses(owned_vehicle_id)",
     ]
     for sql in indexes:
         try:

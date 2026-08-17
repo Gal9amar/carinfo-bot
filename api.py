@@ -684,6 +684,11 @@ class GarageUpdateBody(BaseModel):
     notes: str | None = None
 
 
+class GarageExpenseBody(BaseModel):
+    description: str = ""
+    amount: float
+
+
 @api.get("/api/user/garage")
 async def list_garage(user: dict = Depends(_get_user)):
     from src.garage import get_owned_vehicles
@@ -749,6 +754,26 @@ async def delete_garage(owned_id: int, user: dict = Depends(_get_user)):
         raise HTTPException(status_code=404, detail="not_found")
     await delete_owned_vehicle(owned_id, uid)
     return {"ok": True}
+
+
+@api.post("/api/user/garage/{owned_id}/expenses")
+async def add_garage_expense(owned_id: int, body: GarageExpenseBody, user: dict = Depends(_get_user)):
+    from src.garage import get_owned_vehicle, add_expense_item
+    uid = int(user["id"])
+    if not await get_owned_vehicle(owned_id, uid):
+        raise HTTPException(status_code=404, detail="not_found")
+    await add_expense_item(owned_id, body.description, body.amount)
+    return await get_owned_vehicle(owned_id, uid)
+
+
+@api.delete("/api/user/garage/{owned_id}/expenses/{expense_id}")
+async def delete_garage_expense(owned_id: int, expense_id: int, user: dict = Depends(_get_user)):
+    from src.garage import get_owned_vehicle, delete_expense_item
+    uid = int(user["id"])
+    if not await get_owned_vehicle(owned_id, uid):
+        raise HTTPException(status_code=404, detail="not_found")
+    await delete_expense_item(expense_id, owned_id)
+    return await get_owned_vehicle(owned_id, uid)
 
 
 # ── Admin ────────────────────────────────────────────────────────────────────
