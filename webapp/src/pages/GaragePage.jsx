@@ -64,6 +64,7 @@ function GarageCard({ item, onSell, onUpdate, onDelete }) {
   const [editKm, setEditKm] = useState('')
   const [editExpenses, setEditExpenses] = useState('')
   const [editSalePrice, setEditSalePrice] = useState('')
+  const [editNotes, setEditNotes] = useState('')
   const [editSubmitting, setEditSubmitting] = useState(false)
 
   const [marketData, setMarketData] = useState(undefined)
@@ -103,6 +104,7 @@ function GarageCard({ item, onSell, onUpdate, onDelete }) {
     setEditKm(item.purchase_km != null ? String(item.purchase_km) : '')
     setEditExpenses(item.expenses ? String(item.expenses) : '')
     setEditSalePrice(item.sale_price != null ? String(item.sale_price) : '')
+    setEditNotes(item.notes || '')
     setEditing(true)
   }
 
@@ -114,6 +116,7 @@ function GarageCard({ item, onSell, onUpdate, onDelete }) {
         purchase_km: editKm !== '' ? parseInt(editKm, 10) : null,
         expenses: editExpenses !== '' ? parseFloat(editExpenses) : null,
         sale_price: isSold && editSalePrice !== '' ? parseFloat(editSalePrice) : null,
+        notes: editNotes,
       })
       setEditing(false)
     } catch (err) {
@@ -231,6 +234,17 @@ function GarageCard({ item, onSell, onUpdate, onDelete }) {
               <span style={{ fontWeight: 600, textAlign: 'end' }}>{String(val)}</span>
             </div>
           ))}
+          {item.notes && (
+            <div style={{ paddingTop: 10 }}>
+              <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 4, fontWeight: 600 }}>
+                📝 הערות / הוצאות נוספות
+              </div>
+              <div style={{
+                background: 'var(--bg)', borderRadius: 10, padding: '10px 12px',
+                fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap',
+              }}>{item.notes}</div>
+            </div>
+          )}
         </div>
       )}
 
@@ -246,6 +260,12 @@ function GarageCard({ item, onSell, onUpdate, onDelete }) {
             <input type="number" className="input" placeholder="מחיר מכירה (₪)"
               value={editSalePrice} onChange={e => setEditSalePrice(e.target.value)} style={{ marginBottom: 8 }} />
           )}
+          <textarea
+            className="input" rows={3}
+            placeholder={'הערות / הוצאות נוספות (לא חובה)\nלדוגמה: יש לתקן כנף שמאל, יש להחליף מצבר'}
+            value={editNotes} onChange={e => setEditNotes(e.target.value)}
+            style={{ marginBottom: 8, resize: 'vertical', fontFamily: 'inherit' }}
+          />
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn" style={{ flex: 1 }} disabled={editSubmitting} onClick={handleSaveEdit}>
               {editSubmitting ? '...' : 'שמור שינויים'}

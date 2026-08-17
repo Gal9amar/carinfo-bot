@@ -480,6 +480,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
   const [buying, setBuying] = useState(false)
   const [buyPrice, setBuyPrice] = useState('')
   const [buyKm, setBuyKm] = useState('')
+  const [buyNotes, setBuyNotes] = useState('')
   const [buySubmitting, setBuySubmitting] = useState(false)
 
   useEffect(() => {
@@ -567,6 +568,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
         plate: plateNum,
         purchase_price: price,
         purchase_km: buyKm ? parseInt(buyKm, 10) : null,
+        notes: buyNotes,
         vehicle_data: record,
       })
       const entry = await checkGarage(plateNum)
@@ -772,6 +774,12 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
                 type="number" className="input" placeholder='ק"מ בזמן הרכישה'
                 value={buyKm} onChange={e => setBuyKm(e.target.value)}
                 style={{ marginBottom: 8 }}
+              />
+              <textarea
+                className="input" rows={3}
+                placeholder={'הערות / הוצאות נוספות (לא חובה)\nלדוגמה: יש לתקן כנף שמאל, יש להחליף מצבר'}
+                value={buyNotes} onChange={e => setBuyNotes(e.target.value)}
+                style={{ marginBottom: 8, resize: 'vertical', fontFamily: 'inherit' }}
               />
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn" style={{ flex: 1 }} disabled={buySubmitting || !buyPrice}

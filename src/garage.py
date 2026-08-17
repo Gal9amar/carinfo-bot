@@ -17,21 +17,23 @@ def _row_to_dict(row) -> dict:
         "sale_price": row[7],
         "sale_date": row[8],
         "expenses": row[9] or 0,
+        "notes": row[10] or "",
     }
 
 
 _COLS = ("id, plate, vehicle_data, purchase_price, purchase_km, "
-         "purchase_date, status, sale_price, sale_date, expenses")
+         "purchase_date, status, sale_price, sale_date, expenses, notes")
 
-_UPDATABLE_FIELDS = ("purchase_price", "purchase_km", "expenses", "sale_price")
+_UPDATABLE_FIELDS = ("purchase_price", "purchase_km", "expenses", "sale_price", "notes")
 
 
 async def add_owned_vehicle(user_id: int, plate: str, vehicle_data: dict,
-                             purchase_price: float, purchase_km: int | None) -> int:
+                             purchase_price: float, purchase_km: int | None,
+                             notes: str = "") -> int:
     await execute(
-        "INSERT INTO owned_vehicles (user_id, plate, vehicle_data, purchase_price, purchase_km) "
-        "VALUES (?, ?, ?, ?, ?)",
-        [user_id, plate, json.dumps(vehicle_data, ensure_ascii=False), purchase_price, purchase_km],
+        "INSERT INTO owned_vehicles (user_id, plate, vehicle_data, purchase_price, purchase_km, notes) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        [user_id, plate, json.dumps(vehicle_data, ensure_ascii=False), purchase_price, purchase_km, notes],
     )
     r = await execute("SELECT last_insert_rowid()")
     return r.rows[0][0]

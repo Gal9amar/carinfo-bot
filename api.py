@@ -668,6 +668,7 @@ class GarageAddBody(BaseModel):
     plate: str | int
     purchase_price: float
     purchase_km: int | None = None
+    notes: str = ""
     vehicle_data: dict
 
 
@@ -680,6 +681,7 @@ class GarageUpdateBody(BaseModel):
     purchase_km: int | None = None
     expenses: float | None = None
     sale_price: float | None = None
+    notes: str | None = None
 
 
 @api.get("/api/user/garage")
@@ -703,7 +705,9 @@ async def add_garage(body: GarageAddBody, user: dict = Depends(_get_user)):
     plate = str(body.plate).replace("-", "").replace(" ", "")
     if await get_active_owned_vehicle(uid, plate):
         raise HTTPException(status_code=400, detail="already_owned")
-    owned_id = await add_owned_vehicle(uid, plate, body.vehicle_data, body.purchase_price, body.purchase_km)
+    owned_id = await add_owned_vehicle(
+        uid, plate, body.vehicle_data, body.purchase_price, body.purchase_km, body.notes,
+    )
     return {"id": owned_id}
 
 
@@ -732,7 +736,7 @@ async def update_garage(owned_id: int, body: GarageUpdateBody, user: dict = Depe
     await update_owned_vehicle(
         owned_id, uid,
         purchase_price=body.purchase_price, purchase_km=body.purchase_km,
-        expenses=body.expenses, sale_price=body.sale_price,
+        expenses=body.expenses, sale_price=body.sale_price, notes=body.notes,
     )
     return await get_owned_vehicle(owned_id, uid)
 

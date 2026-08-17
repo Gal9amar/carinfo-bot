@@ -232,6 +232,7 @@ async def init_db() -> None:
     sale_date      TEXT
 )""")
     migrations.append("ALTER TABLE owned_vehicles ADD COLUMN expenses REAL NOT NULL DEFAULT 0")
+    migrations.append("ALTER TABLE owned_vehicles ADD COLUMN notes TEXT NOT NULL DEFAULT ''")
     for sql in statements:
         conn.execute(sql)
     for sql in migrations:
