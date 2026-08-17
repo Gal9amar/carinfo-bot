@@ -609,6 +609,12 @@ export async function fetchMarketPrice(plate) {
 }
 
 // Garage ("רכבים שקניתי")
+function garageErrorDetail(e) {
+  if (typeof e.detail === 'string') return e.detail
+  if (e.detail) { try { return JSON.stringify(e.detail) } catch { /* fall through */ } }
+  return 'Failed'
+}
+
 export async function fetchGarage() {
   const r = await fetch(`${BASE}/api/user/garage`, { headers: headers() })
   if (!r.ok) throw new Error('Failed')
@@ -626,7 +632,7 @@ export async function addToGarage(data) {
   const r = await fetch(`${BASE}/api/user/garage`, {
     method: 'POST', headers: headers(), body: JSON.stringify(data),
   })
-  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.detail || 'Failed') }
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(garageErrorDetail(e)) }
   return r.json()
 }
 
@@ -634,7 +640,7 @@ export async function sellFromGarage(id, salePrice) {
   const r = await fetch(`${BASE}/api/user/garage/${id}/sell`, {
     method: 'POST', headers: headers(), body: JSON.stringify({ sale_price: salePrice }),
   })
-  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.detail || 'Failed') }
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(garageErrorDetail(e)) }
   return r.json()
 }
 
@@ -642,13 +648,13 @@ export async function updateGarageItem(id, data) {
   const r = await fetch(`${BASE}/api/user/garage/${id}`, {
     method: 'PATCH', headers: headers(), body: JSON.stringify(data),
   })
-  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.detail || 'Failed') }
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(garageErrorDetail(e)) }
   return r.json()
 }
 
 export async function deleteGarageItem(id) {
   const r = await fetch(`${BASE}/api/user/garage/${id}`, { method: 'DELETE', headers: headers() })
-  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.detail || 'Failed') }
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(garageErrorDetail(e)) }
   return r.json()
 }
 

@@ -665,7 +665,7 @@ async def save_note(plate: str, body: NoteBody, user: dict = Depends(_get_user))
 
 # ── Garage ("רכבים שקניתי") ──────────────────────────────────────────────────
 class GarageAddBody(BaseModel):
-    plate: str
+    plate: str | int
     purchase_price: float
     purchase_km: int | None = None
     vehicle_data: dict
@@ -700,7 +700,7 @@ async def check_garage(plate: str, user: dict = Depends(_get_user)):
 async def add_garage(body: GarageAddBody, user: dict = Depends(_get_user)):
     from src.garage import add_owned_vehicle, get_active_owned_vehicle
     uid = int(user["id"])
-    plate = body.plate.replace("-", "").replace(" ", "")
+    plate = str(body.plate).replace("-", "").replace(" ", "")
     if await get_active_owned_vehicle(uid, plate):
         raise HTTPException(status_code=400, detail="already_owned")
     owned_id = await add_owned_vehicle(uid, plate, body.vehicle_data, body.purchase_price, body.purchase_km)
