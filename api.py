@@ -675,6 +675,13 @@ class GarageSellBody(BaseModel):
     sale_price: float
 
 
+class GarageUpdateBody(BaseModel):
+    purchase_price: float | None = None
+    purchase_km: int | None = None
+    expenses: float | None = None
+    sale_price: float | None = None
+
+
 @api.get("/api/user/garage")
 async def list_garage(user: dict = Depends(_get_user)):
     from src.garage import get_owned_vehicles
@@ -710,6 +717,33 @@ async def sell_garage(owned_id: int, body: GarageSellBody, user: dict = Depends(
     if record["status"] != "owned":
         raise HTTPException(status_code=400, detail="already_sold")
     await mark_sold(owned_id, uid, body.sale_price)
+    return {"ok": True}
+
+
+@api.patch("/api/user/garage/{owned_id}")
+async def update_garage(owned_id: int, body: GarageUpdateBody, user: dict = Depends(_get_user)):
+    from src.garage import get_owned_vehicle, update_owned_vehicle
+    uid = int(user["id"])
+    record = await get_owned_vehicle(owned_id, uid)
+    if not record:
+        raise HTTPException(status_code=404, detail="not_found")
+    if body.sale_price is not None and record["status"] != "sold":
+        raise HTTPException(status_code=400, detail="not_sold")
+    await update_owned_vehicle(
+        owned_id, uid,
+        purchase_price=body.purchase_price, purchase_km=body.purchase_km,
+        expenses=body.expenses, sale_price=body.sale_price,
+    )
+    return await get_owned_vehicle(owned_id, uid)
+
+
+@api.delete("/api/user/garage/{owned_id}")
+async def delete_garage(owned_id: int, user: dict = Depends(_get_user)):
+    from src.garage import get_owned_vehicle, delete_owned_vehicle
+    uid = int(user["id"])
+    if not await get_owned_vehicle(owned_id, uid):
+        raise HTTPException(status_code=404, detail="not_found")
+    await delete_owned_vehicle(owned_id, uid)
     return {"ok": True}
 
 

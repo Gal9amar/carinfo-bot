@@ -638,6 +638,20 @@ export async function sellFromGarage(id, salePrice) {
   return r.json()
 }
 
+export async function updateGarageItem(id, data) {
+  const r = await fetch(`${BASE}/api/user/garage/${id}`, {
+    method: 'PATCH', headers: headers(), body: JSON.stringify(data),
+  })
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.detail || 'Failed') }
+  return r.json()
+}
+
+export async function deleteGarageItem(id) {
+  const r = await fetch(`${BASE}/api/user/garage/${id}`, { method: 'DELETE', headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
 export async function fetchNote(plate) {
   const r = await fetch(`${BASE}/api/notes/${encodeURIComponent(plate)}`, { headers: headers() })
   if (!r.ok) return ''

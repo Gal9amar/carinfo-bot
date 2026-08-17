@@ -16,11 +16,14 @@ def _row_to_dict(row) -> dict:
         "status": row[6],
         "sale_price": row[7],
         "sale_date": row[8],
+        "expenses": row[9] or 0,
     }
 
 
 _COLS = ("id, plate, vehicle_data, purchase_price, purchase_km, "
-         "purchase_date, status, sale_price, sale_date")
+         "purchase_date, status, sale_price, sale_date, expenses")
+
+_UPDATABLE_FIELDS = ("purchase_price", "purchase_km", "expenses", "sale_price")
 
 
 async def add_owned_vehicle(user_id: int, plate: str, vehicle_data: dict,
@@ -64,3 +67,22 @@ async def mark_sold(owned_id: int, user_id: int, sale_price: float) -> None:
         "WHERE id=? AND user_id=? AND status='owned'",
         [sale_price, owned_id, user_id],
     )
+
+
+async def update_owned_vehicle(owned_id: int, user_id: int, **fields) -> None:
+    sets, vals = [], []
+    for key in _UPDATABLE_FIELDS:
+        if fields.get(key) is not None:
+            sets.append(f"{key}=?")
+            vals.append(fields[key])
+    if not sets:
+        return
+    vals += [owned_id, user_id]
+    await execute(
+        f"UPDATE owned_vehicles SET {', '.join(sets)} WHERE id=? AND user_id=?",
+        vals,
+    )
+
+
+async def delete_owned_vehicle(owned_id: int, user_id: int) -> None:
+    await execute("DELETE FROM owned_vehicles WHERE id=? AND user_id=?", [owned_id, user_id])
