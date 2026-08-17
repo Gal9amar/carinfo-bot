@@ -251,7 +251,7 @@ function GarageCard({ item, onSell, onUpdate, onDelete, onAddExpense, onDeleteEx
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             padding: '7px 14px 7px 28px', borderBottom: '1px solid var(--bg2)', fontSize: 12,
           }}>
-            <span style={{ color: 'var(--hint)' }}>↳ {e.description || 'הוצאה'}</span>
+            <span style={{ color: 'var(--hint)' }}>↲ {e.description || 'הוצאה'}</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ color: 'var(--hint)', fontWeight: 600 }}>+{fmtIls(e.amount)}</span>
               <button
