@@ -759,32 +759,39 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
               <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 10 }}>
                 הרכב הזה כבר נמצא ב"רכבים שקניתי" שלך.
               </div>
-              <button className="btn btn-secondary" style={{ width: '100%' }}
+              <button className="btn btn-secondary" style={{ width: '100%', border: '1px solid var(--hint)' }}
                 onClick={() => onNavigate('garage')}>📂 עבור לרכבים שקניתי</button>
             </>
           ) : buying ? (
             <>
               <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>💰 הוספה ל"רכבים שקניתי"</div>
-              <input
-                type="number" className="input" placeholder="מחיר רכישה (₪)"
-                value={buyPrice} onChange={e => setBuyPrice(e.target.value)}
-                style={{ marginBottom: 8 }}
-              />
-              <input
-                type="number" className="input" placeholder='ק"מ בזמן הרכישה'
-                value={buyKm} onChange={e => setBuyKm(e.target.value)}
-                style={{ marginBottom: 8 }}
-              />
-              <textarea
-                className="input" rows={3}
-                placeholder={'הערות / הוצאות נוספות (לא חובה)\nלדוגמה: יש לתקן כנף שמאל, יש להחליף מצבר'}
-                value={buyNotes} onChange={e => setBuyNotes(e.target.value)}
-                style={{ marginBottom: 8, resize: 'vertical', fontFamily: 'inherit' }}
-              />
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 4, fontWeight: 600 }}>מחיר רכישה (₪)</div>
+                <input
+                  type="number" className="input" style={{ background: 'var(--bg)', border: '1px solid var(--hint)' }}
+                  value={buyPrice} onChange={e => setBuyPrice(e.target.value)}
+                />
+              </div>
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 4, fontWeight: 600 }}>ק"מ בזמן הרכישה</div>
+                <input
+                  type="number" className="input" style={{ background: 'var(--bg)', border: '1px solid var(--hint)' }}
+                  value={buyKm} onChange={e => setBuyKm(e.target.value)}
+                />
+              </div>
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 4, fontWeight: 600 }}>הערות / הוצאות נוספות (לא חובה)</div>
+                <textarea
+                  className="input" rows={3}
+                  placeholder={'לדוגמה: יש לתקן כנף שמאל, יש להחליף מצבר'}
+                  value={buyNotes} onChange={e => setBuyNotes(e.target.value)}
+                  style={{ background: 'var(--bg)', border: '1px solid var(--hint)', resize: 'vertical', fontFamily: 'inherit' }}
+                />
+              </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn" style={{ flex: 1 }} disabled={buySubmitting || !buyPrice}
                   onClick={handleConfirmBuy}>{buySubmitting ? '...' : 'שמור'}</button>
-                <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setBuying(false)}>ביטול</button>
+                <button className="btn btn-secondary" style={{ flex: 1, border: '1px solid var(--hint)' }} onClick={() => setBuying(false)}>ביטול</button>
               </div>
             </>
           ) : (

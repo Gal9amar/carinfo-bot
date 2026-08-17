@@ -67,6 +67,19 @@ const chipBtnStyle = (danger) => ({
   fontSize: 12, fontWeight: 600, cursor: 'pointer', textAlign: 'center',
 })
 
+// .input's default border/background match the card background exactly,
+// so it renders with no visible frame when nested inside a .card — override both.
+const fieldInputStyle = { background: 'var(--bg)', border: '1px solid var(--hint)' }
+
+function Field({ label, children }) {
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 4, fontWeight: 600 }}>{label}</div>
+      {children}
+    </div>
+  )
+}
+
 function GarageCard({ item, onSell, onUpdate, onDelete, onAddExpense, onDeleteExpense }) {
   const [expanded, setExpanded] = useState(false)
   const [selling, setSelling] = useState(false)
@@ -318,20 +331,28 @@ function GarageCard({ item, onSell, onUpdate, onDelete, onAddExpense, onDeleteEx
 
       {editing ? (
         <div>
-          <input type="number" className="input" placeholder="מחיר רכישה (₪)"
-            value={editPrice} onChange={e => setEditPrice(e.target.value)} style={{ marginBottom: 8 }} />
-          <input type="number" className="input" placeholder='ק"מ ברכישה'
-            value={editKm} onChange={e => setEditKm(e.target.value)} style={{ marginBottom: 8 }} />
+          <Field label="מחיר רכישה (₪)">
+            <input type="number" className="input" style={fieldInputStyle}
+              value={editPrice} onChange={e => setEditPrice(e.target.value)} />
+          </Field>
+          <Field label='ק"מ ברכישה'>
+            <input type="number" className="input" style={fieldInputStyle}
+              value={editKm} onChange={e => setEditKm(e.target.value)} />
+          </Field>
           {isSold && (
-            <input type="number" className="input" placeholder="מחיר מכירה (₪)"
-              value={editSalePrice} onChange={e => setEditSalePrice(e.target.value)} style={{ marginBottom: 8 }} />
+            <Field label="מחיר מכירה (₪)">
+              <input type="number" className="input" style={fieldInputStyle}
+                value={editSalePrice} onChange={e => setEditSalePrice(e.target.value)} />
+            </Field>
           )}
-          <textarea
-            className="input" rows={3}
-            placeholder={'הערות (לא חובה)\nלדוגמה: יש לתקן כנף שמאל, יש להחליף מצבר'}
-            value={editNotes} onChange={e => setEditNotes(e.target.value)}
-            style={{ marginBottom: 8, resize: 'vertical', fontFamily: 'inherit' }}
-          />
+          <Field label="הערות (לא חובה)">
+            <textarea
+              className="input" rows={3}
+              placeholder={'לדוגמה: יש לתקן כנף שמאל, יש להחליף מצבר'}
+              value={editNotes} onChange={e => setEditNotes(e.target.value)}
+              style={{ ...fieldInputStyle, resize: 'vertical', fontFamily: 'inherit' }}
+            />
+          </Field>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn" style={{ flex: 1 }} disabled={editSubmitting} onClick={handleSaveEdit}>
               {editSubmitting ? '...' : 'שמור שינויים'}
@@ -341,11 +362,12 @@ function GarageCard({ item, onSell, onUpdate, onDelete, onAddExpense, onDeleteEx
         </div>
       ) : selling ? (
         <div>
-          <input
-            type="number" className="input" placeholder="סכום המכירה (₪)"
-            value={salePrice} onChange={e => setSalePrice(e.target.value)}
-            style={{ marginBottom: 8 }}
-          />
+          <Field label="סכום המכירה (₪)">
+            <input
+              type="number" className="input" style={fieldInputStyle}
+              value={salePrice} onChange={e => setSalePrice(e.target.value)}
+            />
+          </Field>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn" style={{ flex: 1 }} disabled={submitting || !salePrice} onClick={handleConfirmSell}>
               {submitting ? '...' : 'אישור'}
@@ -355,16 +377,18 @@ function GarageCard({ item, onSell, onUpdate, onDelete, onAddExpense, onDeleteEx
         </div>
       ) : addingExpense ? (
         <div>
-          <input
-            type="text" className="input" placeholder="לדוגמה: החלפת מצבר"
-            value={expenseDesc} onChange={e => setExpenseDesc(e.target.value)}
-            style={{ marginBottom: 8 }}
-          />
-          <input
-            type="number" className="input" placeholder="סכום (₪) לדוגמה: 500"
-            value={expenseAmount} onChange={e => setExpenseAmount(e.target.value)}
-            style={{ marginBottom: 8 }}
-          />
+          <Field label="תיאור ההוצאה">
+            <input
+              type="text" className="input" placeholder="לדוגמה: החלפת מצבר" style={fieldInputStyle}
+              value={expenseDesc} onChange={e => setExpenseDesc(e.target.value)}
+            />
+          </Field>
+          <Field label="סכום (₪)">
+            <input
+              type="number" className="input" placeholder="לדוגמה: 500" style={fieldInputStyle}
+              value={expenseAmount} onChange={e => setExpenseAmount(e.target.value)}
+            />
+          </Field>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn" style={{ flex: 1 }} disabled={expenseSubmitting || !expenseAmount} onClick={handleAddExpense}>
               {expenseSubmitting ? '...' : 'הוסף'}
