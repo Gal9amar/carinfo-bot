@@ -410,7 +410,7 @@ function GarageCard({ item, onSell, onUpdate, onDelete, onAddExpense, onDeleteEx
   )
 }
 
-export default function GaragePage({ onBack }) {
+export default function GaragePage({ onBack, onNavigate }) {
   const [items, setItems] = useState(null)
   const [filter, setFilter] = useState('all') // all | owned | sold
   const [sort, setSort] = useState('date') // date | profit
@@ -473,7 +473,17 @@ export default function GaragePage({ onBack }) {
   return (
     <div className="page">
       <BackButton onClick={onBack} />
-      <div className="page-title">🚘 הרכבים שקניתי</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div className="page-title" style={{ marginBottom: 0 }}>🚘 הרכבים שקניתי</div>
+        <button
+          onClick={() => onNavigate('garageHowItWorks')}
+          style={{
+            fontSize: 12, fontWeight: 600, padding: '6px 12px', borderRadius: 20,
+            border: '1px solid var(--hint)', background: 'var(--bg2)', color: 'var(--text)',
+            cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+          }}
+        >❓ איך זה עובד</button>
+      </div>
 
       {items === null && <div className="loading"></div>}
 

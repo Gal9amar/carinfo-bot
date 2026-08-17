@@ -13,6 +13,7 @@ import ReferralPage from './pages/ReferralPage.jsx'
 import OrdersPage from './pages/OrdersPage.jsx'
 import WatchesPage from './pages/WatchesPage.jsx'
 import GaragePage from './pages/GaragePage.jsx'
+import GarageHowItWorksPage from './pages/GarageHowItWorksPage.jsx'
 import BottomNav from './components/BottomNav.jsx'
 
 export default function App() {
@@ -42,6 +43,7 @@ export default function App() {
     if (page === 'ticket') { setScreen('ticket'); return }
     if (page === 'referral') { setScreen('referral'); return }
     if (page === 'garage') { setScreen('garage'); return }
+    if (page === 'garageHowItWorks') { setScreen('garageHowItWorks'); return }
 
     async function init() {
       try {
@@ -186,6 +188,14 @@ export default function App() {
         </div>
         <BottomNav screen={screen} onNavigate={navigate} />
       </>
+    )
+  }
+
+  if (screen === 'garageHowItWorks') {
+    return (
+      <div key="garageHowItWorks" className="page-enter">
+        <GarageHowItWorksPage onBack={goBack} onNavigate={navigate} />
+      </div>
     )
   }
 
