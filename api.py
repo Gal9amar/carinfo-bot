@@ -716,9 +716,18 @@ async def add_garage(body: GarageAddBody, user: dict = Depends(_get_user)):
     plate = str(body.plate).replace("-", "").replace(" ", "")
     if await get_active_owned_vehicle(uid, plate):
         raise HTTPException(status_code=400, detail="already_owned")
-    owned_id = await add_owned_vehicle(
-        uid, plate, body.vehicle_data, body.purchase_price, body.purchase_km, body.notes,
-    )
+    try:
+        owned_id = await add_owned_vehicle(
+            uid, plate, body.vehicle_data, body.purchase_price, body.purchase_km, body.notes,
+        )
+    except Exception:
+        # Closes the race window between the check above and the insert:
+        # two concurrent requests for the same plate can both pass the
+        # check, but the unique index on (user_id, plate) WHERE status='owned'
+        # lets only one insert succeed.
+        if await get_active_owned_vehicle(uid, plate):
+            raise HTTPException(status_code=400, detail="already_owned")
+        raise
     return {"id": owned_id}
 
 

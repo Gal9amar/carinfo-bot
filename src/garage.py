@@ -24,7 +24,8 @@ def _row_to_dict(row) -> dict:
 _COLS = ("id, plate, vehicle_data, purchase_price, purchase_km, "
          "purchase_date, status, sale_price, sale_date, expenses, notes")
 
-_UPDATABLE_FIELDS = ("purchase_price", "purchase_km", "expenses", "sale_price", "notes")
+_ALWAYS_SET_FIELDS = ("purchase_price", "purchase_km", "notes")
+_OPTIONAL_FIELDS = ("expenses", "sale_price")
 
 
 async def _attach_expenses(item: dict) -> dict:
@@ -83,8 +84,16 @@ async def mark_sold(owned_id: int, user_id: int, sale_price: float) -> None:
 
 
 async def update_owned_vehicle(owned_id: int, user_id: int, **fields) -> None:
+    # purchase_price/purchase_km/notes always come from a fully-populated edit
+    # form, so a None here means the user cleared the field — write it as-is.
+    # expenses/sale_price are only ever sent when actually being set, so a
+    # None there means "leave unchanged".
     sets, vals = [], []
-    for key in _UPDATABLE_FIELDS:
+    for key in _ALWAYS_SET_FIELDS:
+        if key in fields:
+            sets.append(f"{key}=?")
+            vals.append(fields[key])
+    for key in _OPTIONAL_FIELDS:
         if fields.get(key) is not None:
             sets.append(f"{key}=?")
             vals.append(fields[key])

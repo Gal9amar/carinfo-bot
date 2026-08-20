@@ -79,16 +79,6 @@ export async function fetchBanners(page) {
   return r.json()
 }
 
-export async function confirmPayment(ref, packageId) {
-  const r = await fetch(`${BASE}/api/payment/confirm`, {
-    method: 'POST',
-    headers: headers(),
-    body: JSON.stringify({ ref, package_id: packageId }),
-  })
-  if (!r.ok) throw new Error('Confirm failed')
-  return r.json()
-}
-
 export async function fetchVehicle(plate) {
   const r = await fetch(`${BASE}/api/vehicle/${plate}`, { headers: headers(), cache: 'no-store' })
   if (r.status === 403) throw new Error('QUOTA_EXCEEDED')
