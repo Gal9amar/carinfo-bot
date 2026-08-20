@@ -21,6 +21,7 @@ body {
   color: var(--text);
   direction: rtl;
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 .page {

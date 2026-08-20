@@ -57,7 +57,7 @@ export default function HistoryPage({ onBack, onViewPlate, onNavigate }) {
               <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 12 }}>
                 צפייה חוזרת אינה מנכה חיפוש
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {filtered.map(item => {
                   const plate = typeof item === 'string' ? item : item.plate
                   const make  = item.make  || ''
@@ -72,23 +72,25 @@ export default function HistoryPage({ onBack, onViewPlate, onNavigate }) {
                       borderRadius: 14,
                       padding: 12,
                       display: 'flex',
-                      flexDirection: 'column',
                       alignItems: 'center',
-                      gap: 8,
+                      gap: 12,
                     }}>
                       {/* Plate */}
                       <LicensePlate plate={plate} size="sm" />
 
                       {/* Info */}
-                      <div style={{ width: '100%', textAlign: 'center', minHeight: 32 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         {title && (
                           <div style={{
-                            fontSize: 12, fontWeight: 700, marginBottom: 2,
+                            fontSize: 13, fontWeight: 700, marginBottom: 2,
                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                           }}>{title}</div>
                         )}
                         {(year || color) && (
-                          <div style={{ fontSize: 11, color: 'var(--hint)' }}>
+                          <div style={{
+                            fontSize: 11, color: 'var(--hint)',
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }}>
                             {[year, color].filter(Boolean).join(' · ')}
                           </div>
                         )}
@@ -98,8 +100,8 @@ export default function HistoryPage({ onBack, onViewPlate, onNavigate }) {
                       <button
                         onClick={() => onViewPlate(plate)}
                         style={{
-                          width: '100%',
-                          padding: '8px 0',
+                          flexShrink: 0,
+                          padding: '8px 14px',
                           border: 'none',
                           borderRadius: 10,
                           background: 'var(--btn)',
@@ -107,8 +109,9 @@ export default function HistoryPage({ onBack, onViewPlate, onNavigate }) {
                           fontSize: 12,
                           fontWeight: 600,
                           cursor: 'pointer',
+                          whiteSpace: 'nowrap',
                         }}
-                      >📊 צפה בדוח</button>
+                      >📊 צפה</button>
                     </div>
                   )
                 })}
