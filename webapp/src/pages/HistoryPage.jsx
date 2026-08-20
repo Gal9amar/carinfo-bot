@@ -70,8 +70,7 @@ export default function HistoryPage({ onBack, onViewPlate, onNavigate }) {
                   const make  = item.make  || ''
                   const model = item.model || ''
                   const year  = item.year  || ''
-                  const color = item.color || ''
-                  const title = [make, model].filter(Boolean).join(' ')
+                  const details = [make, model, year].filter(Boolean).join(' ')
 
                   return (
                     <div key={plate} style={{
@@ -79,35 +78,33 @@ export default function HistoryPage({ onBack, onViewPlate, onNavigate }) {
                       borderRadius: 14,
                       padding: 12,
                       display: 'flex',
-                      alignItems: 'center',
+                      alignItems: 'stretch',
                       gap: 12,
                     }}>
-                      {/* Plate */}
-                      <LicensePlate plate={plate} size="sm" />
+                      {/* Column 1: plate row + make/model/year row */}
+                      <div style={{
+                        flex: 1, minWidth: 0,
+                        display: 'flex', flexDirection: 'column',
+                        justifyContent: 'center', gap: 6,
+                      }}>
+                        {/* Row 1: plate number */}
+                        <LicensePlate plate={plate} size="sm" />
 
-                      {/* Info */}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        {title && (
+                        {/* Row 2: make, model, year */}
+                        {details && (
                           <div style={{
-                            fontSize: 13, fontWeight: 700, marginBottom: 2,
+                            fontSize: 12, color: 'var(--hint)',
                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                          }}>{title}</div>
-                        )}
-                        {(year || color) && (
-                          <div style={{
-                            fontSize: 11, color: 'var(--hint)',
-                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                          }}>
-                            {[year, color].filter(Boolean).join(' · ')}
-                          </div>
+                          }}>{details}</div>
                         )}
                       </div>
 
-                      {/* Button */}
+                      {/* Column 2: button spanning both rows */}
                       <button
                         onClick={() => onViewPlate(plate)}
                         style={{
                           flexShrink: 0,
+                          alignSelf: 'stretch',
                           padding: '8px 14px',
                           border: 'none',
                           borderRadius: 10,
@@ -118,7 +115,7 @@ export default function HistoryPage({ onBack, onViewPlate, onNavigate }) {
                           cursor: 'pointer',
                           whiteSpace: 'nowrap',
                         }}
-                      >📊 צפה</button>
+                      >הצג פרטים</button>
                     </div>
                   )
                 })}
