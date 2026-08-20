@@ -4,9 +4,12 @@ import LicensePlate from '../components/LicensePlate.jsx'
 import BackButton from '../components/BackButton.jsx'
 import PageBanners from '../components/PageBanners.jsx'
 
+const PAGE_SIZE = 8
+
 export default function HistoryPage({ onBack, onViewPlate, onNavigate }) {
-  const [items, setItems]   = useState(null)
-  const [query, setQuery]   = useState('')
+  const [items, setItems]     = useState(null)
+  const [query, setQuery]     = useState('')
+  const [visible, setVisible] = useState(PAGE_SIZE)
 
   useEffect(() => {
     fetchSearchHistory()
@@ -14,10 +17,14 @@ export default function HistoryPage({ onBack, onViewPlate, onNavigate }) {
       .then(data => setItems(data))
   }, [])
 
+  useEffect(() => { setVisible(PAGE_SIZE) }, [query])
+
   const filtered = items?.filter(item => {
     const plate = typeof item === 'string' ? item : item.plate
     return plate.replace('-', '').includes(query.replace('-', '').trim())
   }) ?? []
+
+  const shown = filtered.slice(0, visible)
 
   return (
     <div className="page">
@@ -58,7 +65,7 @@ export default function HistoryPage({ onBack, onViewPlate, onNavigate }) {
                 צפייה חוזרת אינה מנכה חיפוש
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {filtered.map(item => {
+                {shown.map(item => {
                   const plate = typeof item === 'string' ? item : item.plate
                   const make  = item.make  || ''
                   const model = item.model || ''
@@ -116,6 +123,14 @@ export default function HistoryPage({ onBack, onViewPlate, onNavigate }) {
                   )
                 })}
               </div>
+
+              {visible < filtered.length && (
+                <button
+                  onClick={() => setVisible(v => v + PAGE_SIZE)}
+                  className="btn"
+                  style={{ marginTop: 12 }}
+                >הצג עוד</button>
+              )}
             </>
           )}
         </>
