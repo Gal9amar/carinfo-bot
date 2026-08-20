@@ -124,8 +124,8 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
 
     async with httpx.AsyncClient(timeout=15) as client:
         main_records, history_records, ext_records = await asyncio.gather(
-            _search_q(client, RES_MAIN, clean),
-            _search_q(client, RES_HISTORY, clean),
+            _search_filter(client, RES_MAIN, {"mispar_rechev": int(clean)}, limit=1),
+            _search_filter(client, RES_HISTORY, {"mispar_rechev": int(clean)}, limit=1),
             _search_filter(client, RES_MAIN_EXT, {"mispar_rechev": int(clean)}, limit=1),
         )
 
