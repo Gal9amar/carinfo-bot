@@ -206,7 +206,7 @@ function StatsTab() {
 
 function ActivityTab() {
   const [log, setLog] = useState(null)
-  const [autoRefresh, setAutoRefresh] = useState(false)
+  const [autoRefresh, setAutoRefresh] = useState(true)
 
   function load() { adminFetchActivity(100).then(setLog).catch(() => {}) }
   useEffect(() => { load() }, [])
