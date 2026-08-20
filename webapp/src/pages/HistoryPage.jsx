@@ -88,7 +88,9 @@ export default function HistoryPage({ onBack, onViewPlate, onNavigate }) {
                         justifyContent: 'center', gap: 6,
                       }}>
                         {/* Row 1: plate number */}
-                        <LicensePlate plate={plate} size="sm" />
+                        <div style={{ alignSelf: 'flex-start' }}>
+                          <LicensePlate plate={plate} size="sm" />
+                        </div>
 
                         {/* Row 2: make, model, year */}
                         {details && (
