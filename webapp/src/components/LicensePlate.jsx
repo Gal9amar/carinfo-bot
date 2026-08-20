@@ -15,13 +15,13 @@ const SIZES = {
   lg: { h: 64, r: 10, bw: 3, flag: 20, il: 11, isr: 8, mw: 44, py: '4px 8px',  numSz: 32, numPx: '0 20px', ls: 2   },
 }
 
-export default function LicensePlate({ plate, size = 'md' }) {
+export default function LicensePlate({ plate, size = 'md', fill = false }) {
   const formatted = formatPlate(plate)
   const s = SIZES[size] || SIZES.md
 
   return (
     <div style={{
-      display: 'inline-flex',
+      display: fill ? 'flex' : 'inline-flex',
       alignItems: 'stretch',
       borderRadius: s.r,
       border: `${s.bw}px solid #1a3896`,
@@ -30,6 +30,7 @@ export default function LicensePlate({ plate, size = 'md' }) {
       height: s.h,
       direction: 'ltr',
       flexShrink: 0,
+      width: fill ? '100%' : undefined,
     }}>
       {/* Blue IL section */}
       <div style={{
@@ -61,6 +62,7 @@ export default function LicensePlate({ plate, size = 'md' }) {
         color: '#111',
         letterSpacing: s.ls,
         whiteSpace: 'nowrap',
+        flex: fill ? 1 : undefined,
       }}>
         {formatted}
       </div>
