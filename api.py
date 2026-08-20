@@ -236,6 +236,9 @@ async def get_user_info(user: dict = Depends(_get_user)):
     return {
         "id": user["id"],
         "first_name": user.get("first_name", ""),
+        "last_name": user.get("last_name", ""),
+        "username": user.get("username", ""),
+        "first_seen": db_user.get("first_seen") if db_user else None,
         "is_admin": user_id == ADMIN_ID,
         "searches_left": left,
         "searches_quota": quota,

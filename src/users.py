@@ -474,7 +474,8 @@ async def get_user_by_username(username: str) -> Optional[dict]:
 
 async def get_user_by_id(user_id: int) -> Optional[dict]:
     r = await execute(
-        "SELECT user_id, username, full_name, searches_done, searches_quota, blocked FROM users WHERE user_id = ?",
+        "SELECT user_id, username, full_name, searches_done, searches_quota, blocked, first_seen "
+        "FROM users WHERE user_id = ?",
         [user_id],
     )
     u = _row(r)

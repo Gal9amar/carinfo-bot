@@ -14,6 +14,7 @@ import OrdersPage from './pages/OrdersPage.jsx'
 import WatchesPage from './pages/WatchesPage.jsx'
 import GaragePage from './pages/GaragePage.jsx'
 import GarageHowItWorksPage from './pages/GarageHowItWorksPage.jsx'
+import ProfilePage from './pages/ProfilePage.jsx'
 import BottomNav from './components/BottomNav.jsx'
 
 export default function App() {
@@ -44,6 +45,11 @@ export default function App() {
     if (page === 'referral') { setScreen('referral'); return }
     if (page === 'garage') { setScreen('garage'); return }
     if (page === 'garageHowItWorks') { setScreen('garageHowItWorks'); return }
+    if (page === 'profile') {
+      setScreen('profile')
+      fetchUser().catch(() => null).then(usr => setUser(usr))
+      return
+    }
 
     async function init() {
       try {
@@ -185,6 +191,17 @@ export default function App() {
       <>
         <div key="garage" className="page-enter" style={{ paddingBottom: 78 }}>
           <GaragePage onBack={goBack} onNavigate={navigate} />
+        </div>
+        <BottomNav screen={screen} onNavigate={navigate} />
+      </>
+    )
+  }
+
+  if (screen === 'profile') {
+    return (
+      <>
+        <div key="profile" className="page-enter" style={{ paddingBottom: 78 }}>
+          <ProfilePage user={user} onBack={goBack} onNavigate={navigate} />
         </div>
         <BottomNav screen={screen} onNavigate={navigate} />
       </>
