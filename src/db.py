@@ -257,6 +257,9 @@ async def init_db() -> None:
         "CREATE INDEX IF NOT EXISTS idx_ov_user    ON owned_vehicles(user_id)",
         "CREATE INDEX IF NOT EXISTS idx_ove_owned  ON owned_vehicle_expenses(owned_vehicle_id)",
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_ov_active_unique ON owned_vehicles(user_id, plate) WHERE status='owned'",
+        "CREATE INDEX IF NOT EXISTS idx_yw_user    ON yad2_watches(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_tickets_user ON tickets(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_tr_ticket  ON ticket_replies(ticket_id)",
     ]
     for sql in indexes:
         try:
