@@ -882,7 +882,7 @@ class SettingsUpdate(BaseModel):
 
 @api.post("/api/admin/settings")
 async def admin_update_settings(body: SettingsUpdate, _: dict = Depends(_require_admin)):
-    from src.db import set_bot_setting
+    from src.db import set_bot_setting, get_bot_setting
     import src.users as _u
     if body.maintenance is not None:
         await set_bot_setting("maintenance", "1" if body.maintenance else "0")
