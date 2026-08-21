@@ -525,18 +525,24 @@ async def get_all_users() -> list[dict]:
         "SELECT u.user_id, u.username, u.full_name, u.searches_done, u.searches_quota, "
         "u.first_seen, u.last_seen, u.blocked, u.channel, u.quota_expires, u.member_id, u.watch_quota, "
         "u.referred_by, u.broadcast_consent, "
-        "CASE WHEN ugm.user_id IS NOT NULL THEN 1 ELSE 0 END as is_subscriber "
+        "EXISTS(SELECT 1 FROM user_group_members ugm JOIN user_groups ug ON ug.id = ugm.group_id "
+        "       WHERE ugm.user_id = u.user_id AND ug.name IN ('מנויים', 'VIP')) as is_subscriber "
         "FROM users u "
-        "LEFT JOIN user_group_members ugm ON ugm.user_id = u.user_id "
-        "  AND ugm.group_id = (SELECT id FROM user_groups WHERE name='מנויים' LIMIT 1) "
         "ORDER BY u.last_seen DESC"
     )
+    # While the global "unlimited for everyone" benefit is active, every
+    # non-blocked user is effectively VIP — reflect that in the admin list
+    # (badge + searches left) without touching anyone's real stored quota.
+    global_unlimited = await is_global_unlimited_active()
     users = []
     for u in _rows(r):
         quota = u["searches_quota"]
         done  = u["searches_done"]
         u["searches_left"] = -1 if quota == -1 else max(0, quota - done)
         u["is_subscriber"] = bool(u.get("is_subscriber", 0))
+        if global_unlimited and not u.get("blocked"):
+            u["is_subscriber"] = True
+            u["searches_left"] = -1
         users.append(u)
     return users
 
