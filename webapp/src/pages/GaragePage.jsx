@@ -5,6 +5,7 @@ import {
 } from '../api.js'
 import LicensePlate from '../components/LicensePlate.jsx'
 import BackButton from '../components/BackButton.jsx'
+import { getMarketMedian } from '../utils/marketPrice.js'
 
 function fmtDate(raw) {
   if (!raw) return null
@@ -36,18 +37,6 @@ function totalExpenses(item) {
 
 function netProfit(item) {
   return Number(item.sale_price) - Number(item.purchase_price) - totalExpenses(item)
-}
-
-function marketMedian(marketData, year) {
-  if (!marketData?.market) return null
-  const m = marketData.market
-  const yr = year ? parseInt(year) : null
-  const filtered = yr && m.items?.length
-    ? m.items.filter(i => parseInt(i.vehicleDates?.yearOfProduction || 0) === yr)
-    : m.items || []
-  const prices = (filtered.length > 0 ? filtered : m.items || []).map(i => i.price).filter(Boolean).sort((a, b) => a - b)
-  if (!prices.length) return null
-  return prices[Math.floor(prices.length / 2)]
 }
 
 function confirmAction(message) {
@@ -213,7 +202,7 @@ function GarageCard({ item, onSell, onUpdate, onDelete, onAddExpense, onDeleteEx
     ] : []),
   ].filter(([, val]) => val !== null && val !== undefined && val !== '')
 
-  const median = !isSold ? marketMedian(marketData, year) : null
+  const median = !isSold ? getMarketMedian(marketData, year) : null
   const marketAuthorized = marketData?.authorized !== false
   const unrealized = median != null ? median - Number(item.purchase_price) - expensesSum : null
 

@@ -5,6 +5,7 @@ import LicensePlate from '../components/LicensePlate.jsx'
 import BackButton from '../components/BackButton.jsx'
 import PageBanners from '../components/PageBanners.jsx'
 import VehicleLookupLoader from '../components/VehicleLookupLoader.jsx'
+import { getMarketStats } from '../utils/marketPrice.js'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -279,15 +280,9 @@ function SummaryTab({ record, ownership, recalls, make, model, year, color, km, 
       {/* ── Market price ── */}
       {marketData?.market && (() => {
         const authorized = marketData.authorized !== false
-        const m   = marketData.market
-        const yr  = marketData.year ? parseInt(marketData.year) : null
-        const filtered = yr && m.items?.length
-          ? m.items.filter(i => parseInt(i.vehicleDates?.yearOfProduction || 0) === yr)
-          : m.items || []
-        const prices = (filtered.length > 0 ? filtered : m.items || [])
-          .map(i => i.price).filter(Boolean).sort((a, b) => a - b)
-        if (!prices.length) return null
-        const median = prices[Math.floor(prices.length / 2)]
+        const stats = getMarketStats(marketData, marketData.year)
+        if (!stats) return null
+        const { median } = stats
         return (
           <div style={{
             borderRadius: 14, padding: '14px 16px', marginBottom: 14,
@@ -797,22 +792,10 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
 
       {/* ── Market Price ── */}
       {(() => {
-        if (!marketData?.market) return null
-        const authorized = marketData.authorized !== false
-        const m   = marketData.market
-        const yr  = marketData.year ? parseInt(marketData.year) : null
-        const filtered = yr && m.items?.length
-          ? m.items.filter(i => parseInt(i.vehicleDates?.yearOfProduction || 0) === yr)
-          : m.items || []
-        const prices = (filtered.length > 0 ? filtered : m.items || [])
-          .map(i => i.price).filter(Boolean).sort((a, b) => a - b)
-        const kms = (filtered.length > 0 ? filtered : m.items || [])
-          .map(i => i.km).filter(Boolean)
-        if (!prices.length) return null
-        const median = prices[Math.floor(prices.length / 2)]
-        const min    = prices[0]
-        const max    = prices[prices.length - 1]
-        const avgKm  = kms.length ? Math.round(kms.reduce((a, b) => a + b, 0) / kms.length) : null
+        const authorized = marketData?.authorized !== false
+        const stats = getMarketStats(marketData, marketData?.year)
+        if (!stats) return null
+        const { median, min, max, avgKm } = stats
         return (
           <div className="card" style={{ marginBottom: 12 }}>
             {/* Header */}
