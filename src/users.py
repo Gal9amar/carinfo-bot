@@ -48,6 +48,24 @@ async def remove_from_subscribers(user_id: int) -> None:
         )
 
 
+async def is_global_unlimited_active() -> bool:
+    """Returns True if the admin has an active 'unlimited searches for everyone' benefit.
+
+    Read live from bot_settings (not cached) so toggling it off cancels the
+    benefit for all users instantly, without touching any user's own quota.
+    """
+    from src.db import get_bot_setting
+    if (await get_bot_setting("global_unlimited_enabled")) != "1":
+        return False
+    from datetime import date
+    today = date.today().isoformat()
+    start = (await get_bot_setting("global_unlimited_start")) or ''
+    end   = (await get_bot_setting("global_unlimited_end"))   or ''
+    start_ok = (not start) or (today >= start)
+    end_ok   = (not end)   or (today <= end)
+    return start_ok and end_ok
+
+
 def is_promo_active() -> bool:
     """Returns True if the join promo is currently active."""
     if PROMO_SEARCHES == 0:
@@ -167,6 +185,9 @@ async def is_allowed(user_id: int, username: str = "", full_name: str = "") -> t
     if u.get("blocked"):
         return False, 0
 
+    if await is_global_unlimited_active():
+        return True, -1
+
     quota         = u["searches_quota"]
     done          = u["searches_done"]
     quota_expires = u.get("quota_expires")
@@ -193,15 +214,27 @@ async def is_allowed(user_id: int, username: str = "", full_name: str = "") -> t
 
 
 async def increment_search(user_id: int, plate: str = "") -> None:
-    await execute(
-        "UPDATE users SET searches_done = searches_done + 1, last_seen = datetime('now') WHERE user_id = ?",
-        [user_id],
-    )
+    # While the global "unlimited for everyone" benefit is active, searches
+    # don't consume the user's own quota — so cancelling the benefit later
+    # restores everyone's real balance exactly as it was.
+    global_unlimited = await is_global_unlimited_active()
+    if global_unlimited:
+        await execute(
+            "UPDATE users SET last_seen = datetime('now') WHERE user_id = ?",
+            [user_id],
+        )
+    else:
+        await execute(
+            "UPDATE users SET searches_done = searches_done + 1, last_seen = datetime('now') WHERE user_id = ?",
+            [user_id],
+        )
     if plate:
         await execute(
             "INSERT INTO search_history (user_id, plate) VALUES (?, ?)",
             [user_id, plate],
         )
+    if global_unlimited:
+        return
     # Remove from subscribers group when quota is fully exhausted
     r = await execute(
         "SELECT searches_quota, searches_done FROM users WHERE user_id = ?",

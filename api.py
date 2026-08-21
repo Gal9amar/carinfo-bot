@@ -152,13 +152,21 @@ async def list_products():
 
 @api.get("/api/user")
 async def get_user_info(user: dict = Depends(_get_user)):
-    from src.users import get_user_by_id
+    from src.users import get_user_by_id, is_global_unlimited_active
     from src.db import get_bot_setting, execute
     user_id = int(user["id"])
     db_user = await get_user_by_id(user_id)
     maintenance = (await get_bot_setting("maintenance")) == "1"
     left = db_user.get("searches_left", 0) if db_user else 0
     quota = db_user.get("searches_quota", 0) if db_user else 0
+
+    global_unlimited = await is_global_unlimited_active()
+    global_unlimited_expires = None
+    if global_unlimited:
+        left = -1
+        global_unlimited_end = (await get_bot_setting("global_unlimited_end")) or ""
+        if global_unlimited_end:
+            global_unlimited_expires = f"{global_unlimited_end}T23:59:59"
 
     from datetime import date as _date
     _today = str(_date.today())
@@ -233,6 +241,10 @@ async def get_user_info(user: dict = Depends(_get_user)):
     from src.users import get_quota_expires
     quota_expires = await get_quota_expires(user_id)
 
+    if global_unlimited:
+        subscription_label = (await get_bot_setting("global_unlimited_label")) or "🎁 הטבה לכולם"
+        quota_expires = global_unlimited_expires
+
     return {
         "id": user["id"],
         "first_name": user.get("first_name", ""),
@@ -252,6 +264,7 @@ async def get_user_info(user: dict = Depends(_get_user)):
         "watch_max": await _get_watch_max(user_id),
         "is_subscriber": is_subscriber,
         "subscription_label": subscription_label,
+        "global_unlimited_active": global_unlimited,
     }
 
 
@@ -821,6 +834,10 @@ async def admin_get_settings(_: dict = Depends(_require_admin)):
         "promo_duration_days": _u.PROMO_DURATION_DAYS,
         "promo_is_subscriber": _u.PROMO_IS_SUBSCRIBER,
         "promo_label":         _u.PROMO_LABEL,
+        "global_unlimited_enabled": (await get_bot_setting("global_unlimited_enabled")) == "1",
+        "global_unlimited_start":   (await get_bot_setting("global_unlimited_start")) or "",
+        "global_unlimited_end":     (await get_bot_setting("global_unlimited_end"))   or "",
+        "global_unlimited_label":   (await get_bot_setting("global_unlimited_label")) or "",
         "yad2_market_enabled":       (await get_bot_setting("yad2_market_enabled")) == "1",
         "yad2_market_groups":        json.loads((await get_bot_setting("yad2_market_groups")) or "[]"),
         "yad2_market_public":        (await get_bot_setting("yad2_market_public")) == "1",
@@ -853,6 +870,10 @@ class SettingsUpdate(BaseModel):
     promo_duration_days: int          | None = None
     promo_is_subscriber: bool         | None = None
     promo_label:         str          | None = None
+    global_unlimited_enabled: bool         | None = None
+    global_unlimited_start:   str          | None = None
+    global_unlimited_end:     str          | None = None
+    global_unlimited_label:   str          | None = None
     yad2_market_enabled:       bool         | None = None
     yad2_market_groups:        Optional[list]      = None
     yad2_market_public:        bool         | None = None
@@ -907,6 +928,22 @@ async def admin_update_settings(body: SettingsUpdate, _: dict = Depends(_require
     if body.promo_label is not None:
         _u.PROMO_LABEL = body.promo_label.strip()
         await set_bot_setting("promo_label", _u.PROMO_LABEL)
+    if body.global_unlimited_enabled is not None:
+        await set_bot_setting("global_unlimited_enabled", "1" if body.global_unlimited_enabled else "0")
+        try:
+            from src.activity import log as _log
+            await _log(
+                "grant",
+                "🎁 הטבת \"ללא הגבלה לכולם\" " + ("הופעלה" if body.global_unlimited_enabled else "בוטלה"),
+            )
+        except Exception:
+            pass
+    if body.global_unlimited_start is not None:
+        await set_bot_setting("global_unlimited_start", body.global_unlimited_start.strip())
+    if body.global_unlimited_end is not None:
+        await set_bot_setting("global_unlimited_end", body.global_unlimited_end.strip())
+    if body.global_unlimited_label is not None:
+        await set_bot_setting("global_unlimited_label", body.global_unlimited_label.strip())
     if body.yad2_market_enabled is not None:
         await set_bot_setting("yad2_market_enabled", "1" if body.yad2_market_enabled else "0")
     if body.yad2_market_groups is not None:
