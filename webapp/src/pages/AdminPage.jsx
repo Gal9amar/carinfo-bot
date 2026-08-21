@@ -1701,6 +1701,7 @@ function AdminGrantsTab() {
   const [reordering, setReordering] = useState(false)
   const [codesOpen, setCodesOpen] = useState(false)
   const [giftOpen, setGiftOpen]   = useState(false)
+  const [unlimitedOpen, setUnlimitedOpen] = useState(false)
 
   useEffect(() => { adminFetchGrants().then(setGrants).catch(() => {}) }, [])
 
@@ -1810,6 +1811,18 @@ function AdminGrantsTab() {
           <span style={{ fontSize: 12, color: 'var(--hint)' }}>{giftOpen ? '▲' : '▼'}</span>
         </button>
         {giftOpen && <GiftAllSection onDone={() => setGiftOpen(false)} />}
+      </div>
+
+      {/* Global unlimited-for-everyone section */}
+      <div style={{ marginTop: 16, borderTop: '1px solid var(--border, rgba(255,255,255,0.1))', paddingTop: 16 }}>
+        <button
+          onClick={() => setUnlimitedOpen(o => !o)}
+          style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 0, color: 'var(--text)' }}
+        >
+          <span style={{ fontSize: 15, fontWeight: 700 }}>♾️ ללא הגבלת חיפושים לכולם</span>
+          <span style={{ fontSize: 12, color: 'var(--hint)' }}>{unlimitedOpen ? '▲' : '▼'}</span>
+        </button>
+        {unlimitedOpen && <GlobalUnlimitedSection />}
       </div>
 
       {/* Codes section */}
@@ -2076,6 +2089,114 @@ function CodesSection({ standalone }) {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+function GlobalUnlimitedSection() {
+  const [settings, setSettings] = useState(null)
+  const [enabled, setEnabled]   = useState(false)
+  const [noEnd, setNoEnd]       = useState(false)
+  const [start, setStart]       = useState('')
+  const [end, setEnd]           = useState('')
+  const [label, setLabel]       = useState('')
+  const [saving, setSaving]     = useState(false)
+
+  useEffect(() => {
+    adminFetchSettings().then(s => {
+      setSettings(s)
+      setEnabled(!!s.global_unlimited_enabled)
+      setStart(s.global_unlimited_start || '')
+      setEnd(s.global_unlimited_end || '')
+      setNoEnd(!s.global_unlimited_end)
+      setLabel(s.global_unlimited_label || '')
+    }).catch(() => {})
+  }, [])
+
+  function status() {
+    if (!settings || !enabled) return null
+    const today = new Date().toISOString().slice(0, 10)
+    const e = noEnd ? '' : end
+    const startOk = !start || today >= start
+    const endOk   = !e || today <= e
+    if (startOk && endOk) return 'active'
+    if (start && today < start) return 'upcoming'
+    return 'expired'
+  }
+
+  async function save(nextEnabled) {
+    setSaving(true)
+    try {
+      const payload = {
+        global_unlimited_enabled: nextEnabled,
+        global_unlimited_start:   start,
+        global_unlimited_end:     noEnd ? '' : end,
+        global_unlimited_label:   label,
+      }
+      await adminUpdateSettings(payload)
+      setEnabled(nextEnabled)
+      setSettings(s => ({ ...s, ...payload }))
+      window.Telegram?.WebApp?.showAlert(nextEnabled ? '✅ ההטבה הופעלה לכל המשתמשים' : '✅ ההטבה בוטלה לכל המשתמשים')
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    setSaving(false)
+  }
+
+  function cancelNow() {
+    window.Telegram?.WebApp?.showConfirm('לבטל את ההטבה לכולם באופן מיידי?', ok => {
+      if (ok) save(false)
+    })
+  }
+
+  if (!settings) return <div className="loading"></div>
+
+  const STATUS_COLORS = { active: '#38a169', upcoming: '#d69e2e', expired: '#e53e3e' }
+  const STATUS_LABELS = { active: '🟢 פעיל כעת לכל המשתמשים', upcoming: '🟡 טרם התחיל', expired: '🔴 הסתיים (התאריך חלף)' }
+  const st = status()
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 12, lineHeight: 1.5 }}>
+        מעניק לכל המשתמשים — קיימים וחדשים — גישה ללא הגבלת חיפושים, מבלי לגעת ביתרה האישית שלהם.
+        ברגע שמבטלים (בכל שלב), כל משתמש חוזר בדיוק ליתרת החיפושים שהייתה לו לפני ההטבה.
+      </div>
+
+      {st && (
+        <div style={{ marginBottom: 12, fontSize: 13, fontWeight: 600, color: STATUS_COLORS[st] }}>
+          {STATUS_LABELS[st]}
+        </div>
+      )}
+
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 6 }}>תיאור ההטבה (יוצג למשתמשים, אופציונלי)</div>
+        <input className="input" type="text" placeholder='לדוגמה: 🎁 מבצע חגיגי — ללא הגבלה לכולם' value={label} onChange={e => setLabel(e.target.value)} style={{ marginBottom: 0 }} />
+      </div>
+
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 6 }}>תאריך התחלה (ריק = מיידי)</div>
+        <input className="input" type="date" value={start} onChange={e => setStart(e.target.value)} style={{ marginBottom: 0 }} />
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 6 }}>תאריך סיום</div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 14 }}>
+          <input type="checkbox" checked={noEnd} onChange={e => setNoEnd(e.target.checked)} style={{ width: 16, height: 16 }} />
+          ללא תאריך סיום (יישאר פעיל עד ביטול ידני)
+        </label>
+        {!noEnd && (
+          <input className="input" type="date" value={end} onChange={e => setEnd(e.target.value)} style={{ marginBottom: 0 }} />
+        )}
+      </div>
+
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button className="btn btn-success" style={{ flex: 1, marginTop: 0 }} disabled={saving} onClick={() => save(true)}>
+          {saving ? '...' : '💾 שמור והפעל לכולם'}
+        </button>
+        {enabled && (
+          <button className="btn" style={{ flex: 1, marginTop: 0, background: 'var(--btn-danger, #e53e3e)', color: '#fff' }} disabled={saving} onClick={cancelNow}>
+            🛑 בטל הטבה מיידית
+          </button>
+        )}
+      </div>
     </div>
   )
 }
