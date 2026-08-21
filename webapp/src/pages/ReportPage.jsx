@@ -432,6 +432,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
   const [activeTab, setActiveTab] = useState('full')
   const [record, setRecord] = useState(null)
   const [error, setError] = useState(null)
+  const [retryToken, setRetryToken] = useState(0)
   const [copied, setCopied] = useState(false)
   const [marketData, setMarketData] = useState(undefined) // undefined=loading, null=disabled/error
   const [pdfLoading, setPdfLoading] = useState(false)
@@ -449,7 +450,8 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
   const [buySubmitting, setBuySubmitting] = useState(false)
 
   useEffect(() => {
-    if (!plate) { setError('לא צוין מספר רכב'); return }
+    if (!plate) { setError('NO_PLATE'); return }
+    setError(null)
     let cancelled = false
     let revealTimer = null
     // Keep the search-progress loader on screen for a minimum stretch so its
@@ -485,18 +487,44 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
           .then(d => setMarketData(d))
           .catch(() => setMarketData(null))
       })
-      .catch(e => { if (!cancelled) setError(e.message === 'QUOTA_EXCEEDED' ? 'נגמרו החיפושים שלך — רכוש חבילה להמשך' : 'הרכב לא נמצא או שגיאה בטעינה') })
+      .catch(e => {
+        if (cancelled) return
+        const known = ['QUOTA_EXCEEDED', 'NOT_FOUND', 'NETWORK_ERROR', 'SERVER_ERROR']
+        setError(known.includes(e.message) ? e.message : 'SERVER_ERROR')
+      })
     fetchNote(plate).then(n => { if (!cancelled) { setNote(n || ''); setNoteDirty(false) } }).catch(() => {})
     return () => { cancelled = true; if (revealTimer) clearTimeout(revealTimer) }
-  }, [plate])
+  }, [plate, retryToken])
 
-  if (error) return (
-    <div className="page">
-      <div className="loading">❌ {error}</div>
-      <button className="btn btn-secondary" style={{ marginTop: 16 }}
-        onClick={() => onBack ? onBack('home') : window.Telegram?.WebApp?.close()}>חזור</button>
-    </div>
-  )
+  if (error) {
+    const ERROR_INFO = {
+      NO_PLATE:       { icon: '❓', text: 'לא צוין מספר רכב', retry: false },
+      QUOTA_EXCEEDED: { icon: '🔒', text: 'נגמרו החיפושים שלך — רכוש חבילה להמשך', retry: false },
+      NOT_FOUND:      { icon: '🔍', text: 'לא נמצא רכב עם מספר הרישוי הזה. ודא שהמספר הוקלד נכון', retry: false },
+      NETWORK_ERROR:  { icon: '📡', text: 'בעיית חיבור לאינטרנט. בדוק את החיבור ונסה שוב', retry: true },
+      SERVER_ERROR:   { icon: '⚠️', text: 'אירעה שגיאה בטעינת הנתונים. נסה שוב בעוד רגע', retry: true },
+    }
+    const info = ERROR_INFO[error] || ERROR_INFO.SERVER_ERROR
+    return (
+      <div className="page">
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+          padding: '48px 16px', textAlign: 'center',
+        }}>
+          <span style={{ fontSize: 32 }}>{info.icon}</span>
+          <span style={{ color: 'var(--hint)' }}>{info.text}</span>
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+          {info.retry && (
+            <button className="btn" style={{ flex: 1, marginTop: 0 }}
+              onClick={() => setRetryToken(t => t + 1)}>🔄 נסה שוב</button>
+          )}
+          <button className="btn btn-secondary" style={{ flex: 1, marginTop: 0 }}
+            onClick={() => onBack ? onBack('home') : window.Telegram?.WebApp?.close()}>חזור</button>
+        </div>
+      </div>
+    )
+  }
   if (!record) return (
     <div className="page">
       {onBack && <BackButton onClick={onBack} />}

@@ -80,9 +80,16 @@ export async function fetchBanners(page) {
 }
 
 export async function fetchVehicle(plate) {
-  const r = await fetch(`${BASE}/api/vehicle/${plate}`, { headers: headers(), cache: 'no-store' })
+  let r
+  try {
+    r = await fetch(`${BASE}/api/vehicle/${plate}`, { headers: headers(), cache: 'no-store' })
+  } catch {
+    // fetch() itself threw — offline / DNS / connection refused, not an HTTP response
+    throw new Error('NETWORK_ERROR')
+  }
   if (r.status === 403) throw new Error('QUOTA_EXCEEDED')
-  if (!r.ok) throw new Error('Vehicle not found')
+  if (r.status === 404) throw new Error('NOT_FOUND')
+  if (!r.ok) throw new Error('SERVER_ERROR')
   return r.json()
 }
 
