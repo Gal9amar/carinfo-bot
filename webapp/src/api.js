@@ -605,10 +605,35 @@ export async function adminFetchActivity(limit = 100) {
 }
 
 // Market price (user)
+// Client-side cache + in-flight de-dupe for market-price lookups. Each
+// GarageCard fetches its own plate's price independently, and ReportPage
+// fetches on every visit — without this, revisiting the garage/report
+// screen re-issues a full round-trip per plate even though the backend
+// already has it cached, and two components requesting the same plate at
+// once would fire two identical requests.
+const _marketPriceCache    = new Map() // plate -> { data, ts }
+const _marketPriceInFlight = new Map() // plate -> Promise
+const MARKET_PRICE_TTL_MS  = 5 * 60 * 1000 // 5 minutes
+
 export async function fetchMarketPrice(plate) {
-  const r = await fetch(`${BASE}/api/vehicle/${encodeURIComponent(plate)}/market-price`, { headers: headers() })
-  if (!r.ok) return null
-  return r.json()
+  const cached = _marketPriceCache.get(plate)
+  if (cached && Date.now() - cached.ts < MARKET_PRICE_TTL_MS) return cached.data
+
+  if (_marketPriceInFlight.has(plate)) return _marketPriceInFlight.get(plate)
+
+  const promise = (async () => {
+    const r = await fetch(`${BASE}/api/vehicle/${encodeURIComponent(plate)}/market-price`, { headers: headers() })
+    if (!r.ok) return null
+    const data = await r.json()
+    _marketPriceCache.set(plate, { data, ts: Date.now() })
+    return data
+  })()
+  _marketPriceInFlight.set(plate, promise)
+  try {
+    return await promise
+  } finally {
+    _marketPriceInFlight.delete(plate)
+  }
 }
 
 // Garage ("רכבים שקניתי")
