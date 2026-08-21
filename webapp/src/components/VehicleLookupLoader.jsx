@@ -26,7 +26,7 @@ export default function VehicleLookupLoader({ plate }) {
   useEffect(() => {
     const stepTimer = setInterval(() => {
       setStepIdx(i => Math.min(i + 1, STEPS.length - 1))
-    }, 650)
+    }, 700)
     const factTimer = setInterval(() => {
       setFactIdx(i => (i + 1) % FACTS.length)
     }, 2800)

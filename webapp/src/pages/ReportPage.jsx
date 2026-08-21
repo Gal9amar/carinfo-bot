@@ -468,9 +468,24 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
 
   useEffect(() => {
     if (!plate) { setError('לא צוין מספר רכב'); return }
+    let cancelled = false
+    let revealTimer = null
+    // Keep the search-progress loader on screen for a minimum stretch so its
+    // steps are actually visible, even when the API responds almost instantly
+    // (e.g. a cache hit) — otherwise it can flash and vanish before it renders.
+    const MIN_LOADING_MS = 3800
+    const startedAt = Date.now()
+    const revealRecord = (r) => {
+      const remaining = MIN_LOADING_MS - (Date.now() - startedAt)
+      if (remaining > 0) {
+        revealTimer = setTimeout(() => { if (!cancelled) setRecord(r) }, remaining)
+      } else {
+        setRecord(r)
+      }
+    }
     fetchVehicle(plate)
       .then(r => {
-        setRecord(r)
+        revealRecord(r)
         checkGarage(plate).then(setGarageEntry).catch(() => setGarageEntry(null))
         const mk = String(r.tozeret_nm || '').trim()
         const mdl = String(r.kinuy_mishari || r.degem_nm || '').trim()
@@ -488,8 +503,9 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
           .then(d => setMarketData(d))
           .catch(() => setMarketData(null))
       })
-      .catch(e => setError(e.message === 'QUOTA_EXCEEDED' ? 'נגמרו החיפושים שלך — רכוש חבילה להמשך' : 'הרכב לא נמצא או שגיאה בטעינה'))
-    fetchNote(plate).then(n => { setNote(n || ''); setNoteDirty(false) }).catch(() => {})
+      .catch(e => { if (!cancelled) setError(e.message === 'QUOTA_EXCEEDED' ? 'נגמרו החיפושים שלך — רכוש חבילה להמשך' : 'הרכב לא נמצא או שגיאה בטעינה') })
+    fetchNote(plate).then(n => { if (!cancelled) { setNote(n || ''); setNoteDirty(false) } }).catch(() => {})
+    return () => { cancelled = true; if (revealTimer) clearTimeout(revealTimer) }
   }, [plate])
 
   if (error) return (
