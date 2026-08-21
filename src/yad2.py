@@ -227,6 +227,28 @@ _ORACLE_PROXY  = os.environ.get("YAD2_PROXY_URL", "http://151.145.86.13:8080/yad
 _CF_WORKER_URL = os.environ.get("YAD2_CF_WORKER_URL", "")
 
 
+async def get_market_price_cached(make: str, model: str, year: int | str) -> dict | None:
+    """Async, cached wrapper around get_market_price.
+
+    get_market_price() is a blocking urllib call (with retry sleeps), so it's
+    offloaded to a thread instead of blocking the event loop. Results are
+    cached per (make, model, year) for CACHE_TTL so repeat lookups of the
+    same vehicle don't re-hit Yad2 every time.
+    """
+    import asyncio
+    from src.cache import cache
+    key = f"market:{make}|{model}|{year}"
+    cached = cache.get(key)
+    if cached is not None:
+        return cached
+    result = await asyncio.get_event_loop().run_in_executor(
+        None, get_market_price, make, model, year
+    )
+    if result:
+        cache.set(key, result)
+    return result
+
+
 def get_market_price(make: str, model: str, year: int | str) -> dict | None:
     """
     Fetch live market price data from Yad2 for a given make/model/year.

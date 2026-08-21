@@ -4,6 +4,7 @@ import { MAKE_EN, MODEL_EN } from '../vehicleNames.js'
 import LicensePlate from '../components/LicensePlate.jsx'
 import BackButton from '../components/BackButton.jsx'
 import PageBanners from '../components/PageBanners.jsx'
+import VehicleLookupLoader from '../components/VehicleLookupLoader.jsx'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -48,19 +49,6 @@ function fmtNum(v) {
   if (v === null || v === undefined || v === '') return null
   try { return Number(v).toLocaleString('he-IL') }
   catch { return String(v) }
-}
-
-function v(record, w, ...keys) {
-  for (const k of keys) {
-    const src = k.startsWith('w.') ? w : record
-    const key = k.startsWith('w.') ? k.slice(2) : k
-    const val = src[key]
-    if (val !== null && val !== undefined) {
-      const s = String(val).trim()
-      if (s && s !== 'None' && s !== 'nan' && s !== '0') return s
-    }
-  }
-  return null
 }
 
 function row(label, value) {
@@ -516,7 +504,12 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
         onClick={() => onBack ? onBack('home') : window.Telegram?.WebApp?.close()}>חזור</button>
     </div>
   )
-  if (!record) return <div className="loading"></div>
+  if (!record) return (
+    <div className="page">
+      {onBack && <BackButton onClick={onBack} />}
+      <VehicleLookupLoader plate={plate} />
+    </div>
+  )
 
   const w = record._wltp || {}
   const ownership = record._ownership || []

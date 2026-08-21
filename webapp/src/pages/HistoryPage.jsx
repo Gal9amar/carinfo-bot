@@ -3,6 +3,7 @@ import { fetchSearchHistory } from '../api.js'
 import LicensePlate from '../components/LicensePlate.jsx'
 import BackButton from '../components/BackButton.jsx'
 import PageBanners from '../components/PageBanners.jsx'
+import { SkeletonHistoryCard } from '../components/SkeletonCard.jsx'
 
 const PAGE_SIZE = 8
 
@@ -33,7 +34,13 @@ export default function HistoryPage({ onBack, onViewPlate, onNavigate }) {
 
       <PageBanners page="history" onNavigate={onNavigate} />
 
-      {items === null && <div className="loading"></div>}
+      {items === null && (
+        <>
+          <SkeletonHistoryCard />
+          <SkeletonHistoryCard />
+          <SkeletonHistoryCard />
+        </>
+      )}
 
       {items !== null && (
         <>

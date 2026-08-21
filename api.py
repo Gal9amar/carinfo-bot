@@ -171,6 +171,11 @@ async def get_user_info(user: dict = Depends(_get_user)):
     from datetime import date as _date
     _today = str(_date.today())
 
+    # Check once whether the user is in the 'מנויים' group — reused below instead
+    # of re-querying it per feature gate.
+    from src.users import is_subscriber as _is_subscriber
+    is_subscriber = await _is_subscriber(user_id)
+
     async def _check_feature(key_prefix: str) -> bool:
         # Admin always has full access
         if user_id == ADMIN_ID:
@@ -179,13 +184,7 @@ async def get_user_info(user: dict = Depends(_get_user)):
         if quota == -1:
             return True
         # Paying subscribers ("מנויים" group) always have access
-        sub_r = await execute(
-            "SELECT 1 FROM user_group_members ugm "
-            "JOIN user_groups ug ON ug.id = ugm.group_id "
-            "WHERE ugm.user_id=? AND ug.name='מנויים'",
-            [user_id]
-        )
-        if len(sub_r.rows) > 0:
+        if is_subscriber:
             return True
         # Non-subscribers with active quota also get access
         if left > 0:
@@ -215,15 +214,6 @@ async def get_user_info(user: dict = Depends(_get_user)):
 
     pdf_public_label   = await _public_label("pdf_report")
     watch_public_label = await _public_label("yad2_watch")
-
-    # Check if user is in the 'מנויים' group
-    sub_r = await execute(
-        "SELECT 1 FROM user_group_members ugm "
-        "JOIN user_groups ug ON ug.id = ugm.group_id "
-        "WHERE ugm.user_id=? AND ug.name='מנויים'",
-        [user_id]
-    )
-    is_subscriber = len(sub_r.rows) > 0
 
     # Find matching package label by searches count
     subscription_label = None
@@ -595,7 +585,7 @@ async def get_vehicle(plate: str, user: dict = Depends(_get_user)):
 
 @api.get("/api/vehicle/{plate}/pdf")
 async def get_vehicle_pdf(plate: str, user: dict = Depends(_get_user)):
-    from src.db import get_bot_setting, execute as _ex
+    from src.db import get_bot_setting
     import asyncio as _asyncio
     plate = plate.replace("-", "").replace(" ", "")
     user_id = int(user["id"])
@@ -617,13 +607,8 @@ async def get_vehicle_pdf(plate: str, user: dict = Depends(_get_user)):
             if db_u and db_u.get("searches_quota") == -1:
                 authorized = True
         if not authorized:
-            sub_r = await _ex(
-                "SELECT 1 FROM user_group_members ugm "
-                "JOIN user_groups ug ON ug.id = ugm.group_id "
-                "WHERE ugm.user_id=? AND ug.name='מנויים'",
-                [user_id]
-            )
-            authorized = len(sub_r.rows) > 0
+            from src.users import is_subscriber as _is_subscriber
+            authorized = await _is_subscriber(user_id)
 
     if not authorized:
         raise HTTPException(status_code=403, detail="PDF report requires subscription")
@@ -2111,7 +2096,7 @@ async def admin_get_activity(limit: int = 100, _: dict = Depends(_require_admin)
 async def vehicle_market_price(plate: str, user: dict = Depends(_get_user)):
     from src.api.gov_api import fetch_vehicle_data
     from src.cache import cache
-    from src.yad2 import get_market_price, build_url
+    from src.yad2 import get_market_price_cached, build_url
     from src.db import get_bot_setting, execute
 
     # Check feature flag
@@ -2157,7 +2142,7 @@ async def vehicle_market_price(plate: str, user: dict = Depends(_get_user)):
     make  = str(record.get("tozeret_nm") or "").strip()
     model = str(record.get("kinuy_mishari") or record.get("degem_nm") or "").strip()
     year  = record.get("shnat_yitzur") or ""
-    market = get_market_price(make, model, year)
+    market = await get_market_price_cached(make, model, year)
 
     public_label = (await get_bot_setting("yad2_market_public_label")) or "" if public_on else ""
     return {
@@ -2173,7 +2158,7 @@ async def vehicle_market_price(plate: str, user: dict = Depends(_get_user)):
 async def admin_market_price(plate: str, _: dict = Depends(_require_admin)):
     from src.api.gov_api import fetch_vehicle_data
     from src.cache import cache
-    from src.yad2 import get_market_price, build_url
+    from src.yad2 import get_market_price_cached, build_url
 
     clean = plate.replace("-", "").replace(" ", "")
     record = cache.get(clean)
@@ -2188,7 +2173,7 @@ async def admin_market_price(plate: str, _: dict = Depends(_require_admin)):
     model = str(record.get("kinuy_mishari") or record.get("degem_nm") or "").strip()
     year  = record.get("shnat_yitzur") or ""
 
-    market = get_market_price(make, model, year)
+    market = await get_market_price_cached(make, model, year)
 
     return {
         "plate":  clean,
@@ -2339,13 +2324,8 @@ async def _check_watch_access(user: dict) -> bool:
         if len(r.rows) > 0:
             return True
     # subscribers always have access
-    sub_r = await _execute(
-        "SELECT 1 FROM user_group_members ugm "
-        "JOIN user_groups ug ON ug.id = ugm.group_id "
-        "WHERE ugm.user_id=? AND ug.name='מנויים'",
-        [user_id]
-    )
-    return len(sub_r.rows) > 0
+    from src.users import is_subscriber as _is_subscriber
+    return await _is_subscriber(user_id)
 
 
 @api.get("/api/user/watches")

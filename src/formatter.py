@@ -689,19 +689,6 @@ def get_share_text(record: dict) -> str:
 # Public API
 # ─────────────────────────────────────────────
 
-CATEGORIES = {
-    "general":   ("📋 פרטים כלליים", cat_general),
-    "specs":     ("⚙️ מפרט טכני",    cat_specs),
-    "tires":     ("🔧 גלגלים",       cat_tires),
-    "equipment": ("🛋️ ציוד",         cat_equipment),
-    "safety":    ("🛡️ בטיחות",       cat_safety),
-    "adas":      ("🤖 ADAS",          cat_adas),
-    "history":   ("📅 היסטוריה",      cat_history),
-    "ownership": ("👥 בעלויות",       cat_ownership),
-    "recalls":   ("🔔 ריקולים",       cat_recalls),
-}
-
-
 def get_summary(record: dict) -> str:
     """Returns full vehicle report – quick summary + all categories combined."""
     w = record.get("_wltp") or {}
@@ -740,18 +727,6 @@ def get_summary(record: dict) -> str:
     ]
 
     return "".join(s for s in sections if s)
-
-
-def get_category_text(category: str, record: dict) -> str:
-    w = record.get("_wltp") or {}
-    if category == "recalls":
-        return cat_recalls(record)
-    if category == "ownership":
-        return cat_ownership(record, w)
-    fn = CATEGORIES.get(category)
-    if fn:
-        return fn[1](record, w)
-    return "❓ קטגוריה לא נמצאה"
 
 
 def format_not_found(plate: str) -> str:

@@ -1731,6 +1731,27 @@ async def _send_car_photo(message, record: dict) -> None:
         logger.warning("car_photo failed: %s", exc)
 
 
+_SEARCH_STEPS = [
+    "🔗 מתחבר למאגר משרד התחבורה\\.\\.\\.",
+    "📋 שולף נתוני רישוי ובעלות\\.\\.\\.",
+    "🔧 בודק היסטוריית טסט שנתי\\.\\.\\.",
+    "🚨 סורק מאגר רכבים גנובים\\.\\.\\.",
+    "📊 מכין את הדוח שלך\\.\\.\\.",
+]
+
+
+async def _cycle_searching_message(msg) -> None:
+    """Advance the 'searching' message through progress steps while the lookup runs."""
+    try:
+        for text in _SEARCH_STEPS[1:]:
+            await asyncio.sleep(1.1)
+            await msg.edit_text(text, parse_mode=ParseMode.MARKDOWN_V2)
+    except asyncio.CancelledError:
+        pass
+    except Exception:
+        pass
+
+
 async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
     raw     = update.message.text.strip()
@@ -1953,11 +1974,13 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     record = cache.get(plate)
     if record is None:
         searching_msg = await update.message.reply_text(
-            "🔍 מחפש נתונים\\.\\.\\.", parse_mode=ParseMode.MARKDOWN_V2
+            _SEARCH_STEPS[0], parse_mode=ParseMode.MARKDOWN_V2
         )
+        cycler = asyncio.create_task(_cycle_searching_message(searching_msg))
         try:
             record = await fetch_vehicle_data(plate)
         except Exception as exc:
+            cycler.cancel()
             logger.error("Error fetching data for plate %s: %s", plate, exc)
             await searching_msg.delete()
             await update.message.reply_text(
@@ -1965,6 +1988,7 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 reply_markup=_persistent_keyboard(is_admin),
             )
             return
+        cycler.cancel()
         if record is not None:
             cache.set(plate, record)
         await searching_msg.delete()

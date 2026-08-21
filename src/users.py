@@ -39,6 +39,17 @@ async def add_to_subscribers(user_id: int) -> None:
         )
 
 
+async def is_subscriber(user_id: int) -> bool:
+    """Returns True if user_id is a member of the 'מנויים' group."""
+    r = await execute(
+        "SELECT 1 FROM user_group_members ugm "
+        "JOIN user_groups ug ON ug.id = ugm.group_id "
+        "WHERE ugm.user_id=? AND ug.name='מנויים'",
+        [user_id],
+    )
+    return len(r.rows) > 0
+
+
 async def remove_from_subscribers(user_id: int) -> None:
     gid = await _get_subscribers_group_id()
     if gid:

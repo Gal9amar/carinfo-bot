@@ -378,25 +378,3 @@ async def execute(sql: str, args: list | None = None) -> _Result:
                     continue
             raise
     raise RuntimeError("DB execute failed after 3 attempts")
-
-
-async def batch(statements: list) -> None:
-    """Batch execute with automatic reconnect."""
-    for attempt in range(3):
-        try:
-            conn = _get_conn()
-            for stmt in statements:
-                if isinstance(stmt, tuple):
-                    conn.execute(stmt[0], stmt[1])
-                else:
-                    conn.execute(stmt)
-            conn.commit()
-            return
-        except Exception as e:
-            err = str(e).lower()
-            if any(x in err for x in ("502", "bad gateway", "hrana", "connection", "timeout")):
-                _reset_conn()
-                if attempt < 2:
-                    await asyncio.sleep(1.5 * (attempt + 1))
-                    continue
-            raise
