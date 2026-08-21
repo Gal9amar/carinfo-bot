@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { fetchUserWatches, deleteUserWatch, toggleUserWatch, createUserWatch, fetchWatchMakes, fetchWatchModels } from '../api.js'
 import BackButton from '../components/BackButton.jsx'
 import PageBanners from '../components/PageBanners.jsx'
+import { SkeletonWatchCard } from '../components/SkeletonCard.jsx'
 
 const CURRENT_YEAR = new Date().getFullYear()
 const YEARS = Array.from({ length: 30 }, (_, i) => CURRENT_YEAR - i)
@@ -167,7 +168,13 @@ export default function WatchesPage({ onBack, onPackages, user, onNavigate }) {
       })()}
 
       {error && <div style={{ color: '#e53e3e', fontSize: 13, textAlign: 'center', padding: 16 }}>{error}</div>}
-      {!watches && !error && <div className="loading"></div>}
+      {!watches && !error && (
+        <>
+          <SkeletonWatchCard />
+          <SkeletonWatchCard />
+          <SkeletonWatchCard />
+        </>
+      )}
 
       {/* ── Add form ── */}
       {watches && (

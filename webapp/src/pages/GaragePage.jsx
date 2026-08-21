@@ -7,6 +7,7 @@ import LicensePlate from '../components/LicensePlate.jsx'
 import BackButton from '../components/BackButton.jsx'
 import { getMarketMedian } from '../utils/marketPrice.js'
 import { fmtDate, testStatus } from '../utils/time.js'
+import { SkeletonGarageCard } from '../components/SkeletonCard.jsx'
 
 function fmtIls(v) {
   if (v === null || v === undefined || v === '') return '—'
@@ -456,7 +457,12 @@ export default function GaragePage({ onBack, onNavigate }) {
         >❓ איך זה עובד</button>
       </div>
 
-      {items === null && <div className="loading"></div>}
+      {items === null && (
+        <>
+          <SkeletonGarageCard />
+          <SkeletonGarageCard />
+        </>
+      )}
 
       {items !== null && items.length === 0 && (
         <div className="card" style={{ textAlign: 'center', color: 'var(--hint)', fontSize: 14 }}>
