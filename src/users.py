@@ -18,16 +18,21 @@ PROMO_IS_SUBSCRIBER = False
 PROMO_LABEL         = ''   # display label for welcome message
 
 _SUBSCRIBERS_GROUP = "מנויים"
+_VIP_GROUP         = "VIP"  # temporary group for the admin's "unlimited for everyone" benefit
+
+
+async def _get_group_id(name: str) -> int | None:
+    """Return the id of a user_groups row by name, creating it if missing."""
+    r = await execute("SELECT id FROM user_groups WHERE name=?", [name])
+    if r.rows:
+        return r.rows[0][0]
+    await execute("INSERT OR IGNORE INTO user_groups (name) VALUES (?)", [name])
+    r2 = await execute("SELECT id FROM user_groups WHERE name=?", [name])
+    return r2.rows[0][0] if r2.rows else None
 
 
 async def _get_subscribers_group_id() -> int | None:
-    """Return the id of the subscribers group, creating it if missing."""
-    r = await execute("SELECT id FROM user_groups WHERE name=?", [_SUBSCRIBERS_GROUP])
-    if r.rows:
-        return r.rows[0][0]
-    await execute("INSERT OR IGNORE INTO user_groups (name) VALUES (?)", [_SUBSCRIBERS_GROUP])
-    r2 = await execute("SELECT id FROM user_groups WHERE name=?", [_SUBSCRIBERS_GROUP])
-    return r2.rows[0][0] if r2.rows else None
+    return await _get_group_id(_SUBSCRIBERS_GROUP)
 
 
 async def add_to_subscribers(user_id: int) -> None:
@@ -40,12 +45,15 @@ async def add_to_subscribers(user_id: int) -> None:
 
 
 async def is_subscriber(user_id: int) -> bool:
-    """Returns True if user_id is a member of the 'מנויים' group."""
+    """Returns True if user_id is a paying subscriber ('מנויים') or a VIP-group
+    member — VIP membership is granted while the admin's global "unlimited
+    searches for everyone" benefit is active, and gives the same feature
+    access (market price, PDF reports, watch alerts) as a real subscription."""
     r = await execute(
         "SELECT 1 FROM user_group_members ugm "
         "JOIN user_groups ug ON ug.id = ugm.group_id "
-        "WHERE ugm.user_id=? AND ug.name='מנויים'",
-        [user_id],
+        "WHERE ugm.user_id=? AND ug.name IN (?, ?)",
+        [user_id, _SUBSCRIBERS_GROUP, _VIP_GROUP],
     )
     return len(r.rows) > 0
 
@@ -57,6 +65,36 @@ async def remove_from_subscribers(user_id: int) -> None:
             "DELETE FROM user_group_members WHERE group_id=? AND user_id=?",
             [gid, user_id],
         )
+
+
+async def add_to_vip(user_id: int) -> None:
+    gid = await _get_group_id(_VIP_GROUP)
+    if gid:
+        await execute(
+            "INSERT OR IGNORE INTO user_group_members (group_id, user_id) VALUES (?, ?)",
+            [gid, user_id],
+        )
+
+
+async def add_all_to_vip() -> None:
+    """Bulk-add every non-blocked user to the VIP group — called when the admin
+    turns on the global 'unlimited for everyone' benefit."""
+    gid = await _get_group_id(_VIP_GROUP)
+    if gid:
+        await execute(
+            "INSERT OR IGNORE INTO user_group_members (group_id, user_id) "
+            "SELECT ?, user_id FROM users WHERE blocked = 0",
+            [gid],
+        )
+
+
+async def clear_vip_group() -> None:
+    """Remove everyone from the VIP group — called when the admin turns off the
+    global 'unlimited for everyone' benefit. Only touches the VIP group, never
+    the real 'מנויים' group, so paying subscribers are never affected."""
+    gid = await _get_group_id(_VIP_GROUP)
+    if gid:
+        await execute("DELETE FROM user_group_members WHERE group_id=?", [gid])
 
 
 async def is_global_unlimited_active() -> bool:
@@ -170,6 +208,8 @@ async def _ensure_user(user_id: int, username: str = "", full_name: str = "") ->
         )
         if is_promo_active() and PROMO_IS_SUBSCRIBER:
             await add_to_subscribers(user_id)
+        if await is_global_unlimited_active():
+            await add_to_vip(user_id)
 
     await execute(
         """UPDATE users SET

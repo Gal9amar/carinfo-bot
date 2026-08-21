@@ -913,8 +913,17 @@ async def admin_update_settings(body: SettingsUpdate, _: dict = Depends(_require
     if body.promo_label is not None:
         _u.PROMO_LABEL = body.promo_label.strip()
         await set_bot_setting("promo_label", _u.PROMO_LABEL)
+    global_unlimited_transitioned = None  # None = no change, else True/False = new state
     if body.global_unlimited_enabled is not None:
+        was_enabled = (await get_bot_setting("global_unlimited_enabled")) == "1"
         await set_bot_setting("global_unlimited_enabled", "1" if body.global_unlimited_enabled else "0")
+        from src.users import add_all_to_vip, clear_vip_group
+        if body.global_unlimited_enabled:
+            await add_all_to_vip()
+        else:
+            await clear_vip_group()
+        if was_enabled != body.global_unlimited_enabled:
+            global_unlimited_transitioned = body.global_unlimited_enabled
         try:
             from src.activity import log as _log
             await _log(
@@ -929,6 +938,21 @@ async def admin_update_settings(body: SettingsUpdate, _: dict = Depends(_require
         await set_bot_setting("global_unlimited_end", body.global_unlimited_end.strip())
     if body.global_unlimited_label is not None:
         await set_bot_setting("global_unlimited_label", body.global_unlimited_label.strip())
+    if global_unlimited_transitioned is not None:
+        try:
+            from src.notifier import notify_broadcast
+            if global_unlimited_transitioned:
+                label = (await get_bot_setting("global_unlimited_label")) or ""
+                end   = (await get_bot_setting("global_unlimited_end")) or ""
+                msg = "🎁 יש לך הטבה חדשה!\n\n"
+                msg += f"{label}\n\n" if label else ""
+                msg += "מהיום יש לך גישה לחיפושים ללא הגבלה, כולל כל התכונות המיועדות למנויים (מחיר שוק, דוח PDF, התראות)."
+                msg += f"\n\nההטבה בתוקף עד {end[8:10]}/{end[5:7]}/{end[2:4]}." if len(end) == 10 else ""
+            else:
+                msg = "ℹ️ הטבת \"ללא הגבלה לכולם\" הסתיימה. חשבונך חזר למצב הרגיל שלו — היתרה האישית שלך לא נפגעה."
+            await notify_broadcast(msg)
+        except Exception:
+            pass
     if body.yad2_market_enabled is not None:
         await set_bot_setting("yad2_market_enabled", "1" if body.yad2_market_enabled else "0")
     if body.yad2_market_groups is not None:
