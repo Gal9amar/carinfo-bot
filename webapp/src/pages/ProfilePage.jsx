@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { fetchUserOrders, fetchGarage, fetchReferral } from '../api.js'
 import { fmtDate, fmtDateLong } from '../utils/time.js'
 import BackButton from '../components/BackButton.jsx'
+import QuotaProgressBar from '../components/QuotaProgressBar.jsx'
 
 function initials(firstName, lastName) {
   const a = (firstName || '').trim().slice(0, 1)
@@ -105,19 +106,7 @@ export default function ProfilePage({ user, onNavigate, onBack }) {
           }}>{isUnlimited ? '∞' : searchesLeft}</span>
         </div>
 
-        {!isUnlimited && searchesLeft >= 0 && (() => {
-          const total = user.searches_quota > 0 ? user.searches_quota : Math.max(searchesLeft, 10)
-          const pct   = Math.min(100, Math.round((searchesLeft / total) * 100))
-          const color = pct > 50 ? '#38a169' : pct > 20 ? '#d69e2e' : '#e53e3e'
-          return (
-            <div style={{ height: 6, background: 'var(--bg)', borderRadius: 4, overflow: 'hidden' }}>
-              <div style={{
-                height: '100%', width: `${pct}%`, background: color,
-                borderRadius: 4, transition: 'width 0.7s cubic-bezier(0.22,1,0.36,1)',
-              }} />
-            </div>
-          )
-        })()}
+        <QuotaProgressBar searchesLeft={searchesLeft} searchesQuota={user.searches_quota} />
 
         {isUnlimited && quotaExpires && (
           <div style={{ fontSize: 12, color: 'var(--hint)' }}>בתוקף עד {fmtDate(quotaExpires)}</div>

@@ -1,5 +1,6 @@
 import { fmtDate } from '../utils/time.js'
 import PageBanners from '../components/PageBanners.jsx'
+import QuotaProgressBar from '../components/QuotaProgressBar.jsx'
 
 const menuItems = [
   { id: 'packages',   icon: '🛒', label: 'רכישת מוצר',      sub: 'חיפושים + התראות' },
@@ -78,19 +79,7 @@ export default function HomePage({ user, onNavigate }) {
           </div>
 
           {/* progress bar — רק אם יש מספר מוגבל */}
-          {!isUnlimited && searchesLeft >= 0 && (() => {
-            const total = user.searches_quota > 0 ? user.searches_quota : Math.max(searchesLeft, 10)
-            const pct   = Math.min(100, Math.round((searchesLeft / total) * 100))
-            const color = pct > 50 ? '#38a169' : pct > 20 ? '#d69e2e' : '#e53e3e'
-            return (
-              <div style={{ height: 6, background: 'var(--bg)', borderRadius: 4, overflow: 'hidden' }}>
-                <div style={{
-                  height: '100%', width: `${pct}%`, background: color,
-                  borderRadius: 4, transition: 'width 0.7s cubic-bezier(0.22,1,0.36,1)',
-                }} />
-              </div>
-            )
-          })()}
+          <QuotaProgressBar searchesLeft={searchesLeft} searchesQuota={user.searches_quota} />
         </div>
       )}
 
