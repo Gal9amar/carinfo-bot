@@ -6,25 +6,7 @@ import {
 import LicensePlate from '../components/LicensePlate.jsx'
 import BackButton from '../components/BackButton.jsx'
 import { getMarketMedian } from '../utils/marketPrice.js'
-
-function fmtDate(raw) {
-  if (!raw) return null
-  try {
-    const d = new Date(String(raw).substring(0, 10) + 'T00:00:00')
-    return d.toLocaleDateString('he-IL', { year: 'numeric', month: '2-digit', day: '2-digit' })
-  } catch { return String(raw).substring(0, 10) }
-}
-
-function testStatus(tokefRaw) {
-  if (!tokefRaw) return null
-  try {
-    const tokef = new Date(String(tokefRaw).substring(0, 10) + 'T00:00:00')
-    const delta = Math.floor((tokef - new Date()) / (1000 * 60 * 60 * 24))
-    if (delta < 0) return `🔴 פג תוקף לפני ${Math.abs(delta)} ימים`
-    if (delta <= 30) return `🟡 פג תוקף בעוד ${delta} ימים`
-    return `🟢 בתוקף עד ${tokef.toLocaleDateString('he-IL')}`
-  } catch { return null }
-}
+import { fmtDate, testStatus } from '../utils/time.js'
 
 function fmtIls(v) {
   if (v === null || v === undefined || v === '') return '—'

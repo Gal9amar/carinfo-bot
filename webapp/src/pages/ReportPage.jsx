@@ -6,6 +6,7 @@ import BackButton from '../components/BackButton.jsx'
 import PageBanners from '../components/PageBanners.jsx'
 import VehicleLookupLoader from '../components/VehicleLookupLoader.jsx'
 import { getMarketStats } from '../utils/marketPrice.js'
+import { fmtDate, testStatus } from '../utils/time.js'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -18,14 +19,6 @@ function yn(v) {
   return String(v)
 }
 
-function fmtDate(raw) {
-  if (!raw) return null
-  try {
-    const d = new Date(String(raw).substring(0, 10) + 'T00:00:00')
-    return d.toLocaleDateString('he-IL', { year: 'numeric', month: '2-digit', day: '2-digit' })
-  } catch { return String(raw).substring(0, 10) }
-}
-
 function fmtBaalutDt(dt) {
   try {
     const s = String(dt)
@@ -33,17 +26,6 @@ function fmtBaalutDt(dt) {
       'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר']
     return `${months[parseInt(s.substring(4, 6))]} ${s.substring(0, 4)}`
   } catch { return String(dt) }
-}
-
-function testStatus(tokefRaw) {
-  if (!tokefRaw) return null
-  try {
-    const tokef = new Date(String(tokefRaw).substring(0, 10) + 'T00:00:00')
-    const delta = Math.floor((tokef - new Date()) / (1000 * 60 * 60 * 24))
-    if (delta < 0) return `🔴 פג תוקף לפני ${Math.abs(delta)} ימים`
-    if (delta <= 30) return `🟡 פג תוקף בעוד ${delta} ימים`
-    return `🟢 בתוקף עד ${tokef.toLocaleDateString('he-IL')}`
-  } catch { return null }
 }
 
 function fmtNum(v) {
