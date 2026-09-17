@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { fetchUserOrders, fetchGarage, fetchReferral } from '../api.js'
+import { fetchUserOrders, fetchGarage, fetchReferral, fetchSearchHistory, fetchUserWatches, fetchPackages } from '../api.js'
 import { fmtDate, fmtDateLong } from '../utils/time.js'
 import BackButton from '../components/BackButton.jsx'
 import QuotaProgressBar from '../components/QuotaProgressBar.jsx'
@@ -14,11 +14,17 @@ export default function ProfilePage({ user, onNavigate, onBack }) {
   const [orders, setOrders]     = useState(null)
   const [garage, setGarage]     = useState(null)
   const [referral, setReferral] = useState(null)
+  const [historyCount, setHistoryCount] = useState(null)
+  const [watchesCount, setWatchesCount] = useState(null)
+  const [packagesCount, setPackagesCount] = useState(null)
 
   useEffect(() => {
     fetchUserOrders().catch(() => null).then(setOrders)
     fetchGarage().catch(() => null).then(setGarage)
     fetchReferral().catch(() => null).then(setReferral)
+    fetchSearchHistory().then(res => setHistoryCount(res?.length)).catch(() => null)
+    fetchUserWatches().then(res => setWatchesCount(res?.length)).catch(() => null)
+    fetchPackages().then(res => setPackagesCount(res?.length)).catch(() => null)
   }, [])
 
   if (!user) return <div className="loading"></div>
@@ -35,11 +41,11 @@ export default function ProfilePage({ user, onNavigate, onBack }) {
 
   const tiles = [
     { id: 'orders',   icon: '📦', label: 'היסטוריית הזמנות',   value: ordersCount },
-    { id: 'history',  icon: '📋', label: 'היסטוריית חיפושים' },
+    { id: 'history',  icon: '📋', label: 'היסטוריית חיפושים', value: historyCount },
     { id: 'garage',   icon: '🚘', label: 'רכבים שקניתי',       value: ownedCount },
-    { id: 'watches',  icon: '🔔', label: 'ההתראות שלי' },
+    { id: 'watches',  icon: '🔔', label: 'ההתראות שלי',       value: watchesCount },
     { id: 'referral', icon: '🤝', label: 'הפנה חבר',           value: referral?.count },
-    { id: 'packages', icon: '🛒', label: 'רכישת מוצר' },
+    { id: 'packages', icon: '🛒', label: 'רכישת מוצר',         value: packagesCount },
     { id: 'ticket',   icon: '🎫', label: 'תמיכה' },
     ...(user.is_admin ? [{ id: 'admin', icon: '🛠', label: 'פאנל ניהול' }] : []),
   ]
@@ -133,21 +139,22 @@ export default function ProfilePage({ user, onNavigate, onBack }) {
               padding: '16px 14px',
               textAlign: 'right',
               cursor: 'pointer',
-              background: t.id === 'admin' ? 'linear-gradient(135deg,#2d3748,#1a202c)' : 'var(--bg-card)',
+              background: t.id === 'admin' ? 'linear-gradient(135deg, #3b82f6, #1e40af)' : 'var(--bg-card)',
               color: t.id === 'admin' ? '#fff' : 'inherit',
               border: t.id === 'admin' ? 'none' : '1px solid var(--border)',
+              boxShadow: t.id === 'admin' ? '0 8px 24px rgba(59, 130, 246, 0.4)' : undefined,
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
               <span style={{ fontSize: 26 }}>{t.icon}</span>
               {t.value != null && (
                 <span style={{
-                  fontSize: 12, fontWeight: 700, color: 'var(--btn)',
-                  background: 'var(--bg)', borderRadius: 20, padding: '2px 8px',
+                  fontSize: 12, fontWeight: 700, color: t.id === 'admin' ? '#1e40af' : 'var(--primary)',
+                  background: t.id === 'admin' ? '#fff' : 'var(--bg)', borderRadius: 20, padding: '2px 8px',
                 }}>{t.value}</span>
               )}
             </div>
-            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>{t.label}</div>
+            <div style={{ fontWeight: 700, fontSize: 14, color: t.id === 'admin' ? '#fff' : 'var(--text)' }}>{t.label}</div>
           </button>
         ))}
       </div>
