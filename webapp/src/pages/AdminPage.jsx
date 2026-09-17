@@ -117,22 +117,31 @@ export default function AdminPage({ user, onBack }) {
 
 function StatCard({ value, label, sub, accent }) {
   return (
-    <div style={{
-      background: 'var(--bg2)', borderRadius: 12, padding: '12px 14px',
-      borderRight: accent ? `3px solid ${accent}` : undefined,
+    <div className="card" style={{
+      padding: '16px', margin: 0,
+      borderTop: accent ? `3px solid ${accent}` : '3px solid transparent',
+      display: 'flex', flexDirection: 'column',
     }}>
-      <div style={{ fontSize: 22, fontWeight: 800, color: accent || 'var(--text)', lineHeight: 1 }}>{value}</div>
-      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginTop: 3 }}>{label}</div>
-      {sub && <div style={{ fontSize: 11, color: 'var(--hint)', marginTop: 2 }}>{sub}</div>}
+      <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 4, fontWeight: 600 }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 26, fontWeight: 900, color: 'var(--text-main)', letterSpacing: '-0.5px', lineHeight: 1 }}>
+        {value}
+      </div>
+      {sub && (
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8, fontWeight: 500, background: 'rgba(0,0,0,0.03)', padding: '4px 8px', borderRadius: 6, display: 'inline-block', alignSelf: 'flex-start' }}>
+          {sub}
+        </div>
+      )}
     </div>
   )
 }
 
 function Section({ title, children }) {
   return (
-    <div style={{ marginBottom: 18 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--hint)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>{title}</div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>{children}</div>
+    <div style={{ marginBottom: 24 }}>
+      <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-main)', marginBottom: 12 }}>{title}</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>{children}</div>
     </div>
   )
 }
@@ -433,52 +442,30 @@ function PackagesTab() {
               borderColor: isActive ? undefined : 'rgba(255,255,255,0.1)',
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flex: 1, minWidth: 0 }}>
-                <span
-                  style={{ fontSize: 20, color: 'var(--hint)', lineHeight: 1.2, cursor: 'grab', userSelect: 'none', flexShrink: 0 }}
-                  title="גרור לשינוי סדר"
-                >⠿</span>
-                <span style={{
-                  fontSize: 11, fontWeight: 700, color: 'var(--hint)',
-                  background: 'var(--bg)', borderRadius: 6, padding: '2px 7px', flexShrink: 0,
-                }}>{idx + 1}</span>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span className="card-title">{pkg.label}</span>
-                    {!isActive && (
-                      <span style={{
-                        fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10,
-                        background: '#e53e3e22', color: '#e53e3e', flexShrink: 0,
-                      }}>מושבת</span>
-                    )}
-                  </div>
-                  <div className="card-subtitle">{desc} · ₪{pkg.price}</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                <button className="btn btn-danger" style={{ width: 36, height: 36, padding: 0, margin: 0, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }} onClick={() => deletePkg(pkg.id)}>🗑️</button>
+                <button className="btn" style={{ width: 36, height: 36, padding: 0, margin: 0, borderRadius: 12, background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }} onClick={() => { setEditing(pkg); setForm({ label: pkg.label, searches: String(pkg.searches), price: String(pkg.price), image_url: pkg.image_url || '', duration_months: String(pkg.duration_months ?? 1), features: normalizeFeatures(pkg.features), chips: pkg.chips?.length ? pkg.chips : getDefaultChips(pkg), is_active: pkg.is_active !== false, package_type: pkg.package_type || 'searches' }) }}>✏️</button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <button className="btn btn-secondary" style={{ width: 36, height: 17, padding: 0, margin: 0, borderRadius: 6, fontSize: 10, lineHeight: 1 }} disabled={idx === 0 || reordering} onClick={() => movePackage(idx, idx - 1)}>▲</button>
+                  <button className="btn btn-secondary" style={{ width: 36, height: 17, padding: 0, margin: 0, borderRadius: 6, fontSize: 10, lineHeight: 1 }} disabled={idx === paidPkgs.length - 1 || reordering} onClick={() => movePackage(idx, idx + 1)}>▼</button>
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                <button
-                  className="btn"
-                  style={{ width: 'auto', padding: '4px 8px', marginTop: 0, fontSize: 12 }}
-                  disabled={idx === 0 || reordering}
-                  onClick={() => movePackage(idx, idx - 1)}
-                  title="הזז למעלה"
-                >↑</button>
-                <button
-                  className="btn"
-                  style={{ width: 'auto', padding: '4px 8px', marginTop: 0, fontSize: 12 }}
-                  disabled={idx === paidPkgs.length - 1 || reordering}
-                  onClick={() => movePackage(idx, idx + 1)}
-                  title="הזז למטה"
-                >↓</button>
-                <button className="btn" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
-                  onClick={() => { setEditing(pkg); setForm({ label: pkg.label, searches: String(pkg.searches), price: String(pkg.price), image_url: pkg.image_url || '', duration_months: String(pkg.duration_months ?? 1), features: normalizeFeatures(pkg.features), chips: pkg.chips?.length ? pkg.chips : getDefaultChips(pkg), is_active: pkg.is_active !== false, package_type: pkg.package_type || 'searches' }) }}>
-                  ✏️
-                </button>
-                <button className="btn btn-danger" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
-                  onClick={() => deletePkg(pkg.id)}>
-                  🗑
-                </button>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, justifyContent: 'flex-end', textAlign: 'right' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
+                    {!isActive && (
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 12, background: '#fee2e2', color: '#ef4444', border: '1px solid #fca5a5' }}>מושבת</span>
+                    )}
+                    <span style={{ fontWeight: 800, fontSize: 18, color: 'var(--text-main)', letterSpacing: '-0.3px' }}>{pkg.label}</span>
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
+                    {desc} · ₪{pkg.price}
+                  </div>
+                </div>
+                <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--primary)', background: 'var(--bg)', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{idx + 1}</span>
+                <span style={{ fontSize: 24, color: 'var(--hint)', cursor: 'grab', userSelect: 'none' }} title="גרור לשינוי סדר">⠿</span>
               </div>
             </div>
           </div>
@@ -578,31 +565,31 @@ function ProductsTab() {
         const deliveryLabel = p.delivery_type === 'auto' ? 'אוטומטי' : 'ידני'
         return (
           <div key={p.id} className="card" style={{ opacity: isActive ? 1 : 0.5 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span className="card-title">{p.name}</span>
-                  {!isActive && (
-                    <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#e53e3e22', color: '#e53e3e' }}>מושבת</span>
-                  )}
-                </div>
-                <div className="card-subtitle">₪{p.price} · {deliveryLabel} · מלאי: {p.stock_count ?? 0}</div>
-                {p.delivery_time_note && <div style={{ fontSize: 11, color: 'var(--hint)' }}>⏱ {p.delivery_time_note}</div>}
-                {p.availability_status === 'coming_soon' && (
-                  <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#3182ce22', color: '#3182ce' }}>🔜 בקרוב</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                <button className="btn btn-danger" style={{ width: 36, height: 36, padding: 0, margin: 0, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }} onClick={() => deleteProd(p.id)}>🗑️</button>
+                <button className="btn" style={{ width: 36, height: 36, padding: 0, margin: 0, borderRadius: 12, background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }} onClick={() => { setEditing(p); setForm({ name: p.name, description: p.description || '', image_url: p.image_url || '', price: String(p.price), delivery_type: p.delivery_type, delivery_time_note: p.delivery_time_note || '', quantity_stock: String(p.quantity_stock ?? 0), is_active: p.is_active !== false, availability_status: p.availability_status || 'available', features: p.features || [] }) }}>✏️</button>
+                {p.delivery_type === 'auto' && (
+                  <button className="btn" style={{ height: 36, padding: '0 12px', margin: 0, borderRadius: 12, background: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }} onClick={() => setStockTarget(p)}>📤 מלאי</button>
                 )}
               </div>
-              <div style={{ display: 'flex', gap: 4, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                {p.delivery_type === 'auto' && (
-                  <button className="btn" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
-                    onClick={() => setStockTarget(p)}>📤 מלאי</button>
-                )}
-                <button className="btn" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
-                  onClick={() => { setEditing(p); setForm({ name: p.name, description: p.description || '', image_url: p.image_url || '', price: String(p.price), delivery_type: p.delivery_type, delivery_time_note: p.delivery_time_note || '', quantity_stock: String(p.quantity_stock ?? 0), is_active: p.is_active !== false, availability_status: p.availability_status || 'available', features: p.features || [] }) }}>
-                  ✏️
-                </button>
-                <button className="btn btn-danger" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
-                  onClick={() => deleteProd(p.id)}>🗑</button>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, justifyContent: 'flex-end', textAlign: 'right' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                    {p.availability_status === 'coming_soon' && (
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 12, background: '#3182ce22', color: '#3182ce', border: '1px solid #90cdf4' }}>🔜 בקרוב</span>
+                    )}
+                    {!isActive && (
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 12, background: '#fee2e2', color: '#ef4444', border: '1px solid #fca5a5' }}>מושבת</span>
+                    )}
+                    <span style={{ fontWeight: 800, fontSize: 18, color: 'var(--text-main)', letterSpacing: '-0.3px' }}>{p.name}</span>
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
+                    ₪{p.price} · {deliveryLabel} · מלאי: {p.stock_count ?? 0}
+                  </div>
+                  {p.delivery_time_note && <div style={{ fontSize: 11, color: 'var(--hint)' }}>⏱ {p.delivery_time_note}</div>}
+                </div>
               </div>
             </div>
           </div>
