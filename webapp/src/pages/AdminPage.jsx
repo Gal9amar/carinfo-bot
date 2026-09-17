@@ -70,25 +70,34 @@ export default function AdminPage({ user, onBack }) {
       {onBack && <BackButton onClick={onBack} />}
       <div className="page-title">🛠 פאנל ניהול</div>
       <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: 6,
-        marginBottom: 18,
-      }}>
+        display: 'flex',
+        gap: 8,
+        marginBottom: 24,
+        overflowX: 'auto',
+        paddingBottom: 8,
+        whiteSpace: 'nowrap',
+        WebkitOverflowScrolling: 'touch',
+        scrollbarWidth: 'none',
+        msOverflowStyle: 'none'
+      }} className="admin-nav-scroll">
+        <style dangerouslySetInnerHTML={{__html: `.admin-nav-scroll::-webkit-scrollbar { display: none; }`}} />
         {TABS.map(t => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
             style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-              padding: '9px 4px 7px', border: 'none', borderRadius: 10, cursor: 'pointer',
-              background: tab === t.id ? 'var(--btn)' : 'var(--bg2)',
-              color: tab === t.id ? 'var(--btn-text)' : 'var(--hint)',
-              fontSize: 10, fontWeight: tab === t.id ? 600 : 400,
-              transition: 'background 0.15s',
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '10px 16px', border: 'none', borderRadius: 20, cursor: 'pointer',
+              background: tab === t.id ? 'linear-gradient(135deg, var(--primary), #0ea5e9)' : 'var(--bg-card)',
+              color: tab === t.id ? '#fff' : 'var(--text-main)',
+              fontSize: 14, fontWeight: tab === t.id ? 700 : 500,
+              boxShadow: tab === t.id ? '0 4px 12px rgba(0, 122, 255, 0.3)' : '0 1px 3px rgba(0,0,0,0.05)',
+              border: tab === t.id ? 'none' : '1px solid var(--border)',
+              transition: 'all 0.2s',
+              flexShrink: 0,
             }}
           >
-            <span style={{ fontSize: 20, lineHeight: 1 }}>{t.icon}</span>
+            <span style={{ fontSize: 16 }}>{t.icon}</span>
             <span>{t.label}</span>
           </button>
         ))}
