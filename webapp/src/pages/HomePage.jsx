@@ -25,15 +25,9 @@ export default function HomePage({ user, onNavigate, onSearchPlate }) {
 
   return (
     <div className="page" style={{ paddingBottom: 24 }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.5px' }}>
+      <header style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: 24 }}>
+        <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-0.5px' }}>
           CarInfo<span style={{ color: 'var(--primary)' }}>.ai</span>
-        </div>
-        <div style={{
-          background: 'rgba(0, 122, 255, 0.1)', color: 'var(--primary)',
-          padding: '6px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700
-        }}>
-          Smart Search
         </div>
       </header>
 

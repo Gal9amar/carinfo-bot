@@ -1,4 +1,4 @@
-const LAST_UPDATED = 'יוני 2026'
+const LAST_UPDATED = 'ספטמבר 2026'
 const BOT_NAME     = 'CarInfo'
 const BOT_HANDLE   = '@israelcarinfobot'
 const CONTACT_URL  = 'https://t.me/israelcarinfobot'
