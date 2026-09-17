@@ -87,7 +87,7 @@ export default function AdminPage({ user, onBack }) {
             onClick={() => setTab(t.id)}
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
-              padding: '10px 16px', border: 'none', borderRadius: 20, cursor: 'pointer',
+              padding: '10px 16px', borderRadius: 20, cursor: 'pointer',
               background: tab === t.id ? 'linear-gradient(135deg, var(--primary), #0ea5e9)' : 'var(--bg-card)',
               color: tab === t.id ? '#fff' : 'var(--text-main)',
               fontSize: 14, fontWeight: tab === t.id ? 700 : 500,
@@ -779,13 +779,13 @@ function BannersTab() {
                     ))}
                   </div>
                 </div>
-                  disabled={idx === banners.length - 1 || reordering} onClick={() => moveBanner(idx, idx + 1)} title="הזז למטה">↓</button>
-                <button className="btn" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
-                  onClick={() => toggleActive(b)} title={isActive ? 'הסתר מהאתר' : 'הצג באתר'}>{isActive ? '👁️' : '🚫'}</button>
-                <button className="btn" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
-                  onClick={() => { setEditing(b); setForm({ ...b }) }}>✏️</button>
-                <button className="btn btn-danger" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
-                  onClick={() => deleteBanner(b.id)}>🗑</button>
+                <div style={{
+                  width: 44, height: 44, borderRadius: 10, flexShrink: 0,
+                  background: `linear-gradient(135deg, ${b.color_from}, ${b.color_to})`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
+                  boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+                }}>{b.icon}</div>
+                <span style={{ fontSize: 24, color: 'var(--hint)', cursor: 'grab', userSelect: 'none' }} title="גרור לשינוי סדר">⠿</span>
               </div>
             </div>
           </div>
