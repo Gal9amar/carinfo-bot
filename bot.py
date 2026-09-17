@@ -77,7 +77,7 @@ def _pkgs() -> list[tuple[str, int, int]]:
 
 _MD_SPECIAL = r"\_*[]()~`>#+-=|{}.!"
 def _escape_md(text: str) -> str:
-    return "".join(f"\\{c}" if c in _MD_SPECIAL else c for c in str(text))
+    return "".join(f"\\{c}" if c in _MD_SPECIAL else c for c in text)
 
 logger.info("ADMIN_ID loaded: %s", ADMIN_ID)
 

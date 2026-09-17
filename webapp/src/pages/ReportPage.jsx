@@ -405,12 +405,9 @@ function SummaryTab({ record, ownership, recalls, make, model, year, color, km, 
 function Row({ label, value }) {
   if (value === null || value === undefined || value === '') return null
   return (
-    <div style={{
-      display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-      padding: '6px 0', borderBottom: '1px solid var(--bg)', fontSize: 14, gap: 8,
-    }}>
-      <span style={{ color: 'var(--hint)', flexShrink: 0, minWidth: 120 }}>{label}</span>
-      <span style={{ fontWeight: 500, textAlign: 'end' }}>{String(value)}</span>
+    <div className="info-row">
+      <span className="info-label">{label}</span>
+      <span className="info-value" style={{ textAlign: 'end' }}>{String(value)}</span>
     </div>
   )
 }
@@ -419,8 +416,8 @@ function Sec({ title, children }) {
   const kids = Array.isArray(children) ? children.flat() : [children]
   if (!kids.some(c => c !== null && c !== undefined && c !== false)) return null
   return (
-    <div className="card" style={{ marginBottom: 12 }}>
-      <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>{title}</div>
+    <div className="card" style={{ padding: '24px 20px' }}>
+      <div className="card-title" style={{ marginBottom: 16 }}>{title}</div>
       {children}
     </div>
   )

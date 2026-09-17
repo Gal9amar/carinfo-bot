@@ -57,16 +57,18 @@ export default function ReferralPage({ onBack, onNavigate }) {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+      <div className="card" style={{ display: 'flex', gap: 6, marginBottom: 24, padding: '6px' }}>
         {[['share', '🔗 שיתוף'], ['history', '📋 הפניות שלי']].map(([id, label]) => (
           <button
             key={id}
             onClick={() => setTab(id)}
             style={{
-              flex: 1, padding: '8px 4px', border: 'none', borderRadius: 10, cursor: 'pointer',
-              background: tab === id ? 'var(--btn)' : 'var(--bg2)',
-              color: tab === id ? 'var(--btn-text)' : 'var(--hint)',
-              fontSize: 13, fontWeight: tab === id ? 600 : 400,
+              flex: 1, padding: '10px 4px', border: 'none', borderRadius: 12, cursor: 'pointer',
+              background: tab === id ? 'var(--primary)' : 'transparent',
+              color: tab === id ? '#fff' : 'var(--hint)',
+              fontSize: 14, fontWeight: tab === id ? 700 : 500,
+              boxShadow: tab === id ? '0 4px 12px rgba(0, 122, 255, 0.3)' : 'none',
+              transition: '0.2s',
             }}
           >
             {label}
@@ -76,22 +78,25 @@ export default function ReferralPage({ onBack, onNavigate }) {
 
       {/* Share tab */}
       {tab === 'share' && (
-        <div>
-          <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8 }}>הלינק האישי שלך:</div>
-          <div style={{
-            background: 'var(--bg2)', borderRadius: 10, padding: '10px 12px',
-            fontFamily: 'monospace', fontSize: 12, wordBreak: 'break-all',
-            color: 'var(--text)', marginBottom: 10, direction: 'ltr', textAlign: 'left',
-          }}>
-            {info?.link ?? '⏳ טוען...'}
-          </div>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-            <button className="btn" style={{ flex: 1, marginTop: 0 }} onClick={copyLink}>
-              {copied ? '✅ הועתק!' : '📋 העתק'}
-            </button>
-            <button className="btn btn-success" style={{ flex: 1, marginTop: 0 }} onClick={shareLink}>
-              📤 שתף בטלגרם
-            </button>
+        <>
+          <div className="card" style={{ marginBottom: 24 }}>
+            <div style={{ fontSize: 13, color: 'var(--text)', marginBottom: 8, fontWeight: 600 }}>הלינק האישי שלך:</div>
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.5)', border: '1px solid rgba(0,0,0,0.05)',
+              borderRadius: 12, padding: '14px 16px',
+              fontFamily: 'monospace', fontSize: 13, wordBreak: 'break-all',
+              color: 'var(--primary)', marginBottom: 16, direction: 'ltr', textAlign: 'left',
+            }}>
+              {info?.link ?? '⏳ טוען...'}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-secondary" style={{ flex: 1, marginTop: 0 }} onClick={copyLink}>
+                {copied ? '✅ הועתק!' : '📋 העתק'}
+              </button>
+              <button className="btn" style={{ flex: 1, marginTop: 0, background: '#34c759', boxShadow: '0 6px 20px rgba(52, 199, 89, 0.35)' }} onClick={shareLink}>
+                📤 שתף בטלגרם
+              </button>
+            </div>
           </div>
 
           <div className="card">
@@ -107,7 +112,7 @@ export default function ReferralPage({ onBack, onNavigate }) {
               </div>
             ))}
           </div>
-        </div>
+        </>
       )}
 
       {/* History tab */}

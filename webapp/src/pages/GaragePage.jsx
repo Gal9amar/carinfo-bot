@@ -445,14 +445,21 @@ export default function GaragePage({ onBack, onNavigate }) {
   return (
     <div className="page">
       <BackButton onClick={onBack} />
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <div className="page-title" style={{ marginBottom: 0 }}>🚘 הרכבים שקניתי</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+        <div className="page-title" style={{ marginBottom: 0, fontSize: 26 }}>🚘 רכבים שקניתי</div>
         <button
+          className="card"
           onClick={() => onNavigate('garageHowItWorks')}
           style={{
-            fontSize: 12, fontWeight: 600, padding: '6px 12px', borderRadius: 20,
-            border: '1px solid var(--hint)', background: 'var(--bg2)', color: 'var(--text)',
+            fontSize: 13, fontWeight: 700, padding: '8px 16px', borderRadius: 20,
+            border: '1px solid rgba(0, 122, 255, 0.25)', 
+            background: 'rgba(255, 255, 255, 0.7)', 
+            color: 'var(--primary)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
             cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+            marginBottom: 0,
+            boxShadow: '0 4px 12px rgba(0, 122, 255, 0.15)',
           }}
         >❓ איך זה עובד</button>
       </div>

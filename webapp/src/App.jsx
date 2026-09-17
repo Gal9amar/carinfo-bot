@@ -314,6 +314,10 @@ export default function App() {
         <HomePage
           user={user}
           onNavigate={navigate}
+          onSearchPlate={(plate) => {
+            setReportPlate(plate)
+            navigate('report')
+          }}
         />
       </div>
       <BottomNav screen="home" onNavigate={navigate} />

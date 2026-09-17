@@ -85,9 +85,8 @@ export default function ProfilePage({ user, onNavigate, onBack }) {
       </div>
 
       {/* Current plan */}
-      <div style={{
-        background: 'var(--bg2)', borderRadius: 14, padding: '14px 16px',
-        marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 10,
+      <div className="card" style={{
+        marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 10, padding: '16px'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontSize: 13, color: 'var(--hint)' }}>המסלול הנוכחי</span>
@@ -128,13 +127,15 @@ export default function ProfilePage({ user, onNavigate, onBack }) {
           <button
             key={t.id}
             onClick={() => onNavigate(t.id)}
+            className="card"
             style={{
-              background: t.id === 'admin' ? 'linear-gradient(135deg,#2d3748,#1a202c)' : 'var(--bg2)',
-              border: t.id === 'admin' ? '1px solid #4a5568' : 'none',
-              borderRadius: 14,
+              marginBottom: 0,
               padding: '16px 14px',
               textAlign: 'right',
               cursor: 'pointer',
+              background: t.id === 'admin' ? 'linear-gradient(135deg,#2d3748,#1a202c)' : 'var(--bg-card)',
+              color: t.id === 'admin' ? '#fff' : 'inherit',
+              border: t.id === 'admin' ? 'none' : '1px solid var(--border)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
