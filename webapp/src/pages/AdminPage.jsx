@@ -237,46 +237,69 @@ function ActivityTab() {
   function fmtTime(ts) { return fmtTimeShort(ts) }
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <div style={{ fontSize: 13, color: 'var(--hint)' }}>{log ? `${log.length} אירועים אחרונים` : ''}</div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <label style={{ fontSize: 12, color: 'var(--hint)', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-            <input type="checkbox" checked={autoRefresh} onChange={e => setAutoRefresh(e.target.checked)} />
-            רענון אוטומטי
-          </label>
-          <button
-            className="btn"
-            style={{ width: 'auto', padding: '4px 12px', marginTop: 0, fontSize: 12 }}
-            onClick={load}
-          >
-            🔄
-          </button>
+    <div className="tab-fade-in">
+      <div className="card" style={{ padding: '20px', marginBottom: 24, background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.05), transparent)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 24 }}>⚡</span>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--text-main)', letterSpacing: '-0.3px' }}>יומן פעילות מערכת</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>{log ? `מציג את ${log.length} הפעולות האחרונות בזמן אמת` : 'טוען נתונים...'}</div>
+          </div>
         </div>
       </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', background: 'var(--bg-card)', padding: '8px 16px', borderRadius: 12, border: '1px solid var(--border)' }}>
+          <div style={{ width: 18, height: 18, borderRadius: 6, border: `2px solid ${autoRefresh ? '#10b981' : 'var(--border)'}`, background: autoRefresh ? '#10b981' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {autoRefresh && <span style={{ color: '#fff', fontSize: 10 }}>✓</span>}
+          </div>
+          <input type="checkbox" checked={autoRefresh} onChange={e => setAutoRefresh(e.target.checked)} style={{ display: 'none' }} />
+          <span style={{ fontSize: 13, fontWeight: 700, color: autoRefresh ? 'var(--text-main)' : 'var(--text-muted)' }}>רענון חיטוב אוטומטי (15 ש')</span>
+          {autoRefresh && (
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', marginLeft: 4, animation: 'pulse 2s infinite' }}></div>
+          )}
+        </label>
+        
+        <button
+          onClick={load}
+          style={{ width: 38, height: 38, borderRadius: 12, background: 'var(--bg-card)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 16, color: 'var(--text-main)', transition: 'all 0.2s' }}
+          title="רענן עכשיו"
+        >🔄</button>
+      </div>
+
       {!log && <div className="loading"></div>}
+      
       {log && log.length === 0 && (
-        <div style={{ color: 'var(--hint)', textAlign: 'center', padding: 24 }}>אין פעילות עדיין</div>
+        <div style={{ textAlign: 'center', padding: 40, background: 'var(--bg-card)', borderRadius: 16, border: '1px dashed var(--border)', color: 'var(--hint)', fontSize: 14 }}>
+          טרם נרשמו פעולות במערכת
+        </div>
       )}
+      
       {log && log.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {log.map(item => (
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          {log.map((item, i) => (
             <div key={item.id} style={{
-              background: 'var(--card-bg, rgba(255,255,255,0.05))',
-              borderRadius: 10,
-              padding: '8px 12px',
-              display: 'flex',
-              gap: 10,
-              alignItems: 'flex-start',
+              display: 'flex', gap: 16, alignItems: 'center', padding: '16px',
+              borderBottom: i < log.length - 1 ? '1px solid var(--border)' : 'none',
+              background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)',
+              transition: 'background 0.2s'
             }}>
-              <span style={{ fontSize: 18, lineHeight: 1.3, flexShrink: 0 }}>{item.icon}</span>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0, border: '1px solid var(--border)' }}>
+                {item.icon}
+              </div>
+              
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, wordBreak: 'break-word' }}>{item.description}</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-main)', marginBottom: 4, wordBreak: 'break-word', lineHeight: 1.4 }}>
+                  {item.description}
+                </div>
                 {item.username && (
-                  <div style={{ fontSize: 11, color: 'var(--hint)', marginTop: 2 }}>{item.username}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ color: 'var(--primary)' }}>👤</span> {item.username}
+                  </div>
                 )}
               </div>
-              <div style={{ fontSize: 11, color: 'var(--hint)', flexShrink: 0, textAlign: 'left', whiteSpace: 'nowrap' }}>
+              
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', background: 'var(--bg)', padding: '6px 10px', borderRadius: 8, whiteSpace: 'nowrap' }}>
                 {fmtTime(item.created_at)}
               </div>
             </div>
@@ -1742,50 +1765,63 @@ function AdminGrantsTab() {
   if (!grants) return <div className="loading"></div>
 
   return (
-    <div>
-      <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 10, lineHeight: 1.5 }}>
-        הטבות שמנהל יכול לתת למשתמש בעריכת משתמש. גרור ⠿ לשינוי סדר · 1 = ראשון.
-        <br />
-        ערכי חיפושים: 0=מנוי חינם, -1=חודשי, -2=גישה חופשית, מספר חיובי=הוספת חיפושים.
+    <div className="tab-fade-in">
+      <div className="card" style={{ padding: '20px', marginBottom: 24, background: 'linear-gradient(to right, rgba(99, 102, 241, 0.05), transparent)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+          <span style={{ fontSize: 24 }}>🎁</span>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--text-main)', letterSpacing: '-0.3px' }}>הטבות מנהל</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>ניהול חבילות צ'ופר ותוכניות שיוענקו ידנית למשתמשים</div>
+          </div>
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--hint)', lineHeight: 1.6, background: 'var(--bg)', padding: '12px', borderRadius: 12, border: '1px dashed var(--border)' }}>
+          <span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>הנחיות ערכים: </span>
+          <b style={{ color: '#0ea5e9' }}>0</b> = מנוי חינמי, <b style={{ color: '#8b5cf6' }}>-1</b> = מנוי חודשי פרימיום, <b style={{ color: '#f59e0b' }}>-2</b> = גישה חופשית (ללא הגבלה), <b style={{ color: '#10b981' }}>מספר חיובי</b> = הוספת X חיפושים.
+        </div>
       </div>
-      {grants.map((g, idx) => {
-        const isDragging = dragIdx === idx
-        return (
-          <div
-            key={g.id}
-            draggable={!reordering}
-            onDragStart={() => setDragIdx(idx)}
-            onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
-            onDrop={() => { if (dragIdx !== null) moveGrant(dragIdx, idx); setDragIdx(null) }}
-            onDragEnd={() => setDragIdx(null)}
-            className="card"
-            style={{ opacity: isDragging ? 0.45 : 1, cursor: reordering ? 'wait' : 'grab' }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flex: 1, minWidth: 0 }}>
-                <span style={{ fontSize: 20, color: 'var(--hint)', cursor: 'grab', userSelect: 'none' }}>⠿</span>
-                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--hint)', background: 'var(--bg)', borderRadius: 6, padding: '2px 7px' }}>{idx + 1}</span>
+      
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
+        {grants.map((g, idx) => {
+          const isDragging = dragIdx === idx
+          return (
+            <div
+              key={g.id}
+              draggable={!reordering}
+              onDragStart={() => setDragIdx(idx)}
+              onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
+              onDrop={() => { if (dragIdx !== null) moveGrant(dragIdx, idx); setDragIdx(null) }}
+              onDragEnd={() => setDragIdx(null)}
+              className="card"
+              style={{ padding: '16px 20px', opacity: isDragging ? 0.45 : 1, cursor: reordering ? 'wait' : 'grab', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderLeft: '4px solid #6366f1', transition: 'transform 0.2s, box-shadow 0.2s', transform: isDragging ? 'scale(0.98)' : 'none' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: 1, minWidth: 0 }}>
+                <span style={{ fontSize: 24, color: 'var(--hint)', cursor: 'grab', userSelect: 'none', opacity: 0.5, transition: 'opacity 0.2s' }} onMouseEnter={e => e.target.style.opacity = 1} onMouseLeave={e => e.target.style.opacity = 0.5}>⠿</span>
+                <span style={{ fontSize: 14, fontWeight: 800, color: '#6366f1', background: 'rgba(99, 102, 241, 0.1)', borderRadius: 10, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{idx + 1}</span>
                 <div>
-                  <div className="card-title">{g.label}</div>
-                  <div className="card-subtitle">{grantTypeLabel(g.searches)}</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-main)' }}>{g.label}</div>
+                  <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2, fontWeight: 500 }}>{grantTypeLabel(g.searches)}</div>
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                <button className="btn" style={{ width: 'auto', padding: '4px 8px', marginTop: 0, fontSize: 12 }}
-                  disabled={idx === 0 || reordering} onClick={() => moveGrant(idx, idx - 1)}>↑</button>
-                <button className="btn" style={{ width: 'auto', padding: '4px 8px', marginTop: 0, fontSize: 12 }}
-                  disabled={idx === grants.length - 1 || reordering} onClick={() => moveGrant(idx, idx + 1)}>↓</button>
-                <button className="btn" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
-                  onClick={() => { setEditing(g); setForm({ label: g.label, searches: String(g.searches) }) }}>✏️</button>
-                <button className="btn btn-danger" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
-                  onClick={() => deleteGrant(g.id)}>🗑</button>
+              
+              <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginRight: 8 }}>
+                  <button className="btn" style={{ width: 28, height: 20, padding: 0, margin: 0, fontSize: 10, borderRadius: 6, background: 'var(--bg)' }}
+                    disabled={idx === 0 || reordering} onClick={() => moveGrant(idx, idx - 1)}>▲</button>
+                  <button className="btn" style={{ width: 28, height: 20, padding: 0, margin: 0, fontSize: 10, borderRadius: 6, background: 'var(--bg)' }}
+                    disabled={idx === grants.length - 1 || reordering} onClick={() => moveGrant(idx, idx + 1)}>▼</button>
+                </div>
+                <button className="btn" style={{ width: 44, height: 44, padding: 0, margin: 0, borderRadius: 12, fontSize: 16, background: 'var(--bg-card)', border: '1px solid var(--border)' }}
+                  onClick={() => { setEditing(g); setForm({ label: g.label, searches: String(g.searches) }) }} title="ערוך הטבה">✏️</button>
+                <button className="btn btn-danger" style={{ width: 44, height: 44, padding: 0, margin: 0, borderRadius: 12, fontSize: 16 }}
+                  onClick={() => deleteGrant(g.id)} title="מחק הטבה">🗑️</button>
               </div>
             </div>
-          </div>
-        )
-      })}
-      <button className="btn btn-success" onClick={() => { setAdding(true); setForm({ label: '', searches: '' }) }}>
-        ➕ הוסף הטבה
+          )
+        })}
+      </div>
+      
+      <button className="btn btn-success" onClick={() => { setAdding(true); setForm({ label: '', searches: '' }) }} style={{ padding: '16px', fontSize: 15, fontWeight: 800, borderRadius: 16, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+        <span style={{ fontSize: 20 }}>➕</span> הוסף תוכנית הטבה חדשה
       </button>
 
       {/* Gift all section */}
@@ -1902,57 +1938,82 @@ function PaypalTransactionRow({ tx, onRefresh }) {
 
   return (
     <div
-      style={{ background: 'var(--card-bg, rgba(255,255,255,0.05))', borderRadius: 12, marginBottom: 8, overflow: 'hidden', cursor: 'pointer' }}
+      className="card"
+      style={{ padding: 0, marginBottom: 12, overflow: 'hidden', cursor: 'pointer', transition: 'all 0.2s', borderLeft: `4px solid ${meta.color}` }}
       onClick={() => setOpen(o => !o)}
     >
-      <div style={{ padding: '10px 14px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-          <span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 700, color: 'var(--accent, #2196F3)' }}>#{tx.ref}</span>
-          <span style={{ background: meta.color, color: '#fff', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{meta.label}</span>
+      <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontFamily: 'monospace', fontSize: 14, fontWeight: 800, color: 'var(--text-main)', background: 'var(--bg)', padding: '4px 8px', borderRadius: 8, letterSpacing: '0.5px' }}>#{tx.ref}</span>
+            <span style={{ background: `${meta.color}20`, color: meta.color, border: `1px solid ${meta.color}40`, borderRadius: 12, padding: '4px 10px', fontSize: 12, fontWeight: 800 }}>{meta.label}</span>
+          </div>
+          <span style={{ color: '#10b981', fontWeight: 800, fontSize: 18 }}>₪{tx.amount}</span>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-          <span style={{ fontWeight: 600 }}>{tx.label}</span>
-          <span style={{ color: '#4caf50', fontWeight: 700 }}>₪{tx.amount}</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-main)' }}>{tx.label}</span>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{fmtDateTime(tx.created_at)}</span>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3, fontSize: 11, color: 'var(--hint)' }}>
+        <div style={{ fontSize: 13, color: 'var(--hint)', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span>👤</span>
           <span>{tx.username ? `@${tx.username}` : tx.full_name || `משתמש ${tx.user_id}`}</span>
-          <span>{fmtDateTime(tx.created_at)}</span>
         </div>
       </div>
+      
       {open && (
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', padding: '10px 14px', fontSize: 12 }} onClick={e => e.stopPropagation()}>
-          <div style={{ marginBottom: 4 }}><span style={{ color: 'var(--hint)' }}>PayPal Order ID: </span><span style={{ fontFamily: 'monospace', wordBreak: 'break-all', fontSize: 11 }}>{tx.paypal_order_id || '—'}</span></div>
-          <div style={{ marginBottom: 4 }}><span style={{ color: 'var(--hint)' }}>חיפושים: </span>{tx.searches === -1 ? '♾️ ללא הגבלה' : tx.searches}</div>
-          <div style={{ marginBottom: 4 }}><span style={{ color: 'var(--hint)' }}>עדכון אחרון: </span>{fmtDateTime(tx.updated_at)}</div>
-          {tx.error && <div style={{ marginTop: 6, color: '#f44336', wordBreak: 'break-all' }}>⚠️ {tx.error}</div>}
+        <div style={{ borderTop: '1px solid var(--border)', padding: '20px', background: 'rgba(0,0,0,0.02)' }} onClick={e => e.stopPropagation()}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, background: 'var(--bg-card)', padding: '16px', borderRadius: 16, border: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--text-muted)', fontSize: 13, fontWeight: 600 }}>PayPal Order ID:</span>
+              <span style={{ fontFamily: 'monospace', fontSize: 13, color: 'var(--text-main)', fontWeight: 700 }}>{tx.paypal_order_id || '—'}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--text-muted)', fontSize: 13, fontWeight: 600 }}>חיפושים/מוצר:</span>
+              <span style={{ color: 'var(--text-main)', fontSize: 13, fontWeight: 700 }}>{tx.searches === -1 ? '♾️ ללא הגבלה' : tx.searches}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--text-muted)', fontSize: 13, fontWeight: 600 }}>עדכון אחרון:</span>
+              <span style={{ color: 'var(--text-main)', fontSize: 13, fontWeight: 700 }}>{fmtDateTime(tx.updated_at)}</span>
+            </div>
+          </div>
+          
+          {tx.error && (
+            <div style={{ marginTop: 12, padding: '12px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderRadius: 12, border: '1px dashed rgba(239, 68, 68, 0.3)', fontSize: 13, fontWeight: 600 }}>
+              ⚠️ {tx.error}
+            </div>
+          )}
+          
           {needsDelivery && (
-            <div style={{ marginTop: 10 }}>
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-main)', marginBottom: 8 }}>📦 מסירת מוצר דיגיטלי ללקוח:</div>
               <textarea
                 className="input"
-                style={{ marginBottom: 6, fontSize: 12 }}
-                rows={3}
-                placeholder="תוכן המשלוח (קוד / קישור / פרטים) שיישלח ללקוח"
+                style={{ marginBottom: 12, fontSize: 14, borderRadius: 12, minHeight: 80 }}
+                placeholder="הכנס את תוכן המשלוח (קוד, קישור, או כל פרט אחר) שיישלח ישירות ללקוח בהודעה..."
                 value={deliverText}
                 onChange={e => setDeliverText(e.target.value)}
               />
               <button
                 onClick={sendDelivery}
                 disabled={delivering || !deliverText.trim()}
-                style={{ width: '100%', padding: '7px 0', background: '#4caf50', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: delivering ? 'default' : 'pointer', opacity: delivering || !deliverText.trim() ? 0.6 : 1 }}
-              >📦 שלח משלוח</button>
+                style={{ width: '100%', padding: '12px 0', background: '#10b981', color: '#fff', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: delivering ? 'default' : 'pointer', opacity: delivering || !deliverText.trim() ? 0.5 : 1, transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)' }}
+              >
+                {delivering ? '⏳ שולח...' : '✨ אשרו ושלחו ללקוח'}
+              </button>
             </div>
           )}
+          
           {canAct && (
-            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
               <button
                 onClick={approve}
                 disabled={working}
-                style={{ flex: 1, padding: '7px 0', background: '#4caf50', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: working ? 'default' : 'pointer', opacity: working ? 0.6 : 1 }}
-              >✅ אישור מנהל</button>
+                style={{ flex: 1, padding: '12px 0', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: working ? 'default' : 'pointer', opacity: working ? 0.5 : 1 }}
+              >✅ אישור מנהל ידני</button>
               <button
                 onClick={cancel}
                 disabled={working}
-                style={{ flex: 1, padding: '7px 0', background: '#f44336', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: working ? 'default' : 'pointer', opacity: working ? 0.6 : 1 }}
+                style={{ flex: 1, padding: '12px 0', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: working ? 'default' : 'pointer', opacity: working ? 0.5 : 1 }}
               >🚫 ביטול מנהל</button>
             </div>
           )}
@@ -1969,14 +2030,19 @@ function PaymentsTab() {
   useEffect(() => { load() }, [])
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <div style={{ fontSize: 13, color: 'var(--hint)' }}>{txs ? `${txs.length} עסקאות` : ''}</div>
-        <button className="btn" style={{ width: 'auto', padding: '4px 12px', marginTop: 0, fontSize: 12 }} onClick={load}>🔄</button>
+    <div className="tab-fade-in">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.3px' }}>היסטוריית רכישות</div>
+          <div style={{ fontSize: 13, color: 'var(--hint)', marginTop: 4 }}>{txs ? `${txs.length} עסקאות פעילות וישנות` : 'טוען נתונים...'}</div>
+        </div>
+        <button className="btn" style={{ width: 44, height: 44, padding: 0, margin: 0, borderRadius: 14, fontSize: 18, background: 'var(--bg-card)', border: '1px solid var(--border)' }} onClick={load} title="רענן נתונים">🔄</button>
       </div>
       {!txs && <div className="loading"></div>}
-      {txs?.length === 0 && <div style={{ color: 'var(--hint)', textAlign: 'center', padding: 24 }}>אין עסקאות עדיין</div>}
-      {txs?.map(tx => <PaypalTransactionRow key={tx.id} tx={tx} onRefresh={load} />)}
+      {txs?.length === 0 && <div style={{ color: 'var(--hint)', textAlign: 'center', padding: 40, background: 'var(--bg-card)', borderRadius: 16, border: '1px dashed var(--border)', fontSize: 14 }}>אין עסקאות במערכת עדיין.</div>}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {txs?.map(tx => <PaypalTransactionRow key={tx.id} tx={tx} onRefresh={load} />)}
+      </div>
     </div>
   )
 }
@@ -2015,67 +2081,115 @@ function CodesSection({ standalone }) {
   if (!codes) return <div className="loading"></div>
 
   return (
-    <div style={{ marginTop: 14 }}>
+    <div className="tab-fade-in" style={{ marginTop: 24 }}>
       {/* Create code */}
-      <div style={{ background: 'var(--card-bg, rgba(255,255,255,0.05))', borderRadius: 12, padding: '12px 14px', marginBottom: 14 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>➕ צור קוד חדש</div>
-        <input
-          className="input"
-          type="number"
-          min="1"
-          placeholder="כמות חיפושים"
-          value={form.searches}
-          onChange={e => setForm(f => ({ ...f, searches: parseInt(e.target.value) || 50 }))}
-          style={{ marginBottom: 8 }}
-          disabled={form.unlimited}
-        />
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
-          {[['unlimited', '♾️ ללא הגבלה'], ['monthly', '📅 חודשי'], ['single_use', '1️⃣ חד-פעמי']].map(([key, label]) => (
-            <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, cursor: 'pointer' }}>
+      <div className="card" style={{ padding: '20px', marginBottom: 24, background: 'linear-gradient(to right, rgba(99, 102, 241, 0.05), transparent)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+          <span style={{ fontSize: 24 }}>🎟️</span>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--text-main)', letterSpacing: '-0.3px' }}>קופונים וקודים</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>יצירת קודי הטבה ללקוחות</div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, marginBottom: 6 }}>כמות חיפושים</div>
+            <input
+              className="input"
+              type="number"
+              min="1"
+              placeholder="לדוגמה: 50"
+              value={form.searches}
+              onChange={e => setForm(f => ({ ...f, searches: parseInt(e.target.value) || 50 }))}
+              style={{ margin: 0, height: 44, borderRadius: 12 }}
+              disabled={form.unlimited}
+            />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+            <button
+              className="btn"
+              disabled={creating}
+              onClick={createCode}
+              style={{ margin: 0, height: 44, padding: '0 24px', borderRadius: 12, background: 'var(--primary)', fontWeight: 700, fontSize: 14 }}
+            >
+              {creating ? '⏳ מייצר...' : '➕ צור קוד'}
+            </button>
+          </div>
+        </div>
+        
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, background: 'var(--bg)', padding: '12px', borderRadius: 12, border: '1px solid var(--border)' }}>
+          {[['unlimited', '♾️ מנוי ללא הגבלה'], ['monthly', '📅 מנוי חודשי'], ['single_use', '1️⃣ קוד חד-פעמי']].map(([key, label]) => (
+            <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', fontWeight: form[key] ? 700 : 500, color: form[key] ? 'var(--text-main)' : 'var(--text-muted)' }}>
+              <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${form[key] ? 'var(--primary)' : 'var(--border)'}`, background: form[key] ? 'var(--primary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
+                {form[key] && <span style={{ color: '#fff', fontSize: 12 }}>✓</span>}
+              </div>
               <input
                 type="checkbox"
                 checked={form[key]}
                 onChange={e => setForm(f => ({ ...f, [key]: e.target.checked, ...(key === 'unlimited' ? { monthly: false } : {}) }))}
+                style={{ display: 'none' }}
               />
               {label}
             </label>
           ))}
         </div>
-        <button className="btn" disabled={creating} onClick={createCode} style={{ marginTop: 0 }}>
-          {creating ? '⏳...' : '➕ צור קוד'}
-        </button>
       </div>
 
       {/* Code list */}
-      <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8 }}>{codes.length} קודים</div>
-      {codes.map(c => {
-        const used = c.used_by != null
-        const expired = c.expires && new Date(c.expires) < new Date()
-        const status = used ? '✅ נוצל' : expired ? '⏰ פג' : '🟢 פעיל'
-        const desc = c.unlimited ? (c.monthly ? '📅 חודשי' : '♾️ ללא הגבלה') : `${c.searches} חיפושים`
-        return (
-          <div key={c.code} style={{ background: 'var(--card-bg, rgba(255,255,255,0.05))', borderRadius: 10, padding: '10px 12px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 14, letterSpacing: 1 }}>{c.code}</div>
-              <div style={{ fontSize: 11, color: 'var(--hint)', marginTop: 2 }}>{desc} · {status}{c.single_use ? ' · חד-פעמי' : ''}</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-main)' }}>רשימת קודים</div>
+        <div style={{ fontSize: 13, color: 'var(--hint)', background: 'var(--bg-card)', padding: '4px 12px', borderRadius: 20, border: '1px solid var(--border)' }}>{codes.length} קודים במערכת</div>
+      </div>
+      
+      {codes.length === 0 && (
+        <div style={{ color: 'var(--hint)', textAlign: 'center', padding: 40, background: 'var(--bg-card)', borderRadius: 16, border: '1px dashed var(--border)' }}>
+          אין קודים פעילים או שהיו בשימוש
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 12 }}>
+        {codes.map(c => {
+          const used = c.used_by != null
+          const expired = c.expires && new Date(c.expires) < new Date()
+          const status = used ? 'נוצל' : expired ? 'פג תוקף' : 'פעיל'
+          const statusColor = used ? '#8b5cf6' : expired ? '#ef4444' : '#10b981'
+          const desc = c.unlimited ? (c.monthly ? 'מנוי חודשי פרימיום' : 'מנוי ללא הגבלה') : `${c.searches} חיפושים`
+          
+          return (
+            <div key={c.code} className="card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 12, borderRight: `4px solid ${statusColor}`, opacity: (used || expired) ? 0.7 : 1 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 16, letterSpacing: 1, color: 'var(--text-main)', background: 'var(--bg)', padding: '4px 8px', borderRadius: 8, display: 'inline-block' }}>{c.code}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8, fontWeight: 600 }}>{desc}{c.single_use ? ' · לשימוש חד-פעמי' : ''}</div>
+                </div>
+                <span style={{
+                  fontSize: 11, fontWeight: 800, padding: '4px 10px', borderRadius: 12,
+                  background: `${statusColor}20`, color: statusColor, border: `1px solid ${statusColor}40`
+                }}>{status}</span>
+              </div>
+              
+              <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                <button
+                  className="btn"
+                  style={{ flex: 1, height: 36, padding: 0, margin: 0, borderRadius: 8, fontSize: 13, fontWeight: 700, background: 'var(--bg)', border: '1px solid var(--border)' }}
+                  onClick={() => copyCode(c.code)}
+                >
+                  📋 העתק קוד
+                </button>
+                <button
+                  className="btn btn-danger"
+                  style={{ width: 44, height: 36, padding: 0, margin: 0, borderRadius: 8, fontSize: 14 }}
+                  onClick={() => deleteCode(c.code)}
+                  title="מחק קוד"
+                >
+                  🗑️
+                </button>
+              </div>
             </div>
-            <button
-              className="btn"
-              style={{ width: 'auto', padding: '4px 10px', marginTop: 0, fontSize: 12 }}
-              onClick={() => copyCode(c.code)}
-            >
-              📋
-            </button>
-            <button
-              className="btn btn-danger"
-              style={{ width: 'auto', padding: '4px 10px', marginTop: 0, fontSize: 12 }}
-              onClick={() => deleteCode(c.code)}
-            >
-              🗑️
-            </button>
-          </div>
-        )
-      })}
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -2399,138 +2513,138 @@ function UserCard({ u, expanded, onToggle, onEdit, onMessage, onHistory, onReloa
   }
 
   return (
-    <div style={{
-      background: 'var(--bg2)', borderRadius: 14, marginBottom: 8, overflow: 'hidden',
-      border: u.blocked ? '1px solid #e53e3e33' : u.is_subscriber ? '1px solid #38bdf822' : '1px solid transparent',
-      transition: 'border-color 0.15s',
-    }}>
+    <div className="card" style={{
+      padding: 0, overflow: 'hidden', cursor: 'pointer',
+      border: u.blocked ? '1px solid #ef444455' : u.is_subscriber ? '1px solid #0ea5e955' : '1px solid var(--border)',
+    }} onClick={() => onToggle(u.user_id)}>
       {/* Collapsed header */}
-      <div
-        style={{ display: 'flex', gap: 10, padding: '12px 13px', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}
-        onClick={() => onToggle(u.user_id)}
-      >
+      <div style={{ display: 'flex', gap: 12, padding: '16px', alignItems: 'center', userSelect: 'none' }}>
         {/* Avatar */}
         <div style={{
-          width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
-          background: `${st.color}18`,
-          border: `2.5px solid ${st.color}`,
+          width: 46, height: 46, borderRadius: '50%', flexShrink: 0,
+          background: `linear-gradient(135deg, ${st.bg}, ${st.color}22)`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 14, fontWeight: 800, color: st.color,
+          fontSize: 16, fontWeight: 800, color: st.color,
+          boxShadow: 'inset 0 2px 4px rgba(255,255,255,0.3)',
         }}>
           {initials}
         </div>
 
         {/* Main info */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
             <span style={{
-              fontSize: 14, fontWeight: 700, color: 'var(--text)',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140,
+              fontSize: 16, fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.2px',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160,
             }}>{displayName}</span>
             <span style={{
-              fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, flexShrink: 0,
-              background: st.bg, color: st.color,
+              fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 12, flexShrink: 0,
+              background: st.bg, color: st.color, border: `1px solid ${st.color}33`
             }}>{st.label}</span>
           </div>
-          <div style={{ fontSize: 11, color: 'var(--hint)', display: 'flex', gap: 8 }}>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', display: 'flex', gap: 8 }}>
             <span>🔍 {u.searches_done} נעשו</span>
             <span>·</span>
-            <span style={{ color: u.searches_left === 0 ? '#d69e2e' : 'var(--hint)' }}>{left} נותרו</span>
+            <span style={{ color: u.searches_left === 0 ? '#d69e2e' : 'var(--text-muted)' }}>{left} נותרו</span>
             {u.last_seen && <><span>·</span><span>{relativeTime(u.last_seen)}</span></>}
           </div>
         </div>
 
         {/* Chevron */}
-        <span style={{ color: 'var(--hint)', fontSize: 11, flexShrink: 0, transition: 'transform 0.15s', display: 'inline-block', transform: expanded ? 'rotate(180deg)' : 'none' }}>▼</span>
+        <span style={{ color: 'var(--hint)', fontSize: 14, flexShrink: 0, transition: 'transform 0.2s', display: 'inline-block', transform: expanded ? 'rotate(180deg)' : 'none' }}>▼</span>
       </div>
 
       {/* Expanded details */}
       {expanded && (
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', padding: '12px 13px' }}>
+        <div style={{ borderTop: '1px solid var(--border)', padding: '16px', background: 'rgba(0,0,0,0.02)' }} onClick={e => e.stopPropagation()}>
 
           {/* Stats mini-grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 7, marginBottom: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 16 }}>
             {[
-              { label: 'נעשו', value: u.searches_done, color: '#38bdf8' },
+              { label: 'נעשו', value: u.searches_done, color: '#0ea5e9' },
               { label: 'נותרו', value: left, color: st.color },
-              { label: 'קוטה', value: u.searches_quota === -1 ? '∞' : u.searches_quota, color: '#a78bfa' },
+              { label: 'קוטה', value: u.searches_quota === -1 ? '∞' : u.searches_quota, color: '#8b5cf6' },
               { label: 'מזהה', value: u.user_id, mono: true },
             ].map(({ label, value, color, mono }) => (
               <div key={label} style={{
-                background: 'var(--bg)', borderRadius: 9, padding: '7px 6px', textAlign: 'center',
+                background: 'var(--bg-card)', borderRadius: 12, padding: '10px 6px', textAlign: 'center',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: '1px solid var(--border)',
               }}>
                 <div style={{
-                  fontWeight: 700,
-                  fontSize: mono ? 10 : 15,
-                  color: color || 'var(--text)',
+                  fontWeight: 800,
+                  fontSize: mono ? 11 : 16,
+                  color: color || 'var(--text-main)',
                   fontFamily: mono ? 'monospace' : undefined,
                   wordBreak: 'break-all',
                 }}>{value}</div>
-                <div style={{ fontSize: 10, color: 'var(--hint)', marginTop: 2 }}>{label}</div>
+                <div style={{ fontSize: 11, color: 'var(--hint)', marginTop: 2, fontWeight: 500 }}>{label}</div>
               </div>
             ))}
           </div>
 
           {/* Meta info */}
           <div style={{
-            background: 'var(--bg)', borderRadius: 9, padding: '9px 11px',
-            fontSize: 11, color: 'var(--hint)', marginBottom: 12,
-            display: 'flex', flexDirection: 'column', gap: 4,
+            background: 'var(--bg-card)', borderRadius: 16, padding: '12px 16px',
+            fontSize: 13, color: 'var(--text-muted)', marginBottom: 16,
+            display: 'flex', flexDirection: 'column', gap: 6,
+            border: '1px solid var(--border)', boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
           }}>
             {u.member_id != null && (
-              <div>🏷 מס׳ חבר: <span style={{ fontFamily: 'monospace', color: 'var(--text)', fontWeight: 600 }}>#{u.member_id}</span></div>
+              <div>🏷 מס׳ חבר: <span style={{ fontFamily: 'monospace', color: 'var(--text-main)', fontWeight: 700 }}>#{u.member_id}</span></div>
             )}
-            {u.first_seen && <div>📅 הצטרף: <span style={{ color: 'var(--text)' }}>{fmtDateIL(u.first_seen)}</span></div>}
-            {u.last_seen  && <div>👁 נראה לאחרונה: <span style={{ color: 'var(--text)' }}>{fmtDateTime(u.last_seen)}</span></div>}
-            {u.quota_expires && <div>⏰ פג תוקף: <span style={{ color: '#d69e2e', fontWeight: 600 }}>{u.quota_expires.slice(0, 10)}</span></div>}
-            {u.referred_by && <div>🤝 הופנה ע"י: <span style={{ color: '#38a169', fontWeight: 600 }}>{u.referred_by}</span></div>}
-            {u.channel && <div>📡 ערוץ: <span style={{ color: 'var(--text)' }}>{u.channel}</span></div>}
-            <div>{u.broadcast_consent === 0 ? '🔕' : '🔔'} שידורים: <span style={{ color: u.broadcast_consent === 0 ? '#e53e3e' : '#38a169', fontWeight: 600 }}>{u.broadcast_consent === 0 ? 'הסכמה בוטלה' : 'פעיל'}</span></div>
+            {u.first_seen && <div>📅 הצטרף: <span style={{ color: 'var(--text-main)', fontWeight: 500 }}>{fmtDateIL(u.first_seen)}</span></div>}
+            {u.last_seen  && <div>👁 נראה לאחרונה: <span style={{ color: 'var(--text-main)', fontWeight: 500 }}>{fmtDateTime(u.last_seen)}</span></div>}
+            {u.quota_expires && <div>⏰ פג תוקף: <span style={{ color: '#d69e2e', fontWeight: 700 }}>{u.quota_expires.slice(0, 10)}</span></div>}
+            {u.referred_by && <div>🤝 הופנה ע"י: <span style={{ color: '#10b981', fontWeight: 700 }}>{u.referred_by}</span></div>}
+            {u.channel && <div>📡 ערוץ: <span style={{ color: 'var(--text-main)', fontWeight: 500 }}>{u.channel}</span></div>}
+            <div>{u.broadcast_consent === 0 ? '🔕' : '🔔'} שידורים: <span style={{ color: u.broadcast_consent === 0 ? '#ef4444' : '#10b981', fontWeight: 700 }}>{u.broadcast_consent === 0 ? 'הסכמה בוטלה' : 'פעיל'}</span></div>
           </div>
 
           {/* Action buttons */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7, marginBottom: 7 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             <button
               onClick={e => { e.stopPropagation(); onEdit(u) }}
               style={{
-                padding: '9px 0', borderRadius: 9, border: 'none',
-                background: 'var(--bg)', color: 'var(--text)', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                padding: '12px 0', borderRadius: 12, border: '1px solid var(--border)',
+                background: 'var(--bg-card)', color: 'var(--text-main)', cursor: 'pointer', fontSize: 14, fontWeight: 700,
+                boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
               }}
-            >✏️ ערוך</button>
+            >✏️ ערוך תוכנית</button>
             <button
               onClick={e => { e.stopPropagation(); onMessage(u) }}
               style={{
-                padding: '9px 0', borderRadius: 9, border: 'none',
-                background: 'var(--bg)', color: 'var(--text)', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                padding: '12px 0', borderRadius: 12, border: '1px solid var(--border)',
+                background: 'var(--bg-card)', color: 'var(--text-main)', cursor: 'pointer', fontSize: 14, fontWeight: 700,
+                boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
               }}
-            >💬 הודעה</button>
+            >💬 שלח הודעה</button>
             <button
               onClick={e => { e.stopPropagation(); onHistory(u) }}
               style={{
-                padding: '9px 0', borderRadius: 9, border: 'none',
-                background: '#6366f118', color: '#818cf8', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                padding: '12px 0', borderRadius: 12, border: 'none',
+                background: 'rgba(99, 102, 241, 0.1)', color: '#6366f1', cursor: 'pointer', fontSize: 14, fontWeight: 700,
               }}
-            >📨 הודעות מערכת</button>
+            >📨 היסטוריית הודעות</button>
             <button
               onClick={toggleBlock}
               disabled={blocking}
               style={{
-                padding: '9px 0', borderRadius: 9, border: 'none',
-                background: u.blocked ? '#38a16918' : '#e53e3e18',
-                color: u.blocked ? '#38a169' : '#e53e3e',
-                cursor: blocking ? 'default' : 'pointer', fontSize: 12, fontWeight: 600,
+                padding: '12px 0', borderRadius: 12, border: 'none',
+                background: u.blocked ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                color: u.blocked ? '#10b981' : '#ef4444',
+                cursor: blocking ? 'default' : 'pointer', fontSize: 14, fontWeight: 700,
                 opacity: blocking ? 0.6 : 1,
               }}
-            >{u.blocked ? '🔓 בטל חסימה' : '🚫 חסום'}</button>
+            >{u.blocked ? '🔓 בטל חסימה' : '🚫 חסום משתמש'}</button>
             {u.broadcast_consent === 0 && (
               <button
                 onClick={toggleConsent}
                 disabled={togglingConsent}
                 style={{
                   gridColumn: '1 / -1',
-                  padding: '9px 0', borderRadius: 9, border: 'none',
-                  background: '#38a16918', color: '#38a169',
-                  cursor: togglingConsent ? 'default' : 'pointer', fontSize: 12, fontWeight: 600,
+                  padding: '12px 0', borderRadius: 12, border: 'none',
+                  background: 'rgba(16, 185, 129, 0.1)', color: '#10b981',
+                  cursor: togglingConsent ? 'default' : 'pointer', fontSize: 14, fontWeight: 700,
                   opacity: togglingConsent ? 0.6 : 1,
                 }}
               >🔔 החזר שידורים למשתמש</button>
@@ -2565,106 +2679,114 @@ function ReferralsTab() {
   if (data === null) return <div className="loading" />
 
   return (
-    <div>
+    <div className="tab-fade-in">
       {/* Summary */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
-        <div style={{ background: 'var(--bg2)', borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
-          <div style={{ fontSize: 22, fontWeight: 700, color: '#38a169' }}>{data.count}</div>
-          <div style={{ fontSize: 11, color: 'var(--hint)' }}>סה"כ הפניות</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+        <div className="card" style={{ padding: '20px', textAlign: 'center', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.05), transparent)' }}>
+          <div style={{ fontSize: 32, fontWeight: 800, color: '#10b981', letterSpacing: '-1px' }}>{data.count}</div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>סה"כ הפניות מוצלחות</div>
         </div>
-        <div style={{ background: 'var(--bg2)', borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
-          <div style={{ fontSize: 22, fontWeight: 700, color: '#a78bfa' }}>+{data.total_bonus}</div>
-          <div style={{ fontSize: 11, color: 'var(--hint)' }}>חיפושים חולקו</div>
+        <div className="card" style={{ padding: '20px', textAlign: 'center', background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.05), transparent)' }}>
+          <div style={{ fontSize: 32, fontWeight: 800, color: '#8b5cf6', letterSpacing: '-1px' }}>+{data.total_bonus}</div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>חיפושי בונוס חולקו</div>
         </div>
       </div>
 
       {/* Search */}
-      <input
-        className="input"
-        placeholder="חיפוש לפי שם או מזהה..."
-        value={search}
-        onChange={e => setSearch(e.target.value)}
-        style={{ marginBottom: 10 }}
-      />
+      <div style={{ marginBottom: 20, position: 'relative' }}>
+        <span style={{ position: 'absolute', right: 14, top: 12, opacity: 0.5 }}>🔍</span>
+        <input
+          className="input"
+          placeholder="חיפוש לפי שם או מזהה (ID)..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{ paddingRight: 40, fontSize: 14, height: 46, borderRadius: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}
+        />
+      </div>
 
       {filtered.length === 0 && (
-        <div style={{ color: 'var(--hint)', fontSize: 13, textAlign: 'center', padding: 20 }}>
-          {search ? 'לא נמצאו תוצאות' : 'אין הפניות עדיין'}
+        <div style={{ color: 'var(--hint)', fontSize: 14, textAlign: 'center', padding: 40, background: 'var(--bg-card)', borderRadius: 16, border: '1px dashed var(--border)' }}>
+          {search ? 'לא נמצאו תוצאות לחיפוש' : 'אין נתוני הפניות עדיין'}
         </div>
       )}
 
-      {filtered.map(ref => (
-        <div
-          key={ref.id}
-          onClick={() => setSelected(ref)}
-          style={{
-            background: 'var(--bg2)', borderRadius: 10, padding: '10px 12px',
-            marginBottom: 8, cursor: 'pointer', borderRight: '3px solid #38a169',
-            display: 'flex', alignItems: 'center', gap: 10,
-          }}
-        >
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 2 }}>
-              <span style={{ color: '#38bdf8' }}>{ref.referrer_name}</span>
-              <span style={{ color: 'var(--hint)', margin: '0 5px' }}>הפנה את</span>
-              <span>{ref.referee_name}</span>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {filtered.map(ref => (
+          <div
+            key={ref.id}
+            className="card"
+            onClick={() => setSelected(ref)}
+            style={{
+              padding: '16px 20px', cursor: 'pointer', borderRight: '4px solid #10b981',
+              display: 'flex', alignItems: 'center', gap: 12, transition: 'all 0.2s',
+            }}
+          >
+            <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(16, 185, 129, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🤝</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-main)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <span style={{ color: '#0ea5e9' }}>{ref.referrer_name}</span>
+                <span style={{ color: 'var(--hint)', fontSize: 13, fontWeight: 500 }}>הפנה את</span>
+                <span>{ref.referee_name}</span>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                {ref.joined_at?.slice(0, 10)}
+              </div>
             </div>
-            <div style={{ fontSize: 11, color: 'var(--hint)' }}>
-              {ref.joined_at?.slice(0, 10)}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{
+                background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.2)',
+                borderRadius: 20, padding: '4px 12px', fontSize: 13, fontWeight: 800, flexShrink: 0,
+              }}>
+                +{ref.bonus}
+              </span>
+              <span style={{ color: 'var(--hint)', fontSize: 18 }}>›</span>
             </div>
           </div>
-          <span style={{
-            background: '#38a16920', color: '#38a169',
-            borderRadius: 20, padding: '3px 10px', fontSize: 12, fontWeight: 700, flexShrink: 0,
-          }}>
-            +{ref.bonus}
-          </span>
-          <span style={{ color: 'var(--hint)', fontSize: 16 }}>›</span>
-        </div>
-      ))}
+        ))}
+      </div>
 
       {selected && (
         <div className="modal-overlay" onClick={() => setSelected(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ padding: '20px 16px' }}>
-            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 16, color: 'var(--text)' }}>
-              🤝 פירוט הפניה
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ padding: '24px' }}>
+            <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 20, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              🤝 פרטי הפניית חבר
             </div>
 
             {/* Referrer */}
-            <div style={{ background: 'var(--bg)', borderRadius: 10, padding: '12px 14px', marginBottom: 10 }}>
-              <div style={{ fontSize: 11, color: '#38bdf8', fontWeight: 600, marginBottom: 6 }}>📤 המפנה (קיבל בונוס)</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>{selected.referrer_name}</div>
-              <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'var(--hint)' }}>
-                <span>מזהה: <b style={{ color: 'var(--text)', fontFamily: 'monospace' }}>{selected.referrer_id}</b></span>
-                <span>חיפושים נותרו: <b style={{ color: '#a78bfa' }}>{selected.referrer_searches_left === -1 ? '∞' : selected.referrer_searches_left}</b></span>
+            <div style={{ background: 'var(--bg)', borderRadius: 16, padding: '16px', marginBottom: 12, border: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 12, color: '#0ea5e9', fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>📤 המפנה (קיבל בונוס)</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-main)', marginBottom: 6 }}>{selected.referrer_name}</div>
+              <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'var(--text-muted)' }}>
+                <span>מזהה: <b style={{ color: 'var(--text-main)', fontFamily: 'monospace' }}>{selected.referrer_id}</b></span>
+                <span>חיפושים: <b style={{ color: '#8b5cf6' }}>{selected.referrer_searches_left === -1 ? '∞' : selected.referrer_searches_left}</b></span>
               </div>
             </div>
 
             {/* Bonus */}
             <div style={{
-              background: '#38a16918', border: '1px solid #38a16940',
-              borderRadius: 10, padding: '10px 14px', marginBottom: 10,
+              background: 'rgba(16, 185, 129, 0.05)', border: '1px dashed rgba(16, 185, 129, 0.3)',
+              borderRadius: 16, padding: '12px 16px', marginBottom: 12,
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             }}>
-              <span style={{ fontSize: 13, color: 'var(--hint)' }}>🎁 בונוס שניתן</span>
-              <span style={{ fontSize: 18, fontWeight: 800, color: '#38a169' }}>+{selected.bonus} חיפושים</span>
+              <span style={{ fontSize: 14, color: 'var(--text-muted)', fontWeight: 600 }}>🎁 בונוס שהוענק</span>
+              <span style={{ fontSize: 20, fontWeight: 800, color: '#10b981' }}>+{selected.bonus} חיפושים</span>
             </div>
 
             {/* Referee */}
-            <div style={{ background: 'var(--bg)', borderRadius: 10, padding: '12px 14px', marginBottom: 14 }}>
-              <div style={{ fontSize: 11, color: '#f59e0b', fontWeight: 600, marginBottom: 6 }}>📥 המצטרף (הופנה)</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>{selected.referee_name}</div>
-              <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'var(--hint)' }}>
-                <span>מזהה: <b style={{ color: 'var(--text)', fontFamily: 'monospace' }}>{selected.referee_id}</b></span>
-                <span>חיפושים נותרו: <b style={{ color: '#a78bfa' }}>{selected.referee_searches_left === -1 ? '∞' : selected.referee_searches_left}</b></span>
+            <div style={{ background: 'var(--bg)', borderRadius: 16, padding: '16px', marginBottom: 20, border: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 12, color: '#f59e0b', fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>📥 המצטרף (הופנה)</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-main)', marginBottom: 6 }}>{selected.referee_name}</div>
+              <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'var(--text-muted)' }}>
+                <span>מזהה: <b style={{ color: 'var(--text-main)', fontFamily: 'monospace' }}>{selected.referee_id}</b></span>
+                <span>חיפושים: <b style={{ color: '#8b5cf6' }}>{selected.referee_searches_left === -1 ? '∞' : selected.referee_searches_left}</b></span>
               </div>
             </div>
 
-            <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 14, textAlign: 'center' }}>
+            <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 20, textAlign: 'center', fontWeight: 500 }}>
               📅 תאריך הצטרפות: {selected.joined_at?.slice(0, 16).replace('T', ' ')}
             </div>
 
-            <button className="btn" onClick={() => setSelected(null)} style={{ width: '100%' }}>סגור</button>
+            <button className="btn" onClick={() => setSelected(null)} style={{ width: '100%', height: 48, borderRadius: 12, fontSize: 15, fontWeight: 700, background: 'var(--bg)', border: '1px solid var(--border)' }}>סגור חלונית</button>
           </div>
         </div>
       )}
@@ -2721,44 +2843,50 @@ function UsersTab() {
   ]
 
   return (
-    <div>
+    <div className="tab-fade-in">
       {/* Search */}
-      <input
-        className="input"
-        placeholder="חיפוש לפי שם / ID..."
-        value={search}
-        onChange={e => setSearch(e.target.value)}
-        style={{ marginBottom: 8, fontSize: 13 }}
-      />
+      <div style={{ marginBottom: 16, position: 'relative' }}>
+        <span style={{ position: 'absolute', right: 14, top: 12, opacity: 0.5 }}>🔍</span>
+        <input
+          className="input"
+          placeholder="חיפוש משתמש לפי שם או ID..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{ paddingRight: 40, fontSize: 14, height: 46, borderRadius: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}
+        />
+      </div>
 
       {/* Filter tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 8, background: 'var(--bg)', borderRadius: 10, padding: 3 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, overflowX: 'auto', paddingBottom: 8, scrollbarWidth: 'none' }} className="admin-nav-scroll">
         {FILTERS.map(([id, label, statusLabel]) => {
           const count = id === 'all' ? users.length : users.filter(u => userStatus(u).label === statusLabel).length
           return (
             <button key={id} onClick={() => setFilter(id)} style={{
-              flex: 1, padding: '5px 2px', fontSize: 10, borderRadius: 7, border: 'none',
-              background: filter === id ? 'var(--bg2)' : 'transparent',
-              color: filter === id ? 'var(--text)' : 'var(--hint)',
-              cursor: 'pointer', fontWeight: filter === id ? 600 : 400,
+              display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0,
+              padding: '8px 16px', borderRadius: 20, border: '1px solid var(--border)',
+              background: filter === id ? 'var(--primary)' : 'var(--bg-card)',
+              color: filter === id ? '#fff' : 'var(--text-main)',
+              cursor: 'pointer', fontWeight: filter === id ? 700 : 500, fontSize: 13,
+              boxShadow: filter === id ? '0 4px 12px rgba(0, 122, 255, 0.2)' : '0 1px 3px rgba(0,0,0,0.02)',
+              transition: 'all 0.2s',
             }}>
-              {label}<br />
-              <span style={{ fontSize: 11, opacity: 0.7 }}>{count}</span>
+              <span>{label}</span>
+              <span style={{ background: filter === id ? 'rgba(255,255,255,0.2)' : 'var(--bg)', color: filter === id ? '#fff' : 'var(--hint)', padding: '2px 8px', borderRadius: 12, fontSize: 11, fontWeight: 800 }}>{count}</span>
             </button>
           )
         })}
       </div>
 
       {/* Sort + count row */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <span style={{ fontSize: 12, color: 'var(--hint)' }}>{sorted.length} משתמשים</span>
-        <div style={{ display: 'flex', gap: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, background: 'var(--bg-card)', padding: '12px 16px', borderRadius: 16, border: '1px solid var(--border)' }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-main)' }}>{sorted.length} תוצאות</span>
+        <div style={{ display: 'flex', gap: 6, overflowX: 'auto' }} className="admin-nav-scroll">
           {SORTS.map(([id, label]) => (
             <button key={id} onClick={() => setSort(id)} style={{
-              padding: '4px 9px', fontSize: 11, borderRadius: 7, border: 'none', cursor: 'pointer',
-              background: sort === id ? 'var(--btn)' : 'var(--bg)',
-              color: sort === id ? 'var(--btn-text)' : 'var(--hint)',
-              fontWeight: sort === id ? 600 : 400,
+              padding: '6px 12px', fontSize: 12, borderRadius: 12, border: 'none', cursor: 'pointer',
+              background: sort === id ? 'rgba(0, 122, 255, 0.1)' : 'transparent',
+              color: sort === id ? 'var(--primary)' : 'var(--hint)',
+              fontWeight: sort === id ? 700 : 500, whiteSpace: 'nowrap',
             }}>{label}</button>
           ))}
         </div>
@@ -3286,56 +3414,76 @@ function PaymentMethodsTab() {
   if (!methods) return <div className="loading"></div>
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-        <div style={{ fontSize: 14, fontWeight: 700 }}>💰 אמצעי תשלום</div>
-        <button
-          onClick={() => setShowAdd(true)}
-          style={{ padding: '7px 14px', borderRadius: 9, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-        >+ הוסף</button>
+    <div className="tab-fade-in">
+      <div className="card" style={{ padding: '20px', marginBottom: 24, background: 'linear-gradient(to right, rgba(0, 122, 255, 0.05), transparent)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 28 }}>💳</span>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--text-main)', letterSpacing: '-0.3px' }}>אמצעי תשלום</div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>ניהול שיטות תשלום ללקוחות</div>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowAdd(true)}
+            className="btn"
+            style={{ padding: '0 20px', height: 44, margin: 0, borderRadius: 12, background: 'var(--primary)', fontWeight: 700, fontSize: 14 }}
+          >
+            ➕ הוסף אמצעי תשלום
+          </button>
+        </div>
       </div>
 
       {methods.length === 0 && (
-        <div style={{ color: 'var(--hint)', fontSize: 13, textAlign: 'center', padding: 20 }}>אין אמצעי תשלום</div>
+        <div style={{ color: 'var(--hint)', fontSize: 14, textAlign: 'center', padding: 40, background: 'var(--bg-card)', borderRadius: 16, border: '1px dashed var(--border)' }}>
+          אין אמצעי תשלום מוגדרים במערכת
+        </div>
       )}
 
-      {methods.map(m => (
-        <div key={m.id} style={{
-          background: 'var(--bg2)', borderRadius: 12, padding: '12px 14px', marginBottom: 8,
-          border: m.active ? '1px solid rgba(255,255,255,0.08)' : '1px solid #e53e3e33',
-          opacity: m.active ? 1 : 0.6,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-            {m.logo_url
-              ? <img src={m.logo_url} alt={m.name} style={{ width: 40, height: 40, objectFit: 'contain', borderRadius: 8, background: '#fff', padding: 4 }} onError={e => { e.target.style.display='none' }} />
-              : <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>💳</div>
-            }
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{m.name}</div>
-              <div style={{ fontSize: 11, color: 'var(--hint)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.payment_url || 'אין כתובת תשלום'}</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+        {methods.map(m => (
+          <div key={m.id} className="card" style={{
+            padding: '20px', borderTop: `4px solid ${m.active ? '#10b981' : '#ef4444'}`,
+            opacity: m.active ? 1 : 0.75, transition: 'all 0.2s',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
+              {m.logo_url
+                ? <img src={m.logo_url} alt={m.name} style={{ width: 48, height: 48, objectFit: 'contain', borderRadius: 12, background: '#fff', padding: 6, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }} onError={e => { e.target.style.display='none' }} />
+                : <div style={{ width: 48, height: 48, borderRadius: 12, background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>💳</div>
+              }
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-main)' }}>{m.name}</div>
+                  <span style={{
+                    fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 12,
+                    background: m.active ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                    color: m.active ? '#10b981' : '#ef4444',
+                    border: `1px solid ${m.active ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`
+                  }}>{m.active ? 'פעיל' : 'מושבת'}</span>
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', direction: 'ltr', textAlign: 'right' }}>
+                  {m.payment_url || 'ללא קישור (ידני)'}
+                </div>
+              </div>
             </div>
-            <span style={{
-              fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20,
-              background: m.active ? '#38a16920' : '#e53e3e20',
-              color: m.active ? '#38a169' : '#e53e3e',
-            }}>{m.active ? 'פעיל' : 'מושבת'}</span>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8 }}>
+              <button
+                onClick={() => setEditingMethod(m)}
+                style={{ padding: '10px 0', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-main)', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' }}
+              >✏️ ערוך</button>
+              <button
+                onClick={() => toggleActive(m)}
+                style={{ padding: '10px 0', borderRadius: 10, border: 'none', background: m.active ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', color: m.active ? '#ef4444' : '#10b981', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' }}
+              >{m.active ? '🔕 השבת' : '✅ הפעל'}</button>
+              <button
+                onClick={() => deleteMethod(m.id, m.name)}
+                style={{ padding: '0 16px', borderRadius: 10, border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', fontSize: 16, cursor: 'pointer', transition: 'all 0.2s' }}
+                title="מחק אמצעי תשלום"
+              >🗑️</button>
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: 7 }}>
-            <button
-              onClick={() => setEditingMethod(m)}
-              style={{ flex: 1, padding: '8px 0', borderRadius: 8, border: 'none', background: 'var(--bg)', color: 'var(--text)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-            >✏️ ערוך</button>
-            <button
-              onClick={() => toggleActive(m)}
-              style={{ flex: 1, padding: '8px 0', borderRadius: 8, border: 'none', background: m.active ? '#e53e3e18' : '#38a16918', color: m.active ? '#e53e3e' : '#38a169', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-            >{m.active ? '🔕 השבת' : '✅ הפעל'}</button>
-            <button
-              onClick={() => deleteMethod(m.id, m.name)}
-              style={{ padding: '8px 12px', borderRadius: 8, border: 'none', background: '#e53e3e18', color: '#e53e3e', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-            >🗑</button>
-          </div>
-        </div>
-      ))}
+        ))}
+      </div>
 
       {(showAdd || editingMethod) && (
         <PaymentMethodModal
@@ -3551,128 +3699,174 @@ function PromoTab() {
   const pStatus = promoStatus()
 
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-        <div style={{ fontWeight: 700, fontSize: 17 }}>🎉 מבצע הצטרפות</div>
-        {pStatus && (
-          <span style={{ fontSize: 13, fontWeight: 600, color: STATUS_COLORS[pStatus] }}>
-            {STATUS_LABELS[pStatus]}
-          </span>
-        )}
-      </div>
-
-      {/* Benefit selector */}
-      <div style={{ marginBottom: 14 }}>
-        <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8 }}>הטבה למצטרף חדש במבצע</div>
-
-        {promoPackages && promoPackages.length > 0 && (
-          <div style={{ marginBottom: 10 }}>
-            <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 6 }}>בחר חבילה קיימת:</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {promoPackages.map(pkg => {
-                const isMatch = pkg.searches === -1
-                  ? promoUnlimited
-                  : (!promoUnlimited && String(pkg.searches) === promoSearches)
-                return (
-                  <button
-                    key={pkg.id}
-                    onClick={() => {
-                      if (pkg.searches === -1) { setPromoUnlimited(true); setPromoSearches('') }
-                      else { setPromoUnlimited(false); setPromoSearches(String(pkg.searches)) }
-                      setPromoLabel(pkg.label || '')
-                    }}
-                    style={{
-                      padding: '5px 10px', borderRadius: 8, fontSize: 12,
-                      border: isMatch ? '1.5px solid var(--btn)' : '1px solid var(--border, rgba(255,255,255,0.15))',
-                      background: isMatch ? 'var(--btn)' : 'var(--bg2)',
-                      color: isMatch ? 'var(--btn-text)' : 'var(--text)',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {pkg.label}
-                  </button>
-                )
-              })}
+    <div className="tab-fade-in">
+      <div className="card" style={{ padding: '20px', marginBottom: 24, background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.05), transparent)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 24 }}>🎉</span>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--text-main)', letterSpacing: '-0.3px' }}>מבצע הצטרפות משתמשים</div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>ניהול קמפיין הטבות ללקוחות חדשים</div>
             </div>
           </div>
-        )}
+          {pStatus && (
+            <span style={{
+              fontSize: 13, fontWeight: 800, padding: '4px 12px', borderRadius: 12,
+              background: `${STATUS_COLORS[pStatus]}20`, color: STATUS_COLORS[pStatus], border: `1px solid ${STATUS_COLORS[pStatus]}40`
+            }}>
+              {STATUS_LABELS[pStatus]}
+            </span>
+          )}
+        </div>
+      </div>
 
-        <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 6 }}>או בחר הטבת מנהל:</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-          {[
-            { label: '♾️ ללא הגבלה לצמיתות', searches: -2 },
-            { label: '📅 מנוי חודשי (30 יום)', searches: -1 },
-          ].map(opt => (
-            <button
-              key={opt.searches}
-              onClick={() => { setPromoUnlimited(true); setPromoSearches(''); setPromoLabel(opt.label) }}
-              style={{
-                padding: '5px 10px', borderRadius: 8, fontSize: 12,
-                border: (promoUnlimited && promoLabel === opt.label)
-                  ? '1.5px solid var(--btn)' : '1px solid var(--border, rgba(255,255,255,0.15))',
-                background: (promoUnlimited && promoLabel === opt.label) ? 'var(--btn)' : 'var(--bg2)',
-                color: (promoUnlimited && promoLabel === opt.label) ? 'var(--btn-text)' : 'var(--text)',
-                cursor: 'pointer',
-              }}
-            >
-              {opt.label}
-            </button>
-          ))}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
+        <div className="card" style={{ padding: '20px' }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-main)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ color: 'var(--primary)' }}>1️⃣</span> הגדרת ההטבה ללקוח
+          </div>
+          
+          {promoPackages && promoPackages.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 10 }}>בחר חבילה מוגדרת במערכת:</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {promoPackages.map(pkg => {
+                  const isMatch = pkg.searches === -1
+                    ? promoUnlimited
+                    : (!promoUnlimited && String(pkg.searches) === promoSearches)
+                  return (
+                    <button
+                      key={pkg.id}
+                      onClick={() => {
+                        if (pkg.searches === -1) { setPromoUnlimited(true); setPromoSearches('') }
+                        else { setPromoUnlimited(false); setPromoSearches(String(pkg.searches)) }
+                        setPromoLabel(pkg.label || '')
+                      }}
+                      style={{
+                        padding: '8px 16px', borderRadius: 12, fontSize: 13, fontWeight: 700,
+                        border: isMatch ? '2px solid var(--primary)' : '1px solid var(--border)',
+                        background: isMatch ? 'var(--primary)' : 'var(--bg-card)',
+                        color: isMatch ? '#fff' : 'var(--text-main)',
+                        cursor: 'pointer', transition: 'all 0.2s',
+                        boxShadow: isMatch ? '0 4px 12px rgba(0, 122, 255, 0.2)' : 'none'
+                      }}
+                    >
+                      {pkg.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 10 }}>או הגדר תוכנית כללית:</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+            {[
+              { label: '♾️ ללא הגבלה לצמיתות', searches: -2 },
+              { label: '📅 מנוי חודשי (30 יום)', searches: -1 },
+            ].map(opt => (
+              <button
+                key={opt.searches}
+                onClick={() => { setPromoUnlimited(true); setPromoSearches(''); setPromoLabel(opt.label) }}
+                style={{
+                  padding: '8px 16px', borderRadius: 12, fontSize: 13, fontWeight: 700,
+                  border: (promoUnlimited && promoLabel === opt.label) ? '2px solid var(--primary)' : '1px solid var(--border)',
+                  background: (promoUnlimited && promoLabel === opt.label) ? 'var(--primary)' : 'var(--bg-card)',
+                  color: (promoUnlimited && promoLabel === opt.label) ? '#fff' : 'var(--text-main)',
+                  cursor: 'pointer', transition: 'all 0.2s',
+                  boxShadow: (promoUnlimited && promoLabel === opt.label) ? '0 4px 12px rgba(0, 122, 255, 0.2)' : 'none'
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center', background: 'var(--bg)', padding: '12px 16px', borderRadius: 12, border: '1px solid var(--border)' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer', color: promoUnlimited ? 'var(--text-main)' : 'var(--text-muted)' }}>
+              <div style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${promoUnlimited ? 'var(--primary)' : 'var(--border)'}`, background: promoUnlimited ? 'var(--primary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {promoUnlimited && <span style={{ color: '#fff', fontSize: 12 }}>✓</span>}
+              </div>
+              <input type="checkbox" checked={promoUnlimited} onChange={e => setPromoUnlimited(e.target.checked)} style={{ display: 'none' }} />
+              ללא הגבלת חיפושים במערכת
+            </label>
+            {!promoUnlimited && (
+              <div style={{ flex: 1 }}>
+                <input className="input" type="number" min="0" placeholder="או הגדר כמות (0 לביטול)..." value={promoSearches} onChange={e => setPromoSearches(e.target.value)} style={{ margin: 0, height: 40, borderRadius: 10 }} />
+              </div>
+            )}
+          </div>
         </div>
 
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 14 }}>
-          <input type="checkbox" checked={promoUnlimited} onChange={e => setPromoUnlimited(e.target.checked)} style={{ width: 16, height: 16 }} />
-          ללא הגבלת כמות חיפושים
-        </label>
-        {!promoUnlimited && (
-          <input className="input" type="number" min="0" placeholder="0 = בטל מבצע" value={promoSearches} onChange={e => setPromoSearches(e.target.value)} style={{ marginBottom: 8 }} />
-        )}
+        <div className="card" style={{ padding: '20px' }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-main)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ color: '#8b5cf6' }}>2️⃣</span> פרטי הקמפיין להצגה
+          </div>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', background: 'var(--bg)', padding: '16px', borderRadius: 12, border: '1px solid var(--border)' }}>
+              <div style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${promoIsSubscriber ? '#10b981' : 'var(--border)'}`, background: promoIsSubscriber ? '#10b981' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {promoIsSubscriber && <span style={{ color: '#fff', fontSize: 12 }}>✓</span>}
+              </div>
+              <input type="checkbox" checked={promoIsSubscriber} onChange={e => setPromoIsSubscriber(e.target.checked)} style={{ display: 'none' }} />
+              <span>הוסף את המשתמשים אוטומטית לקבוצת <b style={{ color: '#10b981' }}>מנויים פעילים</b></span>
+            </label>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 6 }}>תוקף ההטבה מיום ההצטרפות (בימים, 0=לצמיתות)</div>
+                <input className="input" type="number" min="0" placeholder="לדוגמה: 30" value={promoDurationDays} onChange={e => setPromoDurationDays(e.target.value)} style={{ margin: 0, borderRadius: 10 }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 6 }}>תיאור ההטבה המוצג בהודעת המערכת</div>
+                <input className="input" type="text" placeholder='לדוגמה: ♾️ גישה חופשית' value={promoLabel} onChange={e => setPromoLabel(e.target.value)} style={{ margin: 0, borderRadius: 10 }} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: '20px' }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-main)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ color: '#f59e0b' }}>3️⃣</span> תאריכי תוקף למבצע
+          </div>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 6 }}>תאריך התחלת המבצע</div>
+              <input className="input" type="date" value={promoStart} onChange={e => setPromoStart(e.target.value)} style={{ margin: 0, borderRadius: 10 }} />
+            </div>
+            
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>תאריך סיום המבצע</div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', color: promoNoEnd ? 'var(--primary)' : 'var(--text-muted)' }}>
+                  <input type="checkbox" checked={promoNoEnd} onChange={e => setPromoNoEnd(e.target.checked)} style={{ margin: 0 }} />
+                  ללא תאריך תפוגה
+                </label>
+              </div>
+              {!promoNoEnd ? (
+                <input className="input" type="date" value={promoEnd} onChange={e => setPromoEnd(e.target.value)} style={{ margin: 0, borderRadius: 10 }} />
+              ) : (
+                <div style={{ height: 46, background: 'rgba(0, 122, 255, 0.05)', border: '1px dashed rgba(0, 122, 255, 0.3)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)', fontWeight: 700, fontSize: 14 }}>
+                  מבצע קבוע (ללא הגבלת זמן)
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
-      <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, fontSize: 14, cursor: 'pointer' }}>
-        <input type="checkbox" checked={promoIsSubscriber} onChange={e => setPromoIsSubscriber(e.target.checked)} style={{ width: 16, height: 16 }} />
-        <span>הוסף לקבוצת <b>מנויים</b> (מנוי פעיל)</span>
-      </label>
-
-      <div style={{ marginBottom: 12 }}>
-        <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 6 }}>תוקף ההטבה מיום ההצטרפות (ימים, 0 = ללא תפוגה)</div>
-        <input className="input" type="number" min="0" placeholder="30" value={promoDurationDays} onChange={e => setPromoDurationDays(e.target.value)} style={{ marginBottom: 0 }} />
+      <div style={{ background: 'rgba(0,0,0,0.02)', border: '1px dashed var(--border)', borderRadius: 16, padding: '16px', fontSize: 13, color: 'var(--text-muted)', margin: '24px 0', lineHeight: 1.6, textAlign: 'center' }}>
+        <b style={{ color: 'var(--text-main)' }}>שים לב:</b> כל משתמש שיצטרף בטווח התאריכים שהוגדר יקבל את ההטבה בצורה אוטומטית בעת רישומו. תוקף ההטבה של המשתמש נספר מיום ההצטרפות <b>שלו</b>. ביום האחרון של חבילת ההטבה שלו, המערכת תשלח לו התראה אוטומטית.
       </div>
 
-      <div style={{ marginBottom: 12 }}>
-        <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 6 }}>תיאור ההטבה להודעת ברוכים הבאים</div>
-        <input className="input" type="text" placeholder='לדוגמה: ♾️ מנוי חודשי ללא הגבלה' value={promoLabel} onChange={e => setPromoLabel(e.target.value)} style={{ marginBottom: 0 }} />
-      </div>
-
-      <div style={{ marginBottom: 12 }}>
-        <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 6 }}>תאריך תחילת המבצע</div>
-        <input className="input" type="date" value={promoStart} onChange={e => setPromoStart(e.target.value)} style={{ marginBottom: 0 }} />
-      </div>
-
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 6 }}>תאריך סיום המבצע</div>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 14 }}>
-          <input type="checkbox" checked={promoNoEnd} onChange={e => setPromoNoEnd(e.target.checked)} style={{ width: 16, height: 16 }} />
-          ללא תאריך סיום
-        </label>
-        {!promoNoEnd && (
-          <input className="input" type="date" value={promoEnd} onChange={e => setPromoEnd(e.target.value)} style={{ marginBottom: 0 }} />
-        )}
-      </div>
-
-      <div style={{ background: 'var(--bg2)', borderRadius: 10, padding: '10px 12px', fontSize: 12, color: 'var(--hint)', marginBottom: 14, lineHeight: 1.5 }}>
-        כל מי שיצטרף בתקופת המבצע יקבל את ההטבה שהוגדרה למעלה.
-        תוקף ההטבה מתחיל ביום ההצטרפות של כל משתמש בנפרד.
-        ביום האחרון של ההטבה המשתמש יקבל הודעת תזכורת.
-      </div>
-
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button className="btn btn-success" style={{ flex: 1, marginTop: 0 }} disabled={saving} onClick={savePromo}>
-          {saving ? '...' : '💾 שמור מבצע'}
+      <div style={{ display: 'grid', gridTemplateColumns: (settings.promo_searches ?? 0) !== 0 ? '1fr 1fr' : '1fr', gap: 16 }}>
+        <button className="btn" style={{ height: 50, borderRadius: 12, fontSize: 16, fontWeight: 800, background: '#10b981', color: '#fff', border: 'none', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)', cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }} disabled={saving} onClick={savePromo}>
+          {saving ? '⏳ שומר נתונים...' : '✨ שמור והפעל מבצע הצטרפות'}
         </button>
         {(settings.promo_searches ?? 0) !== 0 && (
-          <button className="btn" style={{ flex: 1, marginTop: 0, background: 'var(--btn-danger, #e53e3e)', color: '#fff' }} disabled={saving} onClick={clearPromo}>
-            🗑️ בטל מבצע
+          <button className="btn" style={{ height: 50, borderRadius: 12, fontSize: 16, fontWeight: 800, background: '#ef4444', color: '#fff', border: 'none', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)', cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }} disabled={saving} onClick={clearPromo}>
+            🗑️ ביטול מבצע פעיל
           </button>
         )}
       </div>
@@ -3757,183 +3951,251 @@ function FeaturesTab() {
   if (!settings) return <div className="loading"></div>
 
   return (
-    <div>
-      <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>⭐ פיצ'רים למנויים</div>
-      <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 18 }}>
-        הגדרות גישה לפיצ'רים המיועדים למנויים בלבד.
-      </div>
-
-      {/* Yad2 market price */}
-      <div style={{ border: '1.5px solid var(--border, rgba(255,255,255,0.12))', borderRadius: 14, padding: 16 }}>
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14 }}>💰 שווי שוק Yad2</div>
-
-        <div className="toggle-row">
-          <span className="toggle-label">הפעל הצגת שווי שוק</span>
-          <button className={`toggle ${yad2Enabled ? 'on' : ''}`} onClick={() => setYad2Enabled(v => !v)} />
-        </div>
-
-        {yad2Enabled && (
-          <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-            {/* Public mode */}
-            <div style={{ background: 'var(--bg2)', borderRadius: 10, padding: 12 }}>
-              <div className="toggle-row" style={{ paddingTop: 0 }}>
-                <span className="toggle-label" style={{ fontSize: 14 }}>🌐 פתוח לכולם</span>
-                <button className={`toggle ${yad2Public ? 'on' : ''}`} onClick={() => setYad2Public(v => !v)} />
-              </div>
-              {yad2Public && (
-                <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ fontSize: 12, color: 'var(--hint)' }}>טקסט תצוגה למשתמש</div>
-                  <input type="text" className="input" style={{ marginBottom: 0 }}
-                    placeholder='לדוגמה: פתוח לכולם עד 01/07/2026'
-                    value={yad2PublicLabel} onChange={e => setYad2PublicLabel(e.target.value)} />
-                  <div style={{ fontSize: 12, color: 'var(--hint)' }}>תאריך התחלה (אופציונלי)</div>
-                  <input type="date" className="input" style={{ marginBottom: 0 }}
-                    value={yad2PublicStart} onChange={e => setYad2PublicStart(e.target.value)} />
-                  <div style={{ fontSize: 12, color: 'var(--hint)' }}>תאריך סיום (אופציונלי)</div>
-                  <input type="date" className="input" style={{ marginBottom: 0 }}
-                    value={yad2PublicEnd} onChange={e => setYad2PublicEnd(e.target.value)} />
-                  {(() => {
-                    const today = new Date().toISOString().slice(0, 10)
-                    const inWindow = (!yad2PublicStart || today >= yad2PublicStart) &&
-                                     (!yad2PublicEnd   || today <= yad2PublicEnd)
-                    return (
-                      <div style={{ fontSize: 12, fontWeight: 600, color: inWindow ? '#38a169' : '#d69e2e' }}>
-                        {inWindow ? '🟢 פעיל כעת לכולם' : '🟡 לא פעיל (מחוץ לטווח התאריכים)'}
-                      </div>
-                    )
-                  })()}
-                </div>
-              )}
-            </div>
-
+    <div className="tab-fade-in">
+      <div className="card" style={{ padding: '20px', marginBottom: 24, background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.05), transparent)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+          <span style={{ fontSize: 24 }}>⭐</span>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--text-main)', letterSpacing: '-0.3px' }}>פיצ'רים מתקדמים למנויים</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>הגדרות גישה לפיצ'רים ייחודיים שפתוחים למנויים פעילים</div>
           </div>
-        )}
-
-        <button className="btn btn-success" style={{ marginTop: 14 }} disabled={yad2Saving} onClick={saveYad2}>
-          {yad2Saving ? '...' : '💾 שמור'}
-        </button>
+        </div>
       </div>
 
-      {/* PDF report */}
-      <div style={{ border: '1.5px solid var(--border, rgba(255,255,255,0.12))', borderRadius: 14, padding: 16, marginTop: 16 }}>
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14 }}>📄 הורדת דוח PDF</div>
-
-        <div className="toggle-row">
-          <span className="toggle-label">הפעל הורדת PDF למנויים</span>
-          <button className={`toggle ${pdfEnabled ? 'on' : ''}`} onClick={() => setPdfEnabled(v => !v)} />
-        </div>
-
-        {pdfEnabled && (
-          <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-            {/* Public mode */}
-            <div style={{ background: 'var(--bg2)', borderRadius: 10, padding: 12 }}>
-              <div className="toggle-row" style={{ paddingTop: 0 }}>
-                <span className="toggle-label" style={{ fontSize: 14 }}>🌐 פתוח לכולם</span>
-                <button className={`toggle ${pdfPublic ? 'on' : ''}`} onClick={() => setPdfPublic(v => !v)} />
-              </div>
-              {pdfPublic && (
-                <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ fontSize: 12, color: 'var(--hint)' }}>טקסט תצוגה למשתמש</div>
-                  <input type="text" className="input" style={{ marginBottom: 0 }}
-                    placeholder='לדוגמה: פתוח לכולם עד 01/07/2026'
-                    value={pdfPublicLabel} onChange={e => setPdfPublicLabel(e.target.value)} />
-                  <div style={{ fontSize: 12, color: 'var(--hint)' }}>תאריך התחלה (אופציונלי)</div>
-                  <input type="date" className="input" style={{ marginBottom: 0 }}
-                    value={pdfPublicStart} onChange={e => setPdfPublicStart(e.target.value)} />
-                  <div style={{ fontSize: 12, color: 'var(--hint)' }}>תאריך סיום (אופציונלי)</div>
-                  <input type="date" className="input" style={{ marginBottom: 0 }}
-                    value={pdfPublicEnd} onChange={e => setPdfPublicEnd(e.target.value)} />
-                  {(() => {
-                    const today = new Date().toISOString().slice(0, 10)
-                    const inWindow = (!pdfPublicStart || today >= pdfPublicStart) &&
-                                     (!pdfPublicEnd   || today <= pdfPublicEnd)
-                    return (
-                      <div style={{ fontSize: 12, fontWeight: 600, color: inWindow ? '#38a169' : '#d69e2e' }}>
-                        {inWindow ? '🟢 פעיל כעת לכולם' : '🟡 לא פעיל (מחוץ לטווח התאריכים)'}
-                      </div>
-                    )
-                  })()}
-                </div>
-              )}
-            </div>
-
-          </div>
-        )}
-
-        <button className="btn btn-success" style={{ marginTop: 14 }} disabled={pdfSaving} onClick={savePdf}>
-          {pdfSaving ? '...' : '💾 שמור'}
-        </button>
-      </div>
-
-      {/* Yad2 Watch alerts */}
-      <div style={{ border: '1.5px solid var(--border, rgba(255,255,255,0.12))', borderRadius: 14, padding: 16, marginTop: 16 }}>
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14 }}>🔔 התראות יד2</div>
-
-        <div className="toggle-row">
-          <span className="toggle-label">הפעל התראות יד2 למנויים</span>
-          <button className={`toggle ${watchEnabled ? 'on' : ''}`} onClick={() => setWatchEnabled(v => !v)} />
-        </div>
-
-        {watchEnabled && (
-          <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20 }}>
+        {/* Yad2 market price */}
+        <div className="card" style={{ padding: '24px', borderTop: '4px solid #f59e0b' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 13, color: 'var(--hint)', flex: 1 }}>מקסימום התראות למשתמש</span>
-              <input type="number" min="1" max="20" className="input"
-                style={{ width: 70, marginBottom: 0, textAlign: 'center' }}
-                value={watchMax} onChange={e => setWatchMax(e.target.value)} />
-            </div>
-            <div style={{ background: 'var(--bg2)', borderRadius: 10, padding: 12 }}>
-              <div className="toggle-row" style={{ paddingTop: 0 }}>
-                <span className="toggle-label" style={{ fontSize: 14 }}>🌐 פתוח לכולם</span>
-                <button className={`toggle ${watchPublic ? 'on' : ''}`} onClick={() => setWatchPublic(v => !v)} />
+              <span style={{ fontSize: 24, background: 'rgba(245, 158, 11, 0.1)', width: 44, height: 44, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>💰</span>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-main)' }}>שווי שוק Yad2</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>הצגת נתוני שווי שוק על בסיס לוח יד2</div>
               </div>
-              {watchPublic && (
-                <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ fontSize: 12, color: 'var(--hint)' }}>טקסט תצוגה למשתמש</div>
-                  <input type="text" className="input" style={{ marginBottom: 0 }}
-                    placeholder='לדוגמה: פתוח לכולם עד 01/07/2026'
-                    value={watchPublicLabel} onChange={e => setWatchPublicLabel(e.target.value)} />
-                  <div style={{ fontSize: 12, color: 'var(--hint)' }}>תאריך התחלה (אופציונלי)</div>
-                  <input type="date" className="input" style={{ marginBottom: 0 }}
-                    value={watchPublicStart} onChange={e => setWatchPublicStart(e.target.value)} />
-                  <div style={{ fontSize: 12, color: 'var(--hint)' }}>תאריך סיום (אופציונלי)</div>
-                  <input type="date" className="input" style={{ marginBottom: 0 }}
-                    value={watchPublicEnd} onChange={e => setWatchPublicEnd(e.target.value)} />
-                  {(() => {
-                    const today = new Date().toISOString().slice(0, 10)
-                    const inWindow = (!watchPublicStart || today >= watchPublicStart) &&
-                                     (!watchPublicEnd   || today <= watchPublicEnd)
-                    return (
-                      <div style={{ fontSize: 12, fontWeight: 600, color: inWindow ? '#38a169' : '#d69e2e' }}>
-                        {inWindow ? '🟢 פעיל כעת לכולם' : '🟡 לא פעיל (מחוץ לטווח התאריכים)'}
-                      </div>
-                    )
-                  })()}
-                </div>
-              )}
             </div>
+            <label className="toggle-row" style={{ margin: 0, padding: 0 }}>
+              <button className={`toggle ${yad2Enabled ? 'on' : ''}`} onClick={() => setYad2Enabled(v => !v)} style={{ margin: 0 }} />
+            </label>
           </div>
-        )}
 
-        <button className="btn btn-success" style={{ marginTop: 14 }} disabled={watchSaving} onClick={async () => {
-          setWatchSaving(true)
-          try {
-            await adminUpdateSettings({
-              yad2_watch_enabled:       watchEnabled,
-              yad2_watch_max:           parseInt(watchMax) || 2,
-              yad2_watch_public:        watchPublic,
-              yad2_watch_public_start:  watchPublicStart,
-              yad2_watch_public_end:    watchPublicEnd,
-              yad2_watch_public_label:  watchPublicLabel,
-            })
-            window.Telegram?.WebApp?.showAlert('✅ הגדרות עודכנו')
-          } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
-          setWatchSaving(false)
-        }}>
-          {watchSaving ? '...' : '💾 שמור'}
-        </button>
+          {yad2Enabled && (
+            <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 16, animation: 'fadeIn 0.3s' }}>
+              <div style={{ background: 'var(--bg)', borderRadius: 16, padding: '20px', border: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: yad2Public ? 16 : 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 18 }}>🌐</span>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-main)' }}>פתוח לכולם (חינמי)</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>הפעלת הפיצ'ר גם למשתמשים ללא מנוי</div>
+                    </div>
+                  </div>
+                  <button className={`toggle ${yad2Public ? 'on' : ''}`} onClick={() => setYad2Public(v => !v)} />
+                </div>
+                
+                {yad2Public && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>טקסט תצוגה למשתמש</div>
+                      <input type="text" className="input" style={{ margin: 0, borderRadius: 10 }}
+                        placeholder='לדוגמה: פתוח לכולם עד 01/07/2026'
+                        value={yad2PublicLabel} onChange={e => setYad2PublicLabel(e.target.value)} />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>תאריך התחלה</div>
+                        <input type="date" className="input" style={{ margin: 0, borderRadius: 10 }}
+                          value={yad2PublicStart} onChange={e => setYad2PublicStart(e.target.value)} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>תאריך סיום</div>
+                        <input type="date" className="input" style={{ margin: 0, borderRadius: 10 }}
+                          value={yad2PublicEnd} onChange={e => setYad2PublicEnd(e.target.value)} />
+                      </div>
+                    </div>
+                    {(() => {
+                      const today = new Date().toISOString().slice(0, 10)
+                      const inWindow = (!yad2PublicStart || today >= yad2PublicStart) &&
+                                       (!yad2PublicEnd   || today <= yad2PublicEnd)
+                      return (
+                        <div style={{ fontSize: 12, fontWeight: 700, color: inWindow ? '#10b981' : '#f59e0b', background: inWindow ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', padding: '8px 12px', borderRadius: 8, display: 'inline-block', marginTop: 4 }}>
+                          {inWindow ? '🟢 פעיל כעת לכולם' : '🟡 מחוץ לטווח התאריכים (מוסתר מחינמיים)'}
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <button className="btn" style={{ marginTop: 20, width: '100%', height: 44, borderRadius: 12, fontWeight: 700, background: 'var(--bg)', border: '1px solid var(--primary)', color: 'var(--primary)' }} disabled={yad2Saving} onClick={saveYad2}>
+            {yad2Saving ? '⏳ שומר...' : '💾 שמור הגדרות שווי שוק'}
+          </button>
+        </div>
+
+        {/* PDF report */}
+        <div className="card" style={{ padding: '24px', borderTop: '4px solid #ef4444' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 24, background: 'rgba(239, 68, 68, 0.1)', width: 44, height: 44, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>📄</span>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-main)' }}>הורדת דוח PDF</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>הפקת קובץ דוח מלא ושמירתו</div>
+              </div>
+            </div>
+            <label className="toggle-row" style={{ margin: 0, padding: 0 }}>
+              <button className={`toggle ${pdfEnabled ? 'on' : ''}`} onClick={() => setPdfEnabled(v => !v)} style={{ margin: 0 }} />
+            </label>
+          </div>
+
+          {pdfEnabled && (
+            <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 16, animation: 'fadeIn 0.3s' }}>
+              <div style={{ background: 'var(--bg)', borderRadius: 16, padding: '20px', border: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: pdfPublic ? 16 : 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 18 }}>🌐</span>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-main)' }}>פתוח לכולם (חינמי)</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>הפעלת הפיצ'ר גם למשתמשים ללא מנוי</div>
+                    </div>
+                  </div>
+                  <button className={`toggle ${pdfPublic ? 'on' : ''}`} onClick={() => setPdfPublic(v => !v)} />
+                </div>
+                
+                {pdfPublic && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>טקסט תצוגה למשתמש</div>
+                      <input type="text" className="input" style={{ margin: 0, borderRadius: 10 }}
+                        placeholder='לדוגמה: פתוח לכולם עד 01/07/2026'
+                        value={pdfPublicLabel} onChange={e => setPdfPublicLabel(e.target.value)} />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>תאריך התחלה</div>
+                        <input type="date" className="input" style={{ margin: 0, borderRadius: 10 }}
+                          value={pdfPublicStart} onChange={e => setPdfPublicStart(e.target.value)} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>תאריך סיום</div>
+                        <input type="date" className="input" style={{ margin: 0, borderRadius: 10 }}
+                          value={pdfPublicEnd} onChange={e => setPdfPublicEnd(e.target.value)} />
+                      </div>
+                    </div>
+                    {(() => {
+                      const today = new Date().toISOString().slice(0, 10)
+                      const inWindow = (!pdfPublicStart || today >= pdfPublicStart) &&
+                                       (!pdfPublicEnd   || today <= pdfPublicEnd)
+                      return (
+                        <div style={{ fontSize: 12, fontWeight: 700, color: inWindow ? '#10b981' : '#f59e0b', background: inWindow ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', padding: '8px 12px', borderRadius: 8, display: 'inline-block', marginTop: 4 }}>
+                          {inWindow ? '🟢 פעיל כעת לכולם' : '🟡 מחוץ לטווח התאריכים (מוסתר מחינמיים)'}
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <button className="btn" style={{ marginTop: 20, width: '100%', height: 44, borderRadius: 12, fontWeight: 700, background: 'var(--bg)', border: '1px solid var(--primary)', color: 'var(--primary)' }} disabled={pdfSaving} onClick={savePdf}>
+            {pdfSaving ? '⏳ שומר...' : '💾 שמור הגדרות דוח PDF'}
+          </button>
+        </div>
+
+        {/* Yad2 Watch alerts */}
+        <div className="card" style={{ padding: '24px', borderTop: '4px solid #3b82f6' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 24, background: 'rgba(59, 130, 246, 0.1)', width: 44, height: 44, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🔔</span>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-main)' }}>התראות יד2 בזמן אמת</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>מעקב התראות על רכבים חדשים ביד2</div>
+              </div>
+            </div>
+            <label className="toggle-row" style={{ margin: 0, padding: 0 }}>
+              <button className={`toggle ${watchEnabled ? 'on' : ''}`} onClick={() => setWatchEnabled(v => !v)} style={{ margin: 0 }} />
+            </label>
+          </div>
+
+          {watchEnabled && (
+            <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 16, animation: 'fadeIn 0.3s' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg)', padding: '16px', borderRadius: 12, border: '1px solid var(--border)' }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-main)' }}>מגבלת התראות פעילות למשתמש</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>כמות החיפושים שמשתמש יכול לעקוב אחריהם</div>
+                </div>
+                <input type="number" min="1" max="20" className="input"
+                  style={{ width: 80, margin: 0, textAlign: 'center', borderRadius: 10, fontSize: 16, fontWeight: 700 }}
+                  value={watchMax} onChange={e => setWatchMax(e.target.value)} />
+              </div>
+              
+              <div style={{ background: 'var(--bg)', borderRadius: 16, padding: '20px', border: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: watchPublic ? 16 : 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 18 }}>🌐</span>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-main)' }}>פתוח לכולם (חינמי)</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>הפעלת הפיצ'ר גם למשתמשים ללא מנוי</div>
+                    </div>
+                  </div>
+                  <button className={`toggle ${watchPublic ? 'on' : ''}`} onClick={() => setWatchPublic(v => !v)} />
+                </div>
+                
+                {watchPublic && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>טקסט תצוגה למשתמש</div>
+                      <input type="text" className="input" style={{ margin: 0, borderRadius: 10 }}
+                        placeholder='לדוגמה: פתוח לכולם עד 01/07/2026'
+                        value={watchPublicLabel} onChange={e => setWatchPublicLabel(e.target.value)} />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>תאריך התחלה</div>
+                        <input type="date" className="input" style={{ margin: 0, borderRadius: 10 }}
+                          value={watchPublicStart} onChange={e => setWatchPublicStart(e.target.value)} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>תאריך סיום</div>
+                        <input type="date" className="input" style={{ margin: 0, borderRadius: 10 }}
+                          value={watchPublicEnd} onChange={e => setWatchPublicEnd(e.target.value)} />
+                      </div>
+                    </div>
+                    {(() => {
+                      const today = new Date().toISOString().slice(0, 10)
+                      const inWindow = (!watchPublicStart || today >= watchPublicStart) &&
+                                       (!watchPublicEnd   || today <= watchPublicEnd)
+                      return (
+                        <div style={{ fontSize: 12, fontWeight: 700, color: inWindow ? '#10b981' : '#f59e0b', background: inWindow ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', padding: '8px 12px', borderRadius: 8, display: 'inline-block', marginTop: 4 }}>
+                          {inWindow ? '🟢 פעיל כעת לכולם' : '🟡 מחוץ לטווח התאריכים (מוסתר מחינמיים)'}
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <button className="btn" style={{ marginTop: 20, width: '100%', height: 44, borderRadius: 12, fontWeight: 700, background: 'var(--bg)', border: '1px solid var(--primary)', color: 'var(--primary)' }} disabled={watchSaving} onClick={async () => {
+            setWatchSaving(true)
+            try {
+              await adminUpdateSettings({
+                yad2_watch_enabled:       watchEnabled,
+                yad2_watch_max:           parseInt(watchMax) || 2,
+                yad2_watch_public:        watchPublic,
+                yad2_watch_public_start:  watchPublicStart,
+                yad2_watch_public_end:    watchPublicEnd,
+                yad2_watch_public_label:  watchPublicLabel,
+              })
+              window.Telegram?.WebApp?.showAlert('✅ הגדרות עודכנו')
+            } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+            setWatchSaving(false)
+          }}>
+            {watchSaving ? '⏳ שומר...' : '💾 שמור הגדרות התראות'}
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -3968,7 +4230,7 @@ function SettingsTab() {
       const v = parseInt(freeInput) || 0
       await adminUpdateSettings({ free_searches: v })
       setSettings(s => ({ ...s, free_searches: v }))
-      window.Telegram?.WebApp?.showAlert('✅ עודכן')
+      window.Telegram?.WebApp?.showAlert('✅ עודכן בהצלחה')
     } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
     setSaving(false)
   }
@@ -3978,7 +4240,7 @@ function SettingsTab() {
     try {
       await adminUpdateSettings({ referral_bonus: parseInt(referralInput) })
       setSettings(s => ({ ...s, referral_bonus: parseInt(referralInput) }))
-      window.Telegram?.WebApp?.showAlert('✅ עודכן')
+      window.Telegram?.WebApp?.showAlert('✅ עודכן בהצלחה')
     } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
     setSaving(false)
   }
@@ -3986,25 +4248,96 @@ function SettingsTab() {
   if (!settings) return <div className="loading"></div>
 
   return (
-    <div>
-      {/* Maintenance */}
-      <div className="toggle-row">
-        <span className="toggle-label">🔧 מצב תחזוקה</span>
-        <button className={`toggle ${settings.maintenance ? 'on' : ''}`} onClick={toggleMaintenance} disabled={saving} />
+    <div className="tab-fade-in">
+      <div className="card" style={{ padding: '20px', marginBottom: 24, background: 'linear-gradient(135deg, rgba(75, 85, 99, 0.05), transparent)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 24 }}>⚙️</span>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--text-main)', letterSpacing: '-0.3px' }}>הגדרות מערכת</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>ניהול תצורת בוט ומדיניות חיפושים</div>
+          </div>
+        </div>
       </div>
 
-      {/* Free searches */}
-      <div style={{ marginTop: 20 }}>
-        <div className="toggle-label" style={{ marginBottom: 8 }}>🆓 חיפושים חינמיים למשתמש חדש</div>
-        <input className="input" type="number" min="0" value={freeInput} onChange={e => setFreeInput(e.target.value)} />
-        <button className="btn" disabled={saving} onClick={saveFree}>{saving ? '...' : 'שמור'}</button>
-      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* Maintenance */}
+        <div className="card" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderLeft: settings.maintenance ? '4px solid #ef4444' : '4px solid #10b981' }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              🔧 מצב תחזוקה
+              <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: settings.maintenance ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', color: settings.maintenance ? '#ef4444' : '#10b981', fontWeight: 700 }}>
+                {settings.maintenance ? 'פעיל' : 'כבוי'}
+              </span>
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>משבית זמנית את הגישה לבוט עבור משתמשים רגילים</div>
+          </div>
+          <button
+            className={`toggle ${settings.maintenance ? 'on' : ''}`}
+            onClick={toggleMaintenance}
+            disabled={saving}
+            style={{ margin: 0, opacity: saving ? 0.6 : 1 }}
+          />
+        </div>
 
-      {/* Referral bonus */}
-      <div style={{ marginTop: 20 }}>
-        <div className="toggle-label" style={{ marginBottom: 8 }}>🤝 חיפושים לבונוס הפניה</div>
-        <input className="input" type="number" min="1" value={referralInput} onChange={e => setReferralInput(e.target.value)} />
-        <button className="btn" disabled={saving} onClick={saveReferral}>{saving ? '...' : 'שמור'}</button>
+        {/* Free searches */}
+        <div className="card" style={{ padding: '20px', borderLeft: '4px solid #3b82f6' }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-main)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+            🆓 חיפושים חינמיים ללקוח חדש
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>כמות החיפושים החינמיים שיקבל כל משתמש חדש שנרשם לבוט.</div>
+          
+          <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{ position: 'relative', flex: 1 }}>
+              <div style={{ position: 'absolute', top: 0, bottom: 0, right: 14, display: 'flex', alignItems: 'center', color: 'var(--text-muted)' }}>🔍</div>
+              <input 
+                className="input" 
+                type="number" 
+                min="0" 
+                value={freeInput} 
+                onChange={e => setFreeInput(e.target.value)} 
+                style={{ margin: 0, paddingRight: 40, height: 48, borderRadius: 12, fontWeight: 700, fontSize: 16 }}
+              />
+            </div>
+            <button 
+              className="btn" 
+              disabled={saving} 
+              onClick={saveFree}
+              style={{ margin: 0, width: 'auto', padding: '0 24px', height: 48, borderRadius: 12, fontWeight: 700 }}
+            >
+              {saving ? '⏳...' : 'שמור שינויים'}
+            </button>
+          </div>
+        </div>
+
+        {/* Referral bonus */}
+        <div className="card" style={{ padding: '20px', borderLeft: '4px solid #8b5cf6' }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-main)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+            🤝 בונוס הפניית חברים
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>כמות החיפושים שיקבל משתמש שהפנה חבר, וגם החבר שהופנה (בונוס דו-צדדי).</div>
+          
+          <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{ position: 'relative', flex: 1 }}>
+              <div style={{ position: 'absolute', top: 0, bottom: 0, right: 14, display: 'flex', alignItems: 'center', color: 'var(--text-muted)' }}>🎁</div>
+              <input 
+                className="input" 
+                type="number" 
+                min="1" 
+                value={referralInput} 
+                onChange={e => setReferralInput(e.target.value)} 
+                style={{ margin: 0, paddingRight: 40, height: 48, borderRadius: 12, fontWeight: 700, fontSize: 16 }}
+              />
+            </div>
+            <button 
+              className="btn" 
+              disabled={saving} 
+              onClick={saveReferral}
+              style={{ margin: 0, width: 'auto', padding: '0 24px', height: 48, borderRadius: 12, fontWeight: 700 }}
+            >
+              {saving ? '⏳...' : 'שמור שינויים'}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -4069,111 +4402,169 @@ function BroadcastTab() {
   function fmtDate(s) { return fmtDateTime(s) }
 
   return (
-    <div>
-      <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 14 }}>📢 שידור הודעה לכולם</div>
-
-      {/* Message input */}
-      <textarea
-        className="input"
-        rows={4}
-        placeholder="כתוב הודעה לכל המשתמשים... (תומך Markdown)"
-        value={msg}
-        onChange={e => setMsg(e.target.value)}
-        style={{ resize: 'vertical', fontFamily: 'inherit' }}
-      />
-
-      {/* Image picker */}
-      <div style={{ marginTop: 8, marginBottom: 12 }}>
-        {preview ? (
-          <div style={{ position: 'relative', display: 'inline-block' }}>
-            <img src={preview} alt="" style={{ maxWidth: '100%', maxHeight: 180, borderRadius: 10, display: 'block' }} />
-            <button
-              onClick={clearImage}
-              style={{
-                position: 'absolute', top: 6, right: 6,
-                background: 'rgba(0,0,0,0.55)', color: '#fff',
-                border: 'none', borderRadius: '50%', width: 26, height: 26,
-                cursor: 'pointer', fontSize: 14, lineHeight: '26px', textAlign: 'center',
-              }}
-            >✕</button>
-          </div>
-        ) : (
-          <button
-            onClick={() => fileRef.current?.click()}
-            style={{
-              padding: '7px 14px', borderRadius: 8, fontSize: 13,
-              border: '1.5px dashed var(--border, rgba(255,255,255,0.2))',
-              background: 'var(--bg2)', color: 'var(--hint)', cursor: 'pointer',
-            }}
-          >
-            🖼 הוסף תמונה (אופציונלי)
-          </button>
-        )}
-        <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
-      </div>
-
-      <button className="btn" disabled={sending || !msg.trim()} onClick={send} style={{ marginBottom: 0 }}>
-        {sending ? '⏳ שולח...' : '📢 שלח לכולם'}
-      </button>
-
-      {/* History */}
-      <div style={{ marginTop: 28, fontWeight: 600, fontSize: 14, marginBottom: 10 }}>📋 היסטוריית שידורים</div>
-      {history === null && <div className="loading"></div>}
-      {history && history.length === 0 && (
-        <div style={{ fontSize: 13, color: 'var(--hint)' }}>אין שידורים עדיין</div>
-      )}
-      {history && history.map(h => (
-        <div
-          key={h.id}
-          onClick={() => setViewing(h)}
-          style={{
-            padding: '10px 12px', marginBottom: 8, borderRadius: 10,
-            background: 'var(--bg2)', cursor: 'pointer',
-            border: '1px solid var(--border, rgba(255,255,255,0.08))',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-            <div style={{ fontSize: 13, flex: 1, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', color: 'var(--text)' }}>
-              {h.has_image ? '🖼 ' : ''}{h.message}
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--hint)', whiteSpace: 'nowrap' }}>{fmtDate(h.sent_at)}</div>
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--hint)', marginTop: 4 }}>
-            ✅ {h.sent}{h.failed ? ` · ❌ ${h.failed}` : ''}
+    <div className="tab-fade-in">
+      <div className="card" style={{ padding: '20px', marginBottom: 24, background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.05), transparent)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 24 }}>📢</span>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--text-main)', letterSpacing: '-0.3px' }}>שידור הודעות למשתמשים</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>שליחת הודעת Push / Broadcast לכל בסיס המנויים</div>
           </div>
         </div>
-      ))}
+      </div>
+
+      <div className="card" style={{ padding: '20px', marginBottom: 24 }}>
+        {/* Message input */}
+        <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-main)', marginBottom: 12 }}>תוכן ההודעה</div>
+        <textarea
+          className="input"
+          rows={5}
+          placeholder="כתוב את ההודעה שתשלח לכלל המשתמשים בבוט (תומך בעיצוב Markdown)..."
+          value={msg}
+          onChange={e => setMsg(e.target.value)}
+          style={{ resize: 'vertical', fontFamily: 'inherit', borderRadius: 12, marginBottom: 16, fontSize: 14 }}
+        />
+
+        {/* Image picker */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-main)', marginBottom: 12 }}>צירוף תמונה <span style={{ fontWeight: 500, color: 'var(--text-muted)', fontSize: 12 }}>(אופציונלי)</span></div>
+          {preview ? (
+            <div style={{ position: 'relative', display: 'inline-block' }}>
+              <img src={preview} alt="" style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 12, display: 'block', border: '1px solid var(--border)' }} />
+              <button
+                onClick={clearImage}
+                style={{
+                  position: 'absolute', top: 8, right: 8,
+                  background: 'rgba(0,0,0,0.6)', color: '#fff',
+                  border: 'none', borderRadius: '50%', width: 32, height: 32,
+                  cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  backdropFilter: 'blur(4px)'
+                }}
+                title="הסר תמונה"
+              >✕</button>
+            </div>
+          ) : (
+            <div
+              onClick={() => fileRef.current?.click()}
+              style={{
+                padding: '24px', borderRadius: 12, fontSize: 14, fontWeight: 600,
+                border: '2px dashed var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                background: 'var(--bg)', color: 'var(--text-muted)', cursor: 'pointer', transition: 'all 0.2s'
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)' }}
+            >
+              <span style={{ fontSize: 24 }}>🖼️</span>
+              לחץ כאן כדי להעלות תמונה
+            </div>
+          )}
+          <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
+        </div>
+
+        <button className="btn" disabled={sending || !msg.trim()} onClick={send} style={{ width: '100%', margin: 0, height: 50, borderRadius: 12, fontSize: 15, fontWeight: 800, background: 'var(--primary)', color: '#fff', boxShadow: '0 4px 12px rgba(0, 122, 255, 0.2)' }}>
+          {sending ? '⏳ מבצע שליחה המונית...' : '🚀 שלח הודעה לכולם עכשיו'}
+        </button>
+      </div>
+
+      {/* History */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-main)' }}>📋 היסטוריית שידורים</div>
+        <button className="btn" onClick={loadHistory} style={{ margin: 0, padding: '4px 12px', height: 'auto', background: 'var(--bg-card)', border: '1px solid var(--border)', fontSize: 12, borderRadius: 8 }}>🔄 רענן</button>
+      </div>
+      
+      {history === null && <div className="loading"></div>}
+      {history && history.length === 0 && (
+        <div style={{ textAlign: 'center', padding: 40, background: 'var(--bg-card)', borderRadius: 16, border: '1px dashed var(--border)', color: 'var(--hint)', fontSize: 14 }}>
+          טרם נשלחו הודעות שידור דרך המערכת
+        </div>
+      )}
+      
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {history && history.map(h => (
+          <div
+            key={h.id}
+            onClick={() => setViewing(h)}
+            className="card"
+            style={{
+              padding: '16px', borderRadius: 12, cursor: 'pointer', transition: 'all 0.2s', borderLeft: '4px solid var(--primary)'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 8 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, flex: 1, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', color: 'var(--text-main)', lineHeight: 1.5 }}>
+                {h.has_image ? <span style={{ color: 'var(--primary)', marginLeft: 4 }}>🖼️</span> : null}
+                {h.message}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap', fontWeight: 500, background: 'var(--bg)', padding: '4px 8px', borderRadius: 8 }}>
+                {fmtDate(h.sent_at)}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 12, fontSize: 12, fontWeight: 600 }}>
+              <span style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }}></div>
+                {h.sent} נשלחו
+              </span>
+              {h.failed > 0 && (
+                <span style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444' }}></div>
+                  {h.failed} נכשלו
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
 
       {/* Viewer overlay */}
       {viewing && (
         <div
           style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
-            display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-            zIndex: 1000,
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 1000, padding: 20
           }}
           onClick={() => setViewing(null)}
         >
           <div
+            className="card tab-fade-in"
             style={{
-              background: 'var(--bg)', borderRadius: '16px 16px 0 0',
-              padding: 20, width: '100%', maxWidth: 480, maxHeight: '75vh',
-              overflowY: 'auto',
+              width: '100%', maxWidth: 480, maxHeight: '85vh',
+              overflowY: 'auto', padding: 0, display: 'flex', flexDirection: 'column'
             }}
             onClick={e => e.stopPropagation()}
           >
-            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>📢 הודעת שידור</div>
-            <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 12 }}>
-              {fmtDate(viewing.sent_at)} · ✅ {viewing.sent}{viewing.failed ? ` · ❌ ${viewing.failed}` : ''}
-              {viewing.has_image ? ' · 🖼 כלל תמונה' : ''}
+            <div style={{ padding: '20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', position: 'sticky', top: 0, zIndex: 2 }}>
+              <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-main)' }}>פרטי ההודעה שנשלחה</div>
+              <button onClick={() => setViewing(null)} style={{ background: 'var(--bg)', border: 'none', width: 32, height: 32, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-main)', fontSize: 14 }}>✕</button>
             </div>
-            <div style={{
-              background: 'var(--bg2)', borderRadius: 10, padding: '12px 14px',
-              fontSize: 14, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-            }}>
-              {viewing.message}
+            
+            <div style={{ padding: '20px' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+                <div style={{ background: 'var(--bg)', padding: '6px 12px', borderRadius: 8, fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
+                  📅 נשלח ב: {fmtDate(viewing.sent_at)}
+                </div>
+                <div style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700 }}>
+                  ✅ {viewing.sent} נשלחו בהצלחה
+                </div>
+                {viewing.failed > 0 && (
+                  <div style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700 }}>
+                    ❌ {viewing.failed} נכשלו
+                  </div>
+                )}
+                {viewing.has_image && (
+                  <div style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700 }}>
+                    🖼️ כולל תמונה
+                  </div>
+                )}
+              </div>
+              
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 700, marginBottom: 8 }}>תוכן ההודעה שנשלחה:</div>
+              <div style={{
+                background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px',
+                fontSize: 14, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: 'var(--text-main)'
+              }}>
+                {viewing.message}
+              </div>
             </div>
-            <button className="btn" style={{ marginTop: 14 }} onClick={() => setViewing(null)}>סגור</button>
           </div>
         </div>
       )}
@@ -4182,7 +4573,8 @@ function BroadcastTab() {
 }
 
 const STATUS_LABEL = { open: 'פתוח', in_progress: 'בטיפול', closed: 'סגור' }
-const STATUS_COLOR = { open: '#e07b00', in_progress: '#2481cc', closed: '#38a169' }
+const STATUS_COLOR = { open: '#f59e0b', in_progress: '#3b82f6', closed: '#10b981' }
+const STATUS_BG = { open: 'rgba(245, 158, 11, 0.1)', in_progress: 'rgba(59, 130, 246, 0.1)', closed: 'rgba(16, 185, 129, 0.1)' }
 
 function TicketsTab() {
   const [allTickets, setAllTickets] = useState(null)
@@ -4215,17 +4607,29 @@ function TicketsTab() {
   const visible = allTickets ? (filter ? allTickets.filter(t => t.status === filter) : allTickets) : null
 
   return (
-    <div>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
-        {[['open', 'פתוח'], ['in_progress', 'בטיפול'], ['closed', 'היסטוריה'], ['', 'הכל']].map(([val, label]) => (
+    <div className="tab-fade-in">
+      <div className="card" style={{ padding: '20px', marginBottom: 24, background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.05), transparent)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 24 }}>🎫</span>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--text-main)', letterSpacing: '-0.3px' }}>ניהול פניות שירות</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>מעקב וטיפול בפניות תמיכה של משתמשים</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+        {[['open', '🔴 פתוחות'], ['in_progress', '🟡 בטיפול'], ['closed', '🟢 סגורות'], ['', '📋 הכל']].map(([val, label]) => (
           <button
             key={val}
             onClick={() => setFilter(val)}
             style={{
-              padding: '5px 12px', fontSize: 12, borderRadius: 20, border: '1.5px solid var(--btn)',
-              background: filter === val ? 'var(--btn)' : 'transparent',
-              color: filter === val ? 'var(--btn-text)' : 'var(--btn)',
-              cursor: 'pointer',
+              padding: '8px 16px', fontSize: 13, fontWeight: 700, borderRadius: 12, border: 'none',
+              background: filter === val ? 'var(--primary)' : 'var(--bg-card)',
+              color: filter === val ? '#fff' : 'var(--text-main)',
+              cursor: 'pointer', transition: 'all 0.2s',
+              boxShadow: filter === val ? '0 4px 12px rgba(0, 122, 255, 0.2)' : '0 2px 4px rgba(0,0,0,0.02)',
+              border: filter === val ? '1px solid var(--primary)' : '1px solid var(--border)'
             }}
           >
             {label}{allTickets && counts[val] > 0 ? ` (${counts[val]})` : ''}
@@ -4234,29 +4638,42 @@ function TicketsTab() {
       </div>
 
       {!allTickets && <div className="loading"></div>}
+      
       {visible && visible.length === 0 && (
-        <div style={{ textAlign: 'center', color: 'var(--hint)', fontSize: 14, padding: 20 }}>אין פניות</div>
+        <div style={{ textAlign: 'center', padding: 40, background: 'var(--bg-card)', borderRadius: 16, border: '1px dashed var(--border)', color: 'var(--hint)', fontSize: 14 }}>
+          אין פניות בקטגוריה זו
+        </div>
       )}
-      {visible && visible.map(t => {
-        const name = t.username ? `@${t.username}` : t.full_name || `id:${t.user_id}`
-        return (
-          <div key={t.id} className="card" style={{ cursor: 'pointer' }} onClick={() => setSelected(t.id)}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <div className="card-title" style={{ fontSize: 14 }}>#{t.id} · {t.subject}</div>
-                <div className="card-subtitle">{name} · {fmtDateIL(t.created_at)}</div>
+      
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+        {visible && visible.map(t => {
+          const name = t.username ? `@${t.username}` : t.full_name || `id:${t.user_id}`
+          return (
+            <div key={t.id} className="card" style={{ padding: '16px', cursor: 'pointer', transition: 'all 0.2s', borderLeft: `4px solid ${STATUS_COLOR[t.status]}` }} onClick={() => setSelected(t.id)}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-main)', marginBottom: 4 }}>
+                    <span style={{ color: 'var(--text-muted)', fontSize: 13, marginRight: 6 }}>#{t.id}</span>
+                    {t.subject}
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{name}</span>
+                    <span>•</span>
+                    <span>{fmtDateIL(t.created_at)}</span>
+                  </div>
+                </div>
+                <span style={{
+                  fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 8,
+                  background: STATUS_BG[t.status], color: STATUS_COLOR[t.status],
+                  whiteSpace: 'nowrap', border: `1px solid ${STATUS_COLOR[t.status]}40`
+                }}>
+                  {STATUS_LABEL[t.status]}
+                </span>
               </div>
-              <span style={{
-                fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10,
-                background: STATUS_COLOR[t.status] + '22', color: STATUS_COLOR[t.status],
-                whiteSpace: 'nowrap', marginRight: 8,
-              }}>
-                {STATUS_LABEL[t.status]}
-              </span>
             </div>
-          </div>
-        )
-      })}
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -4304,25 +4721,29 @@ function AdminTicketThread({ ticketId, onBack }) {
   const name = ticket.username ? `@${ticket.username}` : ticket.full_name || `id:${ticket.user_id}`
 
   return (
-    <div style={{ paddingBottom: 80 }}>
-      <BackButton onClick={onBack} />
-      <div style={{ marginBottom: 12 }}>
-        <div style={{ fontWeight: 700, fontSize: 15 }}>#{ticket.id} · {ticket.subject}</div>
-        <div style={{ fontSize: 12, color: 'var(--hint)' }}>{name}</div>
+    <div className="tab-fade-in" style={{ paddingBottom: 80, display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+        <button onClick={onBack} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', width: 36, height: 36, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-main)', fontSize: 16 }}>←</button>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-main)' }}>פניה #{ticket.id}: {ticket.subject}</div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>מאת: <span style={{ fontWeight: 600 }}>{name}</span></div>
+        </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
+      <div className="card" style={{ padding: '12px', marginBottom: 20, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', background: 'var(--bg-card)' }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', marginLeft: 8 }}>סטטוס פניה:</span>
         {[['open','🔴 פתוח'], ['in_progress','🟡 בטיפול'], ['closed','🟢 סגור']].map(([val, label]) => (
           <button
             key={val}
             disabled={updating || ticket.status === val}
             onClick={() => changeStatus(val)}
             style={{
-              padding: '5px 12px', fontSize: 12, borderRadius: 20, border: '1.5px solid var(--btn)',
-              background: ticket.status === val ? 'var(--btn)' : 'transparent',
-              color: ticket.status === val ? 'var(--btn-text)' : 'var(--btn)',
+              padding: '6px 12px', fontSize: 13, fontWeight: 700, borderRadius: 8, border: 'none',
+              background: ticket.status === val ? STATUS_BG[val] : 'var(--bg)',
+              color: ticket.status === val ? STATUS_COLOR[val] : 'var(--text-muted)',
+              border: `1px solid ${ticket.status === val ? STATUS_COLOR[val] + '40' : 'var(--border)'}`,
               cursor: ticket.status === val ? 'default' : 'pointer',
-              opacity: updating ? 0.6 : 1,
+              opacity: updating ? 0.6 : 1, transition: 'all 0.2s'
             }}
           >
             {label}
@@ -4330,41 +4751,52 @@ function AdminTicketThread({ ticketId, onBack }) {
         ))}
       </div>
 
-      {allMessages.map((msg, i) => (
-        <div key={msg.id || i} style={{
-          display: 'flex', flexDirection: 'column',
-          alignItems: msg.is_admin ? 'flex-end' : 'flex-start',
-          marginBottom: 10,
-        }}>
-          <div style={{
-            maxWidth: '85%',
-            background: msg.is_admin ? 'var(--btn)' : 'var(--bg2)',
-            color: msg.is_admin ? 'var(--btn-text)' : 'var(--text)',
-            borderRadius: msg.is_admin ? '16px 4px 16px 16px' : '4px 16px 16px 16px',
-            padding: '10px 14px', fontSize: 14, lineHeight: 1.5, wordBreak: 'break-word',
-          }}>
-            {msg.message}
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--hint)', marginTop: 3 }}>
-            {msg.is_admin ? '🛠 תמיכה' : name} · {fmtDateTime(msg.created_at)}
-          </div>
-        </div>
-      ))}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 20 }}>
+        {allMessages.map((msg, i) => {
+          const isAdmin = msg.is_admin
+          return (
+            <div key={msg.id || i} style={{
+              display: 'flex', flexDirection: 'column',
+              alignItems: isAdmin ? 'flex-end' : 'flex-start',
+            }}>
+              <div style={{
+                maxWidth: '85%',
+                background: isAdmin ? 'var(--primary)' : 'var(--bg-card)',
+                color: isAdmin ? '#fff' : 'var(--text-main)',
+                border: isAdmin ? 'none' : '1px solid var(--border)',
+                borderRadius: isAdmin ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                padding: '12px 16px', fontSize: 14, lineHeight: 1.5, wordBreak: 'break-word',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+              }}>
+                {msg.message}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6, fontWeight: 500, padding: '0 4px' }}>
+                {isAdmin ? '🛠️ צוות תמיכה' : '👤 ' + name} • {fmtDateTime(msg.created_at)}
+              </div>
+            </div>
+          )
+        })}
+      </div>
 
       {ticket.status !== 'closed' && (
-        <div style={{ position: 'fixed', bottom: 0, right: 0, left: 0, padding: '10px 16px', background: 'var(--bg)', borderTop: '1px solid var(--bg2)', zIndex: 10 }}>
-          <div style={{ display: 'flex', gap: 8, maxWidth: 480, margin: '0 auto' }}>
+        <div style={{ position: 'fixed', bottom: 0, right: 0, left: 0, padding: '16px', background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(12px)', borderTop: '1px solid var(--border)', zIndex: 10 }}>
+          <div style={{ display: 'flex', gap: 12, maxWidth: 480, margin: '0 auto', background: 'var(--bg-card)', padding: '6px', borderRadius: 16, border: '1px solid var(--border)', boxShadow: '0 4px 16px rgba(0,0,0,0.06)' }}>
             <input
-              className="input"
-              style={{ flex: 1, marginBottom: 0 }}
-              placeholder="תגובה למשתמש..."
+              style={{ flex: 1, margin: 0, border: 'none', background: 'transparent', padding: '0 12px', fontSize: 15, color: 'var(--text-main)', outline: 'none' }}
+              placeholder="כתוב תגובה למשתמש..."
               value={reply}
               onChange={e => setReply(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && sendReply()}
             />
             <button
-              className="btn"
-              style={{ width: 'auto', padding: '0 16px', marginTop: 0 }}
+              style={{
+                width: 44, height: 44, borderRadius: 12, border: 'none',
+                background: reply.trim() ? 'var(--primary)' : 'var(--bg)',
+                color: reply.trim() ? '#fff' : 'var(--text-muted)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
+                cursor: reply.trim() && !sending ? 'pointer' : 'default', transition: 'all 0.2s',
+                boxShadow: reply.trim() ? '0 4px 12px rgba(0, 122, 255, 0.2)' : 'none'
+              }}
               disabled={sending || !reply.trim()}
               onClick={sendReply}
             >
@@ -4450,93 +4882,110 @@ function GroupsTab() {
   }
 
   return (
-    <div>
+    <div className="tab-fade-in">
       {/* Create group */}
-      <div style={{ background: 'var(--card-bg, rgba(255,255,255,0.05))', borderRadius: 12, padding: '12px 14px', marginBottom: 16 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>➕ צור קבוצה</div>
-        <div style={{ display: 'flex', gap: 8 }}>
+      <div className="card" style={{ padding: '20px', marginBottom: 24, background: 'linear-gradient(to right, rgba(0, 122, 255, 0.05), transparent)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+          <span style={{ fontSize: 24 }}>👥</span>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--text-main)', letterSpacing: '-0.3px' }}>קבוצות משתמשים</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>ניהול הרשאות וקבוצות תמחור</div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 12 }}>
           <input
             className="input"
-            style={{ flex: 1, marginBottom: 0 }}
-            placeholder="שם הקבוצה"
+            style={{ flex: 1, marginBottom: 0, borderRadius: 12, height: 44 }}
+            placeholder="שם הקבוצה החדשה..."
             value={newGroupName}
             onChange={e => setNewGroupName(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && createGroup()}
           />
           <button
             className="btn"
-            style={{ width: 'auto', padding: '0 16px', marginTop: 0 }}
+            style={{ width: 'auto', padding: '0 24px', margin: 0, borderRadius: 12, background: 'var(--primary)', fontWeight: 700 }}
             disabled={creating || !newGroupName.trim()}
             onClick={createGroup}
           >
-            {creating ? '⏳' : 'צור'}
+            {creating ? '⏳ יוצר...' : '➕ הוסף'}
           </button>
         </div>
       </div>
 
       {/* Groups list */}
       {groups.length === 0 && (
-        <div style={{ color: 'var(--hint)', textAlign: 'center', padding: 24 }}>אין קבוצות עדיין</div>
+        <div style={{ color: 'var(--hint)', textAlign: 'center', padding: 32, background: 'var(--bg-card)', borderRadius: 16, border: '1px dashed var(--border)' }}>אין קבוצות מוגדרות למערכת</div>
       )}
-      {groups.map(group => (
-        <div key={group.id} style={{ background: 'var(--card-bg, rgba(255,255,255,0.05))', borderRadius: 12, padding: '12px 14px', marginBottom: 14 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>{group.name}</div>
-              <div style={{ fontSize: 12, color: 'var(--hint)' }}>{group.member_ids.length} חברים</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {groups.map(group => (
+          <div key={group.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid var(--border)', background: 'rgba(0,0,0,0.02)' }}>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--text-main)' }}>{group.name}</div>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>{group.member_ids.length} משתמשים משויכים</div>
+              </div>
+              <button
+                className="btn btn-danger"
+                style={{ width: 36, height: 36, padding: 0, margin: 0, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}
+                onClick={() => deleteGroup(group.id, group.name)}
+                title="מחק קבוצה"
+              >
+                🗑️
+              </button>
             </div>
-            <button
-              className="btn btn-danger"
-              style={{ width: 'auto', padding: '5px 12px', marginTop: 0, fontSize: 13 }}
-              onClick={() => deleteGroup(group.id, group.name)}
-            >
-              🗑
-            </button>
-          </div>
 
-          {/* Members */}
-          {group.member_ids.length > 0 && (
-            <div style={{ marginBottom: 10 }}>
-              {group.member_ids.map(uid => (
-                <div key={uid} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid var(--bg)', fontSize: 13 }}>
-                  <span>{getUserName(uid)}</span>
-                  <button
-                    onClick={() => removeMember(group.id, uid)}
-                    style={{ background: 'none', border: 'none', color: '#e53e3e', cursor: 'pointer', fontSize: 16, padding: '0 4px' }}
-                  >
-                    ✕
-                  </button>
+            <div style={{ padding: '20px' }}>
+              {/* Members */}
+              {group.member_ids.length > 0 && (
+                <div style={{ marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {group.member_ids.map(uid => (
+                    <div key={uid} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', background: 'var(--bg)', borderRadius: 12, border: '1px solid var(--border)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(0, 122, 255, 0.1)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 }}>
+                          {uid.toString().slice(-2)}
+                        </div>
+                        <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-main)' }}>{getUserName(uid)}</span>
+                      </div>
+                      <button
+                        onClick={() => removeMember(group.id, uid)}
+                        style={{ background: 'rgba(239, 68, 68, 0.1)', border: 'none', color: '#ef4444', cursor: 'pointer', width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, transition: 'all 0.2s' }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
+              )}
 
-          {/* Add member */}
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <select
-              className="input"
-              style={{ flex: 1, marginBottom: 0 }}
-              value={addingMember[group.id] || ''}
-              onChange={e => setAddingMember(m => ({ ...m, [group.id]: e.target.value }))}
-            >
-              <option value="">הוסף משתמש...</option>
-              {availableUsers(group).map(u => (
-                <option key={u.user_id} value={u.user_id}>
-                  {u.username ? `@${u.username}` : u.full_name || String(u.user_id)}
-                </option>
-              ))}
-            </select>
-            <button
-              className="btn btn-success"
-              style={{ width: 'auto', padding: '0 14px', marginTop: 0 }}
-              disabled={!addingMember[group.id]}
-              onClick={() => addMember(group.id)}
-            >
-              הוסף
-            </button>
+              {/* Add member */}
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center', background: 'var(--bg)', padding: '12px', borderRadius: 12, border: '1px dashed var(--border)' }}>
+                <span style={{ fontSize: 18 }}>👤</span>
+                <select
+                  className="input"
+                  style={{ flex: 1, margin: 0, borderRadius: 10, height: 40, border: 'none', background: 'var(--bg-card)' }}
+                  value={addingMember[group.id] || ''}
+                  onChange={e => setAddingMember(m => ({ ...m, [group.id]: e.target.value }))}
+                >
+                  <option value="">בחר משתמש לצירוף...</option>
+                  {availableUsers(group).map(u => (
+                    <option key={u.user_id} value={u.user_id}>
+                      {u.username ? `@${u.username}` : u.full_name || String(u.user_id)}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="btn btn-success"
+                  style={{ width: 'auto', padding: '0 16px', margin: 0, height: 40, borderRadius: 10, fontWeight: 700, background: '#10b981' }}
+                  disabled={!addingMember[group.id]}
+                  onClick={() => addMember(group.id)}
+                >
+                  צרף לקבוצה
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   )
 }
@@ -4610,214 +5059,211 @@ function WatchesTab() {
   if (!watches) return <div className="loading"></div>
 
   return (
-    <div>
-      <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 12, lineHeight: 1.6 }}>
-        הגדר מעקב אחרי מודעות ביד2. בכל 30 דקות המערכת בודקת אם נוספו מודעות חדשות ושולחת הודעה בטלגרם.
-        מקסימום 5 התראות.
+    <div className="tab-fade-in">
+      <div className="card" style={{ padding: '20px', marginBottom: 24, background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.05), transparent)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 24 }}>🔔</span>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--text-main)', letterSpacing: '-0.3px' }}>התראות יד2 למשתמשים</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>ניהול התראות מעקב אחר רכבים למשתמשים במערכת</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ background: 'rgba(59, 130, 246, 0.05)', border: '1px solid rgba(59, 130, 246, 0.2)', borderRadius: 16, padding: '16px', fontSize: 13, color: 'var(--text-muted)', marginBottom: 24, lineHeight: 1.6 }}>
+        <b style={{ color: 'var(--text-main)' }}>איך זה עובד:</b> הגדר מעקב אחר מודעות רכב. המערכת תבדוק אוטומטית כל 30 דקות אם פורסמו רכבים חדשים העונים לקריטריונים, ותשלח הודעת התראה בטלגרם. ניתן להגדיר עד 5 התראות במקביל.
       </div>
 
       {watches.length === 0 && !adding && (
-        <div style={{ color: 'var(--hint)', textAlign: 'center', padding: 24 }}>אין התראות פעילות עדיין</div>
+        <div style={{ textAlign: 'center', padding: 40, background: 'var(--bg-card)', borderRadius: 16, border: '1px dashed var(--border)', color: 'var(--hint)', fontSize: 14 }}>
+          אין התראות מוגדרות במערכת
+        </div>
       )}
 
-      {watches.map(w => (
-        <div key={w.id} style={{ marginBottom: 10 }}>
-          <div className="card" style={{ opacity: w.active ? 1 : 0.55, transition: 'opacity 0.2s', marginBottom: 0 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="card-title">
-                  🔔 {w.make}{w.model ? ` ${w.model}` : ''}{w.year ? ` ${w.year}` : ''}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {watches.map(w => (
+          <div key={w.id} className="card" style={{ padding: 0, overflow: 'hidden', opacity: w.active ? 1 : 0.6, transition: 'all 0.2s', borderLeft: w.active ? '4px solid #10b981' : '4px solid #ef4444' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-main)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {w.make}{w.model ? ` ${w.model}` : ''}{w.year ? ` - ${w.year}` : ''}
                 </div>
-                <div className="card-subtitle">
-                  {w.active ? '🟢 פעיל' : '⏸ מושהה'} · {w.created_at?.slice(0, 10)}
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ color: w.active ? '#10b981' : '#ef4444', fontWeight: 600 }}>{w.active ? '🟢 פעיל עכשיו' : '🔴 מושהה'}</span>
+                  <span>•</span>
+                  <span>נוצר ב-{w.created_at?.slice(0, 10)}</span>
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
+              
+              <div style={{ display: 'flex', gap: 8 }}>
                 <button
-                  className="btn"
-                  style={{ width: 'auto', padding: '6px 10px', marginTop: 0, fontSize: 12, background: 'var(--bg)' }}
                   onClick={() => {
                     if (previewWatch === w.id) { setPreview(null); setPreviewWatch(null) }
                     else { setPreviewWatch(w.id); runPreview(w.make, w.model, w.year) }
                   }}
-                  title="בדוק עכשיו"
-                >🔍 בדוק</button>
+                  style={{
+                    width: 36, height: 36, borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 16, color: 'var(--text-main)'
+                  }}
+                  title="בדוק תוצאות"
+                >🔍</button>
                 <button
-                  className="btn"
-                  style={{ width: 'auto', padding: '6px 10px', marginTop: 0, fontSize: 13 }}
                   onClick={() => toggleWatch(w.id)}
+                  style={{
+                    width: 36, height: 36, borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 16, color: 'var(--text-main)'
+                  }}
                   title={w.active ? 'השהה' : 'הפעל'}
                 >{w.active ? '⏸' : '▶️'}</button>
                 <button
-                  className="btn btn-danger"
-                  style={{ width: 'auto', padding: '6px 10px', marginTop: 0, fontSize: 13 }}
                   onClick={() => deleteWatch(w.id)}
+                  style={{
+                    width: 36, height: 36, borderRadius: 10, background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 16, color: '#ef4444'
+                  }}
+                  title="מחק התראה"
                 >🗑</button>
               </div>
             </div>
-          </div>
 
-          {/* Preview panel */}
-          {previewWatch === w.id && (
-            <div style={{
-              background: 'var(--bg)', borderRadius: '0 0 12px 12px',
-              borderTop: '1px solid rgba(255,255,255,0.08)',
-              padding: '10px 14px',
-            }}>
-              {preview === 'loading' && (
-                <div style={{ color: 'var(--hint)', fontSize: 13, textAlign: 'center', padding: '8px 0' }}>⏳ מחפש מודעות...</div>
-              )}
-              {preview?.items && preview.items.length === 0 && (
-                <div style={{ color: 'var(--hint)', fontSize: 13, textAlign: 'center', padding: '8px 0' }}>לא נמצאו מודעות תואמות</div>
-              )}
-              {preview?.items && preview.items.length > 0 && (
-                <div>
-                  <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 8 }}>
-                    {preview.total} מודעות (מוצגות עד 5)
-                  </div>
-                  {preview.items.map((item, i) => (
-                    <div key={i} style={{
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                      padding: '8px 10px', background: 'var(--bg2)', borderRadius: 9,
-                      marginBottom: 6, gap: 8,
-                    }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, fontSize: 13, color: '#38bdf8' }}>
-                          {item.price ? `₪${Number(item.price).toLocaleString()}` : 'מחיר לא צוין'}
+            {/* Preview panel */}
+            {previewWatch === w.id && (
+              <div style={{ padding: '16px', background: 'var(--bg)', borderTop: '1px solid var(--border)' }}>
+                {preview === 'loading' && (
+                  <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}><div className="loading"></div></div>
+                )}
+                {preview?.items && preview.items.length === 0 && (
+                  <div style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', padding: '12px' }}>לא נמצאו מודעות רלוונטיות</div>
+                )}
+                {preview?.items && preview.items.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 12 }}>
+                      נמצאו {preview.total} מודעות (מציג עד 5 אחרונות):
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8 }}>
+                      {preview.items.map((item, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border)' }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 800, fontSize: 14, color: '#3b82f6', marginBottom: 4 }}>
+                              {item.price ? `₪${Number(item.price).toLocaleString()}` : 'ללא מחיר'}
+                            </div>
+                            <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', gap: 12 }}>
+                              {item.km && <span>🛣️ {Number(item.km).toLocaleString()} ק"מ</span>}
+                              {item.year && <span>📅 {item.year}</span>}
+                              {item.city && <span>📍 {item.city}</span>}
+                            </div>
+                          </div>
                         </div>
-                        <div style={{ fontSize: 11, color: 'var(--hint)', marginTop: 2 }}>
-                          {[
-                            item.km ? `🛣️ ${Number(item.km).toLocaleString()} ק"מ` : null,
-                            item.city ? `📍 ${item.city}` : null,
-                            item.year ? `📅 ${item.year}` : null,
-                          ].filter(Boolean).join('  ')}
+                      ))}
+                    </div>
+                    {preview.search_url && (
+                      <a href={preview.search_url} target="_blank" rel="noreferrer" style={{ display: 'block', textAlign: 'center', padding: '12px', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', borderRadius: 12, fontSize: 14, fontWeight: 700, textDecoration: 'none', marginTop: 12, border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                        פתח את כל התוצאות ביד2 ↗
+                      </a>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+
+        {adding && (
+          <div className="card tab-fade-in" style={{ padding: '24px', border: '2px solid var(--primary)', position: 'relative' }}>
+            <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-main)', marginBottom: 16 }}>הגדרת מעקב חדש</div>
+            <button onClick={() => { setAdding(false); setForm({ make: '', model: '', year: '' }); setPreview(null) }} style={{ position: 'absolute', top: 20, right: 20, background: 'var(--bg)', border: 'none', width: 32, height: 32, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-main)', fontSize: 14 }}>✕</button>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6 }}>יצרן רכב</div>
+                <select className="input" value={form.make} onChange={e => setForm(f => ({ ...f, make: e.target.value, model: '', year: '' }))} style={{ margin: 0, borderRadius: 12, background: 'var(--bg)', fontWeight: 600 }}>
+                  <option value="">— בחר יצרן מרשימה —</option>
+                  {makes.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+
+              {form.make && (
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6 }}>דגם ספציפי (אופציונלי)</div>
+                  <select className="input" value={form.model} onChange={e => setForm(f => ({ ...f, model: e.target.value }))} style={{ margin: 0, borderRadius: 12, background: 'var(--bg)', fontWeight: 600 }}>
+                    <option value="">— כל הדגמים —</option>
+                    {models.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+              )}
+
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6 }}>שנתון (אופציונלי)</div>
+                <select className="input" value={form.year} onChange={e => setForm(f => ({ ...f, year: e.target.value }))} style={{ margin: 0, borderRadius: 12, background: 'var(--bg)', fontWeight: 600 }}>
+                  <option value="">— כל השנתונים —</option>
+                  {years.map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+              </div>
+
+              {form.make && (
+                <button
+                  type="button"
+                  style={{ padding: '12px', background: 'var(--bg)', border: '1px dashed var(--border)', borderRadius: 12, color: 'var(--text-main)', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+                  onClick={() => runPreview(form.make, form.model, form.year ? parseInt(form.year) : null)}
+                >
+                  🔍 הפעל בדיקה מקדימה לפני שמירה
+                </button>
+              )}
+
+              {/* Inline preview */}
+              {preview === 'loading' && !previewWatch && (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '10px' }}><div className="loading"></div></div>
+              )}
+              {preview?.items && !previewWatch && preview.items.length === 0 && (
+                <div style={{ color: '#ef4444', fontSize: 13, textAlign: 'center', padding: '12px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: 12 }}>לא נמצאו מודעות תואמות, אולי כדאי להרחיב את החיפוש</div>
+              )}
+              {preview?.items && !previewWatch && preview.items.length > 0 && (
+                <div style={{ background: 'var(--bg)', borderRadius: 12, padding: '16px', border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#10b981', marginBottom: 12 }}>
+                    נמצאו {preview.total} מודעות תואמות!
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {preview.items.slice(0,3).map((item, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px', background: 'var(--bg-card)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 800, fontSize: 13, color: '#3b82f6', marginBottom: 2 }}>{item.price ? `₪${Number(item.price).toLocaleString()}` : 'ללא מחיר'}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                            {[item.km ? `${Number(item.km).toLocaleString()} ק"מ` : null, item.city].filter(Boolean).join(' • ')}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                   {preview.search_url && (
-                    <a href={preview.search_url} target="_blank" rel="noreferrer" style={{
-                      display: 'block', textAlign: 'center', padding: '8px',
-                      background: 'var(--btn)', color: 'var(--btn-text)',
-                      borderRadius: 9, fontSize: 13, fontWeight: 600, textDecoration: 'none', marginTop: 4,
-                    }}>ראה את כל המודעות ביד2 ←</a>
+                    <a href={preview.search_url} target="_blank" rel="noreferrer" style={{ display: 'block', textAlign: 'center', padding: '10px', color: '#3b82f6', fontSize: 13, fontWeight: 700, textDecoration: 'none', marginTop: 8 }}>
+                      פתח את כל התוצאות ביד2 ↗
+                    </a>
                   )}
                 </div>
               )}
+
+              <button
+                className="btn"
+                disabled={saving || !form.make}
+                onClick={createWatch}
+                style={{ height: 50, borderRadius: 12, fontSize: 16, fontWeight: 800, background: '#10b981', color: '#fff', border: 'none', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)', cursor: (saving || !form.make) ? 'default' : 'pointer', opacity: (saving || !form.make) ? 0.6 : 1, margin: 0, marginTop: 8 }}
+              >
+                {saving ? '⏳ שומר נתונים...' : '✨ הוסף מעקב חדש'}
+              </button>
             </div>
-          )}
-        </div>
-      ))}
-
-      {adding && (
-        <div style={{ background: 'var(--bg2)', borderRadius: 14, padding: '14px 14px 10px', marginBottom: 10 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>➕ התראה חדשה</div>
-
-          {/* Make dropdown */}
-          <select
-            className="input"
-            value={form.make}
-            onChange={e => setForm(f => ({ ...f, make: e.target.value, model: '', year: '' }))}
-            style={{ marginBottom: 8 }}
-          >
-            <option value="">— בחר יצרן —</option>
-            {makes.map(m => <option key={m} value={m}>{m}</option>)}
-          </select>
-
-          {/* Model dropdown — only shown when make is selected */}
-          {form.make && (
-            <select
-              className="input"
-              value={form.model}
-              onChange={e => setForm(f => ({ ...f, model: e.target.value }))}
-              style={{ marginBottom: 8 }}
-            >
-              <option value="">— כל הדגמים —</option>
-              {models.map(m => <option key={m} value={m}>{m}</option>)}
-            </select>
-          )}
-
-          {/* Year dropdown */}
-          <select
-            className="input"
-            value={form.year}
-            onChange={e => setForm(f => ({ ...f, year: e.target.value }))}
-            style={{ marginBottom: 10 }}
-          >
-            <option value="">— כל השנים —</option>
-            {years.map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
-
-          {/* Preview button */}
-          {form.make && (
-            <button
-              type="button"
-              className="btn btn-secondary"
-              style={{ marginBottom: 10, marginTop: 0, fontSize: 13 }}
-              onClick={() => runPreview(form.make, form.model, form.year ? parseInt(form.year) : null)}
-            >🔍 בדוק עכשיו — ראה מודעות תואמות</button>
-          )}
-
-          {/* Inline preview for new watch form */}
-          {preview === 'loading' && !previewWatch && (
-            <div style={{ color: 'var(--hint)', fontSize: 13, marginBottom: 10 }}>⏳ מחפש...</div>
-          )}
-          {preview?.items && !previewWatch && preview.items.length === 0 && (
-            <div style={{ color: 'var(--hint)', fontSize: 12, marginBottom: 10 }}>לא נמצאו מודעות תואמות</div>
-          )}
-          {preview?.items && !previewWatch && preview.items.length > 0 && (
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 6 }}>{preview.total} מודעות קיימות תואמות:</div>
-              {preview.items.map((item, i) => (
-                <div key={i} style={{
-                  display: 'flex', alignItems: 'center',
-                  padding: '7px 10px', background: 'var(--bg)', borderRadius: 8,
-                  marginBottom: 5, gap: 8,
-                }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, fontSize: 13, color: '#38bdf8' }}>
-                      {item.price ? `₪${Number(item.price).toLocaleString()}` : 'מחיר לא צוין'}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--hint)', marginTop: 2 }}>
-                      {[
-                        item.km ? `🛣️ ${Number(item.km).toLocaleString()} ק"מ` : null,
-                        item.city ? `📍 ${item.city}` : null,
-                      ].filter(Boolean).join('  ')}
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {preview.search_url && (
-                <a href={preview.search_url} target="_blank" rel="noreferrer" style={{
-                  display: 'block', textAlign: 'center', padding: '7px',
-                  background: 'rgba(56,189,248,0.12)', color: '#38bdf8',
-                  borderRadius: 8, fontSize: 12, fontWeight: 600, textDecoration: 'none', marginTop: 4,
-                }}>ראה כל המודעות ביד2 ←</a>
-              )}
-            </div>
-          )}
-
-          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-            <button
-              className="btn"
-              disabled={saving || !form.make}
-              onClick={createWatch}
-              style={{ flex: 1, marginTop: 0 }}
-            >{saving ? '⏳...' : '✅ שמור'}</button>
-            <button
-              className="btn btn-secondary"
-              onClick={() => { setAdding(false); setForm({ make: '', model: '', year: '' }); setPreview(null) }}
-              style={{ flex: 1, marginTop: 0 }}
-            >ביטול</button>
           </div>
-        </div>
-      )}
+        )}
 
-      {!adding && watches.length < 5 && (
-        <button className="btn btn-success" style={{ marginTop: 6 }} onClick={() => { setAdding(true); setPreview(null); setPreviewWatch(null) }}>
-          ➕ הוסף התראה
-        </button>
-      )}
+        {!adding && watches.length < 5 && (
+          <button
+            onClick={() => { setAdding(true); setPreview(null); setPreviewWatch(null) }}
+            style={{ height: 50, borderRadius: 12, fontSize: 15, fontWeight: 800, background: 'var(--bg-card)', color: 'var(--primary)', border: '2px dashed var(--primary)', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+          >
+            <span style={{ fontSize: 18 }}>➕</span>
+            הגדר התראה חדשה למערכת
+          </button>
+        )}
+      </div>
     </div>
   )
 }
