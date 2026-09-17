@@ -1753,6 +1753,7 @@ async def _cycle_searching_message(msg) -> None:
 
 
 async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    global PAYMENT_MSG
     user_id = update.effective_user.id
     raw     = update.message.text.strip()
 
@@ -1794,7 +1795,6 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             await update.message.reply_text(f"✅ עודכן\\! בדיקות חינמיות: *{new_val}*", parse_mode=ParseMode.MARKDOWN_V2)
             return
         if setting == "payment_msg":
-            global PAYMENT_MSG
             PAYMENT_MSG = raw
             context.user_data.pop("admin_setting", None)
             await update.message.reply_text("✅ הודעת תשלום עודכנה\\!\n\n" + raw, parse_mode=ParseMode.MARKDOWN_V2)
