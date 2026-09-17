@@ -23,7 +23,7 @@ ADMIN_ID     = int(os.environ.get("ADMIN_TELEGRAM_ID", "594206475"))
 PAYPAL_ME    = os.environ.get("PAYPAL_ME", "https://paypal.me/carinfo")
 PAYBOX_URL   = os.environ.get("PAYBOX_URL", "https://links.payboxapp.com/xjZpYBP2n3b")
 BOT_USERNAME = os.environ.get("BOT_USERNAME", "israelcarinfobot")
-WEBAPP_URL   = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
+WEBAPP_URL   = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_URL", "https://carinfo-bot.onrender.com")
 
 # Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
 # webapp can detect a new release and force-reload instead of running stale

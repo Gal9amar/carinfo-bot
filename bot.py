@@ -93,7 +93,7 @@ WAITING_PAYMENT_MSG = 3
 
 def _persistent_rows(is_admin: bool = False) -> list:
     """Bottom row shown in every chat keyboard — search + mini-app shortcut."""
-    webapp_url = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
+    webapp_url = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_URL", "https://carinfo-bot.onrender.com")
     return [
         [
             InlineKeyboardButton("🔍 חיפוש רכב חדש", callback_data="new_search", style="success"),
@@ -107,7 +107,7 @@ def _persistent_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
 
 
 def _payment_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
-    webapp_url = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
+    webapp_url = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_URL", "https://carinfo-bot.onrender.com")
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🛒 רכישת חבילה", web_app=WebAppInfo(url=webapp_url), style="primary")],
         [InlineKeyboardButton("🔑 יש לי קוד גישה", callback_data="enter_code")],
@@ -151,7 +151,7 @@ def build_result_keyboard(
     yad2_link: str = "",
 ) -> InlineKeyboardMarkup:
     from telegram import WebAppInfo
-    webapp_url = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
+    webapp_url = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_URL", "https://carinfo-bot.onrender.com")
     plate = record.get("mispar_rechev", "") if record else ""
     first_row = []
     if plate:
@@ -173,13 +173,13 @@ def _packages_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
             style="primary",
         )])
     buttons.append([InlineKeyboardButton("🎟️ יש לי קוד הטבה", callback_data="enter_code")])
-    buttons.append([InlineKeyboardButton("📱 פתח תפריט", web_app=WebAppInfo(url=os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")))])
+    buttons.append([InlineKeyboardButton("📱 פתח תפריט", web_app=WebAppInfo(url=os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_URL", "https://carinfo-bot.onrender.com")))])
     return InlineKeyboardMarkup(buttons)
 
 
 def _paypal_keyboard(searches: int, price: int) -> InlineKeyboardMarkup:
     paypal_url = f"{PAYPAL_ME}/{price}"
-    webapp_url = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
+    webapp_url = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_URL", "https://carinfo-bot.onrender.com")
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(f"💳 שלם ₪{price} ב-PayPal", url=paypal_url, style="primary")],
         [InlineKeyboardButton(f"💚 שלם ₪{price} ב-PayBox", url=PAYBOX_URL, style="success")],
@@ -471,7 +471,7 @@ async def cb_enter_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         "שלח את הקוד שקיבלת \\(לא תלוי רישיות\\):",
         parse_mode=ParseMode.MARKDOWN_V2,
         reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("📱 פתח תפריט", web_app=WebAppInfo(url=os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")))],
+            [InlineKeyboardButton("📱 פתח תפריט", web_app=WebAppInfo(url=os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_URL", "https://carinfo-bot.onrender.com")))],
         ]),
     )
     context.user_data["code_is_admin"] = is_admin
@@ -1017,7 +1017,7 @@ async def handle_package_callback(update: Update, context: ContextTypes.DEFAULT_
 
     data = query.data
     if data == "show_packages":
-        webapp_url = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
+        webapp_url = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_URL", "https://carinfo-bot.onrender.com")
         await query.edit_message_text(
             "🛒 *רכישת חבילת חיפושים*\n\nפתח את התפריט לרכישה:",
             parse_mode=ParseMode.MARKDOWN_V2,
@@ -1358,7 +1358,7 @@ async def handle_admin_keyboard(update: Update, context: ContextTypes.DEFAULT_TY
 
 async def cmd_buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Open the Mini App for purchasing packages."""
-    webapp_url = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
+    webapp_url = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_URL", "https://carinfo-bot.onrender.com")
     from telegram import WebAppInfo
     await update.message.reply_text(
         "💳 *רכישת בדיקות*\n\nלחץ על הכפתור למטה לפתיחת חנות החבילות:",
@@ -1459,7 +1459,7 @@ async def _notify_admin_ticket(ticket_id: int, user_id: int, name: str, subject:
             f"📋 *נושא:* {subject}\n\n"
             f"{message[:500]}"
         )
-        webapp_url = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
+        webapp_url = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_URL", "https://carinfo-bot.onrender.com")
         from telegram import WebAppInfo
         kb = InlineKeyboardMarkup([[
             InlineKeyboardButton("🎫 פתח טיקט", web_app=WebAppInfo(url=f"{webapp_url}/?page=admin_ticket&id={ticket_id}"))
@@ -1471,7 +1471,7 @@ async def _notify_admin_ticket(ticket_id: int, user_id: int, name: str, subject:
 
 async def _notify_user_ticket_reply(user_id: int, ticket_id: int, subject: str, reply: str):
     try:
-        webapp_url = os.environ.get("WEBAPP_URL", "https://carinfo-bot.onrender.com")
+        webapp_url = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_URL", "https://carinfo-bot.onrender.com")
         from telegram import WebAppInfo
         text = (
             f"💬 *תגובה חדשה לפנייה שלך*\n"
