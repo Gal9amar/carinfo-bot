@@ -721,16 +721,6 @@ function BannersTab() {
     })
   }
 
-  async function toggleActive(b) {
-    setBanners(prev => prev.map(x => x.id === b.id ? { ...x, is_active: !x.is_active } : x))
-    try {
-      await adminUpdateBanner(b.id, toBody({ ...b, is_active: !b.is_active }))
-    } catch {
-      window.Telegram?.WebApp?.showAlert('שגיאה')
-      load()
-    }
-  }
-
   if (!banners) return <div className="loading"></div>
 
   return (
@@ -758,36 +748,37 @@ function BannersTab() {
             className="card"
             style={{ opacity: isDragging ? 0.45 : isActive ? 1 : 0.5, cursor: reordering ? 'wait' : 'grab' }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
-                <span style={{ fontSize: 20, color: 'var(--hint)', cursor: 'grab', userSelect: 'none', flexShrink: 0 }} title="גרור לשינוי סדר">⠿</span>
-                <div style={{
-                  width: 44, height: 44, borderRadius: 10, flexShrink: 0,
-                  background: `linear-gradient(135deg, ${b.color_from}, ${b.color_to})`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
-                }}>{b.icon}</div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span className="card-title">{b.title}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                <button className="btn btn-danger" style={{ width: 36, height: 36, padding: 0, margin: 0, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }} onClick={() => deleteBanner(b.id)}>🗑️</button>
+                <button className="btn" style={{ width: 36, height: 36, padding: 0, margin: 0, borderRadius: 12, background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }} onClick={() => { setEditing(b); setForm({ title: b.title, subtitle: b.subtitle || '', icon: b.icon, image_url: b.image_url || '', color_from: b.color_from, color_to: b.color_to, link_type: b.link_type, link_value: b.link_value, placements: b.placements || ['home'], is_active: b.is_active !== false }) }}>✏️</button>
+                <button className="btn btn-secondary" style={{ width: 36, height: 36, padding: 0, margin: 0, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }} onClick={() => { window.Telegram?.WebApp?.showAlert(`תצוגה מקדימה: ${b.title}`) }}>👁️</button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <button className="btn btn-secondary" style={{ width: 36, height: 17, padding: 0, margin: 0, borderRadius: 6, fontSize: 10, lineHeight: 1 }} disabled={idx === 0 || reordering} onClick={() => moveBanner(idx, idx - 1)}>▲</button>
+                  <button className="btn btn-secondary" style={{ width: 36, height: 17, padding: 0, margin: 0, borderRadius: 6, fontSize: 10, lineHeight: 1 }} disabled={idx === banners.length - 1 || reordering} onClick={() => moveBanner(idx, idx + 1)}>▼</button>
+                </div>
+              </div>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, justifyContent: 'flex-end', textAlign: 'right' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                     {!isActive && (
-                      <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#e53e3e22', color: '#e53e3e' }}>מושבת</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 12, background: '#fee2e2', color: '#ef4444', border: '1px solid #fca5a5' }}>מושבת</span>
                     )}
+                    <span style={{ fontWeight: 800, fontSize: 18, color: 'var(--text-main)', letterSpacing: '-0.3px' }}>{b.title}</span>
                   </div>
-                  <div className="card-subtitle">🔗 {linkLabel}</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                  <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
+                    🔗 {linkLabel}
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4, justifyContent: 'flex-end' }}>
                     {(b.placements?.length ? b.placements : ['home']).map(p => (
                       <span key={p} style={{
                         fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 10,
-                        background: 'var(--bg)', color: 'var(--hint)',
+                        background: 'rgba(0,0,0,0.03)', color: 'var(--text-muted)',
                       }}>{PLACEMENT_OPTIONS.find(o => o.value === p)?.label || p}</span>
                     ))}
                   </div>
                 </div>
-              </div>
-              <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                <button className="btn" style={{ width: 'auto', padding: '4px 8px', marginTop: 0, fontSize: 12 }}
-                  disabled={idx === 0 || reordering} onClick={() => moveBanner(idx, idx - 1)} title="הזז למעלה">↑</button>
-                <button className="btn" style={{ width: 'auto', padding: '4px 8px', marginTop: 0, fontSize: 12 }}
                   disabled={idx === banners.length - 1 || reordering} onClick={() => moveBanner(idx, idx + 1)} title="הזז למטה">↓</button>
                 <button className="btn" style={{ width: 'auto', padding: '6px 12px', marginTop: 0, fontSize: 13 }}
                   onClick={() => toggleActive(b)} title={isActive ? 'הסתר מהאתר' : 'הצג באתר'}>{isActive ? '👁️' : '🚫'}</button>
