@@ -39,17 +39,20 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
 
       {user && (
         <div className="card" style={{ marginBottom: 16 }}>
-          <span style={{ fontSize: 14, color: 'var(--hint)' }}>
+          <div style={{ fontSize: 14, color: 'var(--text-main)', marginBottom: user.is_subscriber ? 10 : 0 }}>
             שלום {user.first_name} · נותרו לך{' '}
-            <strong>{user.searches_left === -1 ? '∞' : user.searches_left}</strong> חיפושים
-            {user.is_subscriber && (
-              <span style={{
-                marginRight: 8, fontSize: 11, fontWeight: 400,
-                background: 'linear-gradient(135deg,#1e40af,#0ea5e9)',
-                color: '#000', borderRadius: 20, padding: '2px 9px',
-              }}>{user.subscription_label || 'מנוי'}</span>
-            )}
-          </span>
+            <strong style={{ color: 'var(--primary)', fontSize: 16 }}>{user.searches_left === -1 ? '∞' : user.searches_left}</strong> חיפושים
+          </div>
+          {user.is_subscriber && (
+            <div style={{
+              fontSize: 13, fontWeight: 500,
+              background: 'linear-gradient(135deg, var(--primary), #0ea5e9)',
+              color: '#fff', borderRadius: 12, padding: '8px 12px',
+              lineHeight: 1.4, display: 'inline-block'
+            }}>
+              {user.subscription_label || 'מנוי'}
+            </div>
+          )}
         </div>
       )}
 
