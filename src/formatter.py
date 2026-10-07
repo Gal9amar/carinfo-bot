@@ -14,6 +14,7 @@ def _escape(text: str) -> str:
 def _format_date(raw: Optional[str]) -> str:
     if not raw:
         return ""
+    raw = str(raw)
     try:
         return datetime.fromisoformat(raw[:10]).strftime("%d/%m/%Y")
     except Exception:
@@ -159,6 +160,12 @@ def cat_general(record: dict, w: dict) -> str:
     if pi:
         lines.append(_row_always("יבוא", _val(pi, "sug_yevu") or "יבוא אישי"))
         lines.append(_row_always("שילדה (יבוא)", _val(pi, "shilda")))
+    vclass = record.get("_vehicle_class")
+    if vclass:
+        lines.append(_row_always("סוג כלי רכב", vclass))
+    ef = record.get("_emission_filter")
+    if ef:
+        lines.append(_row_always("מסנן להפחתת פליטות", f"מותקן ({_format_date(ef.get('taarich_hatkana'))})"))
     lines.append(_row_always("יצרן", _val(record, "tozeret_nm")))
     lines.append(_row_always("דגם", _val(record, "kinuy_mishari", "degem_nm")))
     lines.append(_row_always("רמת גימור", _val(w, "ramat_gimur")))
@@ -341,6 +348,11 @@ def cat_history(record: dict, w: dict) -> str:
     lines.append(_row_always("שינוי צבע", _yn_always(changed_color)))
     lines.append(_row_always("שינוי צמיגים", _yn_always(changed_tire)))
     lines.append(_row_always("GAPAM", _yn_always(gapam)))
+
+    if record.get("_anchor_points_required"):
+        lines.append(_row_always("נקודות עיגון למטענים", "חובת התקנה"))
+    if record.get("_safety_discount_eligible"):
+        lines.append(_row_always("הנחה על מערכות בטיחות", "זכאי"))
 
     if tag_nache:
         hafakat = _format_tag_nache_date(tag_nache.get("hafakat"))

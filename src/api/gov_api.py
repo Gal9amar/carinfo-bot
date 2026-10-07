@@ -33,6 +33,21 @@ RES_PERSONAL_IMPORT = "03adc637-b6fe-402b-9937-7c3d3afc9140"  # יבוא איש�
 RES_IMPORTER       = "39f455bf-6db0-4926-859d-017f34eacbcb"  # מחירון יבואן
 RES_RECALL_CAR     = "36bf1404-0be4-49d2-82dc-2f1ead4a8b93"  # ריקולים לפי לוחית
 RES_SCRAPPED       = "851ecab1-0622-4dbe-a6c7-f950cf82abf9"  # גרוטאה
+RES_EMISSION_FILTER = "7cb2bd95-bf2e-49b6-aea1-fcb5ff6f0473"  # מסנני חלקיקים להפחתת פליטות
+RES_SCRAPPED_2010  = "4e6b9724-4c1e-43f0-909a-154d4cc4e046"  # ביטול סופי 2010-2016
+RES_SCRAPPED_2000  = "ec8cbc34-72e1-4b69-9c48-22821ba0bd6c"  # ביטול סופי 2000-2009
+RES_ANCHOR_POINTS  = "786b33b5-75c4-42a3-a241-b1af3c9ca487"  # חובת נקודות עיגון למטענים
+RES_SAFETY_DISCOUNT = "83bfb278-7be1-4dab-ae2d-40125a923da1"  # זכאות להנחה – מערכות בטיחות
+RES_HEAVY_TRUCK    = "cd3acc5c-03c3-4c89-9c54-d40f93c0d790"  # מעל 3.5 טון / ללא קוד דגם
+RES_MOTORCYCLE     = "bf9df4e2-d90d-4c0a-a400-19e15af8e95f"  # דו גלגליים
+RES_PUBLIC         = "cf29862d-ca25-4691-84f6-1be60dcb4a1e"  # רכב ציבורי פעיל
+
+# סדר חיפוש כשהרכב לא נמצא במרשם הראשי: (resource, תווית סוג)
+_FALLBACK_REGISTRIES = (
+    (RES_MOTORCYCLE,  "אופנוע / דו גלגלי"),
+    (RES_PUBLIC,      "רכב ציבורי"),
+    (RES_HEAVY_TRUCK, "רכב כבד (מעל 3.5 טון) / ללא קוד דגם"),
+)
 
 # שדות מהמשך מרשם הרישוי
 _EXT_FIELDS = (
@@ -119,6 +134,35 @@ async def _fetch_model_recalls(
     return (matched or raw)[:10]
 
 
+async def _fetch_fallback_vehicle(mispar: int) -> Optional[dict]:
+    """Plate not in main registry: try motorcycles, heavy trucks, public vehicles."""
+    async with httpx.AsyncClient(timeout=15) as client:
+        results = await asyncio.gather(*[
+            _search_filter(client, res, {"mispar_rechev": mispar}, limit=1)
+            for res, _ in _FALLBACK_REGISTRIES
+        ])
+    for (_, label), recs in zip(_FALLBACK_REGISTRIES, results):
+        if recs:
+            record = recs[0]
+            record["_vehicle_class"] = label
+            return record
+
+    # Final cancellation registries (vehicle left the road)
+    padded = f"{mispar:08d}"
+    async with httpx.AsyncClient(timeout=15) as client:
+        scrapped = await asyncio.gather(
+            _search_filter(client, RES_SCRAPPED, {"mispar_rechev": mispar}, limit=1),
+            _search_filter(client, RES_SCRAPPED_2010, {"mispar_rechev": padded}, limit=1),
+            _search_filter(client, RES_SCRAPPED_2000, {"mispar_rechev": padded}, limit=1),
+        )
+    for recs in scrapped:
+        if recs:
+            record = recs[0]
+            record["_scrapped_dt"] = record.get("bitul_dt", "")
+            return record
+    return None
+
+
 async def fetch_vehicle_data(plate: str) -> Optional[dict]:
     clean = plate.replace("-", "").strip()
 
@@ -130,7 +174,7 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
         )
 
     if not main_records:
-        return None
+        return await _fetch_fallback_vehicle(int(clean))
 
     record = main_records[0]
     raw_plate = str(record.get("mispar_rechev", "")).replace("-", "").strip()
@@ -194,11 +238,17 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
             _search_filter(client, RES_PERSONAL_IMPORT, {"mispar_rechev": mispar}, limit=1),
             importer_task,
             _search_filter(client, RES_SCRAPPED, {"mispar_rechev": mispar}, limit=1),
+            _search_filter(client, RES_EMISSION_FILTER, {"mispar_rechev": mispar}, limit=1),
+            _search_filter(client, RES_SCRAPPED_2010, {"mispar_rechev": f"{mispar:08d}"}, limit=1),
+            _search_filter(client, RES_SCRAPPED_2000, {"mispar_rechev": f"{mispar:08d}"}, limit=1),
+            _search_filter(client, RES_ANCHOR_POINTS, {"mispar_rechev": mispar}, limit=1),
+            _search_filter(client, RES_SAFETY_DISCOUNT, {"mispar_rechev": mispar}, limit=1),
         ]
         (
             ownership_records, wltp_records, recall_car_records,
             tag_nache_records, inactive_records, inactive_nodeg_records,
-            import_records, importer_records, scrapped_records,
+            import_records, importer_records, scrapped_records, filter_records,
+            scrapped_2010, scrapped_2000, anchor_records, safety_discount_records,
         ) = await asyncio.gather(*tasks)
 
     if ownership_records:
@@ -236,8 +286,15 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
     if importer_records:
         record["_importer_price"] = importer_records[0].get("mehir")
 
-    if scrapped_records:
-        record["_scrapped_dt"] = scrapped_records[0].get("bitul_dt", "")
+    if filter_records:
+        record["_emission_filter"] = filter_records[0]
+
+    scrapped_any = scrapped_records or scrapped_2010 or scrapped_2000
+    if scrapped_any:
+        record["_scrapped_dt"] = scrapped_any[0].get("bitul_dt", "")
+
+    record["_anchor_points_required"] = bool(anchor_records)
+    record["_safety_discount_eligible"] = bool(safety_discount_records)
 
     # Same-model count — separate request after main gather to avoid throttling
     _degem_cd   = str(record.get("degem_cd") or record.get("sug_degem") or "").strip()
