@@ -187,6 +187,7 @@ Users watch make/model/year; `_yad2_watch_job` runs every 30 min and DMs new lis
 - Bot: `handle_plate` replies "הבוט בתחזוקה".
 - API: `_ensure_not_maintenance()` → `503 {"detail":"maintenance"}` on `GET /api/vehicle/{plate}`, `/pdf` and `/market-price` (checked **before** quota/user creation, so nothing is consumed). `/api/user` still works and returns `maintenance: true`.
 - Web app: `fetchVehicle` maps 503 → `MAINTENANCE`; `ReportPage` shows "השירות בתחזוקה כרגע" with retry.
+- Home screen: orange banner when `user.maintenance`; the search button is disabled for non-admins (admins see a note that search is still open for them).
 
 ---
 

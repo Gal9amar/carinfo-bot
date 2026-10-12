@@ -16,9 +16,12 @@ export default function HomePage({ user, onNavigate, onSearchPlate }) {
 
   const searchesLeft = user?.searches_left
   const isUnlimited  = searchesLeft === -1
-  
+  const maintenance  = !!user?.maintenance
+  // Admin is exempt server-side, so only block the search button for everyone else.
+  const searchBlocked = maintenance && !user?.is_admin
+
   function handleSearch() {
-    if (plateInput.length >= 5) {
+    if (plateInput.length >= 5 && !searchBlocked) {
       onSearchPlate(plateInput.trim())
     }
   }
@@ -30,6 +33,25 @@ export default function HomePage({ user, onNavigate, onSearchPlate }) {
           CarInfo<span style={{ color: 'var(--primary)' }}>.ai</span>
         </div>
       </header>
+
+      {maintenance && (
+        <div
+          role="status"
+          className="card"
+          style={{
+            display: 'flex', gap: 12, alignItems: 'center', padding: '14px 16px',
+            background: 'rgba(255, 149, 0, 0.12)', border: '1px solid rgba(255, 149, 0, 0.35)',
+          }}
+        >
+          <div style={{ fontSize: 24 }}>🔧</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: 15, color: '#b45309' }}>השירות בתחזוקה כרגע</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
+              {user?.is_admin ? 'מצב תחזוקה פעיל — החיפוש פתוח עבורך כמנהל' : 'חיפוש רכבים זמנית אינו זמין. נחזור בקרוב!'}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="card" style={{ padding: 24 }}>
         <h2 style={{ marginBottom: 8, fontWeight: 700, fontSize: 24 }}>בדיקת רכב</h2>
@@ -51,7 +73,7 @@ export default function HomePage({ user, onNavigate, onSearchPlate }) {
         <button 
           className="btn btn-primary" 
           onClick={handleSearch}
-          disabled={plateInput.length < 5}
+          disabled={plateInput.length < 5 || searchBlocked}
         >
           חפש רכב
         </button>
