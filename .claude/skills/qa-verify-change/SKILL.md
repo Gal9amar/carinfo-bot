@@ -52,7 +52,7 @@ cd webapp && npm run build && cd ..
 node .claude/skills/qa-verify-change/smoke_ui.mjs --shot /tmp/ui.png "אזור אישי" "פאנל ניהול"      # admin user
 node .claude/skills/qa-verify-change/smoke_ui.mjs --user 2 "אזור אישי"                              # regular user
 ```
-Each quoted arg is a visible text clicked in order. Exit code 1 + `FAIL` lines on page error, console error, HTTP 5xx, text not found, or blank screen. Verified to catch the empty-AdminPage bug (React error #306 + blank screen). Open the PNG (Read tool) and inspect RTL, overflow, clipped text, bottom-nav overlap. Add the click path of your new screen as extra args. Kill the server after: `kill %1` / `pkill -f local_api.py`.
+Each quoted arg is a visible text clicked in order. Use `--path "/?plate=1234567"` to open the report screen directly and `--allow 503` when a 5xx is the expected result (e.g. maintenance). Exit code 1 + `FAIL` lines on page error, console error, HTTP 5xx, text not found, or blank screen. Verified to catch the empty-AdminPage bug (React error #306 + blank screen). Open the PNG (Read tool) and inspect RTL, overflow, clipped text, bottom-nav overlap. Add the click path of your new screen as extra args. Kill the server after: `kill %1` / `pkill -f local_api.py`.
 
 ## 6. Regression checklist (tick what the diff could touch)
 - [ ] home loads; profile -> every tile opens (orders, history, garage, watches, referral, packages, ticket, admin)

@@ -104,7 +104,7 @@ Created idempotently at startup (`init_db()` in `src/db.py` plus per-module `ini
 ### bot_settings keys (defaults seeded in `init_db`)
 | Key | Default | Purpose |
 |-----|---------|---------|
-| `maintenance` | 0 | Flag exposed to the UI (not enforced server-side, see Maintenance) |
+| `maintenance` | 0 | Blocks lookups for non-admins when 1 (see Maintenance) |
 | `free_searches` | 10 | Welcome quota for new users |
 | `referral_bonus` | 10 | Searches awarded per referral |
 | `promo_searches` / `promo_duration_days` / `promo_is_subscriber` / `promo_label` / `promo_start` / `promo_end` | 0 / 30 / 0 / "" / "" / "" | Join promo (searches: 0=off, -1=unlimited, >0=count). `promo_is_subscriber=1` also adds new users to "מנויים" |
@@ -183,7 +183,10 @@ Users watch make/model/year; `_yad2_watch_job` runs every 30 min and DMs new lis
 `GET /api/vehicle/{plate}`: plate normalised (dashes/spaces removed) → `is_allowed` → `cache` (1h) → `gov_api.fetch_vehicle_data` (several data.gov.il resources: main, extended, history, ownership, WLTP, recalls, disability tag, inactive/scrapped, personal import, importer price list…) → `increment_search` + activity log. Quota is consumed only on success. There is currently **no stolen-vehicle lookup** in the code.
 
 ### Maintenance
-`maintenance` is only a flag today: exposed on `/api/user` and toggled from the admin UI/bot, but **no lookup path (`/api/vehicle`, `handle_plate`) enforces it** — add a check there if real blocking is wanted.
+`bot_settings.maintenance=1` (toggled in the bot admin menu / admin UI) blocks lookups for everyone except the admin:
+- Bot: `handle_plate` replies "הבוט בתחזוקה".
+- API: `_ensure_not_maintenance()` → `503 {"detail":"maintenance"}` on `GET /api/vehicle/{plate}`, `/pdf` and `/market-price` (checked **before** quota/user creation, so nothing is consumed). `/api/user` still works and returns `maintenance: true`.
+- Web app: `fetchVehicle` maps 503 → `MAINTENANCE`; `ReportPage` shows "השירות בתחזוקה כרגע" with retry.
 
 ---
 

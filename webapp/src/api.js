@@ -89,6 +89,7 @@ export async function fetchVehicle(plate) {
   }
   if (r.status === 403) throw new Error('QUOTA_EXCEEDED')
   if (r.status === 404) throw new Error('NOT_FOUND')
+  if (r.status === 503) throw new Error('MAINTENANCE')
   if (!r.ok) throw new Error('SERVER_ERROR')
   return r.json()
 }

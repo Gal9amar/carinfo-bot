@@ -1,5 +1,5 @@
 // Real-browser smoke test against the local API (local_api.py) serving webapp/dist.
-// Usage: node smoke_ui.mjs [--user 1] [--port 8099] [--shot out.png] "click text 1" "click text 2" ...
+// Usage: node smoke_ui.mjs [--path /?plate=1234567] [--allow 503] [--user 1] [--port 8099] [--shot out.png] "click text 1" "click text 2" ...
 // Each positional arg is visible text to click, in order (e.g. "אזור אישי" "פאנל ניהול").
 // Fails (exit 1) on any uncaught page error, console.error, or failed same-origin request / 5xx.
 // Requires: webapp built (cd webapp && npm ci && npm run build), playwright-core resolvable
@@ -12,6 +12,8 @@ const { chromium } = require('playwright-core')
 
 const argv = process.argv.slice(2)
 const opt = (n, d) => { const i = argv.indexOf(n); if (i < 0) return d; const v = argv[i + 1]; argv.splice(i, 2); return v }
+const startPath = opt('--path', '/')
+const allow = (opt('--allow', '') || '').split(',').filter(Boolean).map(Number) // expected HTTP statuses, e.g. 503 when testing maintenance
 const user = opt('--user', '1'), port = opt('--port', '8099'), shot = opt('--shot', '')
 const steps = argv
 const base = `http://127.0.0.1:${port}`
@@ -21,8 +23,8 @@ const b = await chromium.launch({ executablePath: process.env.CHROMIUM || '/opt/
 const pg = await b.newPage({ viewport: { width: 390, height: 844 } }) // phone width, Telegram-like
 const errs = []
 pg.on('pageerror', e => errs.push('PAGEERROR ' + e.message))
-pg.on('console', m => { if (m.type() === 'error' && !/telegram\.org|ERR_TUNNEL|ERR_NAME_NOT_RESOLVED|fonts\.g/.test(m.text())) errs.push('CONSOLE ' + m.text().slice(0, 300)) })
-pg.on('response', r => { if (r.url().startsWith(base) && r.status() >= 500) errs.push(`HTTP ${r.status()} ${r.url()}`) })
+pg.on('console', m => { if (m.type() === 'error' && !(allow.length && /status of (\d+)/.test(m.text()) && allow.includes(+m.text().match(/status of (\d+)/)[1])) && !/telegram\.org|ERR_TUNNEL|ERR_NAME_NOT_RESOLVED|fonts\.g/.test(m.text())) errs.push('CONSOLE ' + m.text().slice(0, 300)) })
+pg.on('response', r => { if (r.url().startsWith(base) && r.status() >= 500 && !allow.includes(r.status())) errs.push(`HTTP ${r.status()} ${r.url()}`) })
 // Telegram's own script is blocked in sandboxes; stub the bits the app calls.
 await pg.route(/telegram\.org\/js/, r => r.fulfill({ contentType: 'text/javascript', body: '' }))
 await pg.addInitScript(id => {
@@ -35,7 +37,7 @@ await pg.addInitScript(id => {
     HapticFeedback: { impactOccurred: noop, notificationOccurred: noop, selectionChanged: noop } } }
 }, initData)
 
-await pg.goto(base + '/'); await pg.waitForTimeout(2000)
+await pg.goto(base + startPath); await pg.waitForTimeout(2000)
 const text = async () => (await pg.innerText('body')).replace(/\s+/g, ' ').trim()
 console.log('START :', (await text()).slice(0, 160))
 for (const s of steps) {

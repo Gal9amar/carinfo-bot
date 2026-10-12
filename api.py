@@ -71,6 +71,16 @@ async def _require_admin(user: dict = Depends(_get_user)) -> dict:
     return user
 
 
+async def _ensure_not_maintenance(user: dict) -> None:
+    """Block lookups with 503 'maintenance' while the admin has maintenance mode on.
+    The admin is exempt so the service can still be verified. Same rule as bot.handle_plate."""
+    if int(user["id"]) == ADMIN_ID:
+        return
+    from src.db import get_bot_setting
+    if (await get_bot_setting("maintenance")) == "1":
+        raise HTTPException(status_code=503, detail="maintenance")
+
+
 # ── Startup ─────────────────────────────────────────────────────────────────
 @api.on_event("startup")
 async def _startup():
@@ -556,6 +566,7 @@ async def get_vehicle(plate: str, user: dict = Depends(_get_user)):
     from src.api.gov_api import fetch_vehicle_data
     from src.cache import cache
     from src.users import is_allowed, increment_search
+    await _ensure_not_maintenance(user)
     plate = plate.replace("-", "").replace(" ", "")
 
     uid      = int(user["id"])
@@ -586,6 +597,7 @@ async def get_vehicle(plate: str, user: dict = Depends(_get_user)):
 @api.get("/api/vehicle/{plate}/pdf")
 async def get_vehicle_pdf(plate: str, user: dict = Depends(_get_user)):
     from src.db import get_bot_setting
+    await _ensure_not_maintenance(user)
     import asyncio as _asyncio
     plate = plate.replace("-", "").replace(" ", "")
     user_id = int(user["id"])
@@ -2118,6 +2130,7 @@ async def admin_get_activity(limit: int = 100, _: dict = Depends(_require_admin)
 
 @api.get("/api/vehicle/{plate}/market-price")
 async def vehicle_market_price(plate: str, user: dict = Depends(_get_user)):
+    await _ensure_not_maintenance(user)
     from src.api.gov_api import fetch_vehicle_data
     from src.cache import cache
     from src.yad2 import get_market_price_cached, build_url

@@ -486,7 +486,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
       })
       .catch(e => {
         if (cancelled) return
-        const known = ['QUOTA_EXCEEDED', 'NOT_FOUND', 'NETWORK_ERROR', 'SERVER_ERROR']
+        const known = ['QUOTA_EXCEEDED', 'NOT_FOUND', 'NETWORK_ERROR', 'SERVER_ERROR', 'MAINTENANCE']
         setError(known.includes(e.message) ? e.message : 'SERVER_ERROR')
       })
     fetchNote(plate).then(n => { if (!cancelled) { setNote(n || ''); setNoteDirty(false) } }).catch(() => {})
@@ -499,6 +499,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
       QUOTA_EXCEEDED: { icon: '🔒', text: 'נגמרו החיפושים שלך — רכוש חבילה להמשך', retry: false },
       NOT_FOUND:      { icon: '🔍', text: 'לא נמצא רכב עם מספר הרישוי הזה. ודא שהמספר הוקלד נכון', retry: false },
       NETWORK_ERROR:  { icon: '📡', text: 'בעיית חיבור לאינטרנט. בדוק את החיבור ונסה שוב', retry: true },
+      MAINTENANCE:    { icon: '🔧', text: 'השירות בתחזוקה כרגע — נחזור בקרוב', retry: true },
       SERVER_ERROR:   { icon: '⚠️', text: 'אירעה שגיאה בטעינת הנתונים. נסה שוב בעוד רגע', retry: true },
     }
     const info = ERROR_INFO[error] || ERROR_INFO.SERVER_ERROR
