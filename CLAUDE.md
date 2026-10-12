@@ -340,3 +340,21 @@ Packages page uses tier colors cycling by index:
 3. `load_welcome_settings()` — populate module-level quota globals
 4. FastAPI `_startup()` event — register notifier callbacks
 5. Bot polling starts alongside uvicorn server
+
+---
+
+## AI Team (agents & skills) — `.claude/`
+
+Specialised subagents (`.claude/agents/`) — delegate by area, and **always finish with `qa-agent`**:
+
+| Agent | Owns |
+|-------|------|
+| `design-agent` | `webapp/` UI/UX, RTL/Hebrew, styles, screens, admin panel UI |
+| `api-agent` | `api.py` routes/auth/contracts + `webapp/src/api.js` |
+| `backend-agent` | `src/*`, `bot.py`: quota, payments, DB/schema, integrations, notifier |
+| `qa-agent` | Quality gate for every change; PASS/FAIL verdict with evidence |
+
+Skills (`.claude/skills/`): `qa-verify-change` (scripts: `local_api.py`, `sign_init_data.py`, `smoke_ui.mjs`), `add-api-endpoint`, `db-schema-change`, `add-webapp-screen`, `design-system-rtl`, `release-and-deploy`.
+
+> Note: this file's line counts / endpoint list are partly stale (garage, products, banners, watches, orders, payment methods, `paypal_transactions` exist in code). Trust the code; update the relevant section when you change it.
+> `APP_VERSION` in `api.py` is a hardcoded string — bump it to force clients to reload.

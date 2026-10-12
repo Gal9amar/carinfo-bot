@@ -17,5 +17,6 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Claude Code
-.claude/
+# Claude Code — agents/skills are shared project assets; only local state is ignored
+.claude/settings.local.json
+.claude/scratch/
