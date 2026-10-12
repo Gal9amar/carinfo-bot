@@ -3,17 +3,22 @@
 ## Branching
 
 **Push directly to `main`.** Do not create feature branches or PRs.
+(If a session explicitly designates a working branch, use that branch instead and say so.)
+
+> Last verified against the code: 2026-10-12. When you change behaviour, update the matching section here. **The code is the source of truth** — grep before trusting any table below.
 
 ---
 
 ## Architecture Overview
 
-Israeli vehicle lookup service — Telegram Bot + React Mini App (WebApp).
+Israeli vehicle lookup service — Telegram Bot + React Mini App (WebApp), monetised by search quotas, subscriptions, alert packs and digital products.
 
-- **Backend**: FastAPI (Python) + Telegram Bot (`python-telegram-bot`)
-- **Database**: Turso (libsql / serverless SQLite)
-- **Frontend**: React 18 + Vite, served statically by FastAPI at `/`
-- **Deployment**: Render.com (single service, port 8080)
+- **Backend**: FastAPI (`api.py`) + Telegram Bot (`bot.py`, python-telegram-bot 22, polling). One process: `python bot.py` starts uvicorn in a daemon thread next to the bot.
+- **Database**: Turso (libsql / serverless SQLite) via `src/db.py::execute` (async wrapper, positional `?` params, rows are **tuples**, auto-reconnect on 502/hrana).
+- **Frontend**: React 18 + Vite (JS, no TypeScript, no router, no tests), built to `webapp/dist` and served by FastAPI at `/`.
+- **Deployment**: Render.com, Docker (Python 3.12 + Node 20; `npm ci && npm run build` inside the image), port 8080, health check `/health`.
+- **Data sources**: data.gov.il (vehicle registry, many resources), Yad2 (market price + new-listing alerts, geo-blocked outside Israel → proxy), car images (`image_api`).
+- **No automated tests / CI.** Verification is manual — see `.claude/skills/qa-verify-change`.
 
 ---
 
@@ -21,239 +26,164 @@ Israeli vehicle lookup service — Telegram Bot + React Mini App (WebApp).
 
 ```
 carinfo-bot/
-├── api.py              # FastAPI REST API (986 lines)
-├── bot.py              # Telegram bot handlers (2246 lines)
-├── requirements.txt
-├── Dockerfile
-├── Procfile
-├── render.yaml
-├── cloudflare-worker.js
+├── api.py                  # FastAPI app: REST API + SPA serving (~2.5k lines)
+├── bot.py                  # Telegram bot handlers + scheduled jobs (~2.75k lines)
+├── requirements.txt  Dockerfile  Procfile(legacy)  render.yaml
+├── cloudflare-worker.js    # Yad2 proxy worker (alt. to /yad2 endpoint)
+├── data/users.json         # legacy user backup
+├── uploads/                # admin-uploaded images, served at /uploads
+├── .claude/                # project agents + skills (see "AI Team")
 ├── src/
-│   ├── db.py           # DB layer (Turso/libsql)
-│   ├── users.py        # User quota, referrals, subscriber management
-│   ├── packages.py     # Package pricing CRUD
-│   ├── formatter.py    # Vehicle data formatting
-│   ├── pdf_report.py   # PDF generation (reportlab)
-│   ├── yad2.py         # Yad2 market price integration
-│   ├── tickets.py      # Support ticket system
-│   ├── activity.py     # Activity/audit logging
-│   ├── cache.py        # In-memory TTL cache (1h)
-│   ├── notifier.py     # Callback registry (api.py ↔ bot.py decoupling)
-│   └── api/
-│       ├── gov_api.py  # data.gov.il vehicle registry
-│       ├── image_api.py
-│       └── stolen_api.py
+│   ├── db.py               # connection, init_db(), core tables, bot_settings get/set
+│   ├── users.py            # quota, subscribers/VIP groups, codes, referrals, admin_grant, stats, expiry
+│   ├── packages.py         # packages CRUD + default seed
+│   ├── products.py         # digital/physical products + stock units + delivery
+│   ├── banners.py          # home/page banners
+│   ├── payment_methods.py  # configurable payment methods (logo, url)
+│   ├── admin_grants.py     # admin "benefit" presets (label + searches)
+│   ├── garage.py           # owned vehicles, expenses, sale
+│   ├── yad2.py             # Yad2 URL building + market price (cached) 
+│   ├── yad2_models.json   # manufacturer→model→Yad2 ID map
+│   ├── yad2_watcher.py     # new-listing alerts ("watches")
+│   ├── formatter.py        # vehicle data → Telegram text
+│   ├── pdf_report.py       # PDF report (reportlab + python-bidi)
+│   ├── tickets.py  activity.py  cache.py(1h TTL)  
+│   ├── notifier.py         # callback registry: api.py ↔ bot.py decoupling
+│   └── api/{gov_api.py, image_api.py}
 └── webapp/
     ├── vite.config.js
     └── src/
-        ├── App.jsx     # Screen router
-        ├── api.js      # All frontend API calls
-        ├── main.jsx
-        ├── styles.css
-        ├── pages/
-        │   ├── HomePage.jsx
-        │   ├── ReportPage.jsx
-        │   ├── PackagesPage.jsx
-        │   ├── PaymentPage.jsx
-        │   ├── AdminPage.jsx
-        │   ├── HistoryPage.jsx
-        │   ├── TicketPage.jsx
-        │   ├── ReferralPage.jsx
-        │   ├── HowItWorksPage.jsx
-        │   └── PrivacyPolicyPage.jsx
-        └── components/
-            ├── BottomNav.jsx
-            ├── BackButton.jsx
-            ├── LicensePlate.jsx
-            └── SkeletonCard.jsx
+        ├── App.jsx  main.jsx  api.js  styles.css  vehicleNames.js
+        ├── pages/   HomePage ReportPage PackagesPage PaymentPage ProfilePage OrdersPage
+        │            HistoryPage GaragePage GarageHowItWorksPage WatchesPage ReferralPage
+        │            TicketPage HowItWorksPage PrivacyPolicyPage AdminPage(~5.3k lines, lazy)
+        ├── components/ BackButton BottomNav LicensePlate PageBanners QuotaProgressBar
+        │               SkeletonCard VehicleLookupLoader
+        └── utils/   marketPrice.js safeHtml.js time.js
 ```
 
 ---
 
-## Database Schema (src/db.py)
+## Database Schema
 
-### Core
+Created idempotently at startup (`init_db()` in `src/db.py` plus per-module `init_*`); columns are added later with `try: ALTER TABLE … ADD COLUMN`. Rows are read **by tuple index** — only ever append columns. See `.claude/skills/db-schema-change`.
 
-| Table | Key Columns | Purpose |
+### Users & access
+| Table | Key columns | Purpose |
 |-------|-------------|---------|
-| **users** | user_id PK, username, full_name, searches_done, searches_quota, first_seen, last_seen, last_plate, blocked, quota_expires, referred_by, channel | User accounts + quota tracking |
-| **codes** | code PK, searches, unlimited, single_use, expires, used_by, used_at, created | Promo codes |
-| **user_codes** | (user_id, code) PK | Codes applied per user |
-| **grants** | id, user_id, granted_by, searches, note, granted_at | Admin grant log |
-| **search_history** | id, user_id, plate, searched_at | Per-user lookup log |
-| **packages** | id PK, label, searches, price, image_url | Purchase packages |
-| **bot_settings** | key PK, value | Feature flags + config |
+| **users** | user_id PK, username, full_name, searches_done, searches_quota, first_seen, last_seen, last_plate, blocked, quota_expires, channel, referred_by, **member_id**, **watch_quota**, **broadcast_consent** | Accounts + quota. `member_id` = sequential public id used in order refs. `watch_quota` = per-user override of alert limit |
+| **user_groups** / **user_group_members** | (group_id,user_id) | Groups: `מנויים`, `מנהלים`, `VIP` (created on demand) |
+| **codes** / **user_codes** | code PK | Promo codes (`unlimited` + `searches` = days for monthly) |
+| **grants** | user_id, granted_by, searches, note | Audit of admin/payment grants |
+| **admin_grants** | label, searches, display_order | Preset "benefits" the admin can grant (not an audit log) |
+| **referrals** | referrer_id, referee_id, bonus | Referral records |
+| **search_history** | user_id, plate, searched_at | Lookup log |
+| **vehicle_notes** | (user_id, plate), note | Private note per plate |
 
-### Payments & Tickets
-
-| Table | Key Columns | Purpose |
+### Commerce
+| Table | Key columns | Purpose |
 |-------|-------------|---------|
-| **pending_payments** | id, ref UNIQUE, phone, searches, price, label, created_at | Awaiting admin approval |
-| **tickets** | id, user_id, username, full_name, subject, message, status, created_at, updated_at | Support tickets |
-| **ticket_replies** | id, ticket_id, sender_id, sender_name, is_admin, message, created_at | Ticket thread |
+| **packages** | id, label, searches, price, image_url, display_order, duration_months, features(JSON), chips(JSON), **package_type** (`searches`\|`alerts`\|`product`…), is_active | Plans. `searches=-1` → unlimited/monthly; `searches=0` = FREE card |
+| **products** | name, description, price, delivery_type (`auto`\|manual), quantity_stock, availability_status (`available`\|`coming_soon`), features, is_active | Digital/other goods |
+| **product_stock** | product_id, content, is_used, order_ref | Units for auto-delivery |
+| **pending_payments** | ref UNIQUE, phone(=user_id), searches, price, label, duration_months, package_type, product_id, product_quantity | Awaiting admin approval |
+| **paypal_transactions** | ref, user_id, amount, currency(ILS), label, searches, **status**, package_type, product_id, delivery_type, delivery_content, product_quantity | Order ledger. Statuses: `intent`→`created`→`completed`/`pending_delivery`/`declined`/`expired`/`user_cancelled` |
+| **payment_methods** | name, logo_url, payment_url, active, requires_manual_approval | Shown in payment screen |
+| **banners** | title, subtitle, icon, image_url, colors, link_type/value, placements(JSON), is_active | Promo banners per page |
 
-### Groups & Social
+### Features & support
+| Table | Purpose |
+|-------|---------|
+| **owned_vehicles**, **owned_vehicle_expenses** | "Garage": cars the user bought (purchase/sale data, expenses) |
+| **yad2_watches** | user_id, make, model, year, seen_ids, active — new-listing alerts |
+| **tickets**, **ticket_replies** | Support threads |
+| **activity_log** | Audit log (event_type, user, description) |
+| **sent_messages**, **broadcast_history** | Outbound DM / broadcast logs |
+| **bot_settings** | key/value feature flags + config |
 
-| Table | Key Columns | Purpose |
-|-------|-------------|---------|
-| **referrals** | id, referrer_id, referee_id, bonus, joined_at | Referral records |
-| **user_groups** | id PK, name UNIQUE, created_at | Groups: "מנויים", "מנהלים" |
-| **user_group_members** | (group_id, user_id) PK | Group membership |
-| **activity_log** | id, event_type, user_id, username, description, created_at | Audit log |
-
-### bot_settings Keys
-
+### bot_settings keys (defaults seeded in `init_db`)
 | Key | Default | Purpose |
 |-----|---------|---------|
-| `maintenance` | 0 | Disable service when 1 |
+| `maintenance` | 0 | Flag exposed to the UI (not enforced server-side, see Maintenance) |
 | `free_searches` | 10 | Welcome quota for new users |
 | `referral_bonus` | 10 | Searches awarded per referral |
-| `promo_searches` | 0 | Promo quota (0=off, -1=unlimited, >0=count) |
-| `promo_start` | "" | Promo start date (YYYY-MM-DD) |
-| `promo_end` | "" | Promo end date (YYYY-MM-DD) |
-| `yad2_market_enabled` | 0 | Enable market price feature |
-| `yad2_market_public` | 0 | Public access mode (all users) |
-| `yad2_market_public_start` | "" | Public mode start date |
-| `yad2_market_public_end` | "" | Public mode end date |
-| `yad2_market_public_label` | "" | Label shown in public mode (empty = hidden) |
-| `yad2_market_groups` | [] | JSON list of group IDs with market price access |
+| `promo_searches` / `promo_duration_days` / `promo_is_subscriber` / `promo_label` / `promo_start` / `promo_end` | 0 / 30 / 0 / "" / "" / "" | Join promo (searches: 0=off, -1=unlimited, >0=count). `promo_is_subscriber=1` also adds new users to "מנויים" |
+| `global_unlimited_enabled` / `_start` / `_end` / `_label` | — | Admin's "unlimited for everyone" benefit (see VIP below) |
+| `yad2_market_enabled` / `_public` / `_public_start` / `_public_end` / `_public_label` / `_groups` | 0 … [] | Market-price feature gate (see Feature access) |
+| `yad2_watch_enabled` / `_public*` / `_groups` / `yad2_watch_max` | 0 … / 2 | New-listing alerts feature + default per-user limit |
+| `pdf_report_enabled` / `pdf_report_public*` / `pdf_report_groups` | — | PDF report feature gate |
+| `order_sequence` | 0 | Counter for order refs (`{member_id}-{seq:05d}`) |
 
 ---
 
 ## API Endpoints (api.py)
 
+Auth: header `X-Init-Data` = Telegram WebApp initData, HMAC-validated with the bot token (`_get_user`, 401 if invalid). Admin = `user.id == ADMIN_TELEGRAM_ID` (`_require_admin`, 403). Handlers use lazy `from src.x import …`. The SPA catch-all must stay the **last** route.
+
 ### Public
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/health` | Health check |
-| GET | `/api/packages` | List packages (no auth) |
+`GET /health` (also HEAD) · `/api/version` (APP_VERSION, no-store) · `/api/packages` · `/api/payment-methods` · `/api/banners?page=` · `/api/products` · `GET /api/payment/cancel/{ref}` · `/yad2?secret=…&manufacturer=&model=&year=` (Yad2 proxy, secret-gated)
 
-### User (Telegram WebApp auth)
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/api/user` | User info, quotas, is_subscriber, is_admin |
-| GET | `/api/user/history` | Last 20 unique plates |
-| GET | `/api/user/referral` | Referral link + stats |
-| GET | `/api/user/referrals` | List of referred users |
-| GET | `/api/vehicle/{plate}` | Lookup vehicle (decrements quota) |
-| GET | `/api/vehicle/{plate}/market-price` | Yad2 market price (authorized flag) |
-| POST | `/api/payment/initiate` | Create pending payment |
-| POST | `/api/payment/confirm` | "I paid" — notify admin |
-| POST | `/api/tickets` | Create support ticket |
-| GET | `/api/tickets` | List user's tickets |
-| GET | `/api/tickets/{id}` | Ticket + replies |
-| POST | `/api/tickets/{id}/reply` | User reply |
+### User
+| Area | Endpoints |
+|------|-----------|
+| Profile | `GET /api/user` (quota, flags `show_market_price/show_pdf_report/show_watch`, `is_subscriber`, `global_unlimited_active`, `watch_max`, labels…) · `/api/user/history` · `/api/user/orders` · `/api/user/referral` · `/api/user/referrals` |
+| Vehicle | `GET /api/vehicle/{plate}` (consumes quota, 403 `quota_exceeded`, 404 not found) · `/api/vehicle/{plate}/pdf` · `/api/vehicle/{plate}/market-price` · `GET/POST /api/notes/{plate}` |
+| Payment | `POST /api/payment/initiate` (`package_id` XOR `product_id`, `quantity`, `intent_only`) · `POST /api/payment/promote` (intent→created + notify admin) |
+| Garage | `GET/POST /api/user/garage` · `GET …/check/{plate}` · `PATCH/DELETE …/{id}` · `POST …/{id}/sell` · `POST …/{id}/expenses` · `DELETE …/{id}/expenses/{eid}` |
+| Alerts | `GET /api/watches/makes`, `/api/watches/models` · `GET/POST /api/user/watches` · `DELETE …/{id}` · `PATCH …/{id}/toggle` |
+| Support | `POST/GET /api/tickets` · `GET /api/tickets/{id}` · `POST …/{id}/reply` |
 
-### Admin (ADMIN_TELEGRAM_ID only)
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/api/admin/stats` | Aggregate stats |
-| GET/POST | `/api/admin/settings` | Read/update bot_settings |
-| GET | `/api/admin/users` | All users |
-| POST | `/api/admin/users/{id}/grant` | Grant searches |
-| POST | `/api/admin/users/{id}/block` | Toggle block |
-| POST | `/api/admin/users/{id}/message` | Send DM |
-| GET | `/api/admin/users/{id}/referrals` | User's referrals |
-| GET | `/api/admin/users/{id}/history` | User's search history |
-| GET/POST | `/api/admin/packages` | List/add packages |
-| PUT/DELETE | `/api/admin/packages/{id}` | Update/delete package |
-| GET | `/api/admin/payments` | Pending payments |
-| POST | `/api/admin/payments/{ref}/approve` | Approve + add to "מנויים" |
-| POST | `/api/admin/payments/{ref}/decline` | Decline + notify user |
-| GET/POST | `/api/admin/codes` | List/create promo codes |
-| DELETE | `/api/admin/codes/{code}` | Delete code |
-| POST | `/api/admin/broadcast` | Message all users |
-| POST | `/api/admin/gift-all` | Gift searches + optional broadcast photo |
-| GET | `/api/admin/activity` | Activity log |
-| GET/POST | `/api/admin/groups` | List/create groups |
-| DELETE | `/api/admin/groups/{id}` | Delete group |
-| POST | `/api/admin/groups/{id}/members` | Add member |
-| DELETE | `/api/admin/groups/{id}/members/{uid}` | Remove member |
-| GET/POST/PATCH | `/api/admin/tickets[/{id}[/reply|/status]]` | Ticket management |
-| GET | `/api/admin/market-price?plate=X` | Admin market price view |
-
-### Yad2 Proxy
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/yad2?secret=X&manufacturer=X&model=X&year=X` | Bypass geo-block for Yad2 API |
+### Admin (`/api/admin/…`)
+stats · users (+`/{id}/grant`, `/block`, `/message`, `/watch-quota`, `/revoke-subscription`, `/broadcast-consent`, `/referrals`, `/history`, `/sent-messages`) · settings (GET/POST) · groups (+members) · packages · products (+stock) · banners · payment-methods · grants (benefit presets) · payments (`/{ref}/approve|decline`) · orders (`/{ref}/approve|cancel|deliver`) · paypal/transactions · codes · broadcast (+history) · gift-all · referrals · activity · tickets (+reply/status) · watches (+makes/models/preview) · market-price · upload-logo. Lists with drag-order have `PUT …/reorder`.
 
 ---
 
 ## Frontend Navigation (App.jsx)
 
-Screen state machine (URL params: `?plate=X`, `?page=privacy|ticket|history|howItWorks|referral`):
+Screen state machine (`screen` + `screenStack`; `navigate()` / `goBack()`; Telegram BackButton wired to `goBack`). Deep links: `?plate=X` (report) and `?page=privacy|howItWorks|history|ticket|referral|garage|garageHowItWorks|profile…`.
 
-```
-loading → error
-       → home ⇄ packages → payment → success
-              ⇄ report
-              ⇄ admin
-              ⇄ ticket
-              ⇄ history
-              ⇄ referral
-              ⇄ howItWorks
-              ⇄ privacy
-```
-
-`<BottomNav>` visible on: home, packages, history, ticket, referral.
+Screens: `loading`, `error`, `home`, `report`, `packages`, `payment`, `success`, `profile`, `orders`, `history`, `garage`, `garageHowItWorks`, `watches`, `referral`, `ticket`, `howItWorks`, `privacy`, `admin` (lazy). Admin panel is reached via **Profile → "פאנל ניהול"** (only if `user.is_admin`). `BottomNav` tabs: בית / חיפושים שלי / רכבים שקניתי / אזור אישי. The client polls `/api/version` and hard-reloads on change.
 
 ---
 
 ## Key Business Logic
 
-### Subscriber Management
+### Quota (`users.searches_quota`)
+`> 0` fixed (left = quota − done) · `-1` unlimited · `0` exhausted. `quota_expires` applies only to `-1`; after expiry `is_allowed()` resets quota to 0 and removes from "מנויים"; hourly job `expire_subscriptions()` does the same, daily jobs send expiry reminders (30/7/1/0 days, 06:00 UTC). Blocked → never allowed. **Global unlimited** (`is_global_unlimited_active`, live from settings, date window) → everyone allowed, searches don't consume quota; switching it on from the bot admin menu (`bot.py` adm callback) puts all non-blocked users in the **VIP** group (new users join on creation); switching it off clears VIP.
 
-**Group**: "מנויים" in `user_groups` — membership via `user_group_members`.
+### Subscriber status (group "מנויים")
+`is_subscriber()` = member of "מנויים" **or "VIP"**. Granted by:
+- Payment approval (`_grant_payment` → `admin_grant` + `add_to_subscribers`) for `searches`-type packages.
+- `admin_grant` with `-2` (permanent unlimited) or `-1` (N-month unlimited) — **these also add to "מנויים"**; a count grant (`>0`) does not; `0` resets to free and removes.
+- Join promo with `promo_is_subscriber=1`.
+Revoked: quota exhausted (`increment_search`), expiry, `admin_grant(0)`, `POST /api/admin/users/{id}/revoke-subscription`. Promo **codes** and referral bonuses add searches but do not add to "מנויים".
 
-`is_subscriber` in `/api/user` = membership in "מנויים" group.
+### Payment flow (manual approval — no PayPal API/webhook)
+1. `POST /api/payment/initiate` computes price/searches **server-side** from the package/product row → `pending_payments` + `paypal_transactions` (`intent` or `created`), ref = `{member_id}-{seq:05d}`; returns PayPal.me link `PAYPAL_ME/{price}ILS` (also PayBox / configured methods).
+2. User pays externally; UI calls `/api/payment/promote` → status `created`, admin notified through `notifier`.
+3. Admin approves (`/api/admin/payments/{ref}/approve`) → `_grant_payment` by `package_type`:
+   - `searches` → `admin_grant` + subscriber
+   - `alerts` → raise `users.watch_quota` (cap 10)
+   - `product` → auto: claim stock unit(s) and DM content; manual (or out of stock): status `pending_delivery`, admin delivers via `/orders/{ref}/deliver`
+   Then status updated, user notified, activity logged.
+4. Decline → status `declined`, user notified. API startup (only) expires `created/intent` rows older than 30 minutes and deletes stale `pending_payments`.
+Bot also supports Telegram invoices (`PreCheckoutQueryHandler`, `PAYMENT_PROVIDER_TOKEN`) and `paid|`, `approve|`, `decline|`, `deliver|` callbacks.
 
-**Grant subscriber status** — ONLY via:
-- Payment approval: `POST /api/admin/payments/{ref}/approve` → calls `add_to_subscribers(user_id)`
+### Referral
+Link `https://t.me/{BOT_USERNAME}?start=ref_{referrer_id}` → `/start ref_X` → for a **new** user `record_referral(new, referrer, bonus)` logs + adds `referral_bonus` searches to referrer. No subscriber status.
 
-**Revoke subscriber status** — automatically:
-- Quota exhausted: `increment_search()` detects `searches_done >= searches_quota` → `remove_from_subscribers()`
-- Monthly subscription expired: `is_allowed()` detects `quota_expires < now` → `remove_from_subscribers()`
+### Feature access (market price / PDF / alerts)
+`/api/user` computes `show_*` via `_check_feature(prefix)`: admin ✔ · quota −1 ✔ · subscriber (incl. VIP) ✔ · quota left > 0 ✔ · else if `{prefix}_enabled != 0` and public mode active within its date window ✔. `public_label` fields are shown only while public mode is active.
+`GET /api/vehicle/{plate}/market-price` uses its **own** gate: requires `yad2_market_enabled=1` (403 `disabled`), `authorized` = public-mode window **or** membership in `yad2_market_groups`; data is always returned and the UI blurs it when `authorized=false`. (These two gates differ — check both when changing access rules.)
 
-**Does NOT grant subscriber status**: admin grants, promo codes, referral bonuses, welcome quota.
+### Alerts ("watches", Yad2)
+Users watch make/model/year; `_yad2_watch_job` runs every 30 min and DMs new listings. Limit per user = `users.watch_quota` ▸ `yad2_watch_max` ▸ 5. More alerts are sold as `package_type='alerts'`.
 
-### Payment Flow
+### Vehicle lookup
+`GET /api/vehicle/{plate}`: plate normalised (dashes/spaces removed) → `is_allowed` → `cache` (1h) → `gov_api.fetch_vehicle_data` (several data.gov.il resources: main, extended, history, ownership, WLTP, recalls, disability tag, inactive/scrapped, personal import, importer price list…) → `increment_search` + activity log. Quota is consumed only on success. There is currently **no stolen-vehicle lookup** in the code.
 
-1. User picks package → `POST /api/payment/initiate` → `pending_payments` row (unique ref)
-2. Returns PayPal.me URL
-3. User pays externally, clicks "שילמתי" → `POST /api/payment/confirm` → admin notified via bot
-4. Admin approves → searches granted + user added to "מנויים" + pending row deleted + user notified
-5. Admin declines → pending row deleted + user notified
-
-### Referral Flow
-
-1. Referral link: `https://t.me/{BOT_USERNAME}?start=ref_{referrer_id}`
-2. New user opens link → `/start ref_X` handler
-3. If user is new: `record_referral(new_id, referrer_id, bonus)` → log in `referrals`, set `referred_by`, add `referral_bonus` searches to referrer
-4. Referrals do NOT grant subscriber status
-
-### Market Price Access (Yad2)
-
-Feature gate: `yad2_market_enabled=1` required.
-
-**Public mode**: `yad2_market_public=1` + optional date window → all users authorized.
-
-**Group mode**: `yad2_market_groups=[group_id, ...]` → only group members authorized.
-
-Response always returned (no 403). `authorized` flag controls frontend display:
-- `authorized=true` → full data + Yad2 link
-- `authorized=false` → data present but values blurred in UI, Yad2 button disabled
-
-`public_label` in response: shown only when public mode is active and label is set.
-
-### Quota Types
-
-| searches_quota | Meaning |
-|----------------|---------|
-| `> 0` | Fixed count; searches_left = quota - done |
-| `-1` | Unlimited (monthly sub or permanent grant) |
-| `0` | Exhausted |
-
-`quota_expires` (ISO datetime): only applies when `searches_quota = -1`. After expiry, quota reset to 0 and subscriber removed.
+### Maintenance
+`maintenance` is only a flag today: exposed on `/api/user` and toggled from the admin UI/bot, but **no lookup path (`/api/vehicle`, `handle_plate`) enforces it** — add a check there if real blocking is wanted.
 
 ---
 
@@ -261,33 +191,19 @@ Response always returned (no 403). `authorized` flag controls frontend display:
 
 | Function | Purpose |
 |----------|---------|
-| `is_allowed(user_id, username, full_name)` | Check quota + blocked + expiry. Returns (bool, searches_left) |
-| `increment_search(user_id, plate)` | Increment done, log history, remove subscriber if exhausted |
-| `apply_code(user_id, code, username)` | Apply promo code (no subscriber grant) |
-| `admin_grant(admin_id, target_id, searches, note)` | Grant searches (-2=unlimited, -1=30-day, >0=count). No subscriber grant |
-| `add_to_subscribers(user_id)` | Add to "מנויים" group |
-| `remove_from_subscribers(user_id)` | Remove from "מנויים" group |
-| `record_referral(new_user_id, referrer_id, bonus)` | Log referral + award referrer |
-| `load_welcome_settings()` | Load FREE_SEARCHES, PROMO_* from DB into module globals |
-| `get_current_welcome_quota()` | Calculate new user quota (promo or free) |
+| `is_allowed(user_id, username, full_name)` | Creates user if new (welcome quota, member_id, promo/VIP), checks blocked/global-unlimited/expiry → `(bool, searches_left)` (`-1` unlimited) |
+| `increment_search(user_id, plate)` | Count + history; skips quota while global unlimited; removes subscriber when exhausted |
+| `admin_grant(admin_id, target_id, searches, note, duration_months)` | `0` reset · `-2` permanent unlimited · `-1` N×30-day unlimited · `>0` add count |
+| `apply_code(user_id, code, username)` | Promo code |
+| `add_to_subscribers` / `remove_from_subscribers` / `is_subscriber` | "מנויים" group (+VIP in `is_subscriber`) |
+| `add_to_vip` / `add_all_to_vip` / `clear_vip_group` / `is_global_unlimited_active` | Global-unlimited benefit |
+| `record_referral`, `get_referrals`, `get_referral_count` | Referrals |
+| `expire_subscriptions`, `get_users_expiring_in_days` | Expiry jobs |
+| `load_welcome_settings()` / `get_current_welcome_quota()` / `is_promo_active()` | Module-level promo/quota globals loaded from DB |
+| `admin_stats()`, `get_all_users()`, block/unblock, broadcast consent, sent-message log | Admin support |
 
----
-
-## src/packages.py — Default Packages
-
-Seeded on `init_packages()`:
-
-| Label | Searches | Price |
-|-------|----------|-------|
-| 🔍 50 חיפושים | 50 | ₪10 |
-| 🔍 100 חיפושים | 100 | ₪20 |
-| 🔍 200 חיפושים | 200 | ₪30 |
-| ♾️ מנוי חודשי | -1 (unlimited) | ₪25 |
-
-Packages page uses tier colors cycling by index:
-- Silver (idx%3=0): `#1e40af→#0ea5e9`, accent `#38bdf8`
-- Gold (idx%3=1): `#92400e→#f59e0b`, accent `#fbbf24`
-- Platinum (idx%3=2): `#4c1d95→#a855f7`, accent `#c084fc`
+## src/packages.py — Defaults
+Seeded when table empty: 🔍 50 חיפושים ₪10 · 🔍 100 חיפושים ₪20 · 🔍 200 חיפושים ₪30 · ♾️ מנוי חודשי ₪25 (`searches=-1`), plus a FREE card (`searches=0`, ₪0) with default feature/chip lists. Admin edits these live in the DB; defaults are not re-applied. Packages page colours cycle by index%3 (Silver `#1e40af→#0ea5e9`, Gold `#92400e→#f59e0b`, Platinum `#4c1d95→#a855f7`).
 
 ---
 
@@ -295,51 +211,36 @@ Packages page uses tier colors cycling by index:
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `TELEGRAM_BOT_TOKEN` | — | Bot token |
-| `ADMIN_TELEGRAM_ID` | 594206475 | Admin user ID |
-| `BOT_USERNAME` | israelcarinfobot | For referral links |
-| `WEBAPP_URL` | https://carinfo-bot.onrender.com | Frontend URL |
-| `TURSO_DATABASE_URL` | — | Turso DB URL |
-| `TURSO_AUTH_TOKEN` | — | Turso auth token |
-| `PAYPAL_ME` | https://www.paypal.me/G9ST | Payment link |
-| `YAD2_PROXY_URL` | http://151.145.86.13:8080/yad2 | Israeli IP proxy |
-| `YAD2_PROXY_SECRET` | carinfo2026 | Proxy auth secret |
+| `TELEGRAM_BOT_TOKEN` | — (required) | Bot token; also the initData HMAC key |
+| `ADMIN_TELEGRAM_ID` | 594206475 | Admin user id |
+| `ADMIN_USERNAME` | — | Admin handle (contact links) |
+| `BOT_USERNAME` | israelcarinfobot | Referral links |
+| `WEBAPP_URL` / `RENDER_EXTERNAL_URL` | onrender.com URL | Frontend URL / webhook host (`render.yaml` sets `WEBAPP_URL`) |
+| `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` | — | Turso (`file:` URL works locally) |
+| `PAYPAL_ME`, `PAYBOX_URL` | paypal.me / PayBox link | Payment links |
+| `PAYMENT_PROVIDER_TOKEN` | — | Telegram invoices |
+| `YAD2_PROXY_URL`, `YAD2_PROXY_SECRET`, `YAD2_CF_WORKER_URL` | — | Israeli-IP proxy for Yad2 (secrets: set via env, don't commit) |
 | `PORT` | 8080 | Server port |
-| `RENDER_EXTERNAL_URL` | — | Webhook URL on Render |
-| `LOGO_PATH` / `COVER_PATH` | — | PDF assets |
+| `LOGO_PATH`, `COVER_PATH` | — | PDF assets |
+
+`APP_VERSION` in `api.py` is a **hardcoded string** (comment about `RENDER_GIT_COMMIT` is outdated): bump it to force all clients to reload.
 
 ---
 
-## Telegram Bot Commands (bot.py)
+## Telegram Bot (bot.py)
 
-| Command / Callback | Purpose |
-|--------------------|---------|
-| `/start [ref_UID]` | Welcome + referral tracking |
-| `/help` | Help message |
-| `/status` | User quota info |
-| `/code` | Apply promo code (conversation) |
-| `/admin` | Admin menu (admin only) |
-| `/buy` | Package shortcut |
-| `/myid` | Echo user ID |
-| `new_search` | Prompt for plate |
-| `show_packages` | Package list |
-| `pkg\|{id}` | Package details |
-| `paid\|{searches}\|{price}` | "I paid" → admin notify |
-| `approve\|{ref}` | Admin approves payment |
-| `decline\|{ref}` | Admin declines payment |
-| `history` / `hist_plate\|{plate}` | View recent plates |
-| `pdf_report` | Generate PDF |
-| Vehicle plate text | Lookup + display report |
-
----
+Commands: `/start [ref_UID]`, `/help`, `/status`, `/code` (conversation), `/admin`, `/buy`, `/myid`, `/optout`, `/optin`.
+Callbacks: `new_search`, `show_packages`, `pkg|`, `buy|`, `paid|`, `approve|`, `decline|`, `deliver|`, `history`/`hist_plate|`, `pdf_report`, `share_report`, `how_it_works`, `back_to_start`, `adm|`, `admpkg|`, `usr|`/`ugrant|`/`utoggle|`, `broadcast_optout|optin`, `chat_admin`, `admin_panel`. Telegram invoice payments handled via pre-checkout + successful-payment handlers. Any text → plate lookup (`handle_plate`).
+Jobs (JobQueue): daily expiry reminders (06:00 UTC), hourly `expire_subscriptions`, every 30 min Yad2 watch alerts.
+`src/notifier.py` lets `api.py` trigger bot messages (payments, tickets, grants, broadcasts, orders, product delivery) without importing `bot.py`; callbacks are registered in `bot.py`.
 
 ## Startup Sequence
 
-1. `init_db()` — create all tables, seed bot_settings, seed "מנויים"/"מנהלים" groups
-2. `init_packages()` — create packages table, seed defaults
-3. `load_welcome_settings()` — populate module-level quota globals
-4. FastAPI `_startup()` event — register notifier callbacks
-5. Bot polling starts alongside uvicorn server
+1. `bot.main()` starts uvicorn thread (`api.api`) + cache cleanup thread.
+2. Bot `_post_init`: `init_db()` (tables, settings seed, groups) → `load_welcome_settings()`.
+3. API `_startup()`: `load_welcome_settings()`, expire stale payment rows (>30 min), notify admin of expired orders.
+4. Per-module `init_*` (packages, products, banners, …) create/migrate their tables.
+5. Bot polling + JobQueue jobs start.
 
 ---
 
@@ -356,5 +257,6 @@ Specialised subagents (`.claude/agents/`) — delegate by area, and **always fin
 
 Skills (`.claude/skills/`): `qa-verify-change` (scripts: `local_api.py`, `sign_init_data.py`, `smoke_ui.mjs`), `add-api-endpoint`, `db-schema-change`, `add-webapp-screen`, `design-system-rtl`, `release-and-deploy`.
 
-> Note: this file's line counts / endpoint list are partly stale (garage, products, banners, watches, orders, payment methods, `paypal_transactions` exist in code). Trust the code; update the relevant section when you change it.
-> `APP_VERSION` in `api.py` is a hardcoded string — bump it to force clients to reload.
+### Lessons / guardrails
+- Never commit an emptied or truncated file: check `git diff --stat` before every push (`AdminPage.jsx` was once pushed empty → white admin screen).
+- A `lazy()` page must `export default`.
