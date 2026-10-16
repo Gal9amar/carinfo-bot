@@ -160,7 +160,7 @@ body {
   background: rgba(255, 255, 255, 0.5); /* Glass input */
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
-  border: 1.5px solid rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(0, 0, 0, 0.35);
   color: var(--text-main);
   padding: 20px;
   border-radius: 16px;
