@@ -64,43 +64,55 @@ const TABS = [
 
 export default function AdminPage({ user, onBack }) {
   const [tab, setTab] = useState('stats')
+  const [menuOpen, setMenuOpen] = useState(false)
+  const currentTab = TABS.find(t => t.id === tab) || TABS[0]
 
   return (
     <div className="page">
       {onBack && <BackButton onClick={onBack} />}
       <div className="page-title">🛠 פאנל ניהול</div>
-      <div style={{
-        display: 'flex',
-        gap: 8,
-        marginBottom: 24,
-        overflowX: 'auto',
-        paddingBottom: 8,
-        whiteSpace: 'nowrap',
-        WebkitOverflowScrolling: 'touch',
-        scrollbarWidth: 'none',
-        msOverflowStyle: 'none'
-      }} className="admin-nav-scroll">
-        <style dangerouslySetInnerHTML={{__html: `.admin-nav-scroll::-webkit-scrollbar { display: none; }`}} />
-        {TABS.map(t => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '10px 16px', borderRadius: 20, cursor: 'pointer',
-              background: tab === t.id ? 'linear-gradient(135deg, var(--primary), #0ea5e9)' : 'var(--bg-card)',
-              color: tab === t.id ? '#fff' : 'var(--text-main)',
-              fontSize: 14, fontWeight: tab === t.id ? 700 : 500,
-              boxShadow: tab === t.id ? '0 4px 12px rgba(0, 122, 255, 0.3)' : '0 1px 3px rgba(0,0,0,0.05)',
-              border: tab === t.id ? 'none' : '1px solid var(--border)',
-              transition: 'all 0.2s',
-              flexShrink: 0,
-            }}
-          >
-            <span style={{ fontSize: 16 }}>{t.icon}</span>
-            <span>{t.label}</span>
-          </button>
-        ))}
+      <div style={{ position: 'relative', marginBottom: 24 }}>
+        <button
+          onClick={() => setMenuOpen(o => !o)}
+          aria-expanded={menuOpen}
+          aria-label="תפריט ניהול"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 12, width: '100%',
+            padding: '12px 16px', borderRadius: 16, cursor: 'pointer',
+            background: 'var(--bg-card)', border: '1px solid var(--border)',
+            color: 'var(--text-main)', fontSize: 15, fontWeight: 700, textAlign: 'right',
+          }}
+        >
+          <span style={{ fontSize: 22, lineHeight: 1 }}>{menuOpen ? '✕' : '☰'}</span>
+          <span style={{ flex: 1 }}>{currentTab.icon} {currentTab.label}</span>
+          <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{menuOpen ? '▲' : '▼'}</span>
+        </button>
+        {menuOpen && (
+          <div style={{
+            position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 50,
+            maxHeight: '60vh', overflowY: 'auto',
+            background: '#fff', border: '1px solid var(--border)', borderRadius: 16,
+            boxShadow: '0 12px 32px rgba(0, 50, 150, 0.18)', padding: 6,
+          }}>
+            {TABS.map(t => (
+              <button
+                key={t.id}
+                onClick={() => { setTab(t.id); setMenuOpen(false) }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                  padding: '12px 14px', borderRadius: 12, cursor: 'pointer', textAlign: 'right',
+                  border: 'none', fontSize: 15,
+                  background: tab === t.id ? 'rgba(0, 122, 255, 0.1)' : 'transparent',
+                  color: tab === t.id ? 'var(--primary)' : 'var(--text-main)',
+                  fontWeight: tab === t.id ? 700 : 500,
+                }}
+              >
+                <span style={{ fontSize: 18 }}>{t.icon}</span>
+                <span>{t.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       {tab === 'stats'    && <StatsTab />}
       {tab === 'activity' && <ActivityTab />}

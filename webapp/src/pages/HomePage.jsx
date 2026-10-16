@@ -11,6 +11,8 @@ const menuItems = [
   { id: 'privacy',    icon: '🔒', label: 'פרטיות',         sub: 'מדיניות שימוש' },
 ]
 
+const SUBTLE_BORDER = '1px solid rgba(0, 100, 200, 0.18)'
+
 export default function HomePage({ user, onNavigate, onSearchPlate }) {
   const [plateInput, setPlateInput] = useState('')
 
@@ -53,7 +55,7 @@ export default function HomePage({ user, onNavigate, onSearchPlate }) {
         </div>
       )}
 
-      <div className="card" style={{ padding: 24, border: '2px solid #000' }}>
+      <div className="card" style={{ padding: 24, border: SUBTLE_BORDER }}>
         <h2 style={{ marginBottom: 8, fontWeight: 700, fontSize: 24 }}>בדיקת רכב</h2>
         <p style={{ color: 'var(--text-muted)', fontSize: 15, marginBottom: 24, lineHeight: 1.5 }}>
           הקלד מספר רישוי לקבלת דוח היסטוריה, בעלות ושעבודים מקיף בתוך שניות.
@@ -80,7 +82,7 @@ export default function HomePage({ user, onNavigate, onSearchPlate }) {
       </div>
 
       {user && (
-        <div className="card" style={{ display: 'flex', gap: 16, alignItems: 'center', cursor: 'pointer' }} onClick={() => onNavigate('packages')}>
+        <div className="card" style={{ display: 'flex', gap: 16, alignItems: 'center', cursor: 'pointer', border: SUBTLE_BORDER }} onClick={() => onNavigate('packages')}>
           <div style={{ background: 'rgba(52, 199, 89, 0.1)', color: 'var(--secondary)', padding: 12, borderRadius: 16, fontSize: 24 }}>
             🎁
           </div>
@@ -110,7 +112,7 @@ export default function HomePage({ user, onNavigate, onSearchPlate }) {
             style={{
               padding: '16px 20px', margin: 0,
               display: 'flex', alignItems: 'center', gap: 16,
-              background: 'var(--bg-card)', border: '1px solid var(--border)',
+              background: 'var(--bg-card)', border: SUBTLE_BORDER,
               borderRadius: 20, cursor: 'pointer', textAlign: 'right',
               boxShadow: '0 2px 10px rgba(0,0,0,0.02)'
             }}
