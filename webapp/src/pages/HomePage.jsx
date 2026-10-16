@@ -53,7 +53,7 @@ export default function HomePage({ user, onNavigate, onSearchPlate }) {
         </div>
       )}
 
-      <div className="card" style={{ padding: 24 }}>
+      <div className="card" style={{ padding: 24, border: '2px solid #000' }}>
         <h2 style={{ marginBottom: 8, fontWeight: 700, fontSize: 24 }}>בדיקת רכב</h2>
         <p style={{ color: 'var(--text-muted)', fontSize: 15, marginBottom: 24, lineHeight: 1.5 }}>
           הקלד מספר רישוי לקבלת דוח היסטוריה, בעלות ושעבודים מקיף בתוך שניות.
