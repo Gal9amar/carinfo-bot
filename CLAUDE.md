@@ -169,7 +169,7 @@ Screens: `loading`, `error`, `home`, `report`, `packages`, `payment`, `success`,
 Revoked: quota exhausted (`increment_search`), expiry, `admin_grant(0)`, `POST /api/admin/users/{id}/revoke-subscription`. Promo **codes** and referral bonuses add searches but do not add to "מנויים".
 
 ### Payment flow (manual approval — no PayPal API/webhook)
-1. `POST /api/payment/initiate` computes price/searches **server-side** from the package/product row → `pending_payments` + `paypal_transactions` (`intent` or `created`), ref = `{member_id}-{seq:05d}`; returns PayPal.me link `PAYPAL_ME/{price}ILS` (also PayBox / configured methods).
+1. `POST /api/payment/initiate` computes price/searches **server-side** (for the unlimited/Premium package `quantity` N = N months: price × N, `duration_months` × N, max 12) from the package/product row → `pending_payments` + `paypal_transactions` (`intent` or `created`), ref = `{member_id}-{seq:05d}`; returns PayPal.me link `PAYPAL_ME/{price}ILS` (also PayBox / configured methods).
 2. User pays externally; UI calls `/api/payment/promote` → status `created`, admin notified through `notifier`.
 3. Admin approves (`/api/admin/payments/{ref}/approve`) → `_grant_payment` by `package_type`:
    - `searches` → `admin_grant` + subscriber
@@ -211,7 +211,7 @@ Users watch make/model/year; `_yad2_watch_job` runs every 30 min and DMs new lis
 |----------|---------|
 | `is_allowed(user_id, username, full_name)` | Creates user if new (welcome quota, member_id, promo/VIP), checks blocked/global-unlimited/expiry → `(bool, searches_left)` (`-1` unlimited) |
 | `increment_search(user_id, plate)` | Count + history; skips quota while global unlimited; removes subscriber when exhausted |
-| `admin_grant(admin_id, target_id, searches, note, duration_months)` | `0` reset · `-2` permanent unlimited · `-1` N×30-day unlimited · `>0` add count |
+| `admin_grant(admin_id, target_id, searches, note, duration_months)` | `0` reset · `-2` permanent unlimited · `-1` N×30-day unlimited (**extends** a live plan from its expiry; a permanent plan is never downgraded) · `>0` add count |
 | `apply_code(user_id, code, username)` | Promo code |
 | `add_to_subscribers` / `remove_from_subscribers` / `is_subscriber` | "מנויים" group (+VIP in `is_subscriber`) |
 | `add_to_vip` / `add_all_to_vip` / `clear_vip_group` / `is_global_unlimited_active` | Global-unlimited benefit |

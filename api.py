@@ -415,11 +415,15 @@ async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_u
         duration_months = pkg[6] if len(pkg) > 6 else 1
         package_type = pkg[9] if len(pkg) > 9 else "searches"
         # Alert packs: qty = number of extra alerts (max 8)
-        max_qty = 8 if package_type == "alerts" else 10
+        max_qty = 8 if package_type == "alerts" else (12 if searches == -1 else 10)
         qty = max(1, min(max_qty, body.quantity))
         total_price = price * qty
         total_searches = -1 if searches == -1 else searches * qty
         qty_label = f"{label} ×{qty}" if qty > 1 else label
+        if searches == -1:
+            # Premium / unlimited plan: every unit of quantity = one more plan period (months)
+            duration_months = max(1, duration_months) * qty
+            qty_label = f"{label} · {duration_months} חודשים" if duration_months > 1 else label
     uid = int(user["id"])
     mid_r = await _dbexec("SELECT member_id FROM users WHERE user_id=?", [uid])
     member_id = mid_r.rows[0][0] if mid_r.rows and mid_r.rows[0][0] else uid

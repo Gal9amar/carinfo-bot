@@ -420,7 +420,21 @@ async def admin_grant(admin_id: int, target_id: int, searches: int, note: str = 
     elif searches == -1:
         from datetime import timedelta
         days = max(1, duration_months) * 30
-        expires = (datetime.now() + timedelta(days=days)).isoformat()
+        # Renewal: a live plan is extended, not restarted; a permanent one is never downgraded.
+        cur = await execute("SELECT searches_quota, quota_expires FROM users WHERE user_id = ?", [target_id])
+        cur_quota, cur_exp = (cur.rows[0][0], cur.rows[0][1]) if cur.rows else (0, None)
+        if cur_quota == -1 and not cur_exp:
+            await add_to_subscribers(target_id)
+            return "כבר במסלול Premium קבוע"
+        base = datetime.now()
+        if cur_quota == -1 and cur_exp:
+            try:
+                live = datetime.fromisoformat(cur_exp)
+                if live > base:
+                    base = live
+            except ValueError:
+                pass
+        expires = (base + timedelta(days=days)).isoformat()
         await execute(
             "UPDATE users SET searches_quota = -1, searches_done = 0, quota_expires = ? WHERE user_id = ?",
             [expires, target_id],
