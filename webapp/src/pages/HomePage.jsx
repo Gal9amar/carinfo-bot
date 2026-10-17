@@ -100,54 +100,6 @@ export default function HomePage({ user, onNavigate, onSearchPlate }) {
         </div>
       )}
 
-      <div className="card" style={{ padding: 20, border: SUBTLE_BORDER }}>
-        <h2 style={{ margin: '0 0 4px', fontWeight: 700, fontSize: 20 }}>בדיקת רכב</h2>
-        <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: '0 0 16px', lineHeight: 1.5 }}>
-          מספר רישוי, וזה הכל. דוח היסטוריה, בעלות ושעבודים תוך שניות.
-        </p>
-
-        <form
-          onSubmit={e => { e.preventDefault(); handleSearch() }}
-          style={{ margin: 0 }}
-        >
-          <div className="plate-input-wrap" style={{
-            display: 'flex', direction: 'ltr', height: 64, borderRadius: 10, overflow: 'hidden',
-            border: '3px solid #111', background: '#FFE500',
-          }}>
-            <div style={{
-              width: 38, background: '#0a3fa8', color: '#fff', display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, lineHeight: 1.1,
-            }}>
-              <span style={{ fontSize: 14 }}>🇮🇱</span>
-              <span>IL</span>
-            </div>
-            <input
-              type="tel"
-              inputMode="numeric"
-              aria-label="מספר רישוי"
-              placeholder="12-345-67"
-              maxLength={10}
-              value={plateInput}
-              onChange={e => setPlateInput(formatPlateInput(e.target.value))}
-              style={{
-                flex: 1, minWidth: 0, border: 0, outline: 'none', background: 'transparent',
-                textAlign: 'center', fontFamily: '"Arial Black", Arial, sans-serif', fontWeight: 900,
-                fontSize: 30, letterSpacing: 3, color: '#111',
-              }}
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="btn btn-primary"
-            style={{ marginTop: 14 }}
-            disabled={digits.length < 5 || searchBlocked}
-          >
-            חפש רכב
-          </button>
-        </form>
-      </div>
-
       {user && plan && (
         <section
           className="card"
@@ -217,6 +169,54 @@ export default function HomePage({ user, onNavigate, onSearchPlate }) {
           )}
         </section>
       )}
+
+      <div className="card" style={{ padding: 20, border: SUBTLE_BORDER }}>
+        <h2 style={{ margin: '0 0 4px', fontWeight: 700, fontSize: 20 }}>בדיקת רכב</h2>
+        <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: '0 0 16px', lineHeight: 1.5 }}>
+          מספר רישוי, וזה הכל. דוח היסטוריה, בעלות ושעבודים תוך שניות.
+        </p>
+
+        <form
+          onSubmit={e => { e.preventDefault(); handleSearch() }}
+          style={{ margin: 0 }}
+        >
+          <div className="plate-input-wrap" style={{
+            display: 'flex', direction: 'ltr', height: 64, borderRadius: 10, overflow: 'hidden',
+            border: '3px solid #111', background: '#FFE500',
+          }}>
+            <div style={{
+              width: 38, background: '#0a3fa8', color: '#fff', display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, lineHeight: 1.1,
+            }}>
+              <span style={{ fontSize: 14 }}>🇮🇱</span>
+              <span>IL</span>
+            </div>
+            <input
+              type="tel"
+              inputMode="numeric"
+              aria-label="מספר רישוי"
+              placeholder="12-345-67"
+              maxLength={10}
+              value={plateInput}
+              onChange={e => setPlateInput(formatPlateInput(e.target.value))}
+              style={{
+                flex: 1, minWidth: 0, border: 0, outline: 'none', background: 'transparent',
+                textAlign: 'center', fontFamily: '"Arial Black", Arial, sans-serif', fontWeight: 900,
+                fontSize: 30, letterSpacing: 3, color: '#111',
+              }}
+            />
+          </div>
+
+          <button
+            type="submit"
+            className="btn btn-primary"
+            style={{ marginTop: 14 }}
+            disabled={digits.length < 5 || searchBlocked}
+          >
+            חפש רכב
+          </button>
+        </form>
+      </div>
 
       <PageBanners page="home" onNavigate={onNavigate} />
 
