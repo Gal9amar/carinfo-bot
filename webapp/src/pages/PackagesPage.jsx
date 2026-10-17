@@ -76,7 +76,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
         <div style={{
           marginTop: 14, padding: '10px 14px',
           background: 'rgba(56,161,105,0.12)', borderRadius: 10,
-          fontSize: 12, color: '#38a169', fontWeight: 600,
+          fontSize: 12, color: '#1b8a3a', fontWeight: 600,
           display: 'flex', alignItems: 'center', gap: 8,
         }}>
           <span style={{ fontSize: 16 }}>✅</span>
@@ -91,7 +91,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
             🛍️ מוצרים דיגיטליים
           </div>
           {products.map(p => {
-            const accent = '#38bdf8'
+            const accent = '#007aff'
             const grad   = 'linear-gradient(135deg,#1e40af,#0ea5e9)'
             const maxQty = Math.max(1, Math.min(10, p.stock_count ?? 1))
             const qty    = Math.min(getQty(p.id), maxQty)
@@ -104,7 +104,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
               <div key={p.id} id={`product-${p.id}`} style={{
                 borderRadius: 20, overflow: 'hidden', marginBottom: 22, position: 'relative',
                 boxShadow: isHighlighted
-                  ? '0 6px 28px rgba(0,0,0,0.18), 0 0 0 2px #38bdf8'
+                  ? '0 4px 18px rgba(20,60,120,0.08), 0 0 0 2px #007aff'
                   : '0 4px 18px rgba(20,60,120,0.08), 0 0 0 1px rgba(0,100,200,0.18)',
                 background: 'var(--bg2)', opacity: isBuyable ? 1 : 0.6,
               }}>
@@ -221,7 +221,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
                       background: isBuyable ? grad : 'var(--bg)',
                       color: isBuyable ? '#fff' : 'var(--hint)', fontSize: 16, fontWeight: 700,
                       cursor: isBuyable ? 'pointer' : 'default',
-                      boxShadow: isBuyable ? '0 4px 14px rgba(0,0,0,0.25)' : 'none',
+                      boxShadow: isBuyable ? '0 4px 14px rgba(20,60,120,0.2)' : 'none',
                       letterSpacing: 0.4,
                     }}
                   >{isComingSoon ? '🔜 בקרוב' : isBuyable ? '🛍️ רכישה' : 'אזל המלאי'}</button>
@@ -241,7 +241,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
           <div style={{
             borderRadius: 20, overflow: 'hidden', marginBottom: 22,
             boxShadow: isFreeUser
-              ? '0 6px 28px rgba(0,0,0,0.18), 0 0 0 2px #4caf50'
+              ? '0 4px 18px rgba(20,60,120,0.08), 0 0 0 2px #4caf50'
               : '0 4px 18px rgba(20,60,120,0.08), 0 0 0 1px rgba(0,100,200,0.18)',
             background: 'var(--bg2)',
           }}>
@@ -340,7 +340,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
                 style={{
                   width: '100%', padding: '14px 0', border: 'none', borderRadius: 14,
                   background: freeGrad, color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer',
-                  boxShadow: '0 4px 14px rgba(0,0,0,0.25)',
+                  boxShadow: '0 4px 14px rgba(20,60,120,0.2)',
                 }}
               >🤝 קבל עוד חיפושים חינם</button>
             </div>
@@ -366,7 +366,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
         const totalSearches = isUnlimited ? '∞' : pkg.searches * qty
 
         const grad   = 'linear-gradient(135deg,#1e40af,#0ea5e9)'
-        const accent = '#38bdf8'
+        const accent = '#007aff'
 
         const isCurrentPlan = user?.is_subscriber && subLabel &&
           (subLabel === pkg.label || subLabel.startsWith(pkg.label + ' ×'))
@@ -375,7 +375,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
           <div key={pkg.id} style={{
             borderRadius: 20, overflow: 'hidden', marginBottom: 22,
             boxShadow: isCurrentPlan
-              ? '0 6px 28px rgba(0,0,0,0.18), 0 0 0 2px #4caf50'
+              ? '0 4px 18px rgba(20,60,120,0.08), 0 0 0 2px #4caf50'
               : '0 4px 18px rgba(20,60,120,0.08), 0 0 0 1px rgba(0,100,200,0.18)',
             background: 'var(--bg2)',
           }}>
@@ -503,7 +503,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
                   background: grad,
                   color: '#fff', fontSize: 16, fontWeight: 700,
                   cursor: 'pointer',
-                  boxShadow: `0 4px 14px rgba(0,0,0,0.25)`,
+                  boxShadow: `0 4px 14px rgba(20,60,120,0.2)`,
                   letterSpacing: 0.4,
                 }}
               >🛒 רכישת חבילה</button>
@@ -625,7 +625,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
                     style={{
                       width: '100%', padding: '14px 0', border: 'none', borderRadius: 14,
                       background: alertGrad, color: '#fff', fontSize: 16, fontWeight: 700,
-                      cursor: 'pointer', boxShadow: '0 4px 14px rgba(0,0,0,0.25)', letterSpacing: 0.4,
+                      cursor: 'pointer', boxShadow: '0 4px 14px rgba(20,60,120,0.2)', letterSpacing: 0.4,
                     }}
                   >🔔 רכישת חבילת התראות</button>
                 </div>

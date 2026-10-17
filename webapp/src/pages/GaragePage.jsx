@@ -41,7 +41,7 @@ const chipBtnStyle = (danger) => ({
 
 // .input's default border/background match the card background exactly,
 // so it renders with no visible frame when nested inside a .card — override both.
-const fieldInputStyle = { background: 'var(--bg)', border: '1px solid var(--hint)' }
+const fieldInputStyle = { background: 'var(--bg)', border: '1.5px solid var(--border)' }
 
 function Field({ label, children }) {
   return (
@@ -197,8 +197,8 @@ function GarageCard({ item, onSell, onUpdate, onDelete, onAddExpense, onDeleteEx
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{
               fontSize: 11, fontWeight: 700, borderRadius: 20, padding: '4px 10px', whiteSpace: 'nowrap',
-              background: isSold ? '#38a16922' : '#38bdf822',
-              color: isSold ? '#38a169' : '#38bdf8',
+              background: isSold ? '#1b8a3a1f' : '#007aff1f',
+              color: isSold ? '#1b8a3a' : '#007aff',
             }}>{isSold ? '✅ נמכר' : '🚗 במלאי שלי'}</div>
             <span style={{ fontSize: 12, color: 'var(--hint)' }}>{expanded ? '▲' : '▼'}</span>
           </div>
@@ -251,8 +251,8 @@ function GarageCard({ item, onSell, onUpdate, onDelete, onAddExpense, onDeleteEx
       {isSold && (
         <div style={{
           textAlign: 'center', padding: '8px 0', borderRadius: 10, marginBottom: 10,
-          background: profit >= 0 ? '#38a16922' : '#e53e3e22',
-          color: profit >= 0 ? '#38a169' : '#e53e3e',
+          background: profit >= 0 ? '#1b8a3a1f' : '#e53e3e22',
+          color: profit >= 0 ? '#1b8a3a' : '#e53e3e',
           fontWeight: 800, fontSize: 15,
         }}>
           {profit >= 0 ? '📈 רווח: ' : '📉 הפסד: '}{fmtIls(Math.abs(profit))}
@@ -276,11 +276,11 @@ function GarageCard({ item, onSell, onUpdate, onDelete, onAddExpense, onDeleteEx
       )}
 
       {expanded && (
-        <div style={{ borderTop: '1px solid var(--bg)', paddingTop: 10, marginTop: 4, marginBottom: 10 }}>
+        <div style={{ borderTop: '1px solid rgba(0,100,200,0.1)', paddingTop: 10, marginTop: 4, marginBottom: 10 }}>
           {details.map(([label, val]) => (
             <div key={label} style={{
               display: 'flex', justifyContent: 'space-between', padding: '6px 0',
-              borderBottom: '1px solid var(--bg)', fontSize: 13, gap: 8,
+              borderBottom: '1px solid rgba(0,100,200,0.1)', fontSize: 13, gap: 8,
             }}>
               <span style={{ color: 'var(--hint)', flexShrink: 0 }}>{label}</span>
               <span style={{ fontWeight: 600, textAlign: 'end' }}>{String(val)}</span>
@@ -497,7 +497,7 @@ export default function GaragePage({ onBack, onNavigate }) {
               </div>
               <div className="stat-card">
                 <div className="stat-value" style={{
-                  fontSize: 16, color: summary.realized >= 0 ? '#38a169' : '#e53e3e',
+                  fontSize: 16, color: summary.realized >= 0 ? '#1b8a3a' : '#e53e3e',
                 }}>{summary.realized >= 0 ? '+' : ''}{fmtIls(summary.realized)}</div>
                 <div className="stat-label">רווח/הפסד ממומש</div>
               </div>
@@ -527,9 +527,9 @@ export default function GaragePage({ onBack, onNavigate }) {
               <button key={s.id} onClick={() => setSort(s.id)} style={{
                 flex: 1, padding: '7px 0', borderRadius: 10,
                 fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                border: `1px solid ${sort === s.id ? '#38bdf8' : 'var(--bg2)'}`,
-                background: sort === s.id ? '#38bdf822' : 'var(--bg2)',
-                color: sort === s.id ? '#38bdf8' : 'var(--hint)',
+                border: `1px solid ${sort === s.id ? '#007aff' : 'var(--bg2)'}`,
+                background: sort === s.id ? '#007aff1f' : 'var(--bg2)',
+                color: sort === s.id ? '#007aff' : 'var(--hint)',
               }}>{s.label}</button>
             ))}
           </div>

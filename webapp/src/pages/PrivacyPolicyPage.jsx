@@ -385,7 +385,7 @@ function Section({ title, children }) {
     <div className="card" style={{ marginBottom: 10 }}>
       <div style={{
         fontSize: 14, fontWeight: 700, marginBottom: 8, color: 'var(--text)',
-        borderBottom: '1px solid var(--bg)', paddingBottom: 6,
+        borderBottom: '1px solid rgba(0,100,200,0.1)', paddingBottom: 6,
       }}>
         {title}
       </div>

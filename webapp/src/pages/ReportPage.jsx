@@ -187,7 +187,7 @@ function SummaryTab({ record, ownership, recalls, make, model, year, color, km, 
       <div style={{
         borderRadius: 20, marginBottom: 14, overflow: 'hidden',
         background: 'var(--bg2)',
-        boxShadow: `0 0 0 2px ${score.color}55, 0 8px 32px rgba(0,0,0,0.25)`,
+        boxShadow: `0 0 0 2px ${score.color}55, 0 6px 22px rgba(20,60,120,0.1)`,
       }}>
         <div style={{
           background: `linear-gradient(135deg, ${score.color}33, ${score.color}11)`,
@@ -227,7 +227,7 @@ function SummaryTab({ record, ownership, recalls, make, model, year, color, km, 
         </div>
 
         {/* Quick 4 stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 1, background: 'var(--bg)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8, padding: '4px 16px 16px' }}>
           {[
             { icon: '👥', val: ownership.length, label: 'בעלויות' },
             { icon: '🛣️', val: kmNum ? `${Math.round(kmNum / 1000)}K` : '—', label: 'ק"מ' },
@@ -235,7 +235,8 @@ function SummaryTab({ record, ownership, recalls, make, model, year, color, km, 
             { icon: '🔔', val: recalls.length || '✓', label: 'ריקולים' },
           ].map(({ icon, val, label }) => (
             <div key={label} style={{
-              background: 'var(--bg2)', padding: '12px 6px', textAlign: 'center',
+              background: '#fff', border: '1px solid var(--border)', borderRadius: 12,
+              padding: '10px 4px', textAlign: 'center',
             }}>
               <div style={{ fontSize: 16 }}>{icon}</div>
               <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)', lineHeight: 1.2, marginTop: 2 }}>{val}</div>
@@ -287,7 +288,7 @@ function SummaryTab({ record, ownership, recalls, make, model, year, color, km, 
             </div>
             {/* שורה 3 — מחיר מרוכז */}
             <div style={{
-              textAlign: 'center', fontSize: 26, fontWeight: 900, color: '#38bdf8',
+              textAlign: 'center', fontSize: 26, fontWeight: 900, color: '#007aff',
               ...(authorized ? {} : { filter: 'blur(6px)', userSelect: 'none' }),
             }}>₪{median.toLocaleString()}</div>
           </div>
@@ -305,8 +306,8 @@ function SummaryTab({ record, ownership, recalls, make, model, year, color, km, 
           </div>
           <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
             {[
-              { label: 'סה"כ', val: ownership.length, color: '#38bdf8' },
-              { label: 'פרטי', val: ownersPrivate, color: '#38a169' },
+              { label: 'סה"כ', val: ownership.length, color: '#007aff' },
+              { label: 'פרטי', val: ownersPrivate, color: '#1b8a3a' },
               { label: 'סוחר', val: ownersDealer, color: '#d69e2e' },
             ].map(({ label, val, color }) => (
               <div key={label} style={{
@@ -326,7 +327,7 @@ function SummaryTab({ record, ownership, recalls, make, model, year, color, km, 
             }} />
             {ownership.map((o, i) => {
               const isDealer = o.baalut === 'סוחר'
-              const dotColor = isDealer ? '#d69e2e' : '#38a169'
+              const dotColor = isDealer ? '#d69e2e' : '#1b8a3a'
               return (
                 <div key={i} style={{
                   display: 'flex', alignItems: 'center', gap: 12,
@@ -367,7 +368,7 @@ function SummaryTab({ record, ownership, recalls, make, model, year, color, km, 
         ].filter(([, val]) => val != null && val !== '').map(([label, val]) => (
           <div key={label} style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            padding: '6px 0', borderBottom: '1px solid var(--bg)', fontSize: 13,
+            padding: '6px 0', borderBottom: '1px solid rgba(0,100,200,0.1)', fontSize: 13,
           }}>
             <span style={{ color: 'var(--hint)' }}>{label}</span>
             <span style={{ fontWeight: 600 }}>{val}</span>
@@ -378,8 +379,8 @@ function SummaryTab({ record, ownership, recalls, make, model, year, color, km, 
       {/* ── Recalls summary ── */}
       <div style={{
         borderRadius: 14, padding: '14px 16px', marginBottom: 14,
-        background: recalls.length > 0 ? '#e53e3e11' : '#38a16911',
-        border: `1px solid ${recalls.length > 0 ? '#e53e3e33' : '#38a16933'}`,
+        background: recalls.length > 0 ? '#e53e3e11' : '#1b8a3a14',
+        border: `1px solid ${recalls.length > 0 ? '#e53e3e33' : '#1b8a3a33'}`,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 22 }}>{recalls.length > 0 ? '⚠️' : '✅'}</span>
@@ -426,7 +427,7 @@ function Sec({ title, children }) {
 // ── main component ────────────────────────────────────────────────────────────
 
 export default function ReportPage({ plate, onBack, user, onNavigate }) {
-  const [activeTab, setActiveTab] = useState('full')
+  const [activeTab, setActiveTab] = useState('summary')
   const [record, setRecord] = useState(null)
   const [error, setError] = useState(null)
   const [retryToken, setRetryToken] = useState(0)
@@ -560,7 +561,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
   if (record._personal_import) flags.push('📦 רכב יבוא אישי')
 
   let statusLabel = '🟢 תקין'
-  let statusColor = '#38a169'
+  let statusColor = '#1b8a3a'
   if (scrapped || inactive || inactiveNd) { statusLabel = '🔴 דורש בדיקה'; statusColor = '#e53e3e' }
   else if (bodyChange || (testStr && (testStr.startsWith('🟡') || testStr.startsWith('🔴')))) {
     statusLabel = '🟡 שים לב'; statusColor = '#d69e2e'
@@ -661,7 +662,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
 
     score = Math.max(0, Math.min(100, score))
     const base = { factors }
-    if (score >= 80) return { ...base, grade: 'A', label: 'מצוין', color: '#38a169', bg: '#38a16922' }
+    if (score >= 80) return { ...base, grade: 'A', label: 'מצוין', color: '#1b8a3a', bg: '#1b8a3a1f' }
     if (score >= 60) return { ...base, grade: 'B', label: 'טוב', color: '#d69e2e', bg: '#d69e2e22' }
     if (score >= 40) return { ...base, grade: 'C', label: 'בינוני', color: '#dd6b20', bg: '#dd6b2022' }
     return { ...base, grade: 'D', label: 'דורש בדיקה', color: '#e53e3e', bg: '#e53e3e22' }
@@ -770,14 +771,14 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <span style={{
-                  fontSize: 11, fontWeight: 700, background: '#38bdf822', color: '#38bdf8',
+                  fontSize: 11, fontWeight: 700, background: '#007aff1f', color: '#007aff',
                   borderRadius: 20, padding: '4px 10px',
                 }}>🚗 במלאי שלי</span>
               </div>
               <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 10 }}>
                 הרכב הזה כבר נמצא ב"רכבים שקניתי" שלך.
               </div>
-              <button className="btn btn-secondary" style={{ width: '100%', border: '1px solid var(--hint)' }}
+              <button className="btn btn-secondary" style={{ width: '100%', border: '1.5px solid var(--border)' }}
                 onClick={() => onNavigate('garage')}>📂 עבור לרכבים שקניתי</button>
             </>
           ) : buying ? (
@@ -786,14 +787,14 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
               <div style={{ marginBottom: 10 }}>
                 <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 4, fontWeight: 600 }}>מחיר רכישה (₪)</div>
                 <input
-                  type="number" className="input" style={{ background: 'var(--bg)', border: '1px solid var(--hint)' }}
+                  type="number" className="input" style={{ background: 'var(--bg)', border: '1.5px solid var(--border)' }}
                   value={buyPrice} onChange={e => setBuyPrice(e.target.value)}
                 />
               </div>
               <div style={{ marginBottom: 10 }}>
                 <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 4, fontWeight: 600 }}>ק"מ בזמן הרכישה</div>
                 <input
-                  type="number" className="input" style={{ background: 'var(--bg)', border: '1px solid var(--hint)' }}
+                  type="number" className="input" style={{ background: 'var(--bg)', border: '1.5px solid var(--border)' }}
                   value={buyKm} onChange={e => setBuyKm(e.target.value)}
                 />
               </div>
@@ -803,13 +804,13 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
                   className="input" rows={3}
                   placeholder={'לדוגמה: יש לתקן כנף שמאל, יש להחליף מצבר'}
                   value={buyNotes} onChange={e => setBuyNotes(e.target.value)}
-                  style={{ background: 'var(--bg)', border: '1px solid var(--hint)', resize: 'vertical', fontFamily: 'inherit' }}
+                  style={{ background: 'var(--bg)', border: '1.5px solid var(--border)', resize: 'vertical', fontFamily: 'inherit' }}
                 />
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn" style={{ flex: 1 }} disabled={buySubmitting || !buyPrice}
                   onClick={handleConfirmBuy}>{buySubmitting ? '...' : 'שמור'}</button>
-                <button className="btn btn-secondary" style={{ flex: 1, border: '1px solid var(--hint)' }} onClick={() => setBuying(false)}>ביטול</button>
+                <button className="btn btn-secondary" style={{ flex: 1, border: '1.5px solid var(--border)' }} onClick={() => setBuying(false)}>ביטול</button>
               </div>
             </>
           ) : (
@@ -853,7 +854,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
             ].map(([label, val]) => (
               <div key={label} style={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-                padding: '6px 0', borderBottom: '1px solid var(--bg)', fontSize: 14, gap: 8,
+                padding: '6px 0', borderBottom: '1px solid rgba(0,100,200,0.1)', fontSize: 14, gap: 8,
               }}>
                 <span style={{ color: 'var(--hint)', flexShrink: 0, minWidth: 120 }}>{label}</span>
                 <span style={{
@@ -921,7 +922,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
           </div>
           {(watchState === 'exists') ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ textAlign: 'center', color: '#38bdf8', fontWeight: 700, fontSize: 14, padding: '4px 0' }}>
+              <div style={{ textAlign: 'center', color: '#007aff', fontWeight: 700, fontSize: 14, padding: '4px 0' }}>
                 🔔 מעקב פעיל לרכב זה
               </div>
               <button
@@ -936,7 +937,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
             </div>
           ) : watchState === 'done' ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ textAlign: 'center', color: '#38a169', fontWeight: 700, fontSize: 14, padding: '4px 0' }}>
+              <div style={{ textAlign: 'center', color: '#1b8a3a', fontWeight: 700, fontSize: 14, padding: '4px 0' }}>
                 ✅ המעקב נוסף בהצלחה!
               </div>
               <button
@@ -1120,7 +1121,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
             return (
               <div key={i} style={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: '6px 0', borderBottom: '1px solid var(--bg)', fontSize: 14,
+                padding: '6px 0', borderBottom: '1px solid rgba(0,100,200,0.1)', fontSize: 14,
               }}>
                 <span style={{ color: 'var(--hint)' }}>{i + 1}. {emoji} {o.baalut || '?'}</span>
                 <span style={{ fontWeight: 500 }}>{fmtBaalutDt(o.baalut_dt)}</span>
@@ -1144,7 +1145,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
           <div style={{ fontSize: 13, color: 'var(--hint)' }}>✅ לא נמצאו ריקולים</div>
         ) : recalls.map((r, i) => (
           <div key={i} style={{
-            padding: '8px 0', borderBottom: i < recalls.length - 1 ? '1px solid var(--bg)' : 'none',
+            padding: '8px 0', borderBottom: i < recalls.length - 1 ? '1px solid rgba(0,100,200,0.1)' : 'none',
             fontSize: 13,
           }}>
             {recallsByPlate ? (
@@ -1244,7 +1245,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
                       >{noteSaving ? '...' : '💾 שמור הערה'}</button>
                     )}
                     {noteSaved && (
-                      <span style={{ fontSize: 11, color: '#38a169' }}>✅ נשמר</span>
+                      <span style={{ fontSize: 11, color: '#1b8a3a' }}>✅ נשמר</span>
                     )}
                   </div>
                 </>
@@ -1272,7 +1273,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
               pdfSent ? (
                 <div style={{
                   width: '100%', padding: '10px 0', borderRadius: 10,
-                  background: '#1a4731', color: '#38a169',
+                  background: '#1a4731', color: '#1b8a3a',
                   textAlign: 'center', fontSize: 14, fontWeight: 700, marginBottom: 8,
                 }}>✅ הדוח נשלח לצ'אט שלך!</div>
               ) : (
@@ -1323,7 +1324,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
           <div style={{
             borderRadius: 16, padding: '20px 18px', marginBottom: 14,
             background: 'linear-gradient(135deg,#1e3a5f,#0f2942)',
-            border: '1px solid #38bdf833',
+            border: '1px solid #007aff33',
           }}>
             <div style={{ fontSize: 36, marginBottom: 8 }}>🔄</div>
             <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 6 }}>העברת בעלות אונליין</div>
@@ -1390,7 +1391,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
                   flex: 1, textAlign: 'center', background: 'var(--bg)',
                   borderRadius: 10, padding: '12px 8px',
                 }}>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: '#38bdf8' }}>{price}</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: '#007aff' }}>{price}</div>
                   <div style={{ fontSize: 12, color: 'var(--hint)', marginTop: 4 }}>{label}</div>
                 </div>
               ))}

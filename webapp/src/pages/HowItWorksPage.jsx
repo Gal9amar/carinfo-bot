@@ -116,7 +116,7 @@ export default function HowItWorksPage({ onBack, freeSearches = 10, onPrivacy, o
 function Section({ title, children }) {
   return (
     <div className="card" style={{ marginBottom: 12 }}>
-      <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10, borderBottom: '1px solid var(--bg)', paddingBottom: 8 }}>
+      <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10, borderBottom: '1px solid rgba(0,100,200,0.1)', paddingBottom: 8 }}>
         {title}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
