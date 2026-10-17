@@ -148,6 +148,3 @@ async def reorder_packages(ordered_ids: list[int]) -> None:
     await get_packages(force_reload=True)
 
 
-def invalidate_cache() -> None:
-    global _cache
-    _cache = None

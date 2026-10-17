@@ -7,14 +7,8 @@ This avoids a circular import between bot.py and api.py.
 
 from typing import Any, Callable, Awaitable, Optional
 
-_notify_admin_payment_fn: Optional[Callable[..., Awaitable[Any]]] = None
 _notify_admin_ticket_fn:  Optional[Callable[..., Awaitable[Any]]] = None
 _notify_user_ticket_fn:   Optional[Callable[..., Awaitable[Any]]] = None
-
-
-def register_payment_notifier(fn: Callable[..., Awaitable[Any]]) -> None:
-    global _notify_admin_payment_fn
-    _notify_admin_payment_fn = fn
 
 
 def register_ticket_notifiers(
@@ -25,13 +19,6 @@ def register_ticket_notifiers(
     _notify_admin_ticket_fn = admin_fn
     _notify_user_ticket_fn  = user_fn
 
-
-async def notify_admin_payment(
-    user_id: int, name: str, label: str, searches: int, price: int, ref: str
-) -> None:
-    if _notify_admin_payment_fn is None:
-        return
-    await _notify_admin_payment_fn(user_id, name, label, searches, price, ref)
 
 
 async def notify_admin_ticket(ticket_id: int, user_id: int, name: str, subject: str, message: str) -> None:

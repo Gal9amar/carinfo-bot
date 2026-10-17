@@ -12,14 +12,6 @@ from typing import Optional
 
 _UA = "CarInfoBot/1.0 (vehicle-report-bot; https://t.me/israelcarinfobot)"
 
-COLOR_MAP = {
-    "לבן": "white", "שחור": "black", "אפור": "gray", "כסוף": "silver",
-    "אדום": "red", "כחול": "blue", "ירוק": "green", "צהוב": "yellow",
-    "כתום": "orange", "חום": "brown", "בז'": "beige", "זהב": "gold",
-    "סגול": "purple", "ורוד": "pink", "תכלת": "light blue",
-    "בורדו": "burgundy", "חאקי": "khaki",
-}
-
 MFR_MAP = {
     "טויוטה": "Toyota", "יונדאי": "Hyundai", "קיה": "Kia", "מזדה": "Mazda",
     "סוזוקי": "Suzuki", "ניסן": "Nissan", "מיצובישי": "Mitsubishi",

@@ -1,30 +1,44 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
 import { fetchPackages, fetchUser, fetchVersion } from './api.js'
 import HomePage from './pages/HomePage.jsx'
-import PackagesPage from './pages/PackagesPage.jsx'
-import PaymentPage from './pages/PaymentPage.jsx'
-const AdminPage = lazy(() => import('./pages/AdminPage.jsx'))
-import ReportPage from './pages/ReportPage.jsx'
-import PrivacyPolicyPage from './pages/PrivacyPolicyPage.jsx'
-import TicketPage from './pages/TicketPage.jsx'
-import HowItWorksPage from './pages/HowItWorksPage.jsx'
-import HistoryPage from './pages/HistoryPage.jsx'
-import ReferralPage from './pages/ReferralPage.jsx'
-import OrdersPage from './pages/OrdersPage.jsx'
-import WatchesPage from './pages/WatchesPage.jsx'
-import GaragePage from './pages/GaragePage.jsx'
-import GarageHowItWorksPage from './pages/GarageHowItWorksPage.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
+import HistoryPage from './pages/HistoryPage.jsx'
+import OrdersPage from './pages/OrdersPage.jsx'
+
+// Heavy / rarely-used screens are code-split so the first paint only ships
+// Home + the shared shell. Every page below has a default export.
+const loaders = {
+  report: () => import('./pages/ReportPage.jsx'),
+  packages: () => import('./pages/PackagesPage.jsx'),
+  payment: () => import('./pages/PaymentPage.jsx'),
+  privacy: () => import('./pages/PrivacyPolicyPage.jsx'),
+  ticket: () => import('./pages/TicketPage.jsx'),
+  howItWorks: () => import('./pages/HowItWorksPage.jsx'),
+  referral: () => import('./pages/ReferralPage.jsx'),
+  watches: () => import('./pages/WatchesPage.jsx'),
+  garage: () => import('./pages/GaragePage.jsx'),
+  garageHowItWorks: () => import('./pages/GarageHowItWorksPage.jsx'),
+}
+const AdminPage = lazy(() => import('./pages/AdminPage.jsx'))
+const ReportPage = lazy(loaders.report)
+const PackagesPage = lazy(loaders.packages)
+const PaymentPage = lazy(loaders.payment)
+const PrivacyPolicyPage = lazy(loaders.privacy)
+const TicketPage = lazy(loaders.ticket)
+const HowItWorksPage = lazy(loaders.howItWorks)
+const ReferralPage = lazy(loaders.referral)
+const WatchesPage = lazy(loaders.watches)
+const GaragePage = lazy(loaders.garage)
+const GarageHowItWorksPage = lazy(loaders.garageHowItWorks)
+
 import BottomNav from './components/BottomNav.jsx'
 
-export default function App() {
+function AppInner() {
   const [screen, setScreen] = useState('loading')
   const [screenStack, setScreenStack] = useState([])
   const [packages, setPackages] = useState([])
   const [user, setUser] = useState(null)
   const [selectedPkg, setSelectedPkg] = useState(null)
-  const [paymentData, setPaymentData] = useState(null)
-  const [error, setError] = useState(null)
   const [reportPlate, setReportPlate] = useState(null)
   const [highlightProductId, setHighlightProductId] = useState(null)
 
@@ -57,18 +71,18 @@ export default function App() {
       return
     }
 
-    async function init() {
-      try {
-        const [pkgs, usr] = await Promise.all([fetchPackages(), fetchUser().catch(() => null)])
-        setPackages(pkgs)
-        setUser(usr)
-        setScreen('home')
-      } catch (e) {
-        setError('שגיאה בטעינה. נסה שוב.')
-        setScreen('error')
-      }
-    }
-    init()
+    // Show Home immediately; user and packages load in parallel and fill in
+    // as they arrive (neither blocks first paint).
+    setScreen('home')
+    fetchUser().catch(() => null).then(usr => setUser(usr))
+    fetchPackages().then(setPackages).catch(() => {})
+  }, [])
+
+  // After first paint, warm the chunks users most often open next.
+  useEffect(() => {
+    const warm = () => { loaders.report(); loaders.packages() }
+    const id = window.requestIdleCallback ? window.requestIdleCallback(warm, { timeout: 4000 }) : setTimeout(warm, 2000)
+    return () => { window.cancelIdleCallback ? window.cancelIdleCallback(id) : clearTimeout(id) }
   }, [])
 
   // Detect a new deploy and force a fresh reload instead of running on a
@@ -88,9 +102,9 @@ export default function App() {
         }
       } catch { /* offline or version endpoint unreachable — ignore */ }
     }
-    checkVersion()
+    const first = setTimeout(checkVersion, 3000) // don't compete with boot requests
     const interval = setInterval(checkVersion, 5 * 60 * 1000)
-    return () => clearInterval(interval)
+    return () => { clearTimeout(first); clearInterval(interval) }
   }, [])
 
   // Push the current screen onto the stack, then move to `dest`.
@@ -117,7 +131,7 @@ export default function App() {
   useEffect(() => {
     const tg = window.Telegram?.WebApp
     if (!tg?.BackButton) return
-    if (screen === 'home' || screen === 'loading' || screen === 'error') {
+    if (screen === 'home' || screen === 'loading') {
       tg.BackButton.hide()
     } else {
       tg.BackButton.show()
@@ -239,15 +253,7 @@ export default function App() {
   }
 
   if (screen === 'loading') {
-    return <div className="loading"></div>
-  }
-
-  if (screen === 'error') {
-    return (
-      <div className="page">
-        <div className="loading">❌ {error}</div>
-      </div>
-    )
+    return <HomeSkeleton />
   }
 
   if (screen === 'admin') {
@@ -305,7 +311,6 @@ export default function App() {
             highlightProductId={highlightProductId}
             onSelect={(pkg) => {
               setSelectedPkg(pkg)
-              setPaymentData(null)
               navigate('payment')
             }}
             onPrivacy={() => navigate('privacy')}
@@ -335,5 +340,23 @@ export default function App() {
       </div>
       <BottomNav screen="home" onNavigate={navigate} />
     </>
+  )
+}
+
+function HomeSkeleton() {
+  return (
+    <div className="page" aria-busy="true">
+      <div className="skeleton" style={{ height: 120, borderRadius: 20, marginBottom: 16 }} />
+      <div className="skeleton" style={{ height: 64, borderRadius: 20, marginBottom: 16 }} />
+      <div className="skeleton" style={{ height: 160, borderRadius: 20 }} />
+    </div>
+  )
+}
+
+export default function App() {
+  return (
+    <Suspense fallback={<HomeSkeleton />}>
+      <AppInner />
+    </Suspense>
   )
 }

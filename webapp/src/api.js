@@ -8,10 +8,34 @@ function headers() {
   }
 }
 
-export async function fetchPackages() {
-  const r = await fetch(`${BASE}/api/packages`)
-  if (!r.ok) throw new Error('Failed to load packages')
-  return r.json()
+// Small in-memory GET cache: de-duplicates in-flight requests and reuses a
+// successful result for `ttl` ms. Failures are never cached. Never use this
+// for anything that consumes quota (vehicle lookup).
+const _getCache = new Map() // key -> { ts, data, promise }
+function cachedGet(key, ttl, load) {
+  const hit = _getCache.get(key)
+  if (hit) {
+    if (hit.promise) return hit.promise
+    if (Date.now() - hit.ts < ttl) return Promise.resolve(hit.data)
+  }
+  const promise = load().then(
+    (data) => { _getCache.set(key, { ts: Date.now(), data }); return data },
+    (err) => { _getCache.delete(key); throw err },
+  )
+  _getCache.set(key, { promise })
+  return promise
+}
+
+const TTL_PUBLIC = 30 * 1000      // packages / banners / products / payment methods
+const TTL_USER = 10 * 1000        // /api/user (dedupes bursts across screens)
+const TTL_REFERENCE = 10 * 60 * 1000 // makes / models
+
+export function fetchPackages() {
+  return cachedGet('packages', TTL_PUBLIC, async () => {
+    const r = await fetch(`${BASE}/api/packages`)
+    if (!r.ok) throw new Error('Failed to load packages')
+    return r.json()
+  })
 }
 
 export async function fetchVersion() {
@@ -20,16 +44,20 @@ export async function fetchVersion() {
   return r.json()
 }
 
-export async function fetchPaymentMethods() {
-  const r = await fetch(`${BASE}/api/payment-methods`)
-  if (!r.ok) throw new Error('Failed to load payment methods')
-  return r.json()
+export function fetchPaymentMethods() {
+  return cachedGet('payment-methods', TTL_PUBLIC, async () => {
+    const r = await fetch(`${BASE}/api/payment-methods`)
+    if (!r.ok) throw new Error('Failed to load payment methods')
+    return r.json()
+  })
 }
 
-export async function fetchUser() {
-  const r = await fetch(`${BASE}/api/user`, { headers: headers() })
-  if (!r.ok) throw new Error('Auth failed')
-  return r.json()
+export function fetchUser() {
+  return cachedGet('user', TTL_USER, async () => {
+    const r = await fetch(`${BASE}/api/user`, { headers: headers() })
+    if (!r.ok) throw new Error('Auth failed')
+    return r.json()
+  })
 }
 
 export async function fetchUserOrders() {
@@ -66,17 +94,21 @@ export function promotePayment(ref) {
   }).catch(() => {})
 }
 
-export async function fetchProducts() {
-  const r = await fetch(`${BASE}/api/products`)
-  if (!r.ok) throw new Error('Failed to load products')
-  return r.json()
+export function fetchProducts() {
+  return cachedGet('products', TTL_PUBLIC, async () => {
+    const r = await fetch(`${BASE}/api/products`)
+    if (!r.ok) throw new Error('Failed to load products')
+    return r.json()
+  })
 }
 
-export async function fetchBanners(page) {
+export function fetchBanners(page) {
   const url = page ? `${BASE}/api/banners?page=${encodeURIComponent(page)}` : `${BASE}/api/banners`
-  const r = await fetch(url)
-  if (!r.ok) throw new Error('Failed to load banners')
-  return r.json()
+  return cachedGet(`banners:${page || ''}`, TTL_PUBLIC, async () => {
+    const r = await fetch(url)
+    if (!r.ok) throw new Error('Failed to load banners')
+    return r.json()
+  })
 }
 
 export async function fetchVehicle(plate) {
@@ -383,14 +415,6 @@ export async function adminUpdateProduct(id, data) {
 
 export async function adminDeleteProduct(id) {
   const r = await fetch(`${BASE}/api/admin/products/${id}`, { method: 'DELETE', headers: headers() })
-  if (!r.ok) throw new Error('Failed')
-  return r.json()
-}
-
-export async function adminReorderProducts(order) {
-  const r = await fetch(`${BASE}/api/admin/products/reorder`, {
-    method: 'PUT', headers: headers(), body: JSON.stringify({ order }),
-  })
   if (!r.ok) throw new Error('Failed')
   return r.json()
 }
@@ -776,23 +800,20 @@ export async function adminRemoveGroupMember(groupId, userId) {
 }
 
 // Market price (admin)
-export async function adminFetchMarketPrice(plate) {
-  const r = await fetch(`${BASE}/api/admin/market-price?plate=${encodeURIComponent(plate)}`, { headers: headers() })
-  if (r.status === 404) throw new Error('רכב לא נמצא')
-  if (!r.ok) throw new Error('שגיאה בשליפה')
-  return r.json()
-}
-
 // Yad2 Watch reference data
-export async function fetchWatchMakes() {
-  const r = await fetch(`${BASE}/api/watches/makes`, { headers: headers() })
-  if (!r.ok) throw new Error('Failed')
-  return r.json()
+export function fetchWatchMakes() {
+  return cachedGet('watch-makes', TTL_REFERENCE, async () => {
+    const r = await fetch(`${BASE}/api/watches/makes`, { headers: headers() })
+    if (!r.ok) throw new Error('Failed')
+    return r.json()
+  })
 }
-export async function fetchWatchModels(make) {
-  const r = await fetch(`${BASE}/api/watches/models?make=${encodeURIComponent(make)}`, { headers: headers() })
-  if (!r.ok) throw new Error('Failed')
-  return r.json()
+export function fetchWatchModels(make) {
+  return cachedGet(`watch-models:${make}`, TTL_REFERENCE, async () => {
+    const r = await fetch(`${BASE}/api/watches/models?make=${encodeURIComponent(make)}`, { headers: headers() })
+    if (!r.ok) throw new Error('Failed')
+    return r.json()
+  })
 }
 
 // Yad2 Watches (user)

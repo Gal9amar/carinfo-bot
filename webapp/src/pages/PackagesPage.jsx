@@ -117,7 +117,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
                 )}
                 <div style={{ position: 'relative', height: p.image_url ? 170 : 150 }}>
                   {p.image_url
-                    ? <img src={p.image_url} alt={p.name}
+                    ? <img loading="lazy" decoding="async" src={p.image_url} alt={p.name}
                         style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                     : <div style={{ width: '100%', height: '100%', background: grad,
                         display: 'flex', flexDirection: 'column',
@@ -258,7 +258,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
               position: 'relative', height: freePackage?.image_url ? 170 : 150,
             }}>
               {freePackage?.image_url
-                ? <img src={freePackage.image_url} alt="FREE"
+                ? <img loading="lazy" decoding="async" src={freePackage.image_url} alt="FREE"
                     style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                 : <div style={{
                     width: '100%', height: '100%', background: freeGrad,
@@ -391,7 +391,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
             {/* ── Hero ── */}
             <div style={{ position: 'relative', height: pkg.image_url ? 170 : 150 }}>
               {pkg.image_url
-                ? <img src={pkg.image_url} alt={pkg.label}
+                ? <img loading="lazy" decoding="async" src={pkg.image_url} alt={pkg.label}
                     style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                 : <div style={{ width: '100%', height: '100%', background: grad,
                     display: 'flex', flexDirection: 'column',

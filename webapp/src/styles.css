@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&display=swap');
 
 * {
   box-sizing: border-box;
@@ -104,17 +103,6 @@ button.card:active { transform: scale(0.98); }
   color: var(--text-muted);
 }
 
-.price-badge {
-  display: inline-block;
-  background: var(--primary);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 700;
-  padding: 4px 10px;
-  border-radius: 20px;
-  margin-top: 8px;
-}
-
 .stat-card {
   background: rgba(255, 255, 255, 0.85);
   -webkit-backdrop-filter: blur(10px);
@@ -138,9 +126,6 @@ button.card:active { transform: scale(0.98); }
 }
 
 /* Inputs & Buttons */
-.input-group {
-  margin-bottom: 25px;
-}
 
 .input {
   width: 100%;
@@ -163,36 +148,6 @@ button.card:active { transform: scale(0.98); }
   border-color: var(--primary);
   background: rgba(255, 255, 255, 0.85);
   box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.15);
-}
-
-.plate-input {
-  width: 100%;
-  background: rgba(255, 255, 255, 0.5); /* Glass input */
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  border: 1.5px solid var(--border);
-  color: var(--text-main);
-  padding: 20px;
-  border-radius: 16px;
-  font-size: 26px;
-  font-weight: 700;
-  text-align: center;
-  letter-spacing: 3px;
-  outline: none;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
-  transition: 0.2s;
-}
-
-.plate-input:focus {
-  border-color: var(--primary);
-  background: rgba(255, 255, 255, 0.8);
-  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.15);
-}
-
-.plate-input::placeholder {
-  color: #c5c5c7;
-  font-weight: 400;
-  letter-spacing: normal;
 }
 
 .btn {
@@ -276,41 +231,6 @@ button.card:active { transform: scale(0.98); }
 .info-value.highlight { color: var(--primary); }
 .info-value.danger { color: var(--danger); }
 
-/* Package Cards */
-.pkg-card {
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 24px;
-  margin-bottom: 16px;
-  background: var(--bg-card);
-  position: relative;
-  transition: 0.3s;
-}
-
-.pkg-card.premium {
-  border: 2px solid var(--primary);
-  background: rgba(0, 122, 255, 0.02);
-}
-
-.pkg-badge {
-  position: absolute;
-  top: -12px;
-  right: 24px;
-  background: var(--primary);
-  color: white;
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.pkg-card .price {
-  font-size: 32px;
-  font-weight: 900;
-  color: var(--text-main);
-  letter-spacing: -1px;
-}
-
 /* Loading & Success */
 .loading {
   display: flex;
@@ -328,12 +248,6 @@ button.card:active { transform: scale(0.98); }
   animation: spin 0.7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-
-.success-icon {
-  font-size: 64px;
-  text-align: center;
-  margin: 40px 0 16px;
-}
 
 .success-title {
   font-size: 24px;
@@ -454,7 +368,6 @@ button.card:active { transform: scale(0.98); }
   font-weight: 500;
 }
 .bottom-nav-item.active .nav-label { font-weight: 700; }
-
 
 /* ── Toggle switch (settings) — knob sits on the right when off, slides left when on (RTL) ── */
 .toggle {

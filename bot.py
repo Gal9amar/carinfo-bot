@@ -14,7 +14,7 @@ from threading import Thread
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton, LabeledPrice, WebAppInfo
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton, WebAppInfo
 from telegram.constants import ParseMode
 from telegram.error import Forbidden
 from telegram.ext import (
@@ -33,7 +33,7 @@ from src.users import (
     block_user, unblock_user, is_blocked,
     get_last_plate, set_last_plate, get_search_history,
     check_new_user, record_referral, get_referral_count, get_referrals,
-    load_welcome_settings, get_promo_welcome_info, get_users_expiring_today, get_users_expiring_in_days,
+    load_welcome_settings, get_promo_welcome_info, get_users_expiring_in_days,
     expire_subscriptions,
     log_sent_message,
     set_broadcast_consent, get_broadcast_consent,
@@ -45,9 +45,7 @@ from src.formatter import (
     quick_summary_rich,
     compare_rich,
     compare_classic,
-    get_summary,
     get_share_text,
-    yad2_label,
     quick_summary,
 )
 from src import messages as M
@@ -71,7 +69,6 @@ PAYMENT_PROVIDER_TOKEN = os.environ.get("PAYMENT_PROVIDER_TOKEN", "6073714100:TE
 PAYPAL_ME  = os.environ.get("PAYPAL_ME", "https://www.paypal.me/G9ST")
 PAYBOX_URL = os.environ.get("PAYBOX_URL", "https://links.payboxapp.com/xjZpYBP2n3b")
 
-from src.packages import get_packages as _get_packages
 from src.db import get_bot_setting, set_bot_setting
 
 def _pkgs() -> list[tuple[str, int, int]]:
@@ -112,8 +109,6 @@ def _log_text(html_text: str) -> str:
     return M.strip_html(html_text)
 
 WAITING_CODE = 1
-WAITING_FREE_COUNT = 2
-WAITING_PAYMENT_MSG = 3
 
 def _persistent_rows(is_admin: bool = False) -> list:
     """Bottom row shown in every chat keyboard — search + mini-app shortcut."""
@@ -147,13 +142,6 @@ def _blocked_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton("💬 צ'אט עם מנהל", callback_data="chat_admin", style="primary")],
     ])
 
-
-def _admin_reply_keyboard() -> ReplyKeyboardMarkup:
-    return ReplyKeyboardMarkup([
-        [KeyboardButton("📊 סטטיסטיקות"), KeyboardButton("👥 משתמשים"),          KeyboardButton("🔑 צור קוד")],
-        [KeyboardButton("💳 הענק גישה"),  KeyboardButton("🚫 חסום/שחרר"),        KeyboardButton("⚙️ הגדרות בוט")],
-        [KeyboardButton("📢 שלח הודעה לכולם"), KeyboardButton("💰 מחירי חבילות"), KeyboardButton("🔍 חזור לחיפוש")],
-    ], resize_keyboard=True, one_time_keyboard=False)
 
 
 def _cancel_search_keyboard() -> ReplyKeyboardMarkup:
@@ -196,18 +184,6 @@ def build_result_keyboard(
     rows.extend(_persistent_rows(is_admin))
     return InlineKeyboardMarkup(rows)
 
-
-def _packages_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
-    buttons = []
-    for label, searches, price in _pkgs():
-        buttons.append([InlineKeyboardButton(
-            f"{label} — ₪{price}",
-            callback_data=f"buy|{searches}|{price}",
-            style="primary",
-        )])
-    buttons.append([InlineKeyboardButton("🎟️ יש לי קוד הטבה", callback_data="enter_code")])
-    buttons.append([InlineKeyboardButton("📱 פתח תפריט", web_app=WebAppInfo(url=os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_URL", "https://carinfo-bot.onrender.com")))])
-    return InlineKeyboardMarkup(buttons)
 
 
 def _paypal_keyboard(searches: int, price: int) -> InlineKeyboardMarkup:
@@ -1296,20 +1272,6 @@ async def handle_paid_callback(update: Update, context: ContextTypes.DEFAULT_TYP
 
 _bot_instance = None  # set in main(), used by API server
 
-async def _notify_admin_payment(user_id: int, name: str, label: str, searches: int, price: int, ref: str) -> None:
-    """Called from api.py when user confirms payment via Mini App."""
-    if not _bot_instance or not ADMIN_ID:
-        return
-    await _bot_instance.send_message(
-        ADMIN_ID,
-        M.admin_payment_request(name, user_id, label, price, ref),
-        parse_mode=HTML,
-        reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton("✅ אשר ופתח גישה", callback_data=f"approve|{user_id}|{searches}", style="success"),
-            InlineKeyboardButton("❌ דחה",             callback_data=f"decline|{user_id}", style="danger"),
-        ]]),
-    )
-
 
 async def _notify_admin_ticket(ticket_id: int, user_id: int, name: str, subject: str, message: str):
     try:
@@ -1533,33 +1495,6 @@ async def handle_admin_message(update: Update, context: ContextTypes.DEFAULT_TYP
     except Exception as e:
         await msg.reply_text(f"❌ שגיאה בשליחה: {M.code(e)}", parse_mode=HTML)
 
-
-async def _send_car_photo(message, record: dict) -> None:
-    """Download a car image and send it as a photo reply. Logs errors at WARNING level."""
-    import httpx as _httpx, io as _io
-    from src.api.image_api import fetch_car_image
-    make  = record.get("tozeret_nm", "")
-    model = record.get("kinuy_mishari") or record.get("degem_nm", "")
-    year  = str(record.get("shnat_yitzur", ""))
-    color = record.get("tzeva_rechev", "")
-    if not (make or model):
-        return
-    try:
-        img_url = await fetch_car_image(make, model, year, color)
-        logger.info("car_photo: make=%r model=%r img_url=%s", make, model, img_url)
-        if not img_url:
-            return
-        _ua = {"User-Agent": "CarInfoBot/1.0 (contact: gal9amar@gmail.com)"}
-        async with _httpx.AsyncClient(timeout=15, follow_redirects=True, headers=_ua) as _cl:
-            _r = await _cl.get(img_url)
-        logger.info("car_photo download: status=%s bytes=%d", _r.status_code, len(_r.content))
-        if _r.status_code != 200:
-            return
-        caption = " · ".join(p for p in [make, model, year] if p)
-        await message.reply_photo(photo=_io.BytesIO(_r.content), caption=caption)
-        logger.info("car_photo sent ok")
-    except Exception as exc:
-        logger.warning("car_photo failed: %s", exc)
 
 
 async def _cycle_searching_message(msg, steps: list[str]) -> None:
@@ -2367,8 +2302,6 @@ def main() -> None:
     global _bot_instance
     _bot_instance = app.bot
     # Register the payment notifier so api.py can notify admin without importing bot
-    from src.notifier import register_payment_notifier
-    register_payment_notifier(_notify_admin_payment)
     from src.notifier import register_ticket_notifiers
     register_ticket_notifiers(_notify_admin_ticket, _notify_user_ticket_reply)
 

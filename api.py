@@ -14,6 +14,7 @@ from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
@@ -28,10 +29,11 @@ WEBAPP_URL   = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_U
 # Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
 # webapp can detect a new release and force-reload instead of running stale
 # cached JS. Falls back to process start time for non-Render environments.
-APP_VERSION = "1792234085"
+APP_VERSION = "1792235018"
 
 api = FastAPI()
 
+api.add_middleware(GZipMiddleware, minimum_size=800)
 api.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -181,10 +183,10 @@ async def list_products():
     from src.products import get_products, available_stock_count
     prods = await get_products(active_only=True)
     out = []
-    for p in prods:
+    stocks = await asyncio.gather(*(available_stock_count(p[0], p[5]) for p in prods))
+    for p, stock in zip(prods, stocks):
         (pid, name, description, image_url, price, delivery_type, delivery_time_note, quantity_stock,
          display_order, is_active, availability_status, features) = p
-        stock = await available_stock_count(pid, delivery_type)
         out.append({
             "id": pid, "name": name, "description": description, "image_url": image_url,
             "price": price, "delivery_type": delivery_type, "delivery_time_note": delivery_time_note,
@@ -199,12 +201,17 @@ async def get_user_info(user: dict = Depends(_get_user)):
     from src.users import get_user_by_id, is_global_unlimited_active
     from src.db import get_bot_setting, execute
     user_id = int(user["id"])
-    db_user = await get_user_by_id(user_id)
+    from src.users import is_subscriber as _is_subscriber, get_quota_expires
+    from src.yad2_watcher import _get_max_for_user
+    # Independent reads run concurrently (settings come from the in-memory cache).
+    db_user, global_unlimited, is_subscriber, quota_expires, watch_max = await asyncio.gather(
+        get_user_by_id(user_id), is_global_unlimited_active(), _is_subscriber(user_id),
+        get_quota_expires(user_id), _get_max_for_user(user_id),
+    )
     maintenance = (await get_bot_setting("maintenance")) == "1"
     left = db_user.get("searches_left", 0) if db_user else 0
     quota = db_user.get("searches_quota", 0) if db_user else 0
 
-    global_unlimited = await is_global_unlimited_active()
     global_unlimited_expires = None
     if global_unlimited:
         left = -1
@@ -214,11 +221,6 @@ async def get_user_info(user: dict = Depends(_get_user)):
 
     from datetime import date as _date
     _today = str(_date.today())
-
-    # Check once whether the user is in the 'מנויים' group — reused below instead
-    # of re-querying it per feature gate.
-    from src.users import is_subscriber as _is_subscriber
-    is_subscriber = await _is_subscriber(user_id)
 
     async def _check_feature(key_prefix: str) -> bool:
         # Admin always has full access
@@ -247,10 +249,6 @@ async def get_user_info(user: dict = Depends(_get_user)):
     show_pdf    = await _check_feature("pdf_report")
     show_watch  = await _check_feature("yad2_watch")
 
-    async def _get_watch_max(uid: int) -> int:
-        from src.yad2_watcher import _get_max_for_user
-        return await _get_max_for_user(uid)
-
     async def _public_label(key_prefix: str) -> str:
         if (await get_bot_setting(f"{key_prefix}_public")) != "1":
             return ""
@@ -270,10 +268,6 @@ async def get_user_info(user: dict = Depends(_get_user)):
             subscription_label = pkg_r.rows[0][0]
         elif quota == -1:
             subscription_label = 'הטבת מנהל'
-
-    # Get quota expiry date
-    from src.users import get_quota_expires
-    quota_expires = await get_quota_expires(user_id)
 
     if global_unlimited:
         subscription_label = (await get_bot_setting("global_unlimited_label")) or "🎁 הטבה לכולם"
@@ -295,7 +289,7 @@ async def get_user_info(user: dict = Depends(_get_user)):
         "show_watch": show_watch,
         "pdf_public_label": pdf_public_label,
         "watch_public_label": watch_public_label,
-        "watch_max": await _get_watch_max(user_id),
+        "watch_max": watch_max,
         "is_subscriber": is_subscriber,
         "subscription_label": subscription_label,
         "global_unlimited_active": global_unlimited,
@@ -311,7 +305,7 @@ class PaymentInitRequest(BaseModel):
 
 @api.post("/api/payment/initiate")
 async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_user)):
-    from src.db import execute, set_bot_setting, get_bot_setting, execute as _dbexec
+    from src.db import execute, set_bot_setting, get_bot_setting, next_counter, execute as _dbexec
 
     if (body.package_id is None) == (body.product_id is None):
         raise HTTPException(status_code=400, detail="Exactly one of package_id or product_id is required")
@@ -358,9 +352,7 @@ async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_u
     uid = int(user["id"])
     mid_r = await _dbexec("SELECT member_id FROM users WHERE user_id=?", [uid])
     member_id = mid_r.rows[0][0] if mid_r.rows and mid_r.rows[0][0] else uid
-    seq_str = await get_bot_setting("order_sequence")
-    seq = int(seq_str) + 1 if seq_str else 1
-    await set_bot_setting("order_sequence", str(seq))
+    seq = await next_counter("order_sequence")   # atomic: concurrent orders never share a number
     ref = f"{member_id}-{seq:05d}"
 
     # PayPal.me static link — every order requires manual admin approval
@@ -623,12 +615,15 @@ async def get_vehicle(plate: str, user: dict = Depends(_get_user)):
     if not record:
         raise HTTPException(status_code=404, detail="Vehicle not found")
 
-    await increment_search(uid, plate)
-    try:
-        from src.activity import log as _log
-        await _log("search", f"חיפוש לוחית {plate}", uid, username)
-    except Exception:
-        pass
+    async def _log_search():
+        try:
+            from src.activity import log as _log
+            await _log("search", f"חיפוש לוחית {plate}", uid, username)
+        except Exception:
+            pass
+
+    # Independent writes: overlap their Turso round-trips.
+    await asyncio.gather(increment_search(uid, plate), _log_search())
     return JSONResponse(content=record, headers={"Cache-Control": "no-store"})
 
 
@@ -1075,20 +1070,14 @@ async def admin_list_groups(_: dict = Depends(_require_admin)):
     groups_r = await execute(
         "SELECT id, name, created_at FROM user_groups ORDER BY created_at ASC"
     )
-    result = []
-    for row in groups_r.rows:
-        group_id, name, created_at = row[0], row[1], row[2]
-        members_r = await execute(
-            "SELECT user_id FROM user_group_members WHERE group_id=?", [group_id]
-        )
-        member_ids = [m[0] for m in members_r.rows]
-        result.append({
-            "id": group_id,
-            "name": name,
-            "created_at": created_at,
-            "member_ids": member_ids,
-        })
-    return result
+    members_r = await execute("SELECT group_id, user_id FROM user_group_members")
+    members: dict = {}
+    for gid, uid in members_r.rows:
+        members.setdefault(gid, []).append(uid)
+    return [
+        {"id": row[0], "name": row[1], "created_at": row[2], "member_ids": members.get(row[0], [])}
+        for row in groups_r.rows
+    ]
 
 
 class GroupCreateBody(BaseModel):
@@ -1246,10 +1235,11 @@ class ProductStockBody(BaseModel):
 async def admin_list_products(_: dict = Depends(_require_admin)):
     from src.products import get_products, available_stock_count
     prods = await get_products(force_reload=True)
+    stocks = await asyncio.gather(*(available_stock_count(p[0], p[5]) for p in prods))
     out = []
-    for p in prods:
+    for p, stock in zip(prods, stocks):
         item = _product_json(p)
-        item["stock_count"] = await available_stock_count(p[0], p[5])
+        item["stock_count"] = stock
         out.append(item)
     return out
 

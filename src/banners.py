@@ -108,10 +108,6 @@ async def get_banners(force_reload: bool = False, active_only: bool = False, pag
     return result
 
 
-async def get_banner(banner_id: int) -> tuple | None:
-    banners = await get_banners()
-    return next((b for b in banners if b[0] == banner_id), None)
-
 
 async def add_banner(
     title: str, subtitle: str = "", icon: str = "🎁", image_url: str = "",

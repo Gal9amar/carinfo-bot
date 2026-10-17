@@ -141,10 +141,6 @@ async def reorder_products(ordered_ids: list[int]) -> None:
     await get_products(force_reload=True)
 
 
-def invalidate_cache() -> None:
-    global _cache
-    _cache = None
-
 
 # ── Auto-delivery stock pool ────────────────────────────────────────────────
 

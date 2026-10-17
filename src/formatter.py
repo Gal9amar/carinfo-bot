@@ -36,12 +36,6 @@ def _test_status(tokef_raw: Optional[str]) -> str:
         return "❓ לא ידוע"
 
 
-def _ownership_label(baalut: Optional[str]) -> str:
-    mapping = {"1": "ראשונה", "2": "שנייה", "3": "שלישית", "4": "רביעית", "5": "חמישית ומעלה"}
-    if not baalut:
-        return ""
-    return mapping.get(str(baalut).strip(), str(baalut))
-
 
 def _yn_always(val) -> str:
     """Always returns a value – ✅/❌ or ✖ לא קיים."""
@@ -62,17 +56,6 @@ def _val(record: dict, *keys) -> str:
             return str(v).strip()
     return ""
 
-
-def _val_always(record: dict, *keys) -> str:
-    """Always returns a value – raw or ✖ לא קיים."""
-    for k in keys:
-        v = record.get(k)
-        if v is not None and str(v).strip() not in ("", "None", "nan"):
-            s = str(v).strip()
-            if s == "0":
-                return s
-            return s
-    return "✖ לא קיים"
 
 
 def _row(label: str, value) -> str:
@@ -455,11 +438,6 @@ def _flip_check(record: dict) -> str:
     return ""
 
 
-def _check_flipping(record: dict) -> str:
-    """Returns HTML-escaped flipping warning or ''."""
-    msg = _flip_check(record)
-    return _escape(msg) if msg else ""
-
 
 def cat_recalls(record: dict) -> str:
     recalls = record.get("_recalls") or []
@@ -823,50 +801,3 @@ def get_share_text(record: dict) -> str:
 # Public API
 # ─────────────────────────────────────────────
 
-def get_summary(record: dict) -> str:
-    """Returns full vehicle report – quick summary + all categories combined."""
-    w = record.get("_wltp") or {}
-
-    plate        = _val(record, "mispar_rechev")
-    manufacturer = _val(record, "tozeret_nm")
-    model        = _val(record, "kinuy_mishari", "degem_nm")
-
-    scrapped_dt  = record.get("_scrapped_dt", "")
-    scrapped_warning = ""
-    if scrapped_dt:
-        dt_str = _format_date(scrapped_dt)
-        scrapped_warning = (
-            f"🚨 <b>אזהרה: רכב זה בוטל רשמית (גרוטאה)</b>\n"
-            f"• תאריך ביטול: <b>{_escape(dt_str)}</b>\n"
-            f"• רכב זה אינו רשאי לנסוע על הכביש!\n"
-            "━━━━━━━━━━━━━━━━━━\n"
-        )
-
-    sections = [
-        quick_summary(record),
-        f"🚗 <b>{_escape(manufacturer)} {_escape(model)}</b>\n",
-        "━━━━━━━━━━━━━━━━━━\n",
-        f"• <b>{_escape('מספר רכב')}:</b> {_escape(plate)}\n\n",
-        scrapped_warning,
-        cat_general(record, w) + "\n",
-        cat_specs(record, w) + "\n",
-        cat_tires(record, w) + "\n",
-        cat_equipment(record, w) + "\n",
-        cat_safety(record, w) + "\n",
-        cat_adas(record, w) + "\n",
-        cat_history(record, w) + "\n",
-        cat_ownership(record, w) + "\n",
-        cat_recalls(record),
-        "\n\n<i>⚠️ המידע נאסף ממאגרים ממשלתיים וציבוריים. CarInfo ומפעיל הבוט אינם אחראים לנכונות הנתונים. אין להסתמך על דוח זה כתחליף לבדיקה מקצועית.</i>",
-    ]
-
-    return "".join(s for s in sections if s)
-
-
-def yad2_label(record: dict) -> str:
-    """Return a human-readable search label, e.g. 'טויוטה קורולה 2020'."""
-    make  = _val(record, "tozeret_nm")
-    model = _val(record, "kinuy_mishari", "degem_nm")
-    year  = _val(record, "shnat_yitzur")
-    parts = [p for p in [make, model, year] if p]
-    return " ".join(parts) if parts else "רכב זה"

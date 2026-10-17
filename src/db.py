@@ -5,25 +5,31 @@ Uses libsql-experimental (libsql package).
 """
 
 import os
+import time
 import asyncio
+import threading
+from concurrent.futures import ThreadPoolExecutor
 import libsql_experimental as libsql
 
 _URL   = os.environ.get("TURSO_DATABASE_URL", "")
 _TOKEN = os.environ.get("TURSO_AUTH_TOKEN", "")
 
-_conn = None
+# One libsql connection per worker thread: queries run off the event loop and
+# independent requests (asyncio.gather) overlap their Turso round-trips.
+_POOL_SIZE = 6
+_executor  = ThreadPoolExecutor(max_workers=_POOL_SIZE, thread_name_prefix="db")
+_local     = threading.local()
 
 
 def _get_conn():
-    global _conn
-    if _conn is None:
-        _conn = libsql.connect(database=_URL, auth_token=_TOKEN)
-    return _conn
+    conn = getattr(_local, "conn", None)
+    if conn is None:
+        conn = _local.conn = libsql.connect(database=_URL, auth_token=_TOKEN)
+    return conn
 
 
 def _reset_conn():
-    global _conn
-    _conn = None
+    _local.conn = None
 
 
 class _Result:
@@ -382,34 +388,98 @@ async def save_vehicle_note(user_id: int, plate: str, note: str) -> None:
     )
 
 
+_SETTINGS_TTL = 5.0
+_settings: dict[str, str] = {}
+_settings_at = 0.0
+_settings_gen = 0
+
+
+async def _load_settings() -> dict[str, str]:
+    """All bot_settings in ONE query, cached briefly: a request that checks
+    a dozen flags used to pay a Turso round-trip for each. Two loops (API and
+    bot threads) may race on a refresh; that only costs one extra query."""
+    global _settings, _settings_at
+    if time.monotonic() - _settings_at < _SETTINGS_TTL:
+        return _settings
+    gen = _settings_gen
+    r = await execute("SELECT key, value FROM bot_settings")
+    fresh = {k: (v if v is not None else "") for k, v in r.rows}
+    if gen != _settings_gen:    # a write landed while we were reading: don't cache the stale snapshot
+        return fresh
+    _settings = fresh
+    _settings_at = time.monotonic()
+    return _settings
+
+
 async def get_bot_setting(key: str) -> str:
-    r = await execute("SELECT value FROM bot_settings WHERE key=?", [key])
-    return r.rows[0][0] if r.rows else ""
+    return (await _load_settings()).get(key, "")
 
 
 async def set_bot_setting(key: str, value: str) -> None:
+    global _settings_at, _settings_gen
+    _settings_gen += 1
     await execute(
         "INSERT INTO bot_settings (key, value) VALUES (?, ?) "
         "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
         [key, value],
     )
+    _settings_gen += 1
+    _settings[key] = value
+    _settings_at = 0.0
+
+
+def _run(sql: str, args: tuple) -> _Result:
+    conn = _get_conn()
+    cur  = conn.execute(sql, args)
+    rows    = cur.fetchall()   # before commit, so INSERT/UPDATE ... RETURNING works
+    conn.commit()
+    columns = [desc[0] for desc in (cur.description or [])]
+    return _Result(rows, columns)
+
+
+_counter_lock = threading.Lock()
+
+
+def _bump_counter(key: str) -> int:
+    with _counter_lock:                      # one process owns the DB: serialise bump+read
+        conn = _get_conn()
+        conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES (?, '0')", (key,))
+        conn.execute(
+            "UPDATE bot_settings SET value = CAST(COALESCE(NULLIF(value, ''), '0') AS INTEGER) + 1 WHERE key = ?",
+            (key,),
+        )
+        conn.commit()
+        return int(conn.execute("SELECT value FROM bot_settings WHERE key = ?", (key,)).fetchall()[0][0])
+
+
+async def next_counter(key: str) -> int:
+    """Atomically increment a bot_settings counter and return the new value (order refs)."""
+    loop = asyncio.get_running_loop()
+    for attempt in range(5):
+        try:
+            return await loop.run_in_executor(_executor, _bump_counter, key)
+        except Exception as e:
+            if "locked" in str(e).lower() and attempt < 4:
+                await asyncio.sleep(0.05 * (attempt + 1))
+                continue
+            raise
 
 
 async def execute(sql: str, args: list | None = None) -> _Result:
-    """Execute with automatic reconnect on 502/connection errors."""
-    for attempt in range(3):
+    """Execute on a worker thread with automatic reconnect on 502/connection errors."""
+    loop = asyncio.get_running_loop()
+    params = tuple(args) if args else ()
+    for attempt in range(5):
         try:
-            conn = _get_conn()
-            cur  = conn.execute(sql, tuple(args) if args else ())
-            conn.commit()
-            rows    = cur.fetchall()
-            columns = [desc[0] for desc in (cur.description or [])]
-            return _Result(rows, columns)
+            return await loop.run_in_executor(_executor, _run, sql, params)
         except Exception as e:
             err = str(e).lower()
+            if "locked" in err and attempt < 4:   # local file DBs: concurrent writers
+                await asyncio.sleep(0.05 * (attempt + 1))
+                continue
             if any(x in err for x in ("502", "bad gateway", "hrana", "connection", "timeout")):
-                _reset_conn()
                 if attempt < 2:
+                    await loop.run_in_executor(_executor, _reset_conn)
                     await asyncio.sleep(1.5 * (attempt + 1))
                     continue
             raise

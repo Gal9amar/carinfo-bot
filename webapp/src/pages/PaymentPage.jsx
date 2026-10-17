@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import BackButton from '../components/BackButton.jsx'
 import { initiatePayment, initiateProductPayment, promotePayment, fetchPaymentMethods } from '../api.js'
-import paypalLogo     from '../assets/paypal-logo.png'
+import paypalLogo     from '../assets/paypal-logo.webp'
 import visaLogo       from '../assets/visa.svg'
 import mastercardLogo from '../assets/mastercard.svg'
 import amexLogo       from '../assets/amex.svg'
-import isracardLogo   from '../assets/isracard.png'
+import isracardLogo   from '../assets/isracard.webp'
 
 const CARD_STYLE = { height: 24, width: 'auto', borderRadius: 4, display: 'block', objectFit: 'contain' }
 
@@ -97,13 +97,13 @@ export default function PaymentPage({ pkg, onBack }) {
               opacity: !paymentUrl ? 0.7 : 1,
             }}
           >
-            <img src={paypalLogo} alt="PayPal" style={{ height: 28, objectFit: 'contain' }} />
+            <img loading="lazy" decoding="async" src={paypalLogo} alt="PayPal" style={{ height: 28, objectFit: 'contain' }} />
             <span style={{ fontSize: 11, color: '#666' }}>או שלם באמצעות אשראי:</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <img src={visaLogo}       alt="Visa"       style={CARD_STYLE} />
-              <img src={mastercardLogo} alt="Mastercard" style={CARD_STYLE} />
-              <img src={amexLogo}       alt="Amex"       style={CARD_STYLE} />
-              <img src={isracardLogo}   alt="Isracard"   style={CARD_STYLE} />
+              <img loading="lazy" decoding="async" src={visaLogo}       alt="Visa"       style={CARD_STYLE} />
+              <img loading="lazy" decoding="async" src={mastercardLogo} alt="Mastercard" style={CARD_STYLE} />
+              <img loading="lazy" decoding="async" src={amexLogo}       alt="Amex"       style={CARD_STYLE} />
+              <img loading="lazy" decoding="async" src={isracardLogo}   alt="Isracard"   style={CARD_STYLE} />
             </div>
           </button>
 
@@ -143,7 +143,7 @@ function MethodButton({ m, disabled, onClick }) {
       }}
     >
       {m.logo_url
-        ? <img src={m.logo_url} alt={m.name} style={{ height: 32, objectFit: 'contain' }} onError={e => e.target.style.display='none'} />
+        ? <img loading="lazy" decoding="async" src={m.logo_url} alt={m.name} style={{ height: 32, objectFit: 'contain' }} onError={e => e.target.style.display='none'} />
         : <span style={{ fontSize: 22 }}>💳</span>
       }
       <span style={{ fontSize: 15, fontWeight: 700, color: '#111' }}>{m.name}</span>

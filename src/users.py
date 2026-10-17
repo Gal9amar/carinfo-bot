@@ -3,6 +3,7 @@ User management – quota, access codes, grants.
 Storage: Turso (libsql) via src/db.py
 """
 
+import asyncio
 import secrets
 from datetime import datetime, timedelta
 from typing import Optional
@@ -200,18 +201,22 @@ async def _ensure_user(user_id: int, username: str = "", full_name: str = "") ->
         expires = None
         if is_promo_active() and PROMO_SEARCHES != 0 and PROMO_DURATION_DAYS > 0:
             expires = (datetime.now() + timedelta(days=PROMO_DURATION_DAYS)).isoformat()
-        mid_r = await execute("SELECT COALESCE(MAX(member_id), 0) + 1 FROM users")
-        next_member_id = mid_r.rows[0][0] if mid_r.rows else 1
+        # member_id computed inside the INSERT so concurrent sign-ups can't share one.
         await execute(
-            "INSERT OR IGNORE INTO users (user_id, username, full_name, searches_quota, quota_expires, member_id) VALUES (?, ?, ?, ?, ?, ?)",
-            [user_id, username, full_name, quota, expires, next_member_id],
+            "INSERT OR IGNORE INTO users (user_id, username, full_name, searches_quota, quota_expires, member_id) "
+            "VALUES (?, ?, ?, ?, ?, (SELECT COALESCE(MAX(member_id), 0) + 1 FROM users))",
+            [user_id, username, full_name, quota, expires],
         )
         if is_promo_active() and PROMO_IS_SUBSCRIBER:
             await add_to_subscribers(user_id)
         if await is_global_unlimited_active():
             await add_to_vip(user_id)
 
-    await execute(
+    await _touch_user(user_id, username, full_name)
+
+
+async def _touch_user(user_id: int, username: str, full_name: str):
+    return await execute(
         """UPDATE users SET
             username  = CASE WHEN ? != '' THEN ? ELSE username  END,
             full_name = CASE WHEN ? != '' THEN ? ELSE full_name END,
@@ -225,12 +230,14 @@ async def _ensure_user(user_id: int, username: str = "", full_name: str = "") ->
 
 async def is_allowed(user_id: int, username: str = "", full_name: str = "") -> tuple[bool, int]:
     """Returns (allowed, searches_left). -1 = unlimited."""
-    await _ensure_user(user_id, username, full_name)
-    r = await execute(
-        "SELECT searches_done, searches_quota, blocked, quota_expires FROM users WHERE user_id = ?",
-        [user_id],
-    )
+    select_sql = "SELECT searches_done, searches_quota, blocked, quota_expires FROM users WHERE user_id = ?"
+    # Existing user (the common case): refresh last_seen and read the row in parallel.
+    # A brand-new user matches no row for the UPDATE and an empty SELECT -> create below.
+    _, r = await asyncio.gather(_touch_user(user_id, username, full_name), execute(select_sql, [user_id]))
     u = _row(r)
+    if u is None:
+        await _ensure_user(user_id, username, full_name)
+        u = _row(await execute(select_sql, [user_id]))
     if u is None:
         return False, 0
     if u.get("blocked"):
@@ -270,20 +277,17 @@ async def increment_search(user_id: int, plate: str = "") -> None:
     # restores everyone's real balance exactly as it was.
     global_unlimited = await is_global_unlimited_active()
     if global_unlimited:
-        await execute(
-            "UPDATE users SET last_seen = datetime('now') WHERE user_id = ?",
-            [user_id],
-        )
+        bump = execute("UPDATE users SET last_seen = datetime('now') WHERE user_id = ?", [user_id])
     else:
-        await execute(
+        bump = execute(
             "UPDATE users SET searches_done = searches_done + 1, last_seen = datetime('now') WHERE user_id = ?",
             [user_id],
         )
     if plate:
-        await execute(
-            "INSERT INTO search_history (user_id, plate) VALUES (?, ?)",
-            [user_id, plate],
-        )
+        await asyncio.gather(bump, execute(
+            "INSERT INTO search_history (user_id, plate) VALUES (?, ?)", [user_id, plate]))
+    else:
+        await bump
     if global_unlimited:
         return
     # Remove from subscribers group when quota is fully exhausted
@@ -629,90 +633,63 @@ async def admin_stats() -> dict:
     week_ago  = (date.today() - timedelta(days=7)).isoformat()
     month_ago = (date.today() - timedelta(days=30)).isoformat()
 
-    total_r         = await execute("SELECT COUNT(*) as c FROM users")
-    blocked_r       = await execute("SELECT COUNT(*) as c FROM users WHERE blocked=1")
-    new_today_r     = await execute("SELECT COUNT(*) as c FROM users WHERE first_seen >= ?", [today])
-    new_week_r      = await execute("SELECT COUNT(*) as c FROM users WHERE first_seen >= ?", [week_ago])
-    active_week_r   = await execute("SELECT COUNT(*) as c FROM users WHERE last_seen >= ?", [week_ago])
-    active_month_r  = await execute("SELECT COUNT(*) as c FROM users WHERE last_seen >= ?", [month_ago])
-
-    subscribers_r   = await execute(
-        "SELECT COUNT(*) as c FROM user_group_members ugm "
-        "JOIN user_groups ug ON ug.id = ugm.group_id WHERE ug.name='מנויים'"
+    # One statement of scalar sub-selects instead of ~20 round-trips to Turso.
+    counts_sql = (
+        "SELECT "
+        "(SELECT COUNT(*) FROM users), "
+        "(SELECT COUNT(*) FROM users WHERE blocked=1), "
+        "(SELECT COUNT(*) FROM users WHERE first_seen >= ?), "
+        "(SELECT COUNT(*) FROM users WHERE first_seen >= ?), "
+        "(SELECT COUNT(*) FROM users WHERE last_seen >= ?), "
+        "(SELECT COUNT(*) FROM users WHERE last_seen >= ?), "
+        "(SELECT COUNT(*) FROM user_group_members ugm JOIN user_groups ug ON ug.id = ugm.group_id WHERE ug.name='מנויים'), "
+        "(SELECT COUNT(*) FROM users WHERE searches_quota=-1 AND (quota_expires IS NULL OR quota_expires > datetime('now'))), "
+        "(SELECT COUNT(*) FROM users WHERE searches_quota=-1 AND quota_expires IS NOT NULL "
+        "  AND quota_expires <= datetime('now', '+7 days') AND quota_expires > datetime('now')), "
+        "(SELECT COUNT(*) FROM search_history), "
+        "(SELECT COUNT(*) FROM search_history WHERE searched_at >= ?), "
+        "(SELECT COUNT(*) FROM search_history WHERE searched_at >= ?), "
+        "(SELECT COUNT(*) FROM pending_payments pp JOIN paypal_transactions pt ON pt.ref = pp.ref "
+        "  WHERE pt.status IN ('created', 'intent')), "
+        "(SELECT COUNT(*) FROM codes), "
+        "(SELECT COUNT(*) FROM codes WHERE used_by IS NOT NULL), "
+        "(SELECT COUNT(*) FROM codes WHERE used_by IS NULL AND (expires IS NULL OR expires > datetime('now'))), "
+        "(SELECT COUNT(*) FROM tickets WHERE status='open'), "
+        "(SELECT COUNT(*) FROM yad2_watches WHERE active=1), "
+        "(SELECT COUNT(DISTINCT user_id) FROM yad2_watches WHERE active=1), "
+        "(SELECT COUNT(*) FROM yad2_watches WHERE active=1 AND created_at >= ?)"
     )
-    unlimited_r     = await execute(
-        "SELECT COUNT(*) as c FROM users WHERE searches_quota=-1 AND (quota_expires IS NULL OR quota_expires > datetime('now'))"
+    counts_r, top_users_r = await asyncio.gather(
+        execute(counts_sql, [today, week_ago, week_ago, month_ago, today, week_ago, week_ago]),
+        execute("SELECT username, full_name, searches_done FROM users ORDER BY searches_done DESC LIMIT 5"),
     )
-    expiring_soon_r = await execute(
-        "SELECT COUNT(*) as c FROM users WHERE searches_quota=-1 AND quota_expires IS NOT NULL "
-        "AND quota_expires <= datetime('now', '+7 days') AND quota_expires > datetime('now')"
-    )
-
-    searches_r       = await execute("SELECT COUNT(*) as c FROM search_history")
-    searches_today_r = await execute(
-        "SELECT COUNT(*) as c FROM search_history WHERE searched_at >= ?", [today]
-    )
-    searches_week_r  = await execute(
-        "SELECT COUNT(*) as c FROM search_history WHERE searched_at >= ?", [week_ago]
-    )
-
-    pending_payments_r = await execute(
-        "SELECT COUNT(*) as c FROM pending_payments pp "
-        "JOIN paypal_transactions pt ON pt.ref = pp.ref "
-        "WHERE pt.status IN ('created', 'intent')"
-    )
-    approved_revenue_r = await execute(
-        "SELECT COALESCE(SUM(price), 0) as c FROM pending_payments WHERE 1=0"  # approved are deleted
-    )
-
-    codes_r    = await execute("SELECT COUNT(*) as c FROM codes")
-    used_r     = await execute("SELECT COUNT(*) as c FROM codes WHERE used_by IS NOT NULL")
-    active_codes_r = await execute(
-        "SELECT COUNT(*) as c FROM codes WHERE used_by IS NULL "
-        "AND (expires IS NULL OR expires > datetime('now'))"
-    )
-
-    tickets_open_r = await execute(
-        "SELECT COUNT(*) as c FROM tickets WHERE status='open'"
-    )
-
-    # Yad2 watch stats
-    watches_total_r   = await execute("SELECT COUNT(*) as c FROM yad2_watches WHERE active=1")
-    watches_users_r   = await execute("SELECT COUNT(DISTINCT user_id) as c FROM yad2_watches WHERE active=1")
-    watches_week_r    = await execute(
-        "SELECT COUNT(*) as c FROM yad2_watches WHERE active=1 AND created_at >= ?", [week_ago]
-    )
-
-    top_users_r = await execute(
-        "SELECT username, full_name, searches_done FROM users "
-        "ORDER BY searches_done DESC LIMIT 5"
-    )
+    c = counts_r.rows[0]
     top_users = [
         {"name": (r[0] and f"@{r[0]}") or r[1] or "?", "searches": r[2]}
         for r in top_users_r.rows
     ]
 
     return {
-        "total_users":      _row(total_r)["c"],
-        "blocked_users":    _row(blocked_r)["c"],
-        "new_today":        _row(new_today_r)["c"],
-        "new_week":         _row(new_week_r)["c"],
-        "active_week":      _row(active_week_r)["c"],
-        "active_month":     _row(active_month_r)["c"],
-        "subscribers":      _row(subscribers_r)["c"],
-        "unlimited":        _row(unlimited_r)["c"],
-        "expiring_soon":    _row(expiring_soon_r)["c"],
-        "total_searches":   _row(searches_r)["c"],
-        "searches_today":   _row(searches_today_r)["c"],
-        "searches_week":    _row(searches_week_r)["c"],
-        "pending_payments": _row(pending_payments_r)["c"],
-        "total_codes":      _row(codes_r)["c"],
-        "used_codes":       _row(used_r)["c"],
-        "active_codes":     _row(active_codes_r)["c"],
-        "tickets_open":     _row(tickets_open_r)["c"],
-        "watches_total":    _row(watches_total_r)["c"],
-        "watches_users":    _row(watches_users_r)["c"],
-        "watches_week":     _row(watches_week_r)["c"],
+        "total_users":      c[0],
+        "blocked_users":    c[1],
+        "new_today":        c[2],
+        "new_week":         c[3],
+        "active_week":      c[4],
+        "active_month":     c[5],
+        "subscribers":      c[6],
+        "unlimited":        c[7],
+        "expiring_soon":    c[8],
+        "total_searches":   c[9],
+        "searches_today":   c[10],
+        "searches_week":    c[11],
+        "pending_payments": c[12],
+        "total_codes":      c[13],
+        "used_codes":       c[14],
+        "active_codes":     c[15],
+        "tickets_open":     c[16],
+        "watches_total":    c[17],
+        "watches_users":    c[18],
+        "watches_week":     c[19],
         "top_users":        top_users,
     }
 
@@ -758,9 +735,6 @@ async def get_users_expiring_in_days(days: int) -> list[int]:
     )
     return [row[0] for row in r.rows]
 
-
-async def get_users_expiring_today() -> list[int]:
-    return await get_users_expiring_in_days(0)
 
 
 async def expire_subscriptions() -> list[int]:

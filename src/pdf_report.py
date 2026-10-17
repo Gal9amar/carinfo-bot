@@ -61,9 +61,6 @@ def _b(text: Any) -> str:
         return s
 
 
-def _hebrew_join(*parts: str, sep: str = " · ") -> str:
-    return _b(sep.join(p for p in parts if p))
-
 
 def _v(record: dict, *keys: str) -> str:
     for k in keys:
@@ -176,7 +173,7 @@ def generate_pdf(
 ) -> bytes:
     """Generate a premium Hebrew vehicle-report PDF."""
     from reportlab.lib import colors
-    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.platypus import (

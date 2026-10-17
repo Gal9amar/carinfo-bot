@@ -353,9 +353,6 @@ def reminders_disabled(name: str) -> str:
     return f"⏸ {_n(name)}, תזכורות הטסט כבויות כרגע. נסה שוב מאוחר יותר."
 
 
-def reminder_stopped(name: str, plate: str) -> str:
-    return f"🔕 {_n(name)}, הפסקתי את תזכורות הטסט לרכב {code(plate)}."
-
 
 def test_reminder(name: str, plate: str, label: str, tokef: str, days_left: int) -> str:
     car = _car(label, plate)

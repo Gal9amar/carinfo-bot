@@ -108,19 +108,6 @@ async def _search_filter(
     return []
 
 
-async def _count_filter(
-    client: httpx.AsyncClient, resource_id: str, filters: dict,
-) -> Optional[int]:
-    # limit=1 is more reliable than limit=0 — some CKAN instances return total=0 for limit=0
-    params = {"resource_id": resource_id, "filters": json.dumps(filters, ensure_ascii=False), "limit": 1}
-    try:
-        resp = await client.get(BASE_URL, params=params)
-        resp.raise_for_status()
-        return resp.json().get("result", {}).get("total")
-    except Exception as exc:
-        logger.warning("gov_api _count_filter failed resource=%s filters=%s: %s", resource_id, filters, exc)
-        return None
-
 
 def _merge_ext_fields(record: dict, ext: dict) -> None:
     for key in _EXT_FIELDS:

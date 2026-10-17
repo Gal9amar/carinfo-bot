@@ -14,7 +14,7 @@
 Israeli vehicle lookup service — Telegram Bot + React Mini App (WebApp), monetised by search quotas, subscriptions, alert packs and digital products.
 
 - **Backend**: FastAPI (`api.py`) + Telegram Bot (`bot.py`, python-telegram-bot 22, polling). One process: `python bot.py` starts uvicorn in a daemon thread next to the bot.
-- **Database**: Turso (libsql / serverless SQLite) via `src/db.py::execute` (async wrapper, positional `?` params, rows are **tuples**, auto-reconnect on 502/hrana).
+- **Database**: Turso (libsql / serverless SQLite) via `src/db.py::execute` (async; runs on a 6-thread pool with one connection per thread, so it never blocks the event loop and `asyncio.gather` overlaps round-trips; positional `?` params, rows are **tuples**, auto-reconnect on 502/hrana). `get_bot_setting` reads a 5 s in-memory snapshot of all of `bot_settings` (invalidated by `set_bot_setting`) — never add per-key SELECTs. Query count is the cost driver: batch with scalar sub-selects / `gather`.
 - **Frontend**: React 18 + Vite (JS, no TypeScript, no router, no tests), built to `webapp/dist` and served by FastAPI at `/`.
 - **Deployment**: Render.com, Docker (Python 3.12 + Node 20; `npm ci && npm run build` inside the image), port 8080, health check `/health`.
 - **Data sources**: data.gov.il (vehicle registry, many resources), Yad2 (market price + new-listing alerts, geo-blocked outside Israel → proxy), car images (`image_api`).
@@ -270,6 +270,9 @@ Specialised subagents (`.claude/agents/`) — delegate by area, and **always fin
 | `design-agent` | `webapp/` UI/UX, RTL/Hebrew, styles, screens, admin panel UI |
 | `api-agent` | `api.py` routes/auth/contracts + `webapp/src/api.js` |
 | `backend-agent` | `src/*`, `bot.py`: quota, payments, DB/schema, integrations, notifier |
+| `sql-agent` | `src/db.py` + query code: query count, caching, indexes, migrations |
+| `integration-agent` | gov.il / Yad2 / images / Telegram API specifics, mirror, rich, notifier, cache |
+| `manager-agent` | Splits cross-cutting work by ownership, reviews every diff, gates to qa-agent |
 | `qa-agent` | Quality gate for every change; PASS/FAIL verdict with evidence |
 
 Skills (`.claude/skills/`): `qa-verify-change` (scripts: `local_api.py`, `sign_init_data.py`, `smoke_ui.mjs`), `add-api-endpoint`, `db-schema-change`, `add-webapp-screen`, `design-system-rtl`, `release-and-deploy`.
