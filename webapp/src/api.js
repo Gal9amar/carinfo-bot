@@ -935,3 +935,36 @@ export async function approveConsent() {
   clearUserCache()
   return r.json()
 }
+
+// Report component order / visibility (set by the admin, public read)
+export function fetchReportLayout() {
+  return cachedGet('report-layout', TTL_PUBLIC, async () => {
+    const r = await fetch(`${BASE}/api/report-layout`)
+    if (!r.ok) throw new Error('Failed')
+    return r.json()
+  })
+}
+
+export async function adminFetchReportLayout() {
+  const r = await fetch(`${BASE}/api/admin/report-layout`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json() // { layout, defaults, components }
+}
+
+export async function adminSaveReportLayout(layout) {
+  const r = await fetch(`${BASE}/api/admin/report-layout`, {
+    method: 'POST', headers: headers(), body: JSON.stringify({ summary: layout.summary, full: layout.full }),
+  })
+  if (!r.ok) throw new Error('Failed')
+  _getCache.delete('report-layout')
+  return r.json()
+}
+
+export async function adminResetReportLayout() {
+  const r = await fetch(`${BASE}/api/admin/report-layout`, {
+    method: 'POST', headers: headers(), body: JSON.stringify({ reset: true }),
+  })
+  if (!r.ok) throw new Error('Failed')
+  _getCache.delete('report-layout')
+  return r.json()
+}

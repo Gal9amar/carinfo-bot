@@ -190,6 +190,9 @@ Link `https://t.me/{BOT_USERNAME}?start=ref_{referrer_id}` → `/start ref_X` �
 `/api/user` computes `show_*` via `feature_open`: admin ✔ · quota −1 ✔ · subscriber (incl. VIP) ✔ · member of `{prefix}_groups` ✔ · quota left > 0 ✔ · else if `{prefix}_enabled != 0` and public mode active within its date window ✔. `public_label` fields are shown only while public mode is active.
 `GET /api/vehicle/{plate}/market-price` uses its **own** gate: requires `yad2_market_enabled=1` (403 `disabled`), `authorized` = public-mode window **or** membership in `yad2_market_groups`; data is always returned and the UI blurs it when `authorized=false`. (These two gates differ — check both when changing access rules.)
 
+### Report layout (admin-controlled)
+`src/report_layout.py` — order + visibility of every component of the report's **Summary** and **Full** tabs (`bot_settings.report_layout`, normalised against the component catalogue so new components never break a saved layout). Public `GET /api/report-layout`; admin `GET/POST /api/admin/report-layout` (`{summary,full}` or `{reset:true}`); admin tab **סדר הדוח**. `ReportPage.jsx` renders sections from an id→element map in layout order (default order shown immediately). Add a component = add it to `COMPONENTS` in `report_layout.py` AND the ReportPage map.
+
 ### Alerts ("watches", Yad2)
 Users watch make/model/year; `_yad2_watch_job` runs every 30 min and DMs new listings. Limit per user = `users.watch_quota` ▸ `yad2_watch_max` ▸ 5. More alerts are sold as `package_type='alerts'`.
 

@@ -208,6 +208,33 @@ async def list_products():
     return out
 
 
+@api.get("/api/report-layout")
+async def public_report_layout():
+    """Order/visibility of the report components (set by the admin). Public: it contains no user data."""
+    from src.report_layout import get_layout
+    return await get_layout()
+
+
+class ReportLayoutBody(BaseModel):
+    summary: Optional[list] = None
+    full: Optional[list] = None
+    reset: bool = False
+
+
+@api.get("/api/admin/report-layout")
+async def admin_get_report_layout(_: dict = Depends(_require_admin)):
+    from src.report_layout import get_layout, default_layout, catalog
+    return {"layout": await get_layout(), "defaults": default_layout(), "components": catalog()}
+
+
+@api.post("/api/admin/report-layout")
+async def admin_set_report_layout(body: ReportLayoutBody, _: dict = Depends(_require_admin)):
+    from src.report_layout import save_layout, reset_layout
+    if body.reset:
+        return {"layout": await reset_layout()}
+    return {"layout": await save_layout({"summary": body.summary, "full": body.full})}
+
+
 @api.get("/api/user")
 async def get_user_info(user: dict = Depends(_get_user)):
     from src.users import get_user_by_id, is_global_unlimited_active
