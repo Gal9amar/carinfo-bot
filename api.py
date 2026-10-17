@@ -30,7 +30,7 @@ WEBAPP_URL   = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_U
 # Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
 # webapp can detect a new release and force-reload instead of running stale
 # cached JS. Falls back to process start time for non-Render environments.
-APP_VERSION = "1792251521"
+APP_VERSION = "1792251953"
 
 api = FastAPI()
 
@@ -274,8 +274,29 @@ async def get_user_info(user: dict = Depends(_get_user)):
         elif quota == -1:
             subscription_label = 'הטבת מנהל'
 
+    # The user's OWN plan, independent of any "unlimited for everyone" benefit:
+    # kind = admin | premium (time-limited unlimited) | permanent | searches (counted pack) | free
+    own_expires = quota_expires
+    if user_id == ADMIN_ID:
+        plan_kind, plan_name = "admin", "מנהל · גישה מלאה"
+    elif quota == -1:
+        plan_kind = "premium" if own_expires else "permanent"
+        plan_name = "מסלול Premium" if own_expires else "מסלול Premium קבוע"
+    elif is_subscriber:
+        plan_kind, plan_name = "searches", subscription_label or "מנוי"
+    else:
+        plan_kind, plan_name = "free", "מסלול חינמי"
+    plan_days_left = None
+    if plan_kind == "premium":
+        try:
+            from datetime import datetime as _dt
+            plan_days_left = max(0, (_dt.fromisoformat(own_expires) - _dt.now()).days + 1)
+        except Exception:
+            plan_days_left = None
+    global_label = None
     if global_unlimited:
-        subscription_label = (await get_bot_setting("global_unlimited_label")) or "🎁 הטבה לכולם"
+        global_label = (await get_bot_setting("global_unlimited_label")) or "🎁 הטבה לכולם"
+        subscription_label = global_label
         quota_expires = global_unlimited_expires
 
     return {
@@ -298,6 +319,12 @@ async def get_user_info(user: dict = Depends(_get_user)):
         "is_subscriber": is_subscriber,
         "subscription_label": subscription_label,
         "global_unlimited_active": global_unlimited,
+        "global_unlimited_label": global_label,
+        "global_unlimited_expires": global_unlimited_expires,
+        "plan_kind": plan_kind,
+        "plan_name": plan_name,
+        "plan_expires": own_expires if plan_kind == "premium" else None,
+        "plan_days_left": plan_days_left,
     }
 
 

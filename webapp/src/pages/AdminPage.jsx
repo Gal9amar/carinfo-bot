@@ -43,6 +43,7 @@ import {
   adminFetchBanners, adminAddBanner, adminUpdateBanner, adminDeleteBanner, adminReorderBanners,
 } from '../api.js'
 import BackButton from '../components/BackButton.jsx'
+import AdminItemCard, { AdminItemBtn, AdminItemConfirm } from '../components/AdminItemCard.jsx'
 
 const TABS = [
   { id: 'stats',    icon: '📊', label: 'סטטיסטיקות' },
@@ -502,6 +503,8 @@ function PackagesTab() {
   const [saving, setSaving] = useState(false)
   const [dragIdx, setDragIdx] = useState(null)
   const [reordering, setReordering] = useState(false)
+  const [confirmId, setConfirmId] = useState(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => { adminFetchPackages().then(setPkgs).catch(() => {}) }, [])
 
@@ -574,11 +577,14 @@ function PackagesTab() {
   }
 
   async function deletePkg(id) {
-    window.Telegram?.WebApp?.showConfirm('למחוק מוצר?', async (ok) => {
-      if (!ok) return
+    // confirmation is the inline step on the card (confirmId)
+    setDeleting(true)
+    try {
       await adminDeletePackage(id)
       setPkgs(await adminFetchPackages())
-    })
+      setConfirmId(null)
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה במחיקת המוצר') }
+    setDeleting(false)
   }
 
   if (!pkgs) return <div className="loading"></div>
@@ -611,57 +617,43 @@ function PackagesTab() {
       )}
 
       <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 10 }}>
-        גרור ⠿ לשינוי סדר תצוגה · 1 = ראשון
+        סדר התצוגה: גרור כרטיס או השתמש בחצים · 1 = ראשון
       </div>
+      <div className="admin-item-list" style={{ marginBottom: 16 }}>
       {paidPkgs.map((pkg, idx) => {
-        const desc = pkg.searches === -1 ? 'ללא הגבלה' : `${pkg.searches} חיפושים`
+        const desc = pkg.searches === -1 ? 'חיפושים ללא הגבלה (Premium)' : `${pkg.searches} חיפושים`
         const isDragging = dragIdx === idx
         const isActive = pkg.is_active !== false
         return (
-          <div
+          <AdminItemCard
             key={pkg.id}
             draggable={!reordering}
             onDragStart={() => setDragIdx(idx)}
             onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
             onDrop={() => { if (dragIdx !== null) movePackage(dragIdx, idx); setDragIdx(null) }}
             onDragEnd={() => setDragIdx(null)}
-            className="card"
-            style={{
-              opacity: isDragging ? 0.45 : isActive ? 1 : 0.5,
-              cursor: reordering ? 'wait' : 'grab',
-              transition: 'opacity 0.15s',
-              borderColor: isActive ? undefined : 'rgba(0,100,200,0.18)',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                <button className="btn btn-danger" style={{ width: 36, height: 36, padding: 0, margin: 0, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }} onClick={() => deletePkg(pkg.id)}>🗑️</button>
-                <button className="btn" style={{ width: 36, height: 36, padding: 0, margin: 0, borderRadius: 12, background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }} onClick={() => { setEditing(pkg); setForm({ label: pkg.label, searches: String(pkg.searches), price: String(pkg.price), image_url: pkg.image_url || '', duration_months: String(pkg.duration_months ?? 1), features: normalizeFeatures(pkg.features), chips: pkg.chips?.length ? pkg.chips : getDefaultChips(pkg), is_active: pkg.is_active !== false, package_type: pkg.package_type || 'searches' }) }}>✏️</button>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <button className="btn btn-secondary" style={{ width: 36, height: 17, padding: 0, margin: 0, borderRadius: 6, fontSize: 10, lineHeight: 1 }} disabled={idx === 0 || reordering} onClick={() => movePackage(idx, idx - 1)}>▲</button>
-                  <button className="btn btn-secondary" style={{ width: 36, height: 17, padding: 0, margin: 0, borderRadius: 6, fontSize: 10, lineHeight: 1 }} disabled={idx === paidPkgs.length - 1 || reordering} onClick={() => movePackage(idx, idx + 1)}>▼</button>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, justifyContent: 'flex-end', textAlign: 'right' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
-                    {!isActive && (
-                      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 12, background: '#fee2e2', color: '#c53030', border: '1px solid #fca5a5' }}>מושבת</span>
-                    )}
-                    <span style={{ fontWeight: 800, fontSize: 18, color: 'var(--text-main)', letterSpacing: '-0.3px' }}>{pkg.label}</span>
-                  </div>
-                  <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
-                    {desc} · ₪{pkg.price}
-                  </div>
-                </div>
-                <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--primary)', background: 'var(--bg)', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{idx + 1}</span>
-                <span style={{ fontSize: 24, color: 'var(--hint)', cursor: 'grab', userSelect: 'none' }} title="גרור לשינוי סדר">⠿</span>
-              </div>
-            </div>
-          </div>
+            className={isDragging ? 'dragging' : ''}
+            style={{ opacity: isDragging ? 0.45 : isActive ? 1 : 0.65, cursor: reordering ? 'wait' : 'grab' }}
+            leading={<span aria-label={`מספר ${idx + 1}`}>{idx + 1}</span>}
+            title={pkg.label}
+            badge={<bdi dir="ltr">₪{pkg.price}</bdi>}
+            badgeTone="good"
+            subtitle={desc}
+            meta={!isActive ? <span className="admin-item-badge mute">מושבת</span> : null}
+            actions={<>
+              <AdminItemBtn icon="▲" label="למעלה" ariaLabel={`הזז למעלה: ${pkg.label}`} disabled={idx === 0 || reordering} onClick={() => movePackage(idx, idx - 1)} />
+              <AdminItemBtn icon="▼" label="למטה" ariaLabel={`הזז למטה: ${pkg.label}`} disabled={idx === paidPkgs.length - 1 || reordering} onClick={() => movePackage(idx, idx + 1)} />
+              <AdminItemBtn icon="✏️" label="ערוך" ariaLabel={`ערוך מוצר: ${pkg.label}`} onClick={() => { setEditing(pkg); setForm({ label: pkg.label, searches: String(pkg.searches), price: String(pkg.price), image_url: pkg.image_url || '', duration_months: String(pkg.duration_months ?? 1), features: normalizeFeatures(pkg.features), chips: pkg.chips?.length ? pkg.chips : getDefaultChips(pkg), is_active: pkg.is_active !== false, package_type: pkg.package_type || 'searches' }) }} />
+              <AdminItemBtn icon="🗑️" label="מחק" ariaLabel={`מחק מוצר: ${pkg.label}`} danger onClick={() => setConfirmId(pkg.id)} />
+            </>}
+            footer={confirmId === pkg.id && (
+              <AdminItemConfirm text="למחוק את המוצר? אי אפשר לבטל." busy={deleting}
+                onYes={() => deletePkg(pkg.id)} onNo={() => setConfirmId(null)} />
+            )}
+          />
         )
       })}
+      </div>
       <button className="btn btn-success" onClick={() => { setAdding(true); setForm({ label: '', searches: '', price: '', image_url: '', duration_months: '1', features: normalizeFeatures([]), chips: [], is_active: true }) }}>
         ➕ הוסף מוצר
       </button>
@@ -693,6 +685,8 @@ function ProductsTab() {
   const [stockTarget, setStockTarget] = useState(null)
   const [form, setForm] = useState({ name: '', description: '', image_url: '', price: '', delivery_type: 'manual', delivery_time_note: '', quantity_stock: '', is_active: true, availability_status: 'available', features: [] })
   const [saving, setSaving] = useState(false)
+  const [confirmId, setConfirmId] = useState(null)
+  const [deleting, setDeleting] = useState(false)
 
   function load() { adminFetchProducts().then(setProds).catch(() => setProds([])) }
   useEffect(() => { load() }, [])
@@ -737,11 +731,14 @@ function ProductsTab() {
   }
 
   async function deleteProd(id) {
-    window.Telegram?.WebApp?.showConfirm('למחוק מוצר?', async (ok) => {
-      if (!ok) return
+    // confirmation is the inline step on the card (confirmId)
+    setDeleting(true)
+    try {
       await adminDeleteProduct(id)
       load()
-    })
+      setConfirmId(null)
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה במחיקת המוצר') }
+    setDeleting(false)
   }
 
   if (!prods) return <div className="loading"></div>
@@ -751,41 +748,37 @@ function ProductsTab() {
       {prods.length === 0 && (
         <div style={{ color: 'var(--hint)', textAlign: 'center', padding: 24 }}>אין מוצרים דיגיטליים עדיין</div>
       )}
+      <div className="admin-item-list" style={{ marginBottom: 16 }}>
       {prods.map(p => {
         const isActive = p.is_active !== false
         const deliveryLabel = p.delivery_type === 'auto' ? 'אוטומטי' : 'ידני'
+        const isAuto = p.delivery_type === 'auto'
         return (
-          <div key={p.id} className="card" style={{ opacity: isActive ? 1 : 0.5 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                <button className="btn btn-danger" style={{ width: 36, height: 36, padding: 0, margin: 0, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }} onClick={() => deleteProd(p.id)}>🗑️</button>
-                <button className="btn" style={{ width: 36, height: 36, padding: 0, margin: 0, borderRadius: 12, background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }} onClick={() => { setEditing(p); setForm({ name: p.name, description: p.description || '', image_url: p.image_url || '', price: String(p.price), delivery_type: p.delivery_type, delivery_time_note: p.delivery_time_note || '', quantity_stock: String(p.quantity_stock ?? 0), is_active: p.is_active !== false, availability_status: p.availability_status || 'available', features: p.features || [] }) }}>✏️</button>
-                {p.delivery_type === 'auto' && (
-                  <button className="btn" style={{ height: 36, padding: '0 12px', margin: 0, borderRadius: 12, background: '#047857', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }} onClick={() => setStockTarget(p)}>📤 מלאי</button>
-                )}
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, justifyContent: 'flex-end', textAlign: 'right' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                    {p.availability_status === 'coming_soon' && (
-                      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 12, background: '#3182ce22', color: '#3182ce', border: '1px solid #90cdf4' }}>🔜 בקרוב</span>
-                    )}
-                    {!isActive && (
-                      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 12, background: '#fee2e2', color: '#c53030', border: '1px solid #fca5a5' }}>מושבת</span>
-                    )}
-                    <span style={{ fontWeight: 800, fontSize: 18, color: 'var(--text-main)', letterSpacing: '-0.3px' }}>{p.name}</span>
-                  </div>
-                  <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
-                    ₪{p.price} · {deliveryLabel} · מלאי: {p.stock_count ?? 0}
-                  </div>
-                  {p.delivery_time_note && <div style={{ fontSize: 11, color: 'var(--hint)' }}>⏱ {p.delivery_time_note}</div>}
-                </div>
-              </div>
-            </div>
-          </div>
+          <AdminItemCard
+            key={p.id}
+            style={{ opacity: isActive ? 1 : 0.7 }}
+            title={p.name}
+            badge={<bdi dir="ltr">₪{p.price}</bdi>}
+            badgeTone="good"
+            subtitle={`משלוח ${deliveryLabel} · מלאי: ${p.stock_count ?? 0}${p.delivery_time_note ? ` · ⏱ ${p.delivery_time_note}` : ''}`}
+            meta={(p.availability_status === 'coming_soon' || !isActive) ? <>
+              {p.availability_status === 'coming_soon' && <span className="admin-item-badge">🔜 בקרוב</span>}
+              {!isActive && <span className="admin-item-badge mute">מושבת</span>}
+            </> : null}
+            cols={isAuto ? 3 : 2}
+            actions={<>
+              <AdminItemBtn icon="✏️" label="ערוך" ariaLabel={`ערוך מוצר: ${p.name}`} onClick={() => { setEditing(p); setForm({ name: p.name, description: p.description || '', image_url: p.image_url || '', price: String(p.price), delivery_type: p.delivery_type, delivery_time_note: p.delivery_time_note || '', quantity_stock: String(p.quantity_stock ?? 0), is_active: p.is_active !== false, availability_status: p.availability_status || 'available', features: p.features || [] }) }} />
+              {isAuto && <AdminItemBtn icon="📤" label="מלאי" ariaLabel={`ניהול מלאי: ${p.name}`} onClick={() => setStockTarget(p)} />}
+              <AdminItemBtn icon="🗑️" label="מחק" ariaLabel={`מחק מוצר: ${p.name}`} danger onClick={() => setConfirmId(p.id)} />
+            </>}
+            footer={confirmId === p.id && (
+              <AdminItemConfirm text="למחוק את המוצר? אי אפשר לבטל." busy={deleting}
+                onYes={() => deleteProd(p.id)} onNo={() => setConfirmId(null)} />
+            )}
+          />
         )
       })}
+      </div>
       <button className="btn btn-success" onClick={() => { setAdding(true); setForm({ name: '', description: '', image_url: '', price: '', delivery_type: 'manual', delivery_time_note: '', quantity_stock: '', stock_text: '', is_active: true, availability_status: 'available', features: [] }) }}>
         ➕ הוסף מוצר דיגיטלי
       </button>
@@ -1760,10 +1753,17 @@ function PackageModal({ title, form, setForm, saving, onSave, onClose, suggestio
 }
 
 function grantTypeLabel(searches) {
-  if (searches === 0) return '0 חיפושים (מנוי חינם)'
-  if (searches === -1) return 'מנוי חודשי · 30 יום'
-  if (searches === -2) return 'גישה חופשית · ללא הגבלה'
-  return `${searches} חיפושים`
+  if (searches === 0) return 'איפוס למסלול החינמי'
+  if (searches === -1) return 'מסלול Premium לתקופה (חודש כברירת מחדל)'
+  if (searches === -2) return 'Premium קבוע ללא תפוגה'
+  return `הוספת ${searches} חיפושים`
+}
+
+function grantBadge(searches) {
+  if (searches === 0) return { text: 'איפוס', tone: 'mute' }
+  if (searches === -1) return { text: 'Premium לחודש', tone: 'good' }
+  if (searches === -2) return { text: 'Premium קבוע', tone: 'warn' }
+  return { text: `+${searches} חיפושים`, tone: '' }
 }
 
 function AdminGrantsTab() {
@@ -1774,6 +1774,8 @@ function AdminGrantsTab() {
   const [saving, setSaving] = useState(false)
   const [dragIdx, setDragIdx] = useState(null)
   const [reordering, setReordering] = useState(false)
+  const [confirmId, setConfirmId] = useState(null)
+  const [deleting, setDeleting] = useState(false)
   const [codesOpen, setCodesOpen] = useState(false)
   const [giftOpen, setGiftOpen]   = useState(false)
   const [unlimitedOpen, setUnlimitedOpen] = useState(false)
@@ -1820,11 +1822,14 @@ function AdminGrantsTab() {
   }
 
   async function deleteGrant(id) {
-    window.Telegram?.WebApp?.showConfirm('למחוק הטבה?', async (ok) => {
-      if (!ok) return
+    // confirmation is the inline step on the card (confirmId)
+    setDeleting(true)
+    try {
       await adminDeleteGrant(id)
       setGrants(await adminFetchGrants())
-    })
+      setConfirmId(null)
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה במחיקת ההטבה') }
+    setDeleting(false)
   }
 
   if (!grants) return <div className="loading"></div>
@@ -1836,51 +1841,51 @@ function AdminGrantsTab() {
           <span style={{ fontSize: 24 }}>🎁</span>
           <div>
             <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--text-main)', letterSpacing: '-0.3px' }}>הטבות מנהל</div>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>ניהול חבילות צ'ופר ותוכניות שיוענקו ידנית למשתמשים</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>הטבות מוכנות שמעניקים ידנית למשתמשים</div>
           </div>
         </div>
-        <div style={{ fontSize: 12, color: 'var(--hint)', lineHeight: 1.6, background: 'var(--bg)', padding: '12px', borderRadius: 12, border: '1px dashed var(--border)' }}>
-          <span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>הנחיות ערכים: </span>
-          <b style={{ color: '#0066d6' }}>0</b> = מנוי חינמי, <b style={{ color: '#0066d6' }}>-1</b> = מנוי חודשי פרימיום, <b style={{ color: '#9a4a07' }}>-2</b> = גישה חופשית (ללא הגבלה), <b style={{ color: '#047857' }}>מספר חיובי</b> = הוספת X חיפושים.
-        </div>
+        <details className="admin-help">
+          <summary>מה המשמעות של הערכים?</summary>
+          <ul>
+            <li><span className="val">0</span><span>איפוס למסלול החינמי</span></li>
+            <li><span className="val">-1</span><span>מסלול Premium לתקופה (חודש כברירת מחדל)</span></li>
+            <li><span className="val">-2</span><span>Premium קבוע, ללא תפוגה</span></li>
+            <li><span className="val">1+</span><span>הוספת חיפושים (מספר חיובי)</span></li>
+          </ul>
+          <p className="note">מסלול Premium = חיפושים ללא הגבלה וכל יכולות הפרימיום לתקופה.</p>
+        </details>
       </div>
       
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
+      <div className="admin-item-list">
         {grants.map((g, idx) => {
           const isDragging = dragIdx === idx
+          const badge = grantBadge(g.searches)
           return (
-            <div
+            <AdminItemCard
               key={g.id}
               draggable={!reordering}
               onDragStart={() => setDragIdx(idx)}
               onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
               onDrop={() => { if (dragIdx !== null) moveGrant(dragIdx, idx); setDragIdx(null) }}
               onDragEnd={() => setDragIdx(null)}
-              className="card"
-              style={{ padding: '16px 20px', opacity: isDragging ? 0.45 : 1, cursor: reordering ? 'wait' : 'grab', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderLeft: '4px solid #6366f1', transition: 'transform 0.2s, box-shadow 0.2s', transform: isDragging ? 'scale(0.98)' : 'none' }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: 1, minWidth: 0 }}>
-                <span style={{ fontSize: 24, color: 'var(--hint)', cursor: 'grab', userSelect: 'none', opacity: 0.5, transition: 'opacity 0.2s' }} onMouseEnter={e => e.target.style.opacity = 1} onMouseLeave={e => e.target.style.opacity = 0.5}>⠿</span>
-                <span style={{ fontSize: 14, fontWeight: 800, color: '#6366f1', background: 'rgba(99, 102, 241, 0.1)', borderRadius: 10, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{idx + 1}</span>
-                <div>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-main)' }}>{g.label}</div>
-                  <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2, fontWeight: 500 }}>{grantTypeLabel(g.searches)}</div>
-                </div>
-              </div>
-              
-              <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginRight: 8 }}>
-                  <button className="btn" style={{ width: 28, height: 20, padding: 0, margin: 0, fontSize: 10, borderRadius: 6, background: 'var(--bg)' }}
-                    disabled={idx === 0 || reordering} onClick={() => moveGrant(idx, idx - 1)}>▲</button>
-                  <button className="btn" style={{ width: 28, height: 20, padding: 0, margin: 0, fontSize: 10, borderRadius: 6, background: 'var(--bg)' }}
-                    disabled={idx === grants.length - 1 || reordering} onClick={() => moveGrant(idx, idx + 1)}>▼</button>
-                </div>
-                <button className="btn" style={{ width: 44, height: 44, padding: 0, margin: 0, borderRadius: 12, fontSize: 16, background: 'var(--bg-card)', border: '1px solid var(--border)' }}
-                  onClick={() => { setEditing(g); setForm({ label: g.label, searches: String(g.searches) }) }} title="ערוך הטבה">✏️</button>
-                <button className="btn btn-danger" style={{ width: 44, height: 44, padding: 0, margin: 0, borderRadius: 12, fontSize: 16 }}
-                  onClick={() => deleteGrant(g.id)} title="מחק הטבה">🗑️</button>
-              </div>
-            </div>
+              className={isDragging ? 'dragging' : ''}
+              style={{ cursor: reordering ? 'wait' : 'grab' }}
+              leading={<span aria-label={`מספר ${idx + 1}`}>{idx + 1}</span>}
+              title={g.label}
+              badge={<bdi>{badge.text}</bdi>}
+              badgeTone={badge.tone}
+              subtitle={grantTypeLabel(g.searches)}
+              actions={<>
+                <AdminItemBtn icon="▲" label="למעלה" ariaLabel={`הזז למעלה: ${g.label}`} disabled={idx === 0 || reordering} onClick={() => moveGrant(idx, idx - 1)} />
+                <AdminItemBtn icon="▼" label="למטה" ariaLabel={`הזז למטה: ${g.label}`} disabled={idx === grants.length - 1 || reordering} onClick={() => moveGrant(idx, idx + 1)} />
+                <AdminItemBtn icon="✏️" label="ערוך" ariaLabel={`ערוך הטבה: ${g.label}`} onClick={() => { setEditing(g); setForm({ label: g.label, searches: String(g.searches) }) }} />
+                <AdminItemBtn icon="🗑️" label="מחק" ariaLabel={`מחק הטבה: ${g.label}`} danger onClick={() => setConfirmId(g.id)} />
+              </>}
+              footer={confirmId === g.id && (
+                <AdminItemConfirm text="למחוק את ההטבה? אי אפשר לבטל." busy={deleting}
+                  onYes={() => deleteGrant(g.id)} onNo={() => setConfirmId(null)} />
+              )}
+            />
           )
         })}
       </div>
@@ -1944,7 +1949,7 @@ function AdminGrantModal({ title, form, setForm, saving, onSave, onClose }) {
       <Field label="שם ההטבה">
         <input className="input" value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} />
       </Field>
-      <Field label="חיפושים" hint="0 = מנוי חינם · -1 = מנוי חודשי · -2 = גישה חופשית · מספר חיובי = הוספת חיפושים">
+      <Field label="חיפושים" hint="0 = איפוס לחינמי · -1 = Premium לתקופה (חודש) · -2 = Premium קבוע · מספר חיובי = הוספת חיפושים">
         <input className="input" type="number" inputMode="numeric" dir="ltr" style={{ textAlign: 'start' }} value={form.searches} onChange={e => setForm(f => ({ ...f, searches: e.target.value }))} />
       </Field>
     </Sheet>
@@ -2115,6 +2120,8 @@ function CodesSection({ standalone }) {
   const [codes, setCodes] = useState(null)
   const [form, setForm] = useState({ searches: 50, unlimited: false, single_use: true, monthly: false })
   const [creating, setCreating] = useState(false)
+  const [confirmCode, setConfirmCode] = useState(null)
+  const [deletingCode, setDeletingCode] = useState(false)
 
   function load() { adminFetchCodes().then(setCodes).catch(() => {}) }
   useEffect(() => { load() }, [])
@@ -2130,11 +2137,11 @@ function CodesSection({ standalone }) {
   }
 
   async function deleteCode(code) {
-    window.Telegram?.WebApp?.showConfirm(`למחוק את הקוד ${code}?`, async ok => {
-      if (!ok) return
-      try { await adminDeleteCode(code); load() }
-      catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
-    })
+    // confirmation is the inline step on the card (confirmCode)
+    setDeletingCode(true)
+    try { await adminDeleteCode(code); load(); setConfirmCode(null) }
+    catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    setDeletingCode(false)
   }
 
   function copyCode(code) {
@@ -2183,7 +2190,7 @@ function CodesSection({ standalone }) {
         </div>
         
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, background: 'var(--bg)', padding: '12px', borderRadius: 12, border: '1px solid var(--border)' }}>
-          {[['unlimited', '♾️ מנוי ללא הגבלה'], ['monthly', '📅 מנוי חודשי'], ['single_use', '1️⃣ קוד חד-פעמי']].map(([key, label]) => (
+          {[['unlimited', '♾️ Premium קבוע'], ['monthly', '📅 Premium לחודש'], ['single_use', '1️⃣ קוד חד-פעמי']].map(([key, label]) => (
             <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', fontWeight: form[key] ? 700 : 500, color: form[key] ? 'var(--text-main)' : 'var(--text-muted)' }}>
               <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${form[key] ? 'var(--primary)' : 'var(--border)'}`, background: form[key] ? 'var(--primary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
                 {form[key] && <span style={{ color: '#fff', fontSize: 12 }}>✓</span>}
@@ -2212,45 +2219,32 @@ function CodesSection({ standalone }) {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 12 }}>
+      <div className="admin-item-list">
         {codes.map(c => {
           const used = c.used_by != null
           const expired = c.expires && new Date(c.expires) < new Date()
           const status = used ? 'נוצל' : expired ? 'פג תוקף' : 'פעיל'
-          const statusColor = used ? '#0066d6' : expired ? '#c53030' : '#047857'
-          const desc = c.unlimited ? (c.monthly ? 'מנוי חודשי פרימיום' : 'מנוי ללא הגבלה') : `${c.searches} חיפושים`
-          
+          const tone = used ? '' : expired ? 'mute' : 'good'
+          const desc = c.unlimited ? (c.monthly ? 'מסלול Premium לחודש' : 'Premium קבוע ללא תפוגה') : `${c.searches} חיפושים`
+
           return (
-            <div key={c.code} className="card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 12, borderRight: `4px solid ${statusColor}`, opacity: (used || expired) ? 0.7 : 1 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div>
-                  <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 16, letterSpacing: 1, color: 'var(--text-main)', background: 'var(--bg)', padding: '4px 8px', borderRadius: 8, display: 'inline-block' }}>{c.code}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8, fontWeight: 600 }}>{desc}{c.single_use ? ' · לשימוש חד-פעמי' : ''}</div>
-                </div>
-                <span style={{
-                  fontSize: 11, fontWeight: 800, padding: '4px 10px', borderRadius: 12,
-                  background: `${statusColor}20`, color: statusColor, border: `1px solid ${statusColor}40`
-                }}>{status}</span>
-              </div>
-              
-              <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-                <button
-                  className="btn"
-                  style={{ flex: 1, height: 36, padding: 0, margin: 0, borderRadius: 8, fontSize: 13, fontWeight: 700, background: 'var(--bg)', border: '1px solid var(--border)' }}
-                  onClick={() => copyCode(c.code)}
-                >
-                  📋 העתק קוד
-                </button>
-                <button
-                  className="btn btn-danger"
-                  style={{ width: 44, height: 36, padding: 0, margin: 0, borderRadius: 8, fontSize: 14 }}
-                  onClick={() => deleteCode(c.code)}
-                  title="מחק קוד"
-                >
-                  🗑️
-                </button>
-              </div>
-            </div>
+            <AdminItemCard
+              key={c.code}
+              style={{ opacity: (used || expired) ? 0.75 : 1 }}
+              title={<span dir="ltr" style={{ fontFamily: 'monospace', letterSpacing: 1, unicodeBidi: 'isolate' }}>{c.code}</span>}
+              badge={status}
+              badgeTone={tone}
+              subtitle={`${desc}${c.single_use ? ' · לשימוש חד-פעמי' : ''}`}
+              cols={2}
+              actions={<>
+                <AdminItemBtn icon="📋" label="העתק" ariaLabel={`העתק קוד ${c.code}`} onClick={() => copyCode(c.code)} />
+                <AdminItemBtn icon="🗑️" label="מחק" ariaLabel={`מחק קוד ${c.code}`} danger onClick={() => setConfirmCode(c.code)} />
+              </>}
+              footer={confirmCode === c.code && (
+                <AdminItemConfirm text="למחוק את הקוד? אי אפשר לבטל." busy={deletingCode}
+                  onYes={() => deleteCode(c.code)} onNo={() => setConfirmCode(null)} />
+              )}
+            />
           )
         })}
       </div>
@@ -5120,6 +5114,8 @@ function GroupsTab() {
   const [newGroupName, setNewGroupName] = useState('')
   const [creating, setCreating] = useState(false)
   const [addingMember, setAddingMember] = useState({}) // groupId -> userId string
+  const [confirmGroup, setConfirmGroup] = useState(null)
+  const [deletingGroup, setDeletingGroup] = useState(false)
 
   async function loadGroups() {
     try { setGroups(await adminFetchGroups()) } catch { }
@@ -5144,12 +5140,12 @@ function GroupsTab() {
     setCreating(false)
   }
 
-  async function deleteGroup(id, name) {
-    window.Telegram?.WebApp?.showConfirm(`למחוק את הקבוצה "${name}"?`, async ok => {
-      if (!ok) return
-      try { await adminDeleteGroup(id); await loadGroups() }
-      catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
-    })
+  async function deleteGroup(id) {
+    // confirmation is the inline step on the card (confirmGroup)
+    setDeletingGroup(true)
+    try { await adminDeleteGroup(id); await loadGroups(); setConfirmGroup(null) }
+    catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    setDeletingGroup(false)
   }
 
   async function addMember(groupId) {
@@ -5222,36 +5218,38 @@ function GroupsTab() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {groups.map(group => (
           <div key={group.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid var(--border)', background: 'rgba(0,0,0,0.02)' }}>
-              <div>
-                <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--text-main)' }}>{group.name}</div>
-                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>{group.member_ids.length} משתמשים משויכים</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '14px 16px', borderBottom: '1px solid var(--border)', background: 'rgba(0,0,0,0.02)' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 800, fontSize: 17, lineHeight: 1.3, color: 'var(--text-main)', overflowWrap: 'anywhere' }}>{group.name}</div>
+                <div style={{ fontSize: 13, color: '#566070', marginTop: 2 }}>{group.member_ids.length} משתמשים משויכים</div>
               </div>
-              <button
-                className="btn btn-danger"
-                style={{ width: 36, height: 36, padding: 0, margin: 0, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}
-                onClick={() => deleteGroup(group.id, group.name)}
-                title="מחק קבוצה"
-              >
-                🗑️
-              </button>
+              <div style={{ flex: '0 0 72px' }}>
+                <AdminItemBtn icon="🗑️" label="מחק" ariaLabel={`מחק קבוצה: ${group.name}`} danger onClick={() => setConfirmGroup(group.id)} />
+              </div>
             </div>
+            {confirmGroup === group.id && (
+              <div style={{ padding: '0 16px 4px' }}>
+                <AdminItemConfirm text={`למחוק את הקבוצה "${group.name}"? אי אפשר לבטל.`} busy={deletingGroup}
+                  onYes={() => deleteGroup(group.id)} onNo={() => setConfirmGroup(null)} />
+              </div>
+            )}
 
-            <div style={{ padding: '20px' }}>
+            <div style={{ padding: '16px' }}>
               {/* Members */}
               {group.member_ids.length > 0 && (
                 <div style={{ marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {group.member_ids.map(uid => (
-                    <div key={uid} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', background: 'var(--bg)', borderRadius: 12, border: '1px solid var(--border)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(0, 122, 255, 0.1)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 }}>
+                    <div key={uid} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, minWidth: 0, padding: '6px 6px 6px 12px', background: 'var(--bg)', borderRadius: 12, border: '1px solid var(--border)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                        <div style={{ flex: '0 0 32px', width: 32, height: 32, borderRadius: '50%', background: 'rgba(0, 122, 255, 0.1)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 }}>
                           {uid.toString().slice(-2)}
                         </div>
                         <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-main)' }}>{getUserName(uid)}</span>
                       </div>
                       <button
                         onClick={() => removeMember(group.id, uid)}
-                        style={{ background: 'rgba(239, 68, 68, 0.1)', border: 'none', color: '#c53030', cursor: 'pointer', width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, transition: 'all 0.2s' }}
+                        aria-label={`הסר מהקבוצה: ${getUserName(uid)}`}
+                        style={{ flex: '0 0 44px', background: 'rgba(239, 68, 68, 0.1)', border: 'none', color: '#b42318', cursor: 'pointer', width: 44, height: 44, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, transition: 'all 0.2s' }}
                       >
                         ✕
                       </button>
@@ -5261,12 +5259,11 @@ function GroupsTab() {
               )}
 
               {/* Add member */}
-              <div style={{ display: 'flex', gap: 12, alignItems: 'center', background: 'var(--bg)', padding: '12px', borderRadius: 12, border: '1px dashed var(--border)' }}>
-                <span style={{ fontSize: 18 }}>👤</span>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', background: 'var(--bg)', padding: '12px', borderRadius: 12, border: '1px dashed var(--border)' }}>
                 <select
                   className="input"
                   aria-label={`הוספת משתמש לקבוצה ${group.name || ''}`}
-                  style={{ flex: 1, margin: 0, borderRadius: 10, height: 40, border: 'none', background: 'var(--bg-card)' }}
+                  style={{ flex: '1 1 100%', minWidth: 0, margin: 0, borderRadius: 10, height: 44, border: 'none', background: 'var(--bg-card)' }}
                   value={addingMember[group.id] || ''}
                   onChange={e => setAddingMember(m => ({ ...m, [group.id]: e.target.value }))}
                 >
@@ -5279,7 +5276,7 @@ function GroupsTab() {
                 </select>
                 <button
                   className="btn btn-success"
-                  style={{ width: 'auto', padding: '0 16px', margin: 0, height: 40, borderRadius: 10, fontWeight: 700, background: '#047857' }}
+                  style={{ flex: '1 1 100%', width: 'auto', padding: '0 16px', margin: 0, height: 44, borderRadius: 10, fontWeight: 700, background: '#047857' }}
                   disabled={!addingMember[group.id]}
                   onClick={() => addMember(group.id)}
                 >
