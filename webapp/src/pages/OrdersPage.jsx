@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { fetchUserOrders } from '../api.js'
 import { fmtDateTime } from '../utils/time.js'
 import PageBanners from '../components/PageBanners.jsx'
+import BackButton from '../components/BackButton.jsx'
 
 const STATUS_META = {
   created:   { label: 'ממתין לתשלום', color: '#888',    icon: '⏳' },
@@ -26,21 +27,21 @@ function OrderRow({ order }) {
 
   return (
     <div
-      style={{
-        background: 'var(--bg2)', borderRadius: 12, marginBottom: 8,
-        border: `1px solid ${isExpired ? 'rgba(255,152,0,0.2)' : 'rgba(255,255,255,0.06)'}`,
-        overflow: 'hidden',
-      }}
+      className="card"
+      style={{ padding: 0, marginBottom: 10, overflow: 'hidden', borderColor: isExpired ? 'rgba(255,152,0,0.35)' : undefined }}
     >
       <div
         onClick={() => setOpen(o => !o)}
         style={{ padding: '12px 14px', cursor: 'pointer', userSelect: 'none' }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--accent, #2196F3)', fontWeight: 700 }}>
+          <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--primary)', fontWeight: 700 }}>
             #{order.ref}
           </span>
-          <span style={{ fontSize: 11, fontWeight: 700, color: meta.color }}>
+          <span style={{
+            fontSize: 11, fontWeight: 700, color: meta.color, background: `${meta.color}1f`,
+            borderRadius: 99, padding: '2px 10px',
+          }}>
             {meta.icon} {meta.label}
           </span>
         </div>
@@ -53,7 +54,7 @@ function OrderRow({ order }) {
 
       {open && (
         <div style={{
-          borderTop: '1px solid rgba(255,255,255,0.07)',
+          borderTop: '1px solid var(--border)',
           padding: '10px 14px', fontSize: 12, color: 'var(--hint)',
           lineHeight: 1.8,
         }}>
@@ -109,13 +110,7 @@ export default function OrdersPage({ onBack, onNavigate }) {
 
   return (
     <div className="page" style={{ paddingBottom: 24 }}>
-      <button
-        className="btn btn-secondary"
-        style={{ marginBottom: 16, width: 'auto', padding: '8px 16px' }}
-        onClick={onBack}
-      >
-        ← חזרה
-      </button>
+      <BackButton onClick={onBack} label="חזרה" />
 
       <div className="page-title">📦 הזמנות שלי</div>
 

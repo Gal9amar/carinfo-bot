@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import BackButton from '../components/BackButton.jsx'
 import { initiatePayment, initiateProductPayment, promotePayment, fetchPaymentMethods } from '../api.js'
 import paypalLogo     from '../assets/paypal-logo.png'
 import visaLogo       from '../assets/visa.svg'
@@ -62,20 +63,16 @@ export default function PaymentPage({ pkg, onBack }) {
 
   return (
     <div className="page">
-      <button
-        className="btn btn-secondary"
-        style={{ marginBottom: 16, width: 'auto', padding: '8px 16px' }}
-        onClick={onBack}
-      >
-        ← חזרה
-      </button>
+      <BackButton onClick={onBack} label="חזרה" />
 
       <div className="page-title">💳 תשלום</div>
 
-      <div className="card">
-        <div className="card-title">{pkg.label}</div>
-        <div className="card-subtitle">{desc}</div>
-        <div className="price-badge">₪{totalPrice}</div>
+      <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="card-title">{pkg.label}</div>
+          <div className="card-subtitle">{desc}</div>
+        </div>
+        <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-1px' }}>₪{totalPrice}</div>
       </div>
 
       {preparing ? (
@@ -85,18 +82,18 @@ export default function PaymentPage({ pkg, onBack }) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {/* PayPal — always first, requires manual admin approval */}
-          <div style={{ fontSize: 12, color: 'var(--hint)', paddingRight: 2 }}>
-            ⏳ אישור ידני — המנהל יאשר תוך זמן קצר
-          </div>
+          <h3 className="section-label" style={{ margin: '14px 4px 2px' }}>
+            בחר אמצעי תשלום · אישור ידני, המנהל יאשר תוך זמן קצר
+          </h3>
           <button
             onClick={openPaypal}
             disabled={!paymentUrl}
             style={{
               width: '100%', display: 'flex', flexDirection: 'column',
               alignItems: 'center', justifyContent: 'center', gap: 5,
-              background: '#ffffff', border: '2px solid #003087', borderRadius: 12,
+              background: '#ffffff', border: '1px solid var(--border)', borderRadius: 18,
               padding: '10px 12px', cursor: !paymentUrl ? 'default' : 'pointer',
-              boxShadow: '0 2px 12px rgba(0,0,0,0.18)',
+              boxShadow: '0 4px 14px rgba(20, 60, 120, 0.06)',
               opacity: !paymentUrl ? 0.7 : 1,
             }}
           >
@@ -138,9 +135,9 @@ function MethodButton({ m, disabled, onClick }) {
       disabled={disabled}
       style={{
         width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
-        background: '#ffffff', border: '2px solid rgba(0,0,0,0.1)', borderRadius: 12,
+        background: '#ffffff', border: '1px solid var(--border)', borderRadius: 18,
         padding: '12px 16px', cursor: disabled ? 'default' : 'pointer',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.12)',
+        boxShadow: '0 4px 14px rgba(20, 60, 120, 0.06)',
         opacity: disabled ? 0.5 : 1,
         transition: 'opacity 0.15s',
       }}

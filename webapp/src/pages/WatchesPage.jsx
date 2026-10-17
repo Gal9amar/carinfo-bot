@@ -85,9 +85,9 @@ export default function WatchesPage({ onBack, onPackages, user, onNavigate }) {
   }
 
   const selectStyle = {
-    width: '100%', padding: '10px 12px', borderRadius: 10, fontSize: 14,
-    background: 'var(--bg)', border: '1px solid rgba(255,255,255,0.12)',
-    color: 'var(--text)', marginBottom: 10, direction: 'rtl',
+    width: '100%', padding: '11px 13px', borderRadius: 13, fontSize: 14,
+    background: '#fff', border: '1.5px solid var(--border)',
+    color: 'var(--text-main)', marginBottom: 10, direction: 'rtl', fontFamily: 'inherit',
   }
 
   if (accessDenied) {
@@ -103,7 +103,7 @@ export default function WatchesPage({ onBack, onPackages, user, onNavigate }) {
             הפיצ׳ר זמין למנויים בלבד.
           </div>
           <div style={{
-            background: 'var(--bg2)', borderRadius: 16, padding: '16px 20px',
+            background: 'rgba(255,255,255,0.85)', border: '1px solid var(--border)', borderRadius: 18, padding: '16px 20px',
             marginBottom: 24, textAlign: 'right', fontSize: 13, lineHeight: 1.8,
           }}>
             <div>✅ בחירת יצרן, דגם ושנה</div>
@@ -115,7 +115,7 @@ export default function WatchesPage({ onBack, onPackages, user, onNavigate }) {
               onClick={onPackages}
               style={{
                 width: '100%', padding: '14px 0', borderRadius: 14, border: 'none',
-                background: 'linear-gradient(135deg,#7c3aed,#a855f7)',
+                background: 'linear-gradient(135deg, #007aff, #00c6ff)',
                 color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer',
               }}
             >🛒 רכישת חבילה</button>
@@ -128,8 +128,8 @@ export default function WatchesPage({ onBack, onPackages, user, onNavigate }) {
   return (
     <div className="page">
       {onBack && <BackButton onClick={() => onBack('home')} />}
-      <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 4 }}>🔔 התראות יד2 שלי</div>
-      <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 12 }}>
+      <div className="page-title" style={{ marginBottom: 4 }}>🔔 התראות יד2 שלי</div>
+      <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 14 }}>
         תקבל הודעה בטלגרם כשתתווסף מודעה חדשה לסוג הרכב שבחרת.
       </div>
 
@@ -142,19 +142,19 @@ export default function WatchesPage({ onBack, onPackages, user, onNavigate }) {
         const pct  = max > 0 ? Math.min(100, Math.round((used / max) * 100)) : 0
         const full = used >= max
         return (
-          <div style={{ background: 'var(--bg2)', borderRadius: 12, padding: '12px 14px', marginBottom: 16 }}>
+          <div className="card" style={{ padding: '12px 14px', marginBottom: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <span style={{ fontSize: 13, fontWeight: 600 }}>מעקבים פעילים</span>
               <span style={{
                 fontSize: 13, fontWeight: 700,
-                color: full ? '#e53e3e' : used > 0 ? '#a78bfa' : 'var(--hint)',
+                color: full ? 'var(--danger)' : used > 0 ? 'var(--primary)' : 'var(--text-muted)',
               }}>{used} / {max}</span>
             </div>
-            <div style={{ background: 'var(--bg)', borderRadius: 20, height: 8, overflow: 'hidden' }}>
+            <div style={{ background: 'rgba(0, 100, 200, 0.1)', borderRadius: 20, height: 8, overflow: 'hidden' }}>
               <div style={{
                 height: '100%', borderRadius: 20,
                 width: `${pct}%`,
-                background: full ? '#e53e3e' : 'linear-gradient(90deg,#7c3aed,#a78bfa)',
+                background: full ? 'var(--danger)' : 'linear-gradient(90deg, #007aff, #00c6ff)',
                 transition: 'width 0.4s ease',
               }} />
             </div>
@@ -179,7 +179,7 @@ export default function WatchesPage({ onBack, onPackages, user, onNavigate }) {
       {/* ── Add form ── */}
       {watches && (
         adding ? (
-          <div style={{ background: 'var(--bg2)', borderRadius: 14, padding: 16, marginBottom: 16 }}>
+          <div className="card" style={{ padding: 16, marginBottom: 14 }}>
             <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>➕ הוסף מעקב חדש</div>
 
             <select value={selMake} onChange={e => setSelMake(e.target.value)} style={selectStyle}>
@@ -204,8 +204,8 @@ export default function WatchesPage({ onBack, onPackages, user, onNavigate }) {
                 onClick={handleAdd}
                 disabled={saving || !selMake}
                 style={{
-                  flex: 1, padding: '10px 0', borderRadius: 10, border: 'none',
-                  background: (!selMake || saving) ? '#55555544' : '#8b5cf6',
+                  flex: 1, padding: '11px 0', borderRadius: 13, border: 'none',
+                  background: (!selMake || saving) ? 'rgba(0,0,0,0.12)' : 'linear-gradient(135deg, #007aff, #00c6ff)',
                   color: (!selMake || saving) ? 'var(--hint)' : '#fff',
                   fontSize: 13, fontWeight: 600, cursor: (!selMake || saving) ? 'not-allowed' : 'pointer',
                 }}
@@ -213,8 +213,8 @@ export default function WatchesPage({ onBack, onPackages, user, onNavigate }) {
               <button
                 onClick={() => { setAdding(false); setAddError('') }}
                 style={{
-                  padding: '10px 16px', borderRadius: 10, border: 'none',
-                  background: 'var(--bg)', color: 'var(--hint)',
+                  padding: '11px 16px', borderRadius: 13, border: '1px solid var(--border)',
+                  background: '#fff', color: 'var(--text-muted)',
                   fontSize: 13, cursor: 'pointer',
                 }}
               >ביטול</button>
@@ -224,8 +224,8 @@ export default function WatchesPage({ onBack, onPackages, user, onNavigate }) {
           <button
             onClick={() => setAdding(true)}
             style={{
-              width: '100%', padding: '12px 0', borderRadius: 12, border: '1.5px dashed #8b5cf666',
-              background: '#8b5cf611', color: '#a78bfa',
+              width: '100%', padding: '12px 0', borderRadius: 14, border: '1.5px dashed rgba(0, 122, 255, 0.4)',
+              background: 'rgba(0, 122, 255, 0.05)', color: 'var(--primary)',
               fontSize: 14, fontWeight: 600, cursor: 'pointer', marginBottom: 16,
             }}
           >➕ הוסף מעקב חדש</button>
@@ -246,9 +246,8 @@ export default function WatchesPage({ onBack, onPackages, user, onNavigate }) {
           {watches.map(w => {
             const label = [w.make, w.model, w.year].filter(Boolean).join(' ')
             return (
-              <div key={w.id} style={{
-                background: 'var(--bg2)', borderRadius: 14, padding: '14px 16px',
-                borderRight: `3px solid ${w.active ? '#8b5cf6' : '#55555566'}`,
+              <div key={w.id} className="card" style={{
+                margin: 0, padding: '14px 16px',
                 opacity: w.active ? 1 : 0.6,
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -260,10 +259,10 @@ export default function WatchesPage({ onBack, onPackages, user, onNavigate }) {
                   </div>
                   <div style={{ display: 'flex', gap: 6 }}>
                     <button onClick={() => handleToggle(w.id)} title={w.active ? 'השהה' : 'הפעל'}
-                      style={{ background: 'var(--bg)', border: 'none', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 14 }}
+                      style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 10, padding: '6px 10px', cursor: 'pointer', fontSize: 14 }}
                     >{w.active ? '⏸️' : '▶️'}</button>
                     <button onClick={() => handleDelete(w.id)} title="מחק"
-                      style={{ background: '#e53e3e22', border: 'none', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 14 }}
+                      style={{ background: 'rgba(255,59,48,0.1)', border: '1px solid rgba(255,59,48,0.25)', borderRadius: 10, padding: '6px 10px', cursor: 'pointer', fontSize: 14 }}
                     >🗑️</button>
                   </div>
                 </div>

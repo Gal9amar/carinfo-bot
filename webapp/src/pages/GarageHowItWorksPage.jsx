@@ -69,7 +69,7 @@ export default function GarageHowItWorksPage({ onBack, onNavigate }) {
       {/* Suggest a feature */}
       <div className="card" style={{
         marginBottom: 12, textAlign: 'center',
-        background: 'linear-gradient(135deg,#4c1d95,#7c3aed)', color: '#fff',
+        background: 'linear-gradient(135deg,#007aff,#00c6ff)', color: '#fff',
       }}>
         <div style={{ fontSize: 28, marginBottom: 6 }}>💡</div>
         <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>יש לך רעיון לפיצ'ר או שיפור?</div>
@@ -80,7 +80,7 @@ export default function GarageHowItWorksPage({ onBack, onNavigate }) {
           onClick={() => onNavigate('ticket')}
           style={{
             width: '100%', padding: '11px 0', border: 'none', borderRadius: 12,
-            background: '#fff', color: '#4c1d95', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+            background: '#fff', color: '#007aff', fontSize: 14, fontWeight: 700, cursor: 'pointer',
           }}
         >🎫 פתח פנייה</button>
       </div>

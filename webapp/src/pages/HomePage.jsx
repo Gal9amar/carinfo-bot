@@ -64,8 +64,6 @@ export default function HomePage({ user, onNavigate, onSearchPlate }) {
     { id: 'privacy', label: 'פרטיות' },
   ].filter(Boolean)
 
-  const initial = (user?.first_name || 'מ').trim().charAt(0)
-
   return (
     <div className="page" style={{ paddingBottom: 24 }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
@@ -77,17 +75,6 @@ export default function HomePage({ user, onNavigate, onSearchPlate }) {
             {user?.first_name ? `שלום, ${user.first_name}` : 'שלום'}
           </div>
         </div>
-        <button
-          onClick={() => onNavigate('profile')}
-          aria-label="אזור אישי"
-          style={{
-            width: 42, height: 42, borderRadius: '50%', border: 'none', cursor: 'pointer',
-            background: 'linear-gradient(135deg, #007aff, #00c6ff)', color: '#fff',
-            fontSize: 18, fontWeight: 700,
-          }}
-        >
-          {initial}
-        </button>
       </header>
 
       {maintenance && (

@@ -62,7 +62,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
         border: '1px solid #7928ca33',
         borderRadius: 16, padding: '16px 18px', marginBottom: 20,
       }}>
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10, color: '#a855f7' }}>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10, color: '#007aff' }}>
           ⭐ מה זה חבילת חיפושים CarInfo?
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9, fontSize: 13 }}>
@@ -105,7 +105,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
                 borderRadius: 20, overflow: 'hidden', marginBottom: 22, position: 'relative',
                 boxShadow: isHighlighted
                   ? '0 6px 28px rgba(0,0,0,0.18), 0 0 0 2px #38bdf8'
-                  : '0 6px 28px rgba(0,0,0,0.18), 0 0 0 1px rgba(255,255,255,0.07)',
+                  : '0 4px 18px rgba(20,60,120,0.08), 0 0 0 1px rgba(0,100,200,0.18)',
                 background: 'var(--bg2)', opacity: isBuyable ? 1 : 0.6,
               }}>
                 {ribbon && (
@@ -145,7 +145,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
 
                 {p.description && (
                   <>
-                    <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 14px' }} />
+                    <div style={{ height: 1, background: 'rgba(0,100,200,0.12)', margin: '0 14px' }} />
                     <div
                       style={{ padding: '12px 16px', fontSize: 13, color: 'var(--hint)', lineHeight: 1.7 }}
                       dangerouslySetInnerHTML={{ __html: safeDescriptionHtml(p.description) }}
@@ -155,7 +155,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
 
                 {p.features?.length > 0 && (
                   <>
-                    <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 14px' }} />
+                    <div style={{ height: 1, background: 'rgba(0,100,200,0.12)', margin: '0 14px' }} />
                     <div style={{ padding: '12px 16px', fontSize: 13, lineHeight: 1.9 }}>
                       {p.features.map((f, i) => {
                         if (f.state === 'plain') {
@@ -174,7 +174,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
 
                 {isBuyable && maxQty > 1 && (
                   <>
-                    <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 14px' }} />
+                    <div style={{ height: 1, background: 'rgba(0,100,200,0.12)', margin: '0 14px' }} />
                     <div style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                       padding: '12px 16px',
@@ -242,7 +242,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
             borderRadius: 20, overflow: 'hidden', marginBottom: 22,
             boxShadow: isFreeUser
               ? '0 6px 28px rgba(0,0,0,0.18), 0 0 0 2px #4caf50'
-              : '0 6px 28px rgba(0,0,0,0.18), 0 0 0 1px rgba(255,255,255,0.07)',
+              : '0 4px 18px rgba(20,60,120,0.08), 0 0 0 1px rgba(0,100,200,0.18)',
             background: 'var(--bg2)',
           }}>
             {isFreeUser && (
@@ -308,7 +308,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
               ).map((c, i) => <Chip key={i} accent={freeAccent}>{c}</Chip>)}
             </div>
 
-            <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 14px' }} />
+            <div style={{ height: 1, background: 'rgba(0,100,200,0.12)', margin: '0 14px' }} />
 
             {/* Info — dynamic from DB, fallback to hardcoded */}
             <div style={{ padding: '12px 16px', fontSize: 13, lineHeight: 1.9 }}>
@@ -376,7 +376,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
             borderRadius: 20, overflow: 'hidden', marginBottom: 22,
             boxShadow: isCurrentPlan
               ? '0 6px 28px rgba(0,0,0,0.18), 0 0 0 2px #4caf50'
-              : '0 6px 28px rgba(0,0,0,0.18), 0 0 0 1px rgba(255,255,255,0.07)',
+              : '0 4px 18px rgba(20,60,120,0.08), 0 0 0 1px rgba(0,100,200,0.18)',
             background: 'var(--bg2)',
           }}>
 
@@ -431,7 +431,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
               ).map((c, i) => <Chip key={i} accent={accent}>{c}</Chip>)}
             </div>
 
-            <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 14px' }} />
+            <div style={{ height: 1, background: 'rgba(0,100,200,0.12)', margin: '0 14px' }} />
 
             {/* ── Features ── */}
             <div style={{ padding: '12px 16px', fontSize: 13, lineHeight: 1.9 }}>
@@ -456,7 +456,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
               })}
             </div>
 
-            <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 14px' }} />
+            <div style={{ height: 1, background: 'rgba(0,100,200,0.12)', margin: '0 14px' }} />
             {!isUnlimited && (
               <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -522,12 +522,12 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
             const qty         = getQty(pkg.id)
             const maxQty      = 8
             const totalPrice  = pkg.price * qty
-            const alertAccent = '#8b5cf6'
-            const alertGrad   = 'linear-gradient(135deg,#4c1d95,#7c3aed)'
+            const alertAccent = '#007aff'
+            const alertGrad   = 'linear-gradient(135deg,#007aff,#00c6ff)'
             return (
               <div key={pkg.id} style={{
                 borderRadius: 20, overflow: 'hidden', marginBottom: 22,
-                boxShadow: '0 6px 28px rgba(0,0,0,0.18), 0 0 0 1px rgba(255,255,255,0.07)',
+                boxShadow: '0 4px 18px rgba(20,60,120,0.08), 0 0 0 1px rgba(0,100,200,0.18)',
                 background: 'var(--bg2)',
               }}>
                 {/* Hero */}
@@ -562,7 +562,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
                   ).map((c, i) => <Chip key={i} accent={alertAccent}>{c}</Chip>)}
                 </div>
 
-                <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 14px' }} />
+                <div style={{ height: 1, background: 'rgba(0,100,200,0.12)', margin: '0 14px' }} />
 
                 {/* Description */}
                 <div style={{ padding: '12px 16px 8px', fontSize: 12, color: 'var(--hint)', lineHeight: 1.7 }}>
@@ -580,7 +580,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
                   }
                 </div>
 
-                <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 14px' }} />
+                <div style={{ height: 1, background: 'rgba(0,100,200,0.12)', margin: '0 14px' }} />
 
                 {/* Quantity */}
                 <div style={{
@@ -672,7 +672,7 @@ function Chip({ children, accent }) {
       fontSize: 11, fontWeight: 600, padding: '4px 10px',
       background: accent ? `${accent}18` : 'var(--bg)',
       borderRadius: 20, color: accent || 'var(--hint)',
-      border: `1px solid ${accent ? `${accent}44` : 'rgba(255,255,255,0.07)'}`,
+      border: `1px solid ${accent ? `${accent}44` : 'rgba(0,100,200,0.18)'}`,
       whiteSpace: 'nowrap',
     }}>{children}</span>
   )

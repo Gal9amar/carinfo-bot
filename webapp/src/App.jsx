@@ -269,13 +269,20 @@ export default function App() {
     return (
       <div key="success" className="page-enter">
         <div className="page">
-          <div className="success-icon">✅</div>
+          <div style={{
+            width: 88, height: 88, borderRadius: '50%', margin: '56px auto 18px',
+            background: 'rgba(52, 199, 89, 0.15)', color: '#1b8a3a',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 44,
+          }}>✓</div>
           <div className="success-title">הבקשה נשלחה!</div>
           <div className="success-text">
             נאשר את הרכישה בקרוב ותקבל הודעה בטלגרם.
           </div>
           <button className="btn" onClick={() => { setScreenStack([]); setScreen('home') }}>
-            חזור לתפריט
+            חזרה לבית
+          </button>
+          <button className="btn btn-outline" onClick={() => navigate('orders')}>
+            ההזמנות שלי
           </button>
         </div>
       </div>

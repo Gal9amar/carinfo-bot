@@ -5,7 +5,7 @@ import BackButton from '../components/BackButton.jsx'
 import PageBanners from '../components/PageBanners.jsx'
 
 const STATUS_LABEL = { open: 'פתוח', in_progress: 'בטיפול', closed: 'סגור' }
-const STATUS_COLOR = { open: '#e07b00', in_progress: '#2481cc', closed: '#38a169' }
+const STATUS_COLOR = { open: '#c2610a', in_progress: '#007aff', closed: '#1b8a3a' }
 const STATUS_ICON  = { open: '🔴', in_progress: '🟡', closed: '🟢' }
 
 export default function TicketPage({ onBack, onNavigate }) {
@@ -56,7 +56,7 @@ export default function TicketPage({ onBack, onNavigate }) {
 
       <PageBanners page="ticket" onNavigate={onNavigate} />
 
-      <button className="btn btn-success" style={{ marginBottom: 16 }} onClick={() => setView('create')}>
+      <button className="btn" style={{ marginBottom: 16 }} onClick={() => setView('create')}>
         ✉️ פנייה חדשה
       </button>
 
@@ -72,7 +72,7 @@ export default function TicketPage({ onBack, onNavigate }) {
         <div
           key={t.id}
           className="card"
-          style={{ cursor: 'pointer', borderRight: `3px solid ${STATUS_COLOR[t.status]}`, paddingRight: 12 }}
+          style={{ cursor: 'pointer', padding: '14px 16px' }}
           onClick={async () => {
             const full = await fetchTicket(t.id)
             setSelected(full)
@@ -83,7 +83,7 @@ export default function TicketPage({ onBack, onNavigate }) {
             <div className="card-title" style={{ fontSize: 14, flex: 1 }}>{t.subject}</div>
             <span style={{
               fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
-              background: STATUS_COLOR[t.status], color: '#fff',
+              background: STATUS_COLOR[t.status] + '1f', color: STATUS_COLOR[t.status],
               whiteSpace: 'nowrap', marginRight: 8, flexShrink: 0,
             }}>
               {STATUS_ICON[t.status]} {STATUS_LABEL[t.status]}
@@ -118,10 +118,8 @@ function CreateView({ onBack, onCreated }) {
 
   return (
     <div className="page">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-        <button onClick={onBack} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--btn)', padding: '0 4px' }}>›</button>
-        <div className="page-title" style={{ margin: 0 }}>✉️ פנייה חדשה</div>
-      </div>
+      <BackButton onClick={onBack} label="חזרה" />
+      <div className="page-title">✉️ פנייה חדשה</div>
 
       <input
         className="input"
@@ -174,15 +172,13 @@ function ThreadView({ ticket, onBack, onRefresh }) {
 
   return (
     <div className="page" style={{ paddingBottom: 80 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-        <button onClick={onBack} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--btn)', padding: '0 4px' }}>›</button>
-        <div className="page-title" style={{ margin: 0, fontSize: 16, flex: 1 }}>{ticket.subject}</div>
-      </div>
+      <BackButton onClick={onBack} label="חזרה" />
+      <div className="page-title" style={{ fontSize: 18, marginBottom: 10 }}>{ticket.subject}</div>
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        background: STATUS_COLOR[ticket.status] + '18',
-        borderRight: `4px solid ${STATUS_COLOR[ticket.status]}`,
-        borderRadius: '0 8px 8px 0',
+        background: STATUS_COLOR[ticket.status] + '14',
+        border: `1px solid ${STATUS_COLOR[ticket.status]}33`,
+        borderRadius: 14,
         padding: '8px 12px', marginBottom: 16,
       }}>
         <span style={{ fontSize: 13, color: STATUS_COLOR[ticket.status], fontWeight: 700 }}>
@@ -200,8 +196,9 @@ function ThreadView({ ticket, onBack, onRefresh }) {
         }}>
           <div style={{
             maxWidth: '85%',
-            background: msg.is_admin ? 'var(--bg2)' : 'var(--btn)',
-            color: msg.is_admin ? 'var(--text)' : 'var(--btn-text)',
+            background: msg.is_admin ? '#fff' : 'linear-gradient(135deg, #007aff, #00c6ff)',
+            color: msg.is_admin ? 'var(--text-main)' : '#fff',
+            border: msg.is_admin ? '1px solid var(--border)' : 'none',
             borderRadius: msg.is_admin ? '4px 16px 16px 16px' : '16px 4px 16px 16px',
             padding: '10px 14px',
             fontSize: 14,
@@ -219,7 +216,7 @@ function ThreadView({ ticket, onBack, onRefresh }) {
       <div ref={bottomRef} />
 
       {ticket.status !== 'closed' && (
-        <div style={{ position: 'fixed', bottom: 0, right: 0, left: 0, padding: '10px 16px', background: 'var(--bg)', borderTop: '1px solid var(--bg2)' }}>
+        <div style={{ position: 'fixed', bottom: 0, right: 0, left: 0, padding: '10px 16px', background: 'rgba(255,255,255,0.94)', backdropFilter: 'blur(20px)', borderTop: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', gap: 8, maxWidth: 480, margin: '0 auto' }}>
             <input
               className="input"

@@ -41,8 +41,8 @@ export default function VehicleLookupLoader({ plate }) {
         </div>
       )}
 
-      <div style={{
-        background: 'var(--bg2)', borderRadius: 14, padding: '14px 18px',
+      <div className="card" style={{
+        padding: '14px 18px', marginBottom: 0,
         maxWidth: 340, margin: '0 auto', textAlign: 'right',
       }}>
         {STEPS.map((s, i) => {
@@ -71,9 +71,16 @@ export default function VehicleLookupLoader({ plate }) {
         })}
       </div>
 
+      <div style={{ maxWidth: 340, margin: '16px auto 0', height: 6, borderRadius: 99, background: 'rgba(0,100,200,0.1)', overflow: 'hidden' }}>
+        <div style={{
+          width: `${Math.round(((stepIdx + 1) / STEPS.length) * 100)}%`, height: '100%', borderRadius: 99,
+          background: 'linear-gradient(90deg, #007aff, #00c6ff)', transition: 'width 0.5s ease',
+        }} />
+      </div>
+
       <div style={{
-        marginTop: 20, background: 'rgba(36,129,204,0.08)', border: '1px solid rgba(36,129,204,0.18)',
-        borderRadius: 10, padding: '10px 14px', fontSize: 12.5, color: 'var(--hint)',
+        marginTop: 20, background: 'rgba(0,122,255,0.06)', border: '1px solid var(--border)',
+        borderRadius: 14, padding: '10px 14px', fontSize: 12.5, color: 'var(--text-muted)',
         maxWidth: 340, margin: '20px auto 0', minHeight: 36, display: 'flex', alignItems: 'center', justifyContent: 'center',
         transition: 'opacity 0.3s',
       }}>

@@ -3,12 +3,6 @@ import { fetchUserOrders, fetchGarage, fetchReferral, fetchSearchHistory, fetchU
 import { fmtDate, fmtDateLong } from '../utils/time.js'
 import BackButton from '../components/BackButton.jsx'
 
-function initials(firstName, lastName) {
-  const a = (firstName || '').trim().slice(0, 1)
-  const b = (lastName  || '').trim().slice(0, 1)
-  return (a + b).toUpperCase() || '👤'
-}
-
 export default function ProfilePage({ user, onNavigate, onBack }) {
   const [orders, setOrders]     = useState(null)
   const [garage, setGarage]     = useState(null)
@@ -61,12 +55,6 @@ export default function ProfilePage({ user, onNavigate, onBack }) {
 
       {/* Identity */}
       <header style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
-        <div style={{
-          width: 60, height: 60, borderRadius: '50%', flexShrink: 0,
-          background: 'linear-gradient(135deg, #007aff, #00c6ff)', color: '#fff',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 22, fontWeight: 800,
-        }}>{initials(user.first_name, user.last_name)}</div>
         <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{
             fontSize: 22, fontWeight: 900, letterSpacing: '-0.5px',

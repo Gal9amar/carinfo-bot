@@ -57,17 +57,17 @@ export default function ReferralPage({ onBack, onNavigate }) {
       </div>
 
       {/* Tabs */}
-      <div className="card" style={{ display: 'flex', gap: 6, marginBottom: 24, padding: '6px' }}>
+      <div style={{ display: 'flex', gap: 2, marginBottom: 20, padding: 3, borderRadius: 14, background: 'rgba(0, 100, 200, 0.08)' }}>
         {[['share', '🔗 שיתוף'], ['history', '📋 הפניות שלי']].map(([id, label]) => (
           <button
             key={id}
             onClick={() => setTab(id)}
             style={{
-              flex: 1, padding: '10px 4px', border: 'none', borderRadius: 12, cursor: 'pointer',
-              background: tab === id ? 'var(--primary)' : 'transparent',
-              color: tab === id ? '#fff' : 'var(--hint)',
+              flex: 1, padding: '9px 4px', border: 'none', borderRadius: 11, cursor: 'pointer',
+              background: tab === id ? '#fff' : 'transparent',
+              color: tab === id ? 'var(--text-main)' : 'var(--text-muted)',
               fontSize: 14, fontWeight: tab === id ? 700 : 500,
-              boxShadow: tab === id ? '0 4px 12px rgba(0, 122, 255, 0.3)' : 'none',
+              boxShadow: tab === id ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
               transition: '0.2s',
             }}
           >
@@ -102,12 +102,16 @@ export default function ReferralPage({ onBack, onNavigate }) {
           <div className="card">
             <div className="card-title" style={{ marginBottom: 10 }}>איך זה עובד?</div>
             {[
-              ['1️⃣', 'שלח את הלינק לחבר'],
-              ['2️⃣', 'החבר לוחץ ומצטרף לבוט'],
-              ['3️⃣', `אתה מקבל ${info?.bonus ?? 10} חיפושים במתנה אוטומטית`],
-            ].map(([num, text]) => (
-              <div key={num} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 8 }}>
-                <span style={{ fontSize: 18, flexShrink: 0 }}>{num}</span>
+              'שלח את הלינק לחבר',
+              'החבר לוחץ ומצטרף לבוט',
+              `אתה מקבל ${info?.bonus ?? 10} חיפושים במתנה אוטומטית`,
+            ].map((text, i) => (
+              <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 }}>
+                <span style={{
+                  width: 26, height: 26, borderRadius: '50%', flexShrink: 0, color: '#fff',
+                  background: 'linear-gradient(135deg, #007aff, #00c6ff)', fontSize: 12, fontWeight: 700,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>{i + 1}</span>
                 <span style={{ fontSize: 14 }}>{text}</span>
               </div>
             ))}
@@ -137,15 +141,13 @@ export default function ReferralPage({ onBack, onNavigate }) {
                 {referrals.length} חברים הצטרפו · סה"כ {totalBonus} חיפושים הרווחת
               </div>
               {referrals.map(ref => (
-                <div key={ref.id} style={{
-                  background: 'var(--card-bg, rgba(255,255,255,0.05))',
-                  borderRadius: 12, padding: '12px 14px', marginBottom: 8,
+                <div key={ref.id} className="card" style={{
+                  padding: '12px 14px', marginBottom: 10,
                   display: 'flex', alignItems: 'center', gap: 12,
-                  borderRight: '3px solid #38a169',
                 }}>
                   <div style={{
                     width: 38, height: 38, borderRadius: '50%',
-                    background: 'linear-gradient(135deg,#2481cc,#1a5fa8)',
+                    background: 'rgba(0, 122, 255, 0.1)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: 18, flexShrink: 0,
                   }}>

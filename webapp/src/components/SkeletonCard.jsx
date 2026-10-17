@@ -26,7 +26,7 @@ export function SkeletonWatchCard() {
   return (
     <div style={{
       background: 'var(--bg2)', borderRadius: 14, padding: '14px 16px', marginBottom: 10,
-      borderRight: '3px solid #55555566',
+      border: '1px solid rgba(0,100,200,0.18)',
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div style={{ flex: 1 }}>
