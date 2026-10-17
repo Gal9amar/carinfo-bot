@@ -251,9 +251,10 @@ function SummaryTab({ record, ownership, recalls, make, model, year, color, km, 
           ))}
         </div>
       </div>
+    ),
 
-      {/* ── Test status card ── */}
-      {testStr && (
+    // ── Test status card ──
+    test: testStr && (
         <div style={{
           borderRadius: 14, padding: '14px 16px', marginBottom: 14,
           background: 'var(--bg2)', display: 'flex', alignItems: 'center', gap: 12,
@@ -264,13 +265,10 @@ function SummaryTab({ record, ownership, recalls, make, model, year, color, km, 
             <div style={{ fontWeight: 700, fontSize: 15 }}>{testStr}</div>
           </div>
         </div>
-      )}
+    ),
 
-      {/* ── Same-model count on the road ── */}
-      {modelCountCard}
-
-      {/* ── Ownership timeline ── */}
-      {ownership.length > 0 && (
+    // ── Ownership timeline ──
+    ownership: ownership.length > 0 && (
         <div style={{
           borderRadius: 14, padding: '14px 16px', marginBottom: 14,
           background: 'var(--bg2)',
@@ -323,9 +321,10 @@ function SummaryTab({ record, ownership, recalls, make, model, year, color, km, 
             })}
           </div>
         </div>
-      )}
+    ),
 
-      {/* ── Key specs ── */}
+    // ── Key specs ──
+    main_details: (
       <div style={{
         borderRadius: 14, padding: '14px 16px', marginBottom: 14,
         background: 'var(--bg2)',
@@ -349,8 +348,10 @@ function SummaryTab({ record, ownership, recalls, make, model, year, color, km, 
           </div>
         ))}
       </div>
+    ),
 
-      {/* ── Recalls summary ── */}
+    // ── Recalls summary ──
+    recalls: (
       <div style={{
         borderRadius: 14, padding: '14px 16px', marginBottom: 14,
         background: recalls.length > 0 ? '#c5303011' : '#177a3314',
@@ -370,18 +371,10 @@ function SummaryTab({ record, ownership, recalls, make, model, year, color, km, 
           </div>
         </div>
       </div>
+    ),
+  }
 
-      {/* ── Personal notes ── */}
-      {notesCard}
-
-      {/* ── "I bought it" (garage) ── */}
-      {garageCard}
-
-      {/* ── Premium features (market price, alerts, PDF, compare) ── */}
-      {premium}
-
-    </div>
-  )
+  return <div>{order.map(id => <Fragment key={id}>{sections[id]}</Fragment>)}</div>
 }
 
 // ── Row & Sec ─────────────────────────────────────────────────────────────────
@@ -430,6 +423,7 @@ function PremiumHeader({ title, publicLabel }) {
 
 export default function ReportPage({ plate, onBack, user, onNavigate }) {
   const [activeTab, setActiveTab] = useState('summary')
+  const layout = useReportLayout()
   const [record, setRecord] = useState(null)
   const [error, setError] = useState(null)
   const [retryToken, setRetryToken] = useState(0)
@@ -987,14 +981,16 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
       </div>
   )
 
-  const premium = (
-    <>
-      {marketCard}
-      {watchCard}
-      {pdfCard}
-      <CompareCard plate={plateNum} user={user} onNavigate={onNavigate} />
-    </>
-  )
+  // Summary sections built here (they own state); SummaryTab adds the purely presentational ones.
+  const summaryExtra = {
+    model_count: modelCountCard,
+    notes: notesCard,
+    garage: garageCard,
+    market: marketCard,
+    alerts: watchCard,
+    pdf: pdfCard,
+    compare: <CompareCard plate={plateNum} user={user} onNavigate={onNavigate} />,
+  }
 
   return (
     <div className="page">
@@ -1055,8 +1051,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
           record={record} ownership={ownership} recalls={recalls}
           make={make} model={model} year={year} color={color}
           km={km} testStr={testStr} plateNum={plateNum}
-          score={score} flags={flags} premium={premium}
-          modelCountCard={modelCountCard} notesCard={notesCard} garageCard={garageCard}
+          score={score} order={layout.summary} extra={summaryExtra}
           w={w} statusColor={statusColor}
         />
       )}
