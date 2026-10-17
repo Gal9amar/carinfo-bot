@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { monthsLabel } from '../utils/plan.js'
 import BackButton from '../components/BackButton.jsx'
-import { initiatePayment, initiateProductPayment, promotePayment, fetchPaymentMethods } from '../api.js'
+import { initiatePayment, initiateProductPayment, fetchPaymentMethods } from '../api.js'
 import paypalLogo     from '../assets/paypal-logo.webp'
 import visaLogo       from '../assets/visa.svg'
 import mastercardLogo from '../assets/mastercard.svg'
@@ -14,8 +14,8 @@ const isPaypalMethod = m => /paypal|פייפאל/i.test(m?.name || '')
 const CARD_STYLE ={ height: 24, width: 'auto', borderRadius: 4, display: 'block', objectFit: 'contain' }
 
 export default function PaymentPage({ pkg, onBack }) {
-  const [paymentUrl, setPaymentUrl] = useState(null)
-  const [paymentRef, setPaymentRef] = useState(null)
+  const [busy, setBusy]            = useState(false)
+  const orderRef = useRef(null)
   const [preparing, setPreparing]   = useState(true)
   const [extraMethods, setExtraMethods] = useState([])
   const [hasPaypal, setHasPaypal]   = useState(false)
@@ -29,17 +29,10 @@ export default function PaymentPage({ pkg, onBack }) {
       ? `${qty} התראה${qty > 1 ? 'ות' : ''} נוספת ביד2`
       : (pkg.searches === -1 ? `ללא הגבלה · ${monthsLabel(qty * Math.max(1, pkg.duration_months ?? 1))}` : `${(pkg.searches ?? 1) * qty} חיפושים`)
 
+  // No order exists while the user is only looking at the payment methods. The order is created the
+  // moment a method is chosen (and reused if they then pick another method on this screen).
   useEffect(() => {
-    Promise.all([
-      fetchPaymentMethods().catch(() => []),
-      (pkg._isProduct ? initiateProductPayment(pkg.id, qty, true) : initiatePayment(pkg.id, qty, true)).catch(() => null),
-    ]).then(([dbMethods, data]) => {
-      if (data) {
-        setPaymentUrl(data.approval_url)
-        setPaymentRef(data.ref)
-      } else {
-        window.Telegram?.WebApp?.showAlert('שגיאה ביצירת הזמנה, נסה שוב.')
-      }
+    fetchPaymentMethods().catch(() => []).then(dbMethods => {
       // The list comes from the admin panel and contains ACTIVE methods only: the PayPal
       // button appears only when an active PayPal method exists, the rest are shown as-is.
       const list = Array.isArray(dbMethods) ? dbMethods : []
@@ -49,25 +42,31 @@ export default function PaymentPage({ pkg, onBack }) {
     })
   }, [pkg.id])
 
-  function openPaypal() {
-    if (!paymentUrl) return
-    promotePayment(paymentRef)
-    if (window.Telegram?.WebApp?.openLink) {
-      window.Telegram.WebApp.openLink(paymentUrl)
-    } else {
-      window.open(paymentUrl, '_blank')
+  async function ensureOrder() {
+    if (orderRef.current) return orderRef.current
+    const data = await (pkg._isProduct ? initiateProductPayment(pkg.id, qty, false) : initiatePayment(pkg.id, qty, false))
+    orderRef.current = data
+    return data
+  }
+
+  async function pay(urlOf) {
+    if (busy) return
+    setBusy(true)
+    try {
+      const order = await ensureOrder()
+      const url = urlOf(order)
+      if (!url) { window.Telegram?.WebApp?.showAlert('אמצעי התשלום אינו זמין כרגע.'); return }
+      if (window.Telegram?.WebApp?.openLink) window.Telegram.WebApp.openLink(url)
+      else window.open(url, '_blank')
+    } catch {
+      window.Telegram?.WebApp?.showAlert('שגיאה ביצירת הזמנה, נסה שוב.')
+    } finally {
+      setBusy(false)
     }
   }
 
-  function openManual(m) {
-    if (!m.payment_url) return
-    if (paymentRef) promotePayment(paymentRef)
-    if (window.Telegram?.WebApp?.openLink) {
-      window.Telegram.WebApp.openLink(m.payment_url)
-    } else {
-      window.open(m.payment_url, '_blank')
-    }
-  }
+  const openPaypal = () => pay(order => order.approval_url)
+  const openManual = m => pay(() => m.payment_url)
 
   return (
     <div className="page">
@@ -100,14 +99,14 @@ export default function PaymentPage({ pkg, onBack }) {
           )}
           {hasPaypal && <button
             onClick={openPaypal}
-            disabled={!paymentUrl}
+            disabled={busy}
             style={{
               width: '100%', display: 'flex', flexDirection: 'column',
               alignItems: 'center', justifyContent: 'center', gap: 5,
               background: '#ffffff', border: '1px solid var(--border)', borderRadius: 18,
-              padding: '10px 12px', cursor: !paymentUrl ? 'default' : 'pointer',
+              padding: '10px 12px', cursor: busy ? 'default' : 'pointer',
               boxShadow: '0 4px 14px rgba(20, 60, 120, 0.06)',
-              opacity: !paymentUrl ? 0.7 : 1,
+              opacity: busy ? 0.7 : 1,
             }}
           >
             <img loading="lazy" decoding="async" src={paypalLogo} alt="PayPal" style={{ height: 28, objectFit: 'contain' }} />
@@ -127,7 +126,7 @@ export default function PaymentPage({ pkg, onBack }) {
                 ⏳ אישור ידני — המנהל יאשר תוך זמן קצר
               </div>
               {extraMethods.map(m => (
-                <MethodButton key={m.id} m={m} disabled={false} onClick={() => openManual(m)} />
+                <MethodButton key={m.id} m={m} disabled={busy} onClick={() => openManual(m)} />
               ))}
             </>
           )}
