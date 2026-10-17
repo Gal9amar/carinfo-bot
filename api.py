@@ -28,7 +28,7 @@ WEBAPP_URL   = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_U
 # Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
 # webapp can detect a new release and force-reload instead of running stale
 # cached JS. Falls back to process start time for non-Render environments.
-APP_VERSION = "1792231644"
+APP_VERSION = "1792231771"
 
 api = FastAPI()
 
@@ -38,6 +38,39 @@ api.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+class _MiniAppMirrorMiddleware:
+    """Pure-ASGI hook: after an authenticated /api/ request has been answered, report the user's
+    action to the activity mirror. Adds nothing to the response and never raises into it."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or not scope["path"].startswith("/api/") or scope["path"].startswith("/api/admin"):
+            return await self.app(scope, receive, send)
+        status = {"code": 0}
+
+        async def send_wrapper(message):
+            if message["type"] == "http.response.start":
+                status["code"] = message["status"]
+            await send(message)
+
+        try:
+            await self.app(scope, receive, send_wrapper)
+        finally:
+            try:
+                init = next((v.decode("latin-1") for k, v in scope["headers"] if k == b"x-init-data"), "")
+                user = _validate_init_data(init) if init else None
+                if user:
+                    from src import mirror
+                    await mirror.record_miniapp(user, scope["method"], scope["path"], status["code"])
+            except Exception:
+                pass
+
+
+api.add_middleware(_MiniAppMirrorMiddleware)
 
 
 def _validate_init_data(init_data: str) -> dict | None:
@@ -831,6 +864,7 @@ async def admin_get_settings(_: dict = Depends(_require_admin)):
         "test_reminders_enabled": (await get_bot_setting("test_reminders_enabled")) == "1",
         "test_reminders_garage_sync": (await get_bot_setting("test_reminders_garage_sync")) == "1",
         "mirror_enabled": (await get_bot_setting("mirror_enabled")) == "1",
+        "mirror_miniapp": (await get_bot_setting("mirror_miniapp")) != "0",
         "mirror_bound": bool(await get_bot_setting("mirror_chat_id")),
         "free_searches":       _u.FREE_SEARCHES,
         "referral_bonus":      int((await get_bot_setting("referral_bonus")) or "10"),
@@ -872,6 +906,7 @@ class SettingsUpdate(BaseModel):
     test_reminders_enabled: bool      | None = None
     test_reminders_garage_sync: bool  | None = None
     mirror_enabled: bool              | None = None
+    mirror_miniapp: bool              | None = None
     free_searches:       int          | None = None
     referral_bonus:      int          | None = None
     promo_searches:      int          | None = None
@@ -915,6 +950,10 @@ async def admin_update_settings(body: SettingsUpdate, _: dict = Depends(_require
         await set_bot_setting("rich_messages_enabled", "1" if body.rich_messages_enabled else "0")
     if body.test_reminders_enabled is not None:
         await set_bot_setting("test_reminders_enabled", "1" if body.test_reminders_enabled else "0")
+    if body.mirror_miniapp is not None:
+        await set_bot_setting("mirror_miniapp", "1" if body.mirror_miniapp else "0")
+        from src import mirror
+        mirror.invalidate()
     if body.mirror_enabled is not None:
         await set_bot_setting("mirror_enabled", "1" if body.mirror_enabled else "0")
         from src import mirror

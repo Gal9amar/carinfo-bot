@@ -24,6 +24,7 @@ import contextlib
 import contextvars
 import logging
 import os
+import re
 import threading
 import time
 from collections import deque
@@ -44,7 +45,9 @@ _dropped = 0
 _who: dict[int, tuple[str, str]] = {}      # uid -> (name, @username)
 _hdr_enq: dict[int, float] = {}             # uid -> when a header op was last queued
 _hdr_msg: dict[int, int] = {}               # uid -> message_id of that header in the mirror topic
-_cfg = {"at": 0.0, "enabled": False, "chat": None, "thread": None}
+_cfg = {"at": 0.0, "enabled": False, "chat": None, "thread": None, "miniapp": True}
+_app_open: dict[int, float] = {}            # uid -> last "opened the Mini App" line (throttle)
+APP_OPEN_TTL = 1800
 _pause_until = 0.0
 _redact: contextvars.ContextVar[bool] = contextvars.ContextVar("mirror_redact", default=False)
 _quiet: contextvars.ContextVar[bool] = contextvars.ContextVar("mirror_quiet", default=False)
@@ -71,6 +74,7 @@ async def _config() -> dict:
             enabled=(await get_bot_setting("mirror_enabled")) == "1" and bool(chat),
             chat=int(chat) if chat.lstrip("-").isdigit() else None,
             thread=int(thread) if thread.isdigit() else None,
+            miniapp=(await get_bot_setting("mirror_miniapp")) != "0",
             at=time.time(),
         )
     except Exception as exc:
@@ -117,6 +121,67 @@ def parse_topic_link(text: str) -> tuple[int, int | None] | None:
     chat = int(f"-100{m.group(1)}")
     topic = int(m.group(2)) if m.group(2) else None
     return chat, (topic if topic and topic > 1 else None)   # topic id 1 is the General topic
+
+
+# ── Mini App (web) actions ─────────────────────────────────────────────────
+
+_PLATE = r"(?P<p>[\w\-]{4,12})"
+# (method, path regex, {status: text}) — only meaningful user actions, not page views
+_MINIAPP_RULES: list[tuple[str, str, dict[int, str]]] = [
+    ("GET", rf"^/api/vehicle/{_PLATE}$", {200: "🔍 חיפש לוחית {p}", 403: "🔒 ניסה לחפש לוחית {p} — נגמרה המכסה", 404: "❓ חיפש לוחית {p} — לא נמצא"}),
+    ("GET", rf"^/api/vehicle/{_PLATE}/pdf$", {200: "📄 הוריד דוח PDF ללוחית {p}"}),
+    ("GET", rf"^/api/vehicle/{_PLATE}/market-price$", {200: "💰 בדק מחיר שוק ללוחית {p}"}),
+    ("POST", r"^/api/notes/(?P<p>[\w\-]{4,12})$", {200: "📝 שמר הערה ללוחית {p}"}),
+    ("POST", r"^/api/payment/initiate$", {200: "🛒 התחיל תהליך רכישה"}),
+    ("POST", r"^/api/payment/promote$", {200: "💳 דיווח שביצע תשלום — ממתין לאישור"}),
+    ("POST", r"^/api/user/garage$", {200: "🚗 הוסיף רכב למוסך"}),
+    ("PATCH", r"^/api/user/garage/\d+$", {200: "✏️ עדכן פרטי רכב במוסך"}),
+    ("DELETE", r"^/api/user/garage/\d+$", {200: "🗑 הסיר רכב מהמוסך"}),
+    ("POST", r"^/api/user/garage/\d+/sell$", {200: "💸 סימן רכב במוסך כנמכר"}),
+    ("POST", r"^/api/user/garage/\d+/expenses$", {200: "🧾 הוסיף הוצאה לרכב"}),
+    ("POST", r"^/api/user/watches$", {200: "👀 הוסיף מעקב מודעות"}),
+    ("DELETE", r"^/api/user/watches/\d+$", {200: "🗑 הסיר מעקב מודעות"}),
+    ("PATCH", r"^/api/user/watches/\d+/toggle$", {200: "🔔 שינה מצב של מעקב מודעות"}),
+    ("POST", r"^/api/tickets$", {200: "🎫 פתח פנייה לתמיכה"}),
+    ("POST", r"^/api/tickets/\d+/reply$", {200: "💬 השיב בפנייה"}),
+]
+_MINIAPP_RULES_RE = [(m, re.compile(rx), out) for m, rx, out in _MINIAPP_RULES]
+
+
+def describe_api_call(method: str, path: str, status: int) -> str | None:
+    """Hebrew description of a Mini App API call worth showing, or None (page views, admin, errors)."""
+    for m, rx, outcomes in _MINIAPP_RULES_RE:
+        if m == method:
+            match = rx.match(path)
+            if match and status in outcomes:
+                return outcomes[status].format(**match.groupdict())
+    return None
+
+
+async def record_miniapp(user: dict, method: str, path: str, status: int) -> None:
+    """Called by the ASGI middleware in api.py for authenticated /api/ requests. Never raises."""
+    try:
+        uid = user.get("id")
+        if not isinstance(uid, int) or uid == ADMIN_ID or path.startswith("/api/admin"):
+            return
+        cfg = await _config()
+        if not (cfg["enabled"] and cfg["miniapp"]):
+            return
+        if method == "GET" and path == "/api/user" and status == 200:        # the app was opened
+            if time.time() - _app_open.get(uid, 0) < APP_OPEN_TTL:
+                return
+            _app_open[uid] = time.time()
+            text = "📱 פתח את המיני-אפ"
+        else:
+            text = describe_api_call(method, path, status)
+        if not text:
+            return
+        name = " ".join(p for p in (user.get("first_name"), user.get("last_name")) if p) or str(uid)
+        uname = f"@{user['username']}" if user.get("username") else ""
+        _who[uid] = (name, uname)
+        _push({"op": "header", "uid": uid, "name": name, "uname": uname, "text": text, "t": _clock(), "app": True})
+    except Exception as exc:
+        logger.warning("mirror miniapp failed: %s", type(exc).__name__)
 
 
 # ── capturing events ───────────────────────────────────────────────────────
@@ -339,7 +404,9 @@ async def _display_name(uid: int) -> str:
 def _header_html(op: dict) -> str:
     from src.messages import esc
     who = f"<b>{esc(op['name'])}</b>" + (f" {esc(op['uname'])}" if op.get("uname") else "")
-    return f"{'🤖' if op.get('push') else '👤'} {who} <code>{op['uid']}</code> · {op['t']}\n{esc(op['text'])}"
+    icon = "🤖" if op.get("push") else ("📱" if op.get("app") else "👤")
+    where = " · מיני-אפ" if op.get("app") else ""
+    return f"{icon} {who} <code>{op['uid']}</code> · {op['t']}{where}\n{esc(op['text'])}"
 
 
 async def _send_op(bot, cfg: dict, op: dict) -> None:
