@@ -38,6 +38,7 @@ function AppInner() {
   const [screenStack, setScreenStack] = useState([])
   const [packages, setPackages] = useState([])
   const [user, setUser] = useState(null)
+  const [loadError, setLoadError] = useState(false)
   const [selectedPkg, setSelectedPkg] = useState(null)
   const [reportPlate, setReportPlate] = useState(null)
   const [highlightProductId, setHighlightProductId] = useState(null)
@@ -74,9 +75,14 @@ function AppInner() {
     // Show Home immediately; user and packages load in parallel and fill in
     // as they arrive (neither blocks first paint).
     setScreen('home')
-    fetchUser().catch(() => null).then(usr => setUser(usr))
-    fetchPackages().then(setPackages).catch(() => {})
+    loadHome()
   }, [])
+
+  function loadHome() {
+    setLoadError(false)
+    fetchUser().then(setUser).catch(() => setLoadError(true))
+    fetchPackages().then(setPackages).catch(() => {})
+  }
 
   // After first paint, warm the chunks users most often open next.
   useEffect(() => {
@@ -322,6 +328,18 @@ function AppInner() {
         </div>
         <BottomNav screen={screen} onNavigate={navigate} />
       </>
+    )
+  }
+
+  if (screen === 'home' && loadError && !user) {
+    return (
+      <div className="page">
+        <div className="card" style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 40 }}>⚠️</div>
+          <div style={{ margin: '8px 0 16px' }}>לא הצלחנו לטעון את הנתונים. בדוק את החיבור ונסה שוב</div>
+          <button className="btn" style={{ marginTop: 0 }} onClick={loadHome}>🔄 נסה שוב</button>
+        </div>
+      </div>
     )
   }
 
