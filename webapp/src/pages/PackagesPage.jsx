@@ -56,21 +56,22 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
         </div>
       )}
 
-      {/* What is a subscription */}
+      {/* What is the Premium plan */}
       <div style={{
         background: 'linear-gradient(135deg,#7928ca18,#5a1e9908)',
         border: '1px solid #7928ca33',
         borderRadius: 16, padding: '16px 18px', marginBottom: 20,
       }}>
         <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10, color: '#0066d6' }}>
-          ⭐ מה זה חבילת חיפושים CarInfo?
+          ⭐ מה זה מסלול Premium?
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9, fontSize: 13 }}>
-          <Row icon="🔍" text="מנוי מקנה לך סל חיפושים לשימוש בקצב שלך — ללא הגבלת זמן לניצול היתרה" />
-          <Row icon="💰" text="גישה לנתונים המיועדים למנויים בלבד — ככל שיתווספו תכונות נוספות בעתיד, תיהנה מהן אוטומטית" />
-          <Row icon="💳" text="תשלום חד-פעמי בלבד — אין חיוב חוזר, אין מנוי אוטומטי, אין הפתעות" />
-          <Row icon="🔓" text="תוקף המנוי נשמר כל עוד יש לך יתרת חיפושים — יסתיים עם ניצול מלא" />
-          <Row icon="➕" text='ניתן לרכוש כמה פעמים שרוצים ולצבור חיפושים — לחץ "+" לכמות מרובה' />
+          <Row icon="♾️" text="חיפושים ללא הגבלה למשך חודש מיום הפעלת המסלול" />
+          <Row icon="🔓" text="כל פיצ'רי הפרימיום פתוחים: מחיר שוק, התראות על מודעות חדשות ב-Yad2 ודוח PDF — וכל פיצ'ר פרימיום שיתווסף בעתיד ייפתח לך אוטומטית" />
+          <Row icon="⚖️" text="השוואת רכבים פתוחה לכל המשתמשים, גם בלי מסלול" />
+          <Row icon="💳" text="תשלום חד-פעמי — אין חיוב חוזר ואין חידוש אוטומטי" />
+          <Row icon="⏳" text="המסלול פעיל עד תאריך הסיום המוצג באזור האישי, ולאחריו חוזרים למסלול החינמי" />
+          <Row icon="🤝" text="מזמינים חברים? מנוי Premium מקבל ימים נוספים במסלול על כל חבר שמצטרף" />
         </div>
 
         <div style={{
@@ -80,7 +81,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
           display: 'flex', alignItems: 'center', gap: 8,
         }}>
           <span style={{ fontSize: 16 }}>✅</span>
-          <span>כל רכישה מוכנסת לחשבונך תוך שניות לאחר השלמת התשלום</span>
+          <span>המסלול מופעל בחשבונך לאחר אישור התשלום</span>
         </div>
       </div>
 
@@ -348,9 +349,9 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
         )
       })()}
 
-      {/* ── Section header: חבילות חיפושים ── */}
+      {/* ── Section header: מסלולי מנוי ── */}
       <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, color: 'var(--text)' }}>
-        🔍 חבילות חיפושים
+        ⭐ מסלולי מנוי
       </div>
 
       {paidPackages.length === 0 && (

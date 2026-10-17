@@ -467,7 +467,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
   if (error) {
     const ERROR_INFO = {
       NO_PLATE:       { icon: '❓', text: 'לא צוין מספר רכב', retry: false },
-      QUOTA_EXCEEDED: { icon: '🔒', text: 'נגמרו החיפושים שלך — רכוש חבילה להמשך', retry: false },
+      QUOTA_EXCEEDED: { icon: '🔒', text: 'נגמרו החיפושים שלך — שדרג למסלול Premium להמשך', retry: false },
       NOT_FOUND:      { icon: '🔍', text: 'לא נמצא רכב עם מספר הרישוי הזה. ודא שהמספר הוקלד נכון', retry: false },
       NETWORK_ERROR:  { icon: '📡', text: 'בעיית חיבור לאינטרנט. בדוק את החיבור ונסה שוב', retry: true },
       MAINTENANCE:    { icon: '🔧', text: 'השירות בתחזוקה כרגע — נחזור בקרוב', retry: true },

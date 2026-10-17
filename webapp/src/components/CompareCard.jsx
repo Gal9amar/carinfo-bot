@@ -5,7 +5,7 @@ import { formatPlateInput } from '../utils/plate.js'
 const ERROR_TEXT = {
   NOT_FOUND: 'לא נמצא רכב עם המספר הזה',
   SAME_PLATE: 'יש להזין מספר רכב שונה מהרכב שמוצג בדוח',
-  QUOTA_EXCEEDED: 'נגמרו החיפושים שלך — רכוש חבילה כדי להמשיך להשוות',
+  QUOTA_EXCEEDED: 'נגמרו החיפושים שלך — שדרג למסלול Premium כדי להמשיך להשוות',
   MAINTENANCE: 'השירות בתחזוקה כרגע — נסה שוב בעוד רגע',
   REGISTRY_UNAVAILABLE: 'מאגר הרכבים אינו זמין כרגע. נסה שוב בעוד רגע',
   NETWORK_ERROR: 'בעיית חיבור לאינטרנט. בדוק את החיבור ונסה שוב',

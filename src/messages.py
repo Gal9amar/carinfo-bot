@@ -164,7 +164,7 @@ def status(name: str, left: int, expires: Optional[str] = None) -> str:
     if left == 0:
         return (
             f"🔒 {_n(name)}, הבדיקות החינמיות שלך נוצלו.\n\n"
-            f"רוצה להמשיך? שלח {code('/buy')} ונפתח לך חבילה 🛒"
+            f"רוצה להמשיך? שלח {code('/buy')} ונפתח לך את מסלול ה-Premium 🛒"
         )
     return f"📊 {_n(name)}, הנה מצב החשבון שלך:\n\n{quota_line(left, expires)}"
 
@@ -180,7 +180,7 @@ def help_text(name: str) -> str:
         "📅 היסטוריה · 👥 בעלויות · 🔔 ריקולים\n\n"
         f"{b('פקודות שימושיות:')}\n"
         f"{code('/status')} — מצב החשבון שלך\n"
-        f"{code('/buy')} — רכישת חבילות\n"
+        f"{code('/buy')} — מסלול Premium\n"
         f"{code('/compare 1234567 7654321')} — השוואה בין שני רכבים (שתי בדיקות)\n"
         f"{code('/code XXXXXXXX')} — הפעלת קוד הטבה\n\n"
         + quote("צריך עזרה? אני כאן 🙂 אפשר לפתוח פנייה לתמיכה מתוך התפריט.")
@@ -206,7 +206,7 @@ def how_it_works(name: str, free: int, packages_html: str) -> str:
         f"🆓 {b('חינם:')} כל משתמש חדש מקבל {b(f'{free} חיפושים')} לניסיון\n\n"
         f"🎁 {b('רוצה חיפושים במתנה?')}\n"
         "הפנה חברים לבוט וקבל חיפושים על כל הצטרפות\n\n"
-        f"📦 {b('חבילות חיפוש:')}\n{packages_html}\n\n"
+        f"⭐ {b('מסלולי מנוי:')}\n{packages_html}\n\n"
         + quote(
             f"🔑 יש קוד גישה? שלח {code('/code XXXXXXXX')}\n"
             "🎫 צריך תמיכה? לחץ על כפתור התמיכה בתפריט"
@@ -481,11 +481,11 @@ def history_empty(name: str) -> str:
 # ─────────────────────────────────────────────
 
 def packages_intro(name: str) -> str:
-    return f"🛒 {_n(name)}, כאן אפשר לבחור חבילת חיפושים.\nפתח את התפריט לרכישה 👇"
+    return f"🛒 {_n(name)}, כאן אפשר לבחור את מסלול ה-Premium.\nפתח את התפריט לרכישה 👇"
 
 
 def buy_intro(name: str) -> str:
-    return f"💳 {_n(name)}, מוכן להמשיך? לחץ על הכפתור כדי לפתוח את חנות החבילות 👇"
+    return f"💳 {_n(name)}, מוכן להמשיך? לחץ על הכפתור כדי לפתוח את חנות המסלולים 👇"
 
 
 def package_details(name: str, label: str, desc: str, price) -> str:
@@ -699,7 +699,7 @@ def expiry_reminder(name: str, days: int) -> str:
         )
     return (
         f"⏰ {_n(name)}, המנוי שלך הסתיים היום\n\n"
-        "כדי להמשיך להשתמש בשירות אפשר לרכוש חבילת חיפושים בכל רגע 🛒"
+        "כדי להמשיך להשתמש בשירות אפשר לחדש את מסלול ה-Premium בכל רגע 🛒"
     )
 
 
