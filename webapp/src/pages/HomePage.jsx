@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import PageBanners from '../components/PageBanners.jsx'
 import { fetchSearchHistory } from '../api.js'
+import { getPlan, formatPlanExpiry, daysLeftLabel, planIcon, globalBenefit as getGlobalBenefit } from '../utils/plan.js'
 
 const SUBTLE_BORDER = '1px solid rgba(0, 100, 200, 0.18)'
 
@@ -27,6 +28,8 @@ export default function HomePage({ user, onNavigate, onSearchPlate }) {
   const maintenance  = !!user?.maintenance
   // Admin is exempt server-side, so only block the search button for everyone else.
   const searchBlocked = maintenance && !user?.is_admin
+  const plan = getPlan(user)
+  const globalBenefit = getGlobalBenefit(user)
   const digits = plateInput.replace(/\D/g, '')
 
   useEffect(() => {
@@ -145,30 +148,74 @@ export default function HomePage({ user, onNavigate, onSearchPlate }) {
         </form>
       </div>
 
-      {user && (
-        <button
-          onClick={() => onNavigate('packages')}
+      {user && plan && (
+        <section
           className="card"
+          aria-label="המסלול שלך"
           style={{
-            display: 'block', width: '100%', textAlign: 'right', cursor: 'pointer',
-            padding: '14px 16px', border: SUBTLE_BORDER,
+            padding: '14px 16px', border: plan.expiringSoon ? '1px solid rgba(255, 149, 0, 0.45)' : SUBTLE_BORDER,
+            background: plan.expiringSoon ? 'rgba(255, 149, 0, 0.1)' : undefined,
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-            <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-main)' }}>
-              {isUnlimited ? 'מנוי ללא הגבלה' : `${searchesLeft} בדיקות נותרו`}
-            </span>
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)' }}>
-              {isUnlimited ? 'פרטי המנוי' : 'הוסף בדיקות'}
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span aria-hidden="true" style={{ fontSize: 26, lineHeight: 1 }}>{planIcon(plan)}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>המסלול שלך</div>
+              <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-main)', overflowWrap: 'anywhere' }}>{plan.name}</div>
+            </div>
+            <div style={{ textAlign: 'center', flexShrink: 0 }}>
+              <div style={{ fontSize: 22, fontWeight: 900, lineHeight: 1, color: searchesLeft === 0 ? 'var(--danger)' : 'var(--text-main)' }}>
+                {isUnlimited ? '∞' : searchesLeft ?? 0}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>חיפושים</div>
+            </div>
           </div>
-          <div aria-hidden="true" style={{ height: 8, borderRadius: 99, background: 'rgba(0, 100, 200, 0.1)', overflow: 'hidden' }}>
+
+          {plan.expires ? (
             <div style={{
-              width: `${quotaPct}%`, height: '100%', borderRadius: 99,
-              background: 'linear-gradient(90deg, #0066d6, #00c6ff)',
-            }} />
-          </div>
-        </button>
+              marginTop: 10, fontSize: 13, lineHeight: 1.5, fontWeight: plan.expiringSoon ? 700 : 500,
+              color: plan.expiringSoon ? '#b45309' : 'var(--text-main)',
+            }}>
+              {plan.expiringSoon ? '⚠️ שימו לב · ' : '✓ '}בתוקף עד{' '}
+              <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>{formatPlanExpiry(plan.expires)}</span>
+              {' · '}{daysLeftLabel(plan.daysLeft)}
+            </div>
+          ) : plan.isFree || plan.kind === 'searches' ? (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ fontSize: 13, color: 'var(--text-main)', marginBottom: 6 }}>
+                {isUnlimited ? 'חיפושים ללא הגבלה' : `נותרו ${searchesLeft ?? 0} חיפושים`}
+              </div>
+              <div aria-hidden="true" style={{ height: 8, borderRadius: 99, background: 'rgba(0, 100, 200, 0.1)', overflow: 'hidden' }}>
+                <div style={{ width: `${quotaPct}%`, height: '100%', borderRadius: 99, background: 'linear-gradient(90deg, #0066d6, #00c6ff)' }} />
+              </div>
+            </div>
+          ) : (
+            <div style={{ marginTop: 10, fontSize: 13, color: 'var(--text-main)' }}>
+              {plan.kind === 'admin' ? 'גישה מלאה לכל התכונות' : 'חיפושים ללא הגבלה, ללא תאריך סיום'}
+            </div>
+          )}
+
+          {!plan.isFixed && (
+            <button
+              onClick={() => onNavigate('packages')}
+              className={plan.isFree || plan.expiringSoon ? 'btn' : 'btn btn-outline'}
+              style={{ marginTop: 12, padding: 12, minHeight: 44 }}
+            >
+              {plan.isFree ? 'שדרגו ל-Premium' : plan.kind === 'searches' ? 'הוספת חיפושים' : 'להארכה'}
+            </button>
+          )}
+
+          {globalBenefit && (
+            <div style={{
+              marginTop: 12, paddingTop: 10, borderTop: '1px dashed var(--border)',
+              fontSize: 12, lineHeight: 1.5, color: 'var(--text-muted)', overflowWrap: 'anywhere',
+              display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+            }}>
+              🎁 {globalBenefit.label}
+              {globalBenefit.exp && <> · עד <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>{globalBenefit.exp}</span></>}
+            </div>
+          )}
+        </section>
       )}
 
       <PageBanners page="home" onNavigate={onNavigate} />

@@ -33,6 +33,16 @@ export function fmtDate(ts) {
   } catch { return String(ts).slice(0, 10) }
 }
 
+// Full numeric date: DD/MM/YYYY
+export function fmtDateFull(ts) {
+  if (!ts) return ''
+  try {
+    const d = parse(ts)
+    if (isNaN(d)) return String(ts).slice(0, 10)
+    return d.toLocaleDateString('he-IL', { timeZone: TZ, day: '2-digit', month: '2-digit', year: 'numeric' })
+  } catch { return String(ts).slice(0, 10) }
+}
+
 // Long date: e.g. 20 באוגוסט 2026
 export function fmtDateLong(ts) {
   if (!ts) return ''

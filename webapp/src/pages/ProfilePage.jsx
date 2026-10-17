@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { fetchUserOrders, fetchGarage, fetchReferral, fetchSearchHistory, fetchUserWatches, fetchPackages, deleteMyAccount } from '../api.js'
-import { fmtDate, fmtDateLong } from '../utils/time.js'
+import { fmtDateLong } from '../utils/time.js'
+import { getPlan, formatPlanExpiry, daysLeftLabel, planIcon, globalBenefit as getGlobalBenefit } from '../utils/plan.js'
 import BackButton from '../components/BackButton.jsx'
 
 export default function ProfilePage({ user, onNavigate, onBack, onAccountDeleted }) {
@@ -36,9 +37,9 @@ export default function ProfilePage({ user, onNavigate, onBack, onAccountDeleted
 
   const searchesLeft = user.searches_left
   const isUnlimited  = searchesLeft === -1
-  const isSubscriber = !!user.is_subscriber || isUnlimited
-  const subLabel     = user.subscription_label || (isSubscriber ? 'מנוי' : 'חינמי')
-  const quotaExpires = user.quota_expires || null
+  const plan         = getPlan(user)
+  const isSubscriber = !plan.isFree
+  const globalBenefit = getGlobalBenefit(user)
   const fullName     = [user.first_name, user.last_name].filter(Boolean).join(' ') || 'משתמש'
 
   const ownedCount  = garage?.filter(g => g.status === 'owned').length ?? null
@@ -80,8 +81,8 @@ export default function ProfilePage({ user, onNavigate, onBack, onAccountDeleted
             display: 'inline-block', maxWidth: '100%', marginTop: 6, borderRadius: 14, padding: '3px 10px', fontSize: 12, fontWeight: 700, lineHeight: 1.4,
             border: '1px solid var(--border)',
             background: isSubscriber ? 'rgba(0, 122, 255, 0.1)' : 'rgba(255,255,255,0.85)',
-            color: isSubscriber ? 'var(--primary)' : 'var(--text-muted)',
-          }}>{subLabel}</span>
+            color: isSubscriber ? 'var(--primary)' : 'var(--text-muted)', overflowWrap: 'anywhere',
+          }}><span aria-hidden="true">{planIcon(plan)} </span>{plan.name}</span>
         </div>
       </header>
 
@@ -100,17 +101,43 @@ export default function ProfilePage({ user, onNavigate, onBack, onAccountDeleted
             background: searchesLeft === 0 ? 'var(--danger)' : 'linear-gradient(90deg, #0066d6, #00c6ff)',
           }} />
         </div>
-        {isUnlimited && quotaExpires && (
-          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>בתוקף עד {fmtDate(quotaExpires)}</div>
+        {plan.expires && (
+          <div style={{
+            display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', fontSize: 13, lineHeight: 1.5,
+            color: plan.expiringSoon ? '#b45309' : 'var(--text-main)', fontWeight: plan.expiringSoon ? 700 : 500,
+          }}>
+            <span>{plan.expiringSoon ? '⚠️ ' : ''}בתוקף עד <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>{formatPlanExpiry(plan.expires)}</span></span>
+            <span>{daysLeftLabel(plan.daysLeft)}</span>
+          </div>
         )}
-        <button
-          className={isSubscriber ? 'btn btn-outline' : 'btn'}
-          style={{ marginTop: 2, padding: 12 }}
-          onClick={() => onNavigate('packages')}
-        >
-          {isSubscriber ? 'חבילות ומנויים' : 'שדרג עכשיו'}
-        </button>
+        {plan.isFixed ? (
+          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+            {plan.kind === 'admin' ? 'גישה מלאה לכל התכונות' : 'ללא תאריך סיום'}
+          </div>
+        ) : (
+          <button
+            className={isSubscriber && !plan.expiringSoon ? 'btn btn-outline' : 'btn'}
+            style={{ marginTop: 2, padding: 12, minHeight: 44 }}
+            onClick={() => onNavigate('packages')}
+          >
+            {plan.isFree ? 'שדרגו ל-Premium' : plan.kind === 'premium' ? 'ניהול והארכת מסלול' : 'המסלולים שלי'}
+          </button>
+        )}
       </div>
+
+      {globalBenefit && (
+        <div role="note" style={{
+          display: 'flex', gap: 10, alignItems: 'flex-start', margin: '0 0 16px', padding: '10px 14px',
+          borderRadius: 14, border: '1px dashed var(--border)', background: 'rgba(255,255,255,0.6)',
+          fontSize: 12, lineHeight: 1.6, color: 'var(--text-muted)',
+        }}>
+          <span aria-hidden="true">🎁</span>
+          <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
+            <strong style={{ color: 'var(--text-main)' }}>הטבה כללית לכולם: </strong>{globalBenefit.label}
+            {globalBenefit.exp && <> (עד <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>{globalBenefit.exp}</span>)</>}
+          </span>
+        </div>
+      )}
 
       {/* Navigation tiles */}
       <h2 className="section-label" style={{ marginTop: 8 }}>האזור שלי</h2>
