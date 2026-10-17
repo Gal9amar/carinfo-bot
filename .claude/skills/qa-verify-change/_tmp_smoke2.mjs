@@ -40,6 +40,7 @@ await pg.addInitScript(id => {
 await pg.goto(base + startPath); await pg.waitForTimeout(2000)
 const text = async () => (await pg.innerText('body')).replace(/\s+/g, ' ').trim()
 console.log('START :', (await text()).slice(0, 160))
+const openSettings = async()=>{ await pg.getByLabel('תפריט ניהול').click(); await pg.waitForTimeout(500); await pg.getByRole('button',{name:'⚙️ הגדרות', exact:true}).click(); await pg.waitForTimeout(1500) }
 for (const s of steps) {
   const loc = pg.getByText(s).last()
   if (!(await loc.count())) { errs.push(`NOT FOUND text "${s}"`); break }
@@ -47,6 +48,7 @@ for (const s of steps) {
   console.log(`AFTER "${s}":`, (await text()).slice(0, 160))
 }
 
+await openSettings()
 const api = async () => (await (await fetch(base+'/api/admin/settings',{headers:{'X-Init-Data':initData}})).json())
 const cards = pg.locator('.card', {hasText:'תזכורות טסט'})
 console.log('cards found', await pg.locator('.card:has-text("תזכורות טסט")').count(), await pg.locator('.card:has-text("זיהוי מספר רכב מתמונה")').count(), await pg.locator('.card:has-text("תוצאת חיפוש כטבלה")').count())
@@ -54,11 +56,13 @@ console.log('before', (await api()).test_reminders_enabled)
 await pg.locator('.card:has-text("תזכורות טסט") button.toggle').last().click(); await pg.waitForTimeout(1000)
 console.log('after click api', (await api()).test_reminders_enabled, 'ui', await pg.locator('.card:has-text("תזכורות טסט")').last().innerText())
 await pg.reload(); await pg.waitForTimeout(2000)
-for (const s of ["אזור אישי","פאנל ניהול","הגדרות"]) { await pg.getByText(s).last().click(); await pg.waitForTimeout(1500) }
+for (const s of ["אזור אישי","פאנל ניהול"]) { await pg.getByText(s).last().click(); await pg.waitForTimeout(1500) }
+await openSettings()
 console.log('after reload ui', (await pg.locator('.card:has-text("תזכורות טסט")').last().innerText()).replace(/\n/g,' | '))
 await pg.locator('.card:has-text("תזכורות טסט") button.toggle').last().click(); await pg.waitForTimeout(800)
 await pg.locator('.card:has-text("מצב תחזוקה")').last().screenshot({path:'/tmp/claude-0/maint.png'}).catch(e=>console.log('maint card shot fail'))
 console.log('maint text', (await pg.locator('.card:has-text("תחזוקה")').first().innerText()).replace(/\n/g,' | '))
+await pg.locator('.card:has-text("מצב תחזוקה") button.toggle').last().click(); await pg.waitForTimeout(800); console.log('maint api', (await api()).maintenance); await pg.locator('.card:has-text("מצב תחזוקה") button.toggle').last().click(); await pg.waitForTimeout(800); console.log('maint api2', (await api()).maintenance)
 console.log('horizontal overflow', await pg.evaluate(()=>document.documentElement.scrollWidth - window.innerWidth))
 
 if ((await text()).length < 20) errs.push('BLANK SCREEN (body text < 20 chars)')
