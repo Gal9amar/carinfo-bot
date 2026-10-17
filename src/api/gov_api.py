@@ -12,13 +12,24 @@ Resources:
 
 import asyncio
 import json
+import os
 import logging
 import httpx
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-BASE_URL = "https://data.gov.il/api/3/action/datastore_search"
+# GOV_API_BASE lets a proxy in Israel stand in for data.gov.il when the host blocks
+# datacenter IPs (it answers 403 to Render). Must accept the same query string.
+BASE_URL = os.environ.get("GOV_API_BASE") or "https://data.gov.il/api/3/action/datastore_search"
+
+# Look like a normal browser: data.gov.il's WAF rejects the default python-httpx agent.
+GOV_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Referer": "https://data.gov.il/",
+}
 
 RES_MAIN           = "053cea08-09bc-40ec-8f7a-156f0677aff3"  # רישוי + מפרט בסיסי
 RES_MAIN_EXT       = "0866573c-40cd-4ca8-91d2-9dd2d7a492e5"  # המשך מרשם: גרירה, קודי צמיג
@@ -87,6 +98,8 @@ async def _search_filter(
             return resp.json().get("result", {}).get("records", [])
         except Exception as exc:
             last_exc = exc
+            if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code in (400, 403, 404):
+                break
             if attempt < 2:
                 await asyncio.sleep(0.4 * (attempt + 1))
     logger.warning("gov_api _search_filter failed resource=%s filters=%s: %s", resource_id, filters, last_exc)
@@ -148,7 +161,7 @@ async def _fetch_model_recalls(
 
 async def _fetch_fallback_vehicle(mispar: int) -> Optional[dict]:
     """Plate not in main registry: try motorcycles, heavy trucks, public vehicles."""
-    async with httpx.AsyncClient(timeout=15) as client:
+    async with httpx.AsyncClient(timeout=15, headers=GOV_HEADERS) as client:
         results = await asyncio.gather(*[
             _search_filter(client, res, {"mispar_rechev": mispar}, limit=1)
             for res, _ in _FALLBACK_REGISTRIES
@@ -161,7 +174,7 @@ async def _fetch_fallback_vehicle(mispar: int) -> Optional[dict]:
 
     # Final cancellation registries (vehicle left the road)
     padded = f"{mispar:08d}"
-    async with httpx.AsyncClient(timeout=15) as client:
+    async with httpx.AsyncClient(timeout=15, headers=GOV_HEADERS) as client:
         scrapped = await asyncio.gather(
             _search_filter(client, RES_SCRAPPED, {"mispar_rechev": mispar}, limit=1),
             _search_filter(client, RES_SCRAPPED_2010, {"mispar_rechev": padded}, limit=1),
@@ -178,7 +191,7 @@ async def _fetch_fallback_vehicle(mispar: int) -> Optional[dict]:
 async def fetch_vehicle_data(plate: str) -> Optional[dict]:
     clean = plate.replace("-", "").strip()
 
-    async with httpx.AsyncClient(timeout=15) as client:
+    async with httpx.AsyncClient(timeout=15, headers=GOV_HEADERS) as client:
         main_records, history_records, ext_records = await asyncio.gather(
             _search_filter(client, RES_MAIN, {"mispar_rechev": int(clean)}, limit=1, strict=True),
             _search_filter(client, RES_HISTORY, {"mispar_rechev": int(clean)}, limit=1),
@@ -211,7 +224,7 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
     tozeret_cd = record.get("tozeret_cd")
     mispar     = int(clean)
 
-    async with httpx.AsyncClient(timeout=12) as client:
+    async with httpx.AsyncClient(timeout=12, headers=GOV_HEADERS) as client:
         async def _empty():
             return []
 
@@ -274,7 +287,7 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
         record["_recalls"] = recall_car_records
         record["_recalls_by_plate"] = True
     else:
-        async with httpx.AsyncClient(timeout=12) as client:
+        async with httpx.AsyncClient(timeout=12, headers=GOV_HEADERS) as client:
             model_recalls = await _fetch_model_recalls(client, record)
         if model_recalls:
             record["_recalls"] = model_recalls
@@ -317,7 +330,7 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
             _shnat = record.get("shnat_yitzur")
             if _shnat:
                 _filters["shnat_yitzur"] = _shnat
-            async with httpx.AsyncClient(timeout=15) as client:
+            async with httpx.AsyncClient(timeout=15, headers=GOV_HEADERS) as client:
                 _r = await client.get(BASE_URL, params={
                     "resource_id": RES_MAIN,
                     "filters": json.dumps(_filters),
