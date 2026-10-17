@@ -351,24 +351,27 @@ function ReportLayoutTab() {
 
       <div aria-live="polite" role="status" className="sr-only">{announce}</div>
 
-      <div style={{ position: 'sticky', bottom: 0, zIndex: 20, margin: '0 -4px', padding: '12px 4px calc(12px + env(safe-area-inset-bottom))', background: 'linear-gradient(to top, var(--bg) 70%, rgba(240, 244, 248, 0))' }}>
+      <div style={{ position: 'sticky', bottom: 0, zIndex: 20, margin: '0 -4px', padding: '10px 4px calc(10px + env(safe-area-inset-bottom))', background: 'var(--bg)', borderTop: '1px solid var(--border)' }}>
         {dirty && !msg && <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700, color: '#8a4b08' }}>יש שינויים שלא נשמרו</p>}
         {msg && (
           <p role={msg.ok ? 'status' : 'alert'} style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700, color: msg.ok ? '#166534' : '#b42318' }}>
             {msg.ok ? '✓ ' : '✕ '}{msg.text}
           </p>
         )}
-        <button type="button" className="btn" onClick={save} disabled={!dirty || busy} style={{ width: '100%', minHeight: 52, fontWeight: 800 }}>
-          {busy && !confirmReset ? 'שומר...' : 'שמור סדר'}
-        </button>
-        {confirmReset ? (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <button type="button" className="btn" onClick={save} disabled={!dirty || busy} style={{ flex: '1 1 120px', width: 'auto', minHeight: 48, margin: 0, fontWeight: 800 }}>
+            {busy && !confirmReset ? 'שומר...' : 'שמור סדר'}
+          </button>
+          {!confirmReset && (
+            <button type="button" className="btn btn-outline" onClick={() => { setConfirmReset(true); setMsg(null) }} disabled={busy}
+              style={{ flex: '1 1 150px', width: 'auto', minHeight: 48, margin: 0 }}>
+              איפוס לברירת מחדל
+            </button>
+          )}
+        </div>
+        {confirmReset && (
           <AdminItemConfirm text="לאפס את הסדר והנראות של שני הדוחות לברירת המחדל? שינויים שלא נשמרו יאבדו."
             yesLabel="כן, אפס" busy={busy} onYes={reset} onNo={() => setConfirmReset(false)} />
-        ) : (
-          <button type="button" className="btn btn-outline" onClick={() => { setConfirmReset(true); setMsg(null) }} disabled={busy}
-            style={{ width: '100%', minHeight: 48, marginTop: 8 }}>
-            איפוס לברירת מחדל
-          </button>
         )}
       </div>
     </div>
