@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import { fetchVehicle, fetchMarketPrice, requestPdfReport, fetchNote, saveNote, createUserWatch, fetchUserWatches, checkGarage, addToGarage } from '../api.js'
 import { MAKE_EN, MODEL_EN } from '../vehicleNames.js'
 import LicensePlate from '../components/LicensePlate.jsx'
@@ -9,6 +9,7 @@ import CompareCard from '../components/CompareCard.jsx'
 import PremiumLock from '../components/PremiumLock.jsx'
 import { getMarketStats } from '../utils/marketPrice.js'
 import { fmtDate, testStatus } from '../utils/time.js'
+import { useReportLayout } from '../utils/reportLayout.js'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -176,7 +177,7 @@ function buildFullText(record, ownership) {
 
 function SummaryTab({ record, ownership, recalls, make, model, year, color, km, testStr,
   plateNum, score, flags, premium, w, statusColor,
-  modelCountCard, notesCard, garageCard }) {
+  order, extra }) {
 
   const kmNum = km ? Number(km) : null
   const age = year ? new Date().getFullYear() - parseInt(year) : null
@@ -184,9 +185,11 @@ function SummaryTab({ record, ownership, recalls, make, model, year, color, km, 
   const ownersPrivate = ownership.filter(o => o.baalut === 'פרטי').length
   const ownersDealer  = ownership.filter(o => o.baalut === 'סוחר').length
 
-  return (
-    <div>
-      {/* ── Score card ── */}
+  const sections = {
+    ...extra,
+
+    // ── Score card ──
+    score: (
       <div style={{
         borderRadius: 20, marginBottom: 14, overflow: 'hidden',
         background: 'var(--bg2)',
