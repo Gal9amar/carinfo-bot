@@ -19,7 +19,7 @@ from telegram.constants import ParseMode
 from telegram.error import Forbidden
 from telegram.ext import (
     Application, CommandHandler, MessageHandler,
-    CallbackQueryHandler, ConversationHandler, TypeHandler,
+    CallbackQueryHandler, ConversationHandler, TypeHandler, ApplicationHandlerStop,
     PreCheckoutQueryHandler,
     ContextTypes, filters,
 )
@@ -1714,6 +1714,30 @@ async def handle_mirror_noop(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await update.callback_query.answer("זה רק העתק של מה שהמשתמש ראה — הכפתור לא פעיל", show_alert=True)
 
 
+async def _consent_gate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Only users who started the bot (= accepted the terms) may use it. After deleting an
+    account the user must /start again; nothing else creates an account."""
+    user, chat = update.effective_user, update.effective_chat
+    if not user or user.is_bot or user.id == ADMIN_ID or not chat or chat.type != "private":
+        return
+    if not (update.message or update.callback_query):
+        return
+    if update.message and (update.message.text or "").startswith("/start"):
+        return
+    from src.users import user_exists
+    if await user_exists(user.id):
+        return
+    text = M.consent_required(_first_name(user))
+    try:
+        if update.callback_query:
+            await update.callback_query.answer("שלח /start כדי להפעיל את הבוט מחדש", show_alert=True)
+        else:
+            await update.message.reply_text(text, parse_mode=HTML)
+    except Exception as e:
+        logger.warning("consent gate reply failed: %s", e)
+    raise ApplicationHandlerStop
+
+
 async def _mirror_incoming(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await mirror.record_incoming(update, context.user_data)
 
@@ -2515,6 +2539,7 @@ def main() -> None:
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("code",   cmd_code))
     app.add_handler(CommandHandler("admin",  cmd_admin))
+    app.add_handler(TypeHandler(Update, _consent_gate), group=-2)
     app.add_handler(TypeHandler(Update, _mirror_incoming), group=-1)   # blocking: the user action must be queued before the bot reacts
     app.add_handler(CallbackQueryHandler(handle_mirror_noop, pattern=r"^mirror\|noop$"))
     app.add_handler(CommandHandler("mirror_here", cmd_mirror_here))

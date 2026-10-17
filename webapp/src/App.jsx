@@ -151,6 +151,29 @@ function AppInner() {
     return () => tg.BackButton.offClick(goBack)
   }, [screen, screenStack])
 
+  if (user?.consent_required && !['privacy', 'accessibility', 'howItWorks'].includes(screen)) {
+    const tg = window.Telegram?.WebApp
+    const open = () => {
+      const url = `https://t.me/${user.bot_username || 'israelcarinfobot'}?start=welcome`
+      if (tg?.openTelegramLink) { tg.openTelegramLink(url); tg.close?.() } else { window.location.href = url }
+    }
+    return (
+      <div className="page">
+        <div className="card" style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 44 }}>👋</div>
+          <div style={{ fontWeight: 800, fontSize: 17, margin: '6px 0' }}>כדי להשתמש בשירות יש להפעיל את הבוט</div>
+          <div style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--text-muted)', marginBottom: 14 }}>
+            הפעלת הבוט מהווה הסכמה לתנאי השימוש, למדיניות הפרטיות ולקבלת הודעות מהשירות.
+          </div>
+          <button className="btn" style={{ marginTop: 0 }} onClick={open}>▶️ הפעל את הבוט</button>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 12 }}>
+            <button onClick={() => navigate('privacy')} style={{ background: 'none', border: 'none', textDecoration: 'underline', color: 'var(--text-muted)', fontSize: 13, cursor: 'pointer' }}>מדיניות פרטיות</button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (screen === 'report') {
     return (
       <div key="report" className="page-enter">
@@ -240,7 +263,8 @@ function AppInner() {
     return (
       <>
         <div key="profile" className="page-enter" style={{ paddingBottom: 78 }}>
-          <ProfilePage user={user} onBack={goBack} onNavigate={navigate} />
+          <ProfilePage user={user} onBack={goBack} onNavigate={navigate}
+            onAccountDeleted={() => { setScreenStack([]); setUser({ consent_required: true, bot_username: user?.bot_username }); setScreen('home') }} />
         </div>
         <BottomNav screen={screen} onNavigate={navigate} />
       </>

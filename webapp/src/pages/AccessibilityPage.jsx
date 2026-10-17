@@ -54,7 +54,6 @@ export default function AccessibilityPage({ onBack, onContact }) {
           במידת הצורך נציע חלופה נגישה לקבלת השירות.
         </p>
         <ul>
-          <li>רכז נגישות: מפעיל השירות</li>
           <li>דוא"ל: <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a></li>
           <li>דרך הבוט בטלגרם: {BOT_HANDLE}</li>
         </ul>

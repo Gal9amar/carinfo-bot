@@ -178,6 +178,9 @@ Revoked: quota exhausted (`increment_search`), expiry, `admin_grant(0)`, `POST /
 4. Decline → status `declined`, user notified. API startup (only) expires `created/intent` rows older than 30 minutes and deletes stale `pending_payments`.
 Bot also supports Telegram invoices (`PreCheckoutQueryHandler`, `PAYMENT_PROVIDER_TOKEN`) and `paid|`, `approve|`, `decline|`, `deliver|` callbacks.
 
+### Consent & account deletion
+Starting the bot (`/start`) is the consent to terms/privacy/messages (stated in the welcome text, `M.CONSENT_NOTICE`). Only `/start` creates an account: `bot._consent_gate` (handler group -2) blocks every other private update from users without a `users` row, and `api._get_user` returns `403 consent_required` for them (except `GET /api/user`, which returns `consent_required: true` without creating anything; the app then shows the "activate the bot" screen). `DELETE /api/user/account` (`{"confirm":"DELETE"}`; admin cannot) → `users.delete_user_data`: erases the user from every table; `paypal_transactions` are kept anonymised (`user_id=0`, accounting duty), spent promo codes get `used_by=0`. Profile page shows a confirmation card first. Keep `delete_user_data` in sync when adding tables with user data.
+
 ### Referral
 Link `https://t.me/{BOT_USERNAME}?start=ref_{referrer_id}` → `/start ref_X` → for a **new** user `record_referral(new, referrer, bonus)` logs + adds `referral_bonus` searches to referrer. No subscriber status.
 

@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react'
-import { fetchUserOrders, fetchGarage, fetchReferral, fetchSearchHistory, fetchUserWatches, fetchPackages } from '../api.js'
+import { fetchUserOrders, fetchGarage, fetchReferral, fetchSearchHistory, fetchUserWatches, fetchPackages, deleteMyAccount } from '../api.js'
 import { fmtDate, fmtDateLong } from '../utils/time.js'
 import BackButton from '../components/BackButton.jsx'
 
-export default function ProfilePage({ user, onNavigate, onBack }) {
+export default function ProfilePage({ user, onNavigate, onBack, onAccountDeleted }) {
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState(false)
+
   const [orders, setOrders]     = useState(null)
   const [garage, setGarage]     = useState(null)
   const [referral, setReferral] = useState(null)
@@ -139,6 +143,38 @@ export default function ProfilePage({ user, onNavigate, onBack }) {
           >{l.label}</button>
         ))}
       </div>
+
+      {!user.is_admin && (
+        <div style={{ marginTop: 22, textAlign: 'center' }}>
+          {!confirmDelete ? (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#dc2626', textDecoration: 'underline', padding: 4 }}
+            >מחיקת החשבון וכל הנתונים</button>
+          ) : (
+            <div className="card" role="alertdialog" aria-labelledby="del-title" style={{ textAlign: 'right', border: '1.5px solid rgba(220,38,38,0.4)' }}>
+              <div id="del-title" style={{ fontWeight: 800, fontSize: 15, marginBottom: 6 }}>⚠️ למחוק את החשבון לצמיתות?</div>
+              <div style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--text-main)' }}>
+                כל הנתונים שנאספו עליך יימחקו: היסטוריית חיפושים, רכבים במוסך, הערות, התראות, תזכורות, פניות תמיכה והזמנות.
+                <br />יתרת החיפושים והמנוי יאבדו ולא ניתן יהיה לשחזר אותם.
+                <br />רישומי תשלום יישמרו ללא פרטים מזהים, כנדרש בדין.
+                <br />כדי להשתמש בבוט שוב תצטרך להפעיל אותו מחדש ולאשר את תנאי השימוש.
+              </div>
+              {deleteError && <div style={{ color: '#dc2626', fontSize: 13, marginTop: 8 }}>המחיקה נכשלה. נסה שוב מאוחר יותר.</div>}
+              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                <button className="btn btn-danger" style={{ flex: 1, marginTop: 0 }} disabled={deleting}
+                  onClick={async () => {
+                    setDeleting(true); setDeleteError(false)
+                    try { await deleteMyAccount(); onAccountDeleted && onAccountDeleted() }
+                    catch { setDeleteError(true); setDeleting(false) }
+                  }}>{deleting ? 'מוחק…' : 'כן, מחק הכול'}</button>
+                <button className="btn btn-outline" style={{ flex: 1, marginTop: 0 }} disabled={deleting}
+                  onClick={() => setConfirmDelete(false)}>ביטול</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {adminTile && (
         <button

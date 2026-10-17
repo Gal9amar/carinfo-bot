@@ -882,3 +882,16 @@ export async function adminWatchPreview(make, model, year) {
   if (!r.ok) throw new Error('Failed')
   return r.json()
 }
+
+export function clearUserCache() {
+  _getCache.delete('user')
+}
+
+export async function deleteMyAccount() {
+  const r = await fetch(`${BASE}/api/user/account`, {
+    method: 'DELETE', headers: headers(), body: JSON.stringify({ confirm: 'DELETE' }),
+  })
+  if (!r.ok) throw new Error('Failed')
+  clearUserCache()
+  return r.json()
+}

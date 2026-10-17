@@ -762,3 +762,51 @@ async def expire_subscriptions() -> list[int]:
                 [gid, uid],
             )
     return expired_ids
+
+
+# ── Consent gate & account deletion ────────────────────────────────────────
+_known_users: set[int] = set()
+
+
+async def user_exists(user_id: int) -> bool:
+    """True once the user has started the bot (= agreed to the terms). Positive
+    answers are cached; deleting an account removes the id from the cache."""
+    if user_id in _known_users:
+        return True
+    r = await execute("SELECT 1 FROM users WHERE user_id = ?", [user_id])
+    if r.rows:
+        _known_users.add(user_id)
+        return True
+    return False
+
+
+async def delete_user_data(user_id: int) -> None:
+    """Erase the user and everything collected about them. Payment ledger rows are
+    kept anonymised (user_id=0) because accounting records must be retained by law."""
+    tickets  = [r[0] for r in (await execute("SELECT id FROM tickets WHERE user_id=?", [user_id])).rows]
+    vehicles = [r[0] for r in (await execute("SELECT id FROM owned_vehicles WHERE user_id=?", [user_id])).rows]
+    for tid in tickets:
+        await execute("DELETE FROM ticket_replies WHERE ticket_id=?", [tid])
+    for vid in vehicles:
+        await execute("DELETE FROM owned_vehicle_expenses WHERE owned_vehicle_id=?", [vid])
+    for sql in (
+        "DELETE FROM tickets WHERE user_id=?",
+        "DELETE FROM owned_vehicles WHERE user_id=?",
+        "DELETE FROM search_history WHERE user_id=?",
+        "DELETE FROM vehicle_notes WHERE user_id=?",
+        "DELETE FROM yad2_watches WHERE user_id=?",
+        "DELETE FROM test_reminders WHERE user_id=?",
+        "DELETE FROM sent_messages WHERE user_id=?",
+        "DELETE FROM activity_log WHERE user_id=?",
+        "DELETE FROM grants WHERE user_id=?",
+        "DELETE FROM user_codes WHERE user_id=?",
+        "DELETE FROM user_group_members WHERE user_id=?",
+        "DELETE FROM referrals WHERE referrer_id=? OR referee_id=?",
+        "DELETE FROM pending_payments WHERE phone=?",
+    ):
+        await execute(sql, [str(user_id) if "phone" in sql else user_id] * sql.count("?"))
+    await execute("UPDATE codes SET used_by=0 WHERE used_by=?", [user_id])          # keep single-use codes spent
+    await execute("UPDATE users SET referred_by=NULL WHERE referred_by=?", [user_id])
+    await execute("UPDATE paypal_transactions SET user_id=0 WHERE user_id=?", [user_id])
+    await execute("DELETE FROM users WHERE user_id=?", [user_id])
+    _known_users.discard(user_id)

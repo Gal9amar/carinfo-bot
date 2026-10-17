@@ -29,7 +29,7 @@ WEBAPP_URL   = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_U
 # Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
 # webapp can detect a new release and force-reload instead of running stale
 # cached JS. Falls back to process start time for non-Render environments.
-APP_VERSION = "1792235771"
+APP_VERSION = "1792236244"
 
 api = FastAPI()
 
@@ -98,6 +98,14 @@ async def _get_user(request: Request) -> dict:
     user = _validate_init_data(init_data)
     if user is None:
         raise HTTPException(status_code=401, detail="Invalid init data")
+    # Using the service requires having started the bot (= accepted the terms).
+    # A user who deleted their account must /start again; /api/user stays open
+    # so the app can tell them so.
+    uid = int(user["id"])
+    if uid != ADMIN_ID and request.url.path != "/api/user":
+        from src.users import user_exists
+        if not await user_exists(uid):
+            raise HTTPException(status_code=403, detail="consent_required")
     return user
 
 
@@ -209,6 +217,14 @@ async def get_user_info(user: dict = Depends(_get_user)):
         get_quota_expires(user_id), _get_max_for_user(user_id),
     )
     maintenance = (await get_bot_setting("maintenance")) == "1"
+    if db_user is None and user_id != ADMIN_ID:
+        return {
+            "id": user["id"], "first_name": user.get("first_name", ""), "last_name": user.get("last_name", ""),
+            "username": user.get("username", ""), "consent_required": True, "maintenance": maintenance,
+            "is_admin": False, "searches_left": 0, "searches_quota": 0,
+            "show_market_price": False, "show_pdf_report": False, "show_watch": False,
+            "bot_username": BOT_USERNAME,
+        }
     left = db_user.get("searches_left", 0) if db_user else 0
     quota = db_user.get("searches_quota", 0) if db_user else 0
 
@@ -294,6 +310,29 @@ async def get_user_info(user: dict = Depends(_get_user)):
         "subscription_label": subscription_label,
         "global_unlimited_active": global_unlimited,
     }
+
+
+class DeleteAccountBody(BaseModel):
+    confirm: str = ""
+
+
+@api.delete("/api/user/account")
+async def delete_my_account(body: DeleteAccountBody, user: dict = Depends(_get_user)):
+    """Erase the caller's account and all collected data (privacy policy §18)."""
+    user_id = int(user["id"])
+    if user_id == ADMIN_ID:
+        raise HTTPException(status_code=400, detail="Admin account cannot be deleted")
+    if body.confirm != "DELETE":
+        raise HTTPException(status_code=400, detail="Confirmation required")
+    from src.users import delete_user_data
+    await delete_user_data(user_id)
+    try:
+        from src.activity import log as _log
+        # user_id 0: the log must not re-create data tied to the erased account
+        await _log("account_deleted", "משתמש מחק את חשבונו ואת כל נתוניו", 0, "")
+    except Exception:
+        pass
+    return {"ok": True}
 
 
 class PaymentInitRequest(BaseModel):
