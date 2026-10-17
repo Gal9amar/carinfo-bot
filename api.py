@@ -28,7 +28,7 @@ WEBAPP_URL   = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_U
 # Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
 # webapp can detect a new release and force-reload instead of running stale
 # cached JS. Falls back to process start time for non-Render environments.
-APP_VERSION = "1792233916"
+APP_VERSION = "1792234085"
 
 api = FastAPI()
 
@@ -1990,13 +1990,15 @@ async def admin_broadcast(body: BroadcastBody, admin: dict = Depends(_require_ad
         from src import scheduled_broadcast as sb
         try:
             when = sb.parse_when(body.send_at)
-        except ValueError:
+        except (ValueError, OverflowError):
             raise HTTPException(status_code=400, detail="invalid send_at")
         problem = sb.validate_when(when)
         if problem:
             raise HTTPException(status_code=400, detail=problem)
         if len(body.image_b64) > sb.MAX_IMAGE_CHARS:
             raise HTTPException(status_code=413, detail="image too large")
+        if await sb.is_duplicate(msg, when):
+            raise HTTPException(status_code=409, detail="שידור זהה כבר מתוזמן לאותה שעה")
         row = await sb.create(msg, body.image_b64, when, admin["id"])
         try:
             from src.activity import log as _log

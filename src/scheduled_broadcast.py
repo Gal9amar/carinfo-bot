@@ -18,7 +18,7 @@ from typing import Optional
 from src.db import execute
 
 MAX_LATE = timedelta(hours=3)          # if the bot was down this long past the schedule, don't send stale news
-SENDING_TIMEOUT = timedelta(minutes=30)
+SENDING_TIMEOUT = timedelta(hours=2)    # a very large broadcast sends sequentially and can take a while
 MAX_IMAGE_CHARS = 6_000_000            # base64 string stored in the row
 MAX_AHEAD = timedelta(days=365)
 MIN_AHEAD = timedelta(seconds=15)
@@ -98,6 +98,16 @@ async def create(message: str, image_b64: str, when_utc: datetime, created_by: i
         [message, image_b64, when_utc.strftime(_FMT), created_by, token],
     )
     return await _by_token(token)
+
+
+async def is_duplicate(message: str, when_utc: datetime) -> bool:
+    """Same text already pending for the same minute (double tap / retry)."""
+    minute = when_utc.strftime("%Y-%m-%d %H:%M")
+    r = await execute(
+        "SELECT 1 FROM scheduled_broadcasts WHERE status='pending' AND message=? AND substr(send_at,1,16)=? LIMIT 1",
+        [message, minute],
+    )
+    return bool(r.rows)
 
 
 async def list_recent(finished: int = 10) -> list[dict]:
