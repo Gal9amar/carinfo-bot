@@ -7,36 +7,32 @@
 }
 
 :root {
-  --bg: #f0f4f8; /* Soft blueish-grey to reduce anemic feel */
+  --bg: #f3f6fb;
   --bg-card: #ffffff;
   --primary: #007aff;
   --secondary: #34c759;
   --text-main: #1d1d1f;
   --text-muted: #86868b;
-  --border: rgba(0, 100, 200, 0.08); /* Very subtle blue tinted border */
+  --border: rgba(0, 100, 200, 0.18); /* Subtle blue-tinted frame used on every surface */
   --danger: #ff3b30;
   --shadow: 0 10px 32px rgba(0, 50, 150, 0.07); /* Deeper, slightly blue shadow */
   --radius: 20px;
 
   /* Legacy Compatibility Variables for un-refactored components */
-  --bg2: rgba(255, 255, 255, 0.65);
-  --bg3: rgba(255, 255, 255, 0.85);
+  --bg2: rgba(255, 255, 255, 0.85);
+  --bg3: rgba(255, 255, 255, 0.95);
   --text: var(--text-main);
   --hint: var(--text-muted);
   --btn: var(--primary);
   --btn-text: #ffffff;
-  --card-bg: rgba(255, 255, 255, 0.65);
+  --card-bg: rgba(255, 255, 255, 0.85);
 }
 
 body {
   font-family: 'Heebo', -apple-system, BlinkMacSystemFont, sans-serif;
   background-color: var(--bg);
-  /* Stronger iOS Style Mesh Gradient Background */
-  background-image: 
-    radial-gradient(circle at 0% 0%, rgba(0, 122, 255, 0.25) 0%, transparent 50%),
-    radial-gradient(circle at 100% 100%, rgba(255, 45, 85, 0.2) 0%, transparent 50%),
-    radial-gradient(circle at 100% 0%, rgba(52, 199, 89, 0.2) 0%, transparent 50%),
-    radial-gradient(circle at 0% 100%, rgba(175, 82, 222, 0.2) 0%, transparent 50%);
+  /* One soft glow at the top instead of a four-colour mesh */
+  background-image: radial-gradient(circle at 50% -8%, rgba(0, 122, 255, 0.14) 0%, transparent 55%);
   background-attachment: fixed;
   color: var(--text-main);
   direction: rtl;
@@ -58,29 +54,43 @@ body {
 }
 
 .page-title {
-  font-size: 24px;
-  font-weight: 700;
+  font-size: 22px;
+  font-weight: 900;
   margin-bottom: 24px;
   color: var(--text-main);
   letter-spacing: -0.5px;
 }
 
 .card {
-  background: rgba(255, 255, 255, 0.65); /* Translucent background */
+  background: rgba(255, 255, 255, 0.85);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.6); /* White reflection border */
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 24px;
   margin-bottom: 20px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06); /* Soft distinct shadow */
+  box-shadow: 0 4px 18px rgba(20, 60, 120, 0.06);
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.1);
-  background: rgba(255, 255, 255, 0.75);
+@media (hover: hover) {
+  .card:hover { box-shadow: 0 8px 26px rgba(20, 60, 120, 0.1); }
+}
+button.card:active { transform: scale(0.98); }
+
+/* Any inline surface built on --bg2 gets the same subtle frame as .card */
+[style*="background: var(--bg2)"] { border: 1px solid var(--border); }
+
+/* Yellow plate chip (recent searches, lists) */
+.plate-chip {
+  flex-shrink: 0; direction: ltr; cursor: pointer;
+  background: #FFE500; color: #111; border: 2px solid #111; border-radius: 7px;
+  padding: 5px 10px; font-family: "Arial Black", Arial, sans-serif;
+  font-weight: 900; font-size: 14px; letter-spacing: 1px;
+}
+
+.section-label {
+  font-size: 14px; font-weight: 500; color: var(--text-muted); margin: 22px 4px 10px;
 }
 
 .card-title {
@@ -106,10 +116,10 @@ body {
 }
 
 .stat-card {
-  background: rgba(255, 255, 255, 0.65);
+  background: rgba(255, 255, 255, 0.85);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  border: 1px solid var(--border);
   border-radius: 16px;
   padding: 16px 8px;
   text-align: center;
@@ -134,10 +144,10 @@ body {
 
 .input {
   width: 100%;
-  background: rgba(255, 255, 255, 0.65);
+  background: rgba(255, 255, 255, 0.9);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
-  border: 1.5px solid rgba(255, 255, 255, 0.5);
+  border: 1.5px solid var(--border);
   color: var(--text-main);
   padding: 14px 20px;
   border-radius: 16px;
@@ -160,7 +170,7 @@ body {
   background: rgba(255, 255, 255, 0.5); /* Glass input */
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(0, 0, 0, 0.35);
+  border: 1.5px solid var(--border);
   color: var(--text-main);
   padding: 20px;
   border-radius: 16px;
@@ -239,7 +249,7 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 16px 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid rgba(0, 100, 200, 0.1);
 }
 
 .info-row:last-child {
@@ -366,6 +376,7 @@ body {
 
 .modal {
   background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 20px;
   padding: 24px;
   width: 100%;
@@ -404,13 +415,13 @@ body {
 .bottom-nav {
   position: fixed;
   bottom: 0; left: 0; right: 0;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.94);
   backdrop-filter: saturate(180%) blur(20px);
   border-top: 1px solid var(--border);
   display: flex;
   justify-content: space-around;
-  padding: 12px 10px;
-  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  padding: 8px 10px;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
   z-index: 50;
 }
 .bottom-nav-item {
@@ -426,10 +437,20 @@ body {
   padding: 8px 0;
   transition: opacity 0.15s;
 }
-.bottom-nav-item .nav-icon { font-size: 24px; line-height: 1; }
+.bottom-nav-item { color: var(--text-muted); position: relative; }
+.bottom-nav-item.active { color: var(--primary); }
+.bottom-nav-item.active::before {
+  content: ''; position: absolute; top: -9px; left: 30%; right: 30%;
+  height: 3px; border-radius: 0 0 3px 3px; background: var(--primary);
+}
+.bottom-nav-item .nav-icon { display: flex; line-height: 1; }
+.bottom-nav-item .nav-icon svg {
+  width: 24px; height: 24px; fill: none; stroke: currentColor;
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
 .bottom-nav-item .nav-label {
   font-size: 11px;
-  color: var(--text-muted);
+  color: inherit;
   font-weight: 500;
 }
-.bottom-nav-item.active .nav-label { color: var(--primary); font-weight: 700; }
+.bottom-nav-item.active .nav-label { font-weight: 700; }

@@ -82,7 +82,7 @@ export default function ReferralPage({ onBack, onNavigate }) {
           <div className="card" style={{ marginBottom: 24 }}>
             <div style={{ fontSize: 13, color: 'var(--text)', marginBottom: 8, fontWeight: 600 }}>הלינק האישי שלך:</div>
             <div style={{
-              background: 'rgba(255, 255, 255, 0.5)', border: '1px solid rgba(0,0,0,0.05)',
+              background: 'rgba(255, 255, 255, 0.5)', border: '1px solid var(--border)',
               borderRadius: 12, padding: '14px 16px',
               fontFamily: 'monospace', fontSize: 13, wordBreak: 'break-all',
               color: 'var(--primary)', marginBottom: 16, direction: 'ltr', textAlign: 'left',
