@@ -190,7 +190,7 @@ function StatsTab() {
           label="פגים ב-7 ימים"
           accent={stats.expiring_soon > 0 ? '#975a16' : undefined}
         />
-        <StatCard value={stats.pending_payments} label="תשלומים ממתינים" accent={stats.pending_payments > 0 ? '#b45309' : undefined} />
+        <StatCard value={stats.pending_payments} label="תשלומים ממתינים" accent={stats.pending_payments > 0 ? '#9a4a07' : undefined} />
       </Section>
 
       <Section title="חיפושים">
@@ -202,7 +202,7 @@ function StatsTab() {
 
       <Section title="קודים וטיקטים">
         <StatCard value={stats.active_codes}  label="קודים פעילים"  sub={`${stats.used_codes}/${stats.total_codes} נוצלו`} />
-        <StatCard value={stats.tickets_open}  label="טיקטים פתוחים" accent={stats.tickets_open > 0 ? '#b45309' : undefined} />
+        <StatCard value={stats.tickets_open}  label="טיקטים פתוחים" accent={stats.tickets_open > 0 ? '#9a4a07' : undefined} />
       </Section>
 
       <Section title="🔔 התראות יד2">
@@ -1789,7 +1789,7 @@ function AdminGrantsTab() {
         </div>
         <div style={{ fontSize: 12, color: 'var(--hint)', lineHeight: 1.6, background: 'var(--bg)', padding: '12px', borderRadius: 12, border: '1px dashed var(--border)' }}>
           <span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>הנחיות ערכים: </span>
-          <b style={{ color: '#0066d6' }}>0</b> = מנוי חינמי, <b style={{ color: '#0066d6' }}>-1</b> = מנוי חודשי פרימיום, <b style={{ color: '#b45309' }}>-2</b> = גישה חופשית (ללא הגבלה), <b style={{ color: '#047857' }}>מספר חיובי</b> = הוספת X חיפושים.
+          <b style={{ color: '#0066d6' }}>0</b> = מנוי חינמי, <b style={{ color: '#0066d6' }}>-1</b> = מנוי חודשי פרימיום, <b style={{ color: '#9a4a07' }}>-2</b> = גישה חופשית (ללא הגבלה), <b style={{ color: '#047857' }}>מספר חיובי</b> = הוספת X חיפושים.
         </div>
       </div>
       
@@ -1907,13 +1907,13 @@ const STATUS_META = {
   captured:  { label: 'נגבה',    color: '#00bcd4' },
   completed: { label: 'הושלם',   color: '#27692b' },
   failed:    { label: 'נכשל',    color: '#f44336' },
-  expired:   { label: 'פג תוקף', color: '#b45309' },
+  expired:   { label: 'פג תוקף', color: '#9a4a07' },
   declined:  { label: 'נדחה',    color: '#f44336' },
-  cancelled:        { label: 'בוטל',               color: '#b45309' },
-  user_cancelled:   { label: 'בוטל ע״י משתמש',    color: '#b45309' },
+  cancelled:        { label: 'בוטל',               color: '#9a4a07' },
+  user_cancelled:   { label: 'בוטל ע״י משתמש',    color: '#9a4a07' },
   admin_approved:   { label: 'אושר ע״י מנהל',  color: '#27692b' },
-  admin_cancelled:  { label: 'בוטל ע״י מנהל',  color: '#b45309' },
-  pending_delivery: { label: 'ממתין למשלוח',   color: '#b45309' },
+  admin_cancelled:  { label: 'בוטל ע״י מנהל',  color: '#9a4a07' },
+  pending_delivery: { label: 'ממתין למשלוח',   color: '#9a4a07' },
 }
 
 function PaypalTransactionRow({ tx, onRefresh }) {
@@ -2787,7 +2787,7 @@ function ReferralsTab() {
 
             {/* Referee */}
             <div style={{ background: 'var(--bg)', borderRadius: 16, padding: '16px', marginBottom: 20, border: '1px solid var(--border)' }}>
-              <div style={{ fontSize: 12, color: '#b45309', fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>📥 המצטרף (הופנה)</div>
+              <div style={{ fontSize: 12, color: '#9a4a07', fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>📥 המצטרף (הופנה)</div>
               <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-main)', marginBottom: 6 }}>{selected.referee_name}</div>
               <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'var(--text-muted)' }}>
                 <span>מזהה: <b style={{ color: 'var(--text-main)', fontFamily: 'monospace' }}>{selected.referee_id}</b></span>
@@ -3247,16 +3247,16 @@ function GrantModal({ user, onClose, onDone }) {
                   const kindColors = {
                     grant:           { bg: '#0066d618', border: '#0066d655', icon: '🎁' },
                     referral_bonus:  { bg: '#177a3318', border: '#177a3355', icon: '🤝' },
-                    referral_info:   { bg: '#b4530918', border: '#b4530955', icon: 'ℹ️' },
+                    referral_info:   { bg: '#9a4a0718', border: '#9a4a0755', icon: 'ℹ️' },
                     payment:         { bg: '#16a34a18', border: '#16a34a55', icon: '💳' },
                     broadcast:       { bg: '#0066d618', border: '#0066d655', icon: '📢' },
-                    expiry_reminder: { bg: '#b4530918', border: '#b4530955', icon: '⏰' },
+                    expiry_reminder: { bg: '#9a4a0718', border: '#9a4a0755', icon: '⏰' },
                     block:           { bg: '#c5303018', border: '#c5303055', icon: '🚫' },
                     unblock:         { bg: '#177a3318', border: '#177a3355', icon: '✅' },
                     ticket_reply:    { bg: '#6366f118', border: '#6366f155', icon: '💬' },
                     admin_dm:        { bg: '#ec489918', border: '#ec489955', icon: '✉️' },
                     welcome:         { bg: '#0066d618', border: '#0066d655', icon: '👋' },
-                    promo_welcome:   { bg: '#b4530918', border: '#b4530955', icon: '🎉' },
+                    promo_welcome:   { bg: '#9a4a0718', border: '#9a4a0755', icon: '🎉' },
                     code_applied:    { bg: '#0066d618', border: '#0066d655', icon: '🔑' },
                     watch_alert:     { bg: '#6366f118', border: '#6366f155', icon: '🔔' },
                   }
@@ -3358,7 +3358,7 @@ function SentMessagesModal({ user, onClose }) {
     grant:           { icon: '🎁', label: 'הטבה', color: '#0066d6' },
     payment:         { icon: '💳', label: 'תשלום', color: '#177a33' },
     broadcast:       { icon: '📢', label: 'שידור', color: '#0066d6' },
-    expiry_reminder: { icon: '⏰', label: 'תזכורת מנוי', color: '#b45309' },
+    expiry_reminder: { icon: '⏰', label: 'תזכורת מנוי', color: '#9a4a07' },
     block:           { icon: '🚫', label: 'חסימה', color: '#c53030' },
     ticket_reply:    { icon: '💬', label: 'טיקט', color: '#6366f1' },
     admin_dm:        { icon: '✉️', label: 'הודעת מנהל', color: '#ec4899' },
@@ -3840,7 +3840,7 @@ function PromoTab() {
 
         <div className="card" style={{ padding: '20px' }}>
           <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-main)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ color: '#b45309' }}>3️⃣</span> תאריכי תוקף למבצע
+            <span style={{ color: '#9a4a07' }}>3️⃣</span> תאריכי תוקף למבצע
           </div>
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -3977,7 +3977,7 @@ function FeaturesTab() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20 }}>
         {/* Yad2 market price */}
-        <div className="card" style={{ padding: '24px', borderTop: '4px solid #b45309' }}>
+        <div className="card" style={{ padding: '24px', borderTop: '4px solid #9a4a07' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 24, background: 'rgba(245, 158, 11, 0.1)', width: 44, height: 44, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>💰</span>
@@ -4030,7 +4030,7 @@ function FeaturesTab() {
                       const inWindow = (!yad2PublicStart || today >= yad2PublicStart) &&
                                        (!yad2PublicEnd   || today <= yad2PublicEnd)
                       return (
-                        <div style={{ fontSize: 12, fontWeight: 700, color: inWindow ? '#047857' : '#b45309', background: inWindow ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', padding: '8px 12px', borderRadius: 8, display: 'inline-block', marginTop: 4 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: inWindow ? '#047857' : '#9a4a07', background: inWindow ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', padding: '8px 12px', borderRadius: 8, display: 'inline-block', marginTop: 4 }}>
                           {inWindow ? '🟢 פעיל כעת לכולם' : '🟡 מחוץ לטווח התאריכים (מוסתר מחינמיים)'}
                         </div>
                       )
@@ -4100,7 +4100,7 @@ function FeaturesTab() {
                       const inWindow = (!pdfPublicStart || today >= pdfPublicStart) &&
                                        (!pdfPublicEnd   || today <= pdfPublicEnd)
                       return (
-                        <div style={{ fontSize: 12, fontWeight: 700, color: inWindow ? '#047857' : '#b45309', background: inWindow ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', padding: '8px 12px', borderRadius: 8, display: 'inline-block', marginTop: 4 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: inWindow ? '#047857' : '#9a4a07', background: inWindow ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', padding: '8px 12px', borderRadius: 8, display: 'inline-block', marginTop: 4 }}>
                           {inWindow ? '🟢 פעיל כעת לכולם' : '🟡 מחוץ לטווח התאריכים (מוסתר מחינמיים)'}
                         </div>
                       )
@@ -4180,7 +4180,7 @@ function FeaturesTab() {
                       const inWindow = (!watchPublicStart || today >= watchPublicStart) &&
                                        (!watchPublicEnd   || today <= watchPublicEnd)
                       return (
-                        <div style={{ fontSize: 12, fontWeight: 700, color: inWindow ? '#047857' : '#b45309', background: inWindow ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', padding: '8px 12px', borderRadius: 8, display: 'inline-block', marginTop: 4 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: inWindow ? '#047857' : '#9a4a07', background: inWindow ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', padding: '8px 12px', borderRadius: 8, display: 'inline-block', marginTop: 4 }}>
                           {inWindow ? '🟢 פעיל כעת לכולם' : '🟡 מחוץ לטווח התאריכים (מוסתר מחינמיים)'}
                         </div>
                       )
@@ -4614,7 +4614,7 @@ function BroadcastTab() {
           <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-main)', marginBottom: 12 }}>⏰ שידורים מתוזמנים</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {scheduled.map(s => (
-              <div key={s.id} className="card" style={{ padding: 14, borderRadius: 12, borderLeft: `4px solid ${s.status === 'pending' ? '#b45309' : s.status === 'sent' ? '#047857' : '#9ca3af'}` }}>
+              <div key={s.id} className="card" style={{ padding: 14, borderRadius: 12, borderLeft: `4px solid ${s.status === 'pending' ? '#9a4a07' : s.status === 'sent' ? '#047857' : '#9ca3af'}` }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', marginBottom: 6 }}>
                   <span style={{ fontSize: 13, fontWeight: 800 }}>{SCHEDULE_STATUS[s.status] || s.status}</span>
                   <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{fmtDateTime(s.send_at)}</span>
@@ -4741,7 +4741,7 @@ function BroadcastTab() {
 }
 
 const STATUS_LABEL = { open: 'פתוח', in_progress: 'בטיפול', closed: 'סגור' }
-const STATUS_COLOR = { open: '#b45309', in_progress: '#0066d6', closed: '#047857' }
+const STATUS_COLOR = { open: '#9a4a07', in_progress: '#0066d6', closed: '#047857' }
 const STATUS_BG = { open: 'rgba(245, 158, 11, 0.1)', in_progress: 'rgba(59, 130, 246, 0.1)', closed: 'rgba(16, 185, 129, 0.1)' }
 
 function TicketsTab() {
