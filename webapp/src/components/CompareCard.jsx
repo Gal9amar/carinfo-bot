@@ -13,45 +13,12 @@ const ERROR_TEXT = {
   BAD_REQUEST: 'מספר הרכב אינו תקין',
 }
 
-const badge = {
-  display: 'inline-block', fontSize: 11, fontWeight: 700,
-  background: '#0066d6', color: '#fff',
-  borderRadius: 20, padding: '4px 10px', marginBottom: 6,
-}
-
-function Header({ user }) {
+function Header() {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10, gap: 8 }}>
-      <div>
-        <div style={badge}>למנויים בלבד</div>
-        <div style={{ fontWeight: 700, fontSize: 15 }}>
-          <span aria-hidden="true">⚖️ </span>השוואה בין רכבים
-        </div>
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ fontWeight: 700, fontSize: 15 }}>
+        <span aria-hidden="true">⚖️ </span>השוואה בין רכבים
       </div>
-      {user?.compare_public_label && (
-        <div style={{ fontSize: 11, color: 'var(--hint)', textAlign: 'start' }}>{user.compare_public_label}</div>
-      )}
-    </div>
-  )
-}
-
-function LockedTeaser({ user, onNavigate }) {
-  return (
-    <div className="card" style={{ marginBottom: 12 }}>
-      <Header user={user} />
-      <div style={{ fontSize: 13, color: 'var(--hint)', lineHeight: 1.5, marginBottom: 12 }}>
-        השווה את הרכב הזה מול רכב אחר — שנת ייצור, ק"מ, בעלויות, מפרט ועוד, בטבלה אחת.
-      </div>
-      <div style={{
-        padding: '10px 12px', borderRadius: 10, marginBottom: 12, fontSize: 13, fontWeight: 600,
-        background: 'rgba(0,0,0,0.06)', color: 'var(--text-main)',
-      }}>
-        <span aria-hidden="true">🔒 </span>זמין למנויים
-      </div>
-      {onNavigate && (
-        <button type="button" className="btn" style={{ width: '100%', marginTop: 0 }}
-          onClick={() => onNavigate('packages')}>לחבילות ולמנוי</button>
-      )}
     </div>
   )
 }
@@ -107,14 +74,10 @@ function CompareTable({ data }) {
 
 export default function CompareCard({ plate, user, onNavigate }) {
   const [input, setInput] = useState('')
-  const [state, setState] = useState('idle') // idle | loading | done | error | locked
+  const [state, setState] = useState('idle') // idle | loading | done | error
   const [errCode, setErrCode] = useState('')
   const [data, setData] = useState(null)
   const inputRef = useRef(null)
-
-  if (!user?.show_compare || state === 'locked') {
-    return <LockedTeaser user={user} onNavigate={onNavigate} />
-  }
 
   const digits = input.replace(/\D/g, '')
   const unlimited = user?.searches_left === -1
@@ -133,7 +96,6 @@ export default function CompareCard({ plate, user, onNavigate }) {
       setState('done')
     } catch (err) {
       const code = err?.message || 'SERVER_ERROR'
-      if (code === 'FEATURE_LOCKED') { setState('locked'); return }
       setErrCode(code in ERROR_TEXT ? code : 'SERVER_ERROR')
       setState('error')
     }
@@ -142,7 +104,7 @@ export default function CompareCard({ plate, user, onNavigate }) {
   const inputId = 'compare-plate-input'
   return (
     <div className="card" style={{ marginBottom: 12 }}>
-      <Header user={user} />
+      <Header />
       <form onSubmit={submit} noValidate>
         <label htmlFor={inputId} style={{ display: 'block', fontSize: 13, color: 'var(--hint)', marginBottom: 6, fontWeight: 600 }}>
           מספר רישוי של הרכב להשוואה

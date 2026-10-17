@@ -126,7 +126,7 @@ export async function fetchVehicle(plate) {
   return r.json()
 }
 
-// Vehicle comparison (premium). NOT cached: every successful call consumes a search.
+// Vehicle comparison (open to all users). NOT cached: every successful call consumes a search.
 export async function fetchCompare(plate, other) {
   let r
   try {
@@ -140,7 +140,7 @@ export async function fetchCompare(plate, other) {
   if (!r.ok) {
     let detail = ''
     try { const j = await r.json(); detail = typeof j?.detail === 'string' ? j.detail : '' } catch { /* not JSON */ }
-    if (r.status === 403) throw new Error(detail === 'feature_locked' ? 'FEATURE_LOCKED' : 'QUOTA_EXCEEDED')
+    if (r.status === 403) throw new Error('QUOTA_EXCEEDED')
     if (r.status === 404) throw new Error('NOT_FOUND')
     if (r.status === 400) throw new Error(detail === 'same_plate' ? 'SAME_PLATE' : 'BAD_REQUEST')
     if (r.status === 503) throw new Error('MAINTENANCE')

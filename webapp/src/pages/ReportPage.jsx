@@ -6,6 +6,7 @@ import BackButton from '../components/BackButton.jsx'
 import PageBanners from '../components/PageBanners.jsx'
 import VehicleLookupLoader from '../components/VehicleLookupLoader.jsx'
 import CompareCard from '../components/CompareCard.jsx'
+import PremiumLock from '../components/PremiumLock.jsx'
 import { getMarketStats } from '../utils/marketPrice.js'
 import { fmtDate, testStatus } from '../utils/time.js'
 
@@ -639,12 +640,18 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
   const score = calcScore()
 
   const marketCard = (() => {
-    const authorized = marketData?.authorized !== false
-    const stats = getMarketStats(marketData, marketData?.year)
+    // Locked: server says unauthorized, or the user is not entitled (no data returned).
+    const locked = marketData?.authorized === false || (!marketData && user?.show_market_price === false)
+    const authorized = !locked
+    // Never put real numbers in the DOM for a locked user: use placeholders.
+    const stats = locked
+      ? { median: 85000, min: 68000, max: 104000, avgKm: 92000 }
+      : getMarketStats(marketData, marketData?.year)
     if (!stats) return null
     const { median, min, max, avgKm } = stats
     return (
-      <div className="card" style={{ marginBottom: 12 }} aria-label="מחיר שוק" role="group">
+      <PremiumLock locked={locked} title="מחיר שוק – Yad2" publicLabel={marketData?.public_label} onNavigate={onNavigate}>
+      <div className="card" style={locked ? { margin: 0 } : { marginBottom: 12 }} {...(locked ? {} : { 'aria-label': 'מחיר שוק', role: 'group' })}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
           <div>
@@ -655,7 +662,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
             }}>למנויים בלבד</div>
             <div style={{ fontWeight: 700, fontSize: 15 }}>💰 מחיר שוק – Yad2</div>
           </div>
-          {marketData.public_label && (
+          {!locked && marketData?.public_label && (
             <div style={{ fontSize: 11, color: 'var(--hint)', textAlign: 'left', whiteSpace: 'nowrap' }}>
               {marketData.public_label}
             </div>
@@ -673,14 +680,11 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
             padding: '6px 0', borderBottom: '1px solid rgba(0,100,200,0.1)', fontSize: 14, gap: 8,
           }}>
             <span style={{ color: 'var(--hint)', flexShrink: 0, minWidth: 120 }}>{label}</span>
-            <span aria-hidden={authorized ? undefined : 'true'} style={{
-              fontWeight: 500, textAlign: 'end',
-              ...(authorized ? {} : { filter: 'blur(5px)', userSelect: 'none' }),
-            }}>{val}</span>
+            <span dir="ltr" style={{ fontWeight: 500, textAlign: 'end' }}>{val}</span>
           </div>
         ))}
         {/* Yad2 button — active for authorized, disabled for others */}
-        {authorized && marketData.yad2_url ? (
+        {authorized && marketData?.yad2_url ? (
           <a href={marketData.yad2_url} target="_blank" rel="noopener noreferrer" style={{
             display: 'block', marginTop: 10, padding: '8px 0',
             background: '#c23400', color: '#fff',
@@ -694,10 +698,6 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
             borderRadius: 10, textAlign: 'center', fontSize: 13,
             fontWeight: 700, cursor: 'not-allowed',
           }}>חפש ב-Yad2</div>
-        )}
-        {!authorized && onNavigate && (
-          <button type="button" className="btn" style={{ width: '100%', marginTop: 10, minHeight: 44 }}
-            onClick={() => onNavigate('packages')}>🔒 פתח את המחיר המלא — לחבילות</button>
         )}
         {/* Facebook Marketplace button — always active, search in English */}
         {(() => {
@@ -716,11 +716,14 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
           )
         })()}
       </div>
+      </PremiumLock>
     )
   })()
 
-  const watchCard = user?.show_watch && make && (
-    <div className="card" style={{ marginBottom: 12 }}>
+  const watchLocked = !user?.show_watch
+  const watchCard = (watchLocked || make) && (
+    <PremiumLock locked={watchLocked} title="התראות יד2" publicLabel={user?.watch_public_label} onNavigate={onNavigate}>
+    <div className="card" style={watchLocked ? { margin: 0 } : { marginBottom: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
         <div>
           <div style={{
@@ -730,14 +733,14 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
           }}>למנויים בלבד</div>
           <div style={{ fontWeight: 700, fontSize: 15 }}>🔔 התראות יד2</div>
         </div>
-        {user?.watch_public_label && (
+        {!watchLocked && user?.watch_public_label && (
           <div style={{ fontSize: 11, color: 'var(--hint)', textAlign: 'left', whiteSpace: 'nowrap' }}>
             {user.watch_public_label}
           </div>
         )}
       </div>
       <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 12 }}>
-        קבל התראה בטלגרם כשתתווסף מודעה חדשה ל-Yad2 עבור <strong>{[make, model, year].filter(Boolean).join(' ')}</strong>
+        קבל התראה בטלגרם כשתתווסף מודעה חדשה ל-Yad2 עבור <strong>{(watchLocked ? 'יונדאי i20 2019' : [make, model, year].filter(Boolean).join(' '))}</strong>
       </div>
       {(watchState === 'exists') ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -797,6 +800,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
         </button>
       )}
     </div>
+    </PremiumLock>
   )
 
   // ── PDF send (premium) — notes live in the full tab ──
@@ -824,7 +828,8 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
     setNoteSaving(false)
   }
   const pdfCard = (
-    <div className="card" style={{ marginBottom: 12 }}>
+    <PremiumLock locked={!pdfAuthorized} title="דוח PDF" publicLabel={user?.pdf_public_label} onNavigate={onNavigate}>
+    <div className="card" style={!pdfAuthorized ? { margin: 0 } : { marginBottom: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
         <div>
           <div style={{
@@ -834,7 +839,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
           }}>למנויים בלבד</div>
           <div style={{ fontWeight: 700, fontSize: 15 }}>📄 דוח PDF</div>
         </div>
-        {user?.pdf_public_label && (
+        {pdfAuthorized && user?.pdf_public_label && (
           <div style={{ fontSize: 11, color: 'var(--hint)', textAlign: 'left', whiteSpace: 'nowrap' }}>
             {user.pdf_public_label}
           </div>
@@ -864,19 +869,14 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
           </button>
         )
       ) : (
-        <>
-          <div aria-disabled="true" style={{
-            width: '100%', padding: '10px 0', borderRadius: 10,
-            background: 'rgba(0,0,0,0.12)', color: 'var(--hint)',
-            textAlign: 'center', fontSize: 14, fontWeight: 700, cursor: 'not-allowed',
-          }}>📥 הורד דוח PDF</div>
-          {onNavigate && (
-            <button type="button" className="btn" style={{ width: '100%', marginTop: 10, minHeight: 44 }}
-              onClick={() => onNavigate('packages')}>🔒 זמין למנויים — לחבילות</button>
-          )}
-        </>
+        <div style={{
+          width: '100%', padding: '10px 0', borderRadius: 10,
+          background: 'var(--grad-primary)', color: '#fff',
+          textAlign: 'center', fontSize: 14, fontWeight: 700,
+        }}>📤 שלח דוח PDF לצ'אט</div>
       )}
     </div>
+    </PremiumLock>
   )
 
   const premium = (

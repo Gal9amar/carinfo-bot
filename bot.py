@@ -161,7 +161,7 @@ def build_result_keyboard(
     is_admin: bool = False,
     record: dict | None = None,
     yad2_link: str = "",
-    features: frozenset = frozenset({"compare", "yad2_watch"}),
+    features: frozenset = frozenset({"yad2_watch"}),
 ) -> InlineKeyboardMarkup:
     """`features`: premium features this user is entitled to (src.features) — locked buttons are hidden
     exactly where the Mini App shows its locked state, so both surfaces agree."""
@@ -177,8 +177,7 @@ def build_result_keyboard(
     rows = [first_row] if first_row else []
     if plate:
         row2 = [InlineKeyboardButton("🔔 תזכורת טסט", callback_data=f"rem|add|{plate}")]
-        if "compare" in features:
-            row2.append(InlineKeyboardButton("⚖️ השוואה", callback_data=f"cmp|start|{plate}"))
+        row2.append(InlineKeyboardButton("⚖️ השוואה", callback_data=f"cmp|start|{plate}"))   # open to everyone
         rows.append(row2)
         row3 = []
         if "yad2_watch" in features:
@@ -1915,10 +1914,6 @@ async def _compare_flow(message, tg_user, chat_id: int, context, plate_a: str, p
     if plate_a == plate_b:
         await message.reply_text(M.compare_same(name), parse_mode=HTML)
         return
-    from src.features import feature_open
-    if not await feature_open(user_id, "compare"):
-        await message.reply_text(M.feature_locked(name, "השוואת רכבים"), parse_mode=HTML, reply_markup=_payment_keyboard(is_admin))
-        return
     allowed, left = await is_allowed(user_id, tg_user.username or "", tg_user.full_name or "")
     if not allowed:
         if await is_blocked(user_id):
@@ -2133,11 +2128,7 @@ async def _lookup_flow(message, tg_user, chat_id: int, context: ContextTypes.DEF
 
     yad2_link = _yad2.build_url(record)
     from src.features import feature_open
-    open_features = frozenset(
-        f for f, ok in zip(("compare", "yad2_watch"),
-                           await asyncio.gather(feature_open(user_id, "compare"), feature_open(user_id, "yad2_watch")))
-        if ok
-    )
+    open_features = frozenset({"yad2_watch"} if await feature_open(user_id, "yad2_watch") else ())
     result_kb = build_result_keyboard(
         is_admin=(user_id == ADMIN_ID), record=record, yad2_link=yad2_link, features=open_features,
     )
