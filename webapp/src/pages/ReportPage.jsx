@@ -176,7 +176,7 @@ function buildFullText(record, ownership) {
 // ── SummaryTab ────────────────────────────────────────────────────────────────
 
 function SummaryTab({ record, ownership, recalls, make, model, year, color, km, testStr,
-  plateNum, score, flags, premium, w, statusColor,
+  score, w,
   order, extra }) {
 
   const kmNum = km ? Number(km) : null
@@ -992,6 +992,176 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
     compare: <CompareCard plate={plateNum} user={user} onNavigate={onNavigate} />,
   }
 
+  // Full-report sections by id; order/visibility come from the admin layout (footer buttons stay last).
+  const fullSections = {
+
+    general: (
+      <Sec title="📋 פרטים כלליים">
+        <Row label="יצרן" value={make} />
+        <Row label="דגם" value={model} />
+        <Row label="רמת גימור" value={w.ramat_gimur} />
+        <Row label="שנת ייצור" value={year} />
+        <Row label="צבע" value={color} />
+        <Row label="בעלות נוכחית" value={record.baalut} />
+        <Row label="ארץ ייצור" value={w.tozeret_eretz_nm} />
+        <Row label="יבואן" value={w.tozar} />
+        <Row label="סוג מרכב" value={w.merkav} />
+        <Row label="סוג תקינה" value={w.sug_tkina_nm} />
+        <Row label="מסגרת (שלדה)" value={record.misgeret} />
+        <Row label="דגם מנוע" value={record.degem_manoa} />
+        <Row label="מספר מנוע" value={record.mispar_manoa} />
+        <Row label="מקוריות" value={record.mkoriut_nm} />
+        {record._personal_import && (
+          <Row label="יבוא" value={record._personal_import.sug_yevu || 'יבוא אישי'} />
+        )}
+      </Sec>
+    ),
+
+    technical: (
+      <Sec title="⚙️ מפרט טכני">
+        <Row label="סוג דלק" value={record.sug_delek_nm} />
+        <Row label="טכנולוגיית הנעה" value={w.technologiat_hanaa_nm} />
+        <Row label="סוג הנעה" value={w.hanaa_nm} />
+        <Row label='נפח מנוע (סמ"ק)' value={engineCc} />
+        <Row label="כוח סוס" value={w.koah_sus} />
+        <Row label="תיבת הילוכים" value={gearbox} />
+        <Row label="סוג ממיר" value={w.sug_mamir_nm} />
+        <Row label="מושבים" value={w.mispar_moshavim} />
+        <Row label="דלתות" value={w.mispar_dlatot} />
+        <Row label='משקל כולל (ק"ג)' value={weight} />
+        <Row label='גובה (מ"מ)' value={height} />
+        <Row label='גרירה עם בלמים (ק"ג)' value={towWith} />
+        <Row label='גרירה ללא בלמים (ק"ג)' value={towWithout} />
+      </Sec>
+    ),
+
+    wheels: (
+      <Sec title="🔧 גלגלים וצמיגים">
+        <Row label="צמיג קדמי" value={record.zmig_kidmi} />
+        <Row label="צמיג אחורי" value={record.zmig_ahori || record.zmig_achori} />
+        <Row label="עומס צמיג קדמי" value={record.kod_omes_tzmig_kidmi} />
+        <Row label="עומס צמיג אחורי" value={record.kod_omes_tzmig_ahori} />
+        <Row label="מהירות צמיג קדמי" value={record.kod_mehirut_tzmig_kidmi} />
+        <Row label="מהירות צמיג אחורי" value={record.kod_mehirut_tzmig_ahori} />
+        <Row label="וו גרירה" value={record.grira_nm} />
+      </Sec>
+    ),
+
+    equipment: (
+      <Sec title="🛋️ ציוד ונוחות">
+        <Row label="מיזוג אוויר" value={yn(w.mazgan_ind)} />
+        <Row label="הגה כוח" value={yn(w.hege_koah_ind)} />
+        <Row label="חלונות חשמל"
+          value={w.mispar_halonot_hashmal ? `${w.mispar_halonot_hashmal} חלונות` : null} />
+        <Row label="גג פנורמי/שמש" value={yn(w.halon_bagg_ind)} />
+        <Row label="חישוקי סגסוגת" value={yn(w.galgaley_sagsoget_kala_ind)} />
+        <Row label="ארגז/תא מטען" value={yn(w.argaz_ind)} />
+      </Sec>
+    ),
+
+    safety: (
+      <Sec title="🛡️ בטיחות ופליטות">
+        <Row label="ניקוד בטיחות" value={w.nikud_betihut} />
+        <Row label="רמת ציוד בטיחותי" value={w.ramat_eivzur_betihuty} />
+        <Row label="כריות אוויר"
+          value={w.mispar_kariot_avir ? `${w.mispar_kariot_avir} כריות` : null} />
+        <Row label="ABS" value={yn(w.abs_ind)} />
+        <Row label="ESP" value={yn(w.bakarat_yatzivut_ind)} />
+        <Row label="קבוצת זיהום" value={record.kvutzat_zihum || record.kvuzat_zihum} />
+        <Row label="מדד ירוק" value={w.madad_yarok} />
+        <Row label='CO₂ WLTP (גר/ק"מ)' value={w.CO2_WLTP || w.kamut_CO2} />
+        <Row label="CO₂ NEDC" value={w.CO2_WLTP_NEDC} />
+        <Row label="CO₂ בעיר" value={w.kamut_CO2_city} />
+        <Row label="CO₂ בכביש" value={w.kamut_CO2_hway} />
+        <Row label="NOX" value={w.NOX_WLTP || w.kamut_NOX} />
+        <Row label="HC" value={w.HC_WLTP || w.kamut_HC} />
+        <Row label="PM10" value={w.PM_WLTP || w.kamut_PM10} />
+        <Row label="CO" value={w.CO_WLTP || w.kamut_CO} />
+      </Sec>
+    ),
+
+    adas: (
+      <Sec title="🤖 מערכות ADAS">
+        <Row label="שמירת נתיב" value={yn(w.bakarat_stiya_menativ_ind)} />
+        <Row label="בקרת סטייה אקטיבית" value={yn(w.bakarat_stiya_activ_s)} />
+        <Row label="ניטור מרחק קדמי" value={yn(w.nitur_merhak_milfanim_ind)} />
+        <Row label="זיהוי שטח עיוור" value={yn(w.zihuy_beshetah_nistar_ind)} />
+        <Row label="בקרת שיוט אדפטיבית" value={yn(w.bakarat_shyut_adaptivit_ind)} />
+        <Row label="בקרת מהירות ISA" value={yn(w.bakarat_mehirut_isa)} />
+        <Row label="זיהוי הולכי רגל" value={yn(w.zihuy_holchey_regel_ind)} />
+        <Row label="בלימת חירום אוטומטית" value={yn(w.maarechet_ezer_labalam_ind)} />
+        <Row label="בלימה לפני הולכי רגל" value={yn(w.blimat_hirum_lifnei_holhei_regel_ofanaim)} />
+        <Row label="בלימה אוטו' לאחור" value={yn(w.blima_otomatit_nesia_leahor)} />
+        <Row label="מצלמת רוורס" value={yn(w.matzlemat_reverse_ind)} />
+        <Row label="חיישני לחץ צמיגים" value={yn(w.hayshaney_lahatz_avir_batzmigim_ind)} />
+        <Row label="חיישן עייפות נהג" value={yn(w.hayshaney_hagorot_ind)} />
+        <Row label="זיהוי תמרורים" value={yn(w.zihuy_tamrurey_tnua_ind)} />
+        <Row label="שליטה אוטו' בפנסי גבוה" value={yn(w.shlita_automatit_beorot_gvohim_ind)} />
+        <Row label="התראת נסיעה קדימה" value={yn(w.teura_automatit_benesiya_kadima_ind)} />
+        <Row label="זיהוי התקרבות מסוכנת" value={yn(w.zihuy_matzav_hitkarvut_mesukenet_ind)} />
+        <Row label="זיהוי אופניים/קורקינט" value={yn(w.zihuy_rechev_do_galgali)} />
+        <Row label="נעילת אלכוהול" value={yn(w.alco_lock)} />
+        <Row label="מתח סולל" value={w.dg_metach_solela} />
+      </Sec>
+    ),
+
+    history: (
+      <Sec title="📅 היסטוריה ורישום">
+        <Row label="רישום ראשון" value={fmtDate(record.rishum_rishon_dt)} />
+        <Row label="עלייה לכביש" value={fmtDate(record.moed_aliya_lakvish)} />
+        <Row label='ק"מ בטסט אחרון'
+          value={km ? `${Number(km).toLocaleString('he-IL')} ק"מ` : null} />
+        <Row label="טסט אחרון" value={fmtDate(record.mivchan_acharon_dt)} />
+        <Row label="תוקף טסט" value={testStr} />
+        <Row label="שינוי מבנה" value={yn(record.shinui_mivne_ind)} />
+        <Row label="שינוי צבע" value={yn(record.shnui_zeva_ind)} />
+        <Row label="שינוי צמיגים" value={yn(record.shinui_zmig_ind)} />
+        <Row label="GAPAM" value={yn(record.gapam_ind)} />
+        <Row label="תו נכה" value={record._tag_nache ? '✅ כן' : '❌ לא'} />
+        {scrapped && <Row label="תאריך גרוטאה" value={fmtDate(scrapped)} />}
+      </Sec>
+    ),
+
+    recalls: (
+      <div className="card" style={{ marginBottom: 12 }}>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>
+          🔔 ריקולים{recalls.length > 0 ? ` (${recalls.length})` : ''}
+          {recalls.length > 0 && (
+            <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--hint)', marginRight: 6 }}>
+              {recallsByPlate ? '— ספציפי ללוחית' : '— לדגם'}
+            </span>
+          )}
+        </div>
+        {recalls.length === 0 ? (
+          <div style={{ fontSize: 13, color: 'var(--hint)' }}>✅ לא נמצאו ריקולים</div>
+        ) : recalls.map((r, i) => (
+          <div key={i} style={{
+            padding: '8px 0', borderBottom: i < recalls.length - 1 ? '1px solid rgba(0,100,200,0.1)' : 'none',
+            fontSize: 13,
+          }}>
+            {recallsByPlate ? (
+              <>
+                <div style={{ fontWeight: 600 }}>
+                  {r.TAARICH_PTICHA ? String(r.TAARICH_PTICHA).substring(0, 10) : ''}
+                  {r.SUG_TAKALA ? ` · ${r.SUG_TAKALA}` : ''}
+                </div>
+                <div style={{ marginTop: 2 }}>{r.TEUR_TAKALA || ''}</div>
+                {r.SUG_RECALL && <div style={{ color: 'var(--hint)', marginTop: 2 }}>סוג: {r.SUG_RECALL}</div>}
+              </>
+            ) : (
+              <>
+                <div style={{ fontWeight: 600 }}>{r.SHNAT_RECALL || ''}</div>
+                <div style={{ marginTop: 2 }}>{r.TEUR_TAKALA || ''}</div>
+                {r.OFEN_TIKUN && <div style={{ color: 'var(--hint)', marginTop: 2 }}>תיקון: {r.OFEN_TIKUN}</div>}
+                {r.TELEPHONE && <div style={{ color: 'var(--hint)', marginTop: 2 }}>📞 {r.TELEPHONE}</div>}
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+    ),
+  }
+
   return (
     <div className="page">
       {onBack && <BackButton onClick={onBack} />}
@@ -1050,171 +1220,15 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
         <SummaryTab
           record={record} ownership={ownership} recalls={recalls}
           make={make} model={model} year={year} color={color}
-          km={km} testStr={testStr} plateNum={plateNum}
+          km={km} testStr={testStr}
           score={score} order={layout.summary} extra={summaryExtra}
-          w={w} statusColor={statusColor}
+          w={w}
         />
       )}
 
       {activeTab === 'full' && <>
 
-      {/* ── General ── */}
-      <Sec title="📋 פרטים כלליים">
-        <Row label="יצרן" value={make} />
-        <Row label="דגם" value={model} />
-        <Row label="רמת גימור" value={w.ramat_gimur} />
-        <Row label="שנת ייצור" value={year} />
-        <Row label="צבע" value={color} />
-        <Row label="בעלות נוכחית" value={record.baalut} />
-        <Row label="ארץ ייצור" value={w.tozeret_eretz_nm} />
-        <Row label="יבואן" value={w.tozar} />
-        <Row label="סוג מרכב" value={w.merkav} />
-        <Row label="סוג תקינה" value={w.sug_tkina_nm} />
-        <Row label="מסגרת (שלדה)" value={record.misgeret} />
-        <Row label="דגם מנוע" value={record.degem_manoa} />
-        <Row label="מספר מנוע" value={record.mispar_manoa} />
-        <Row label="מקוריות" value={record.mkoriut_nm} />
-        {record._personal_import && (
-          <Row label="יבוא" value={record._personal_import.sug_yevu || 'יבוא אישי'} />
-        )}
-      </Sec>
-
-      {/* ── Tech specs ── */}
-      <Sec title="⚙️ מפרט טכני">
-        <Row label="סוג דלק" value={record.sug_delek_nm} />
-        <Row label="טכנולוגיית הנעה" value={w.technologiat_hanaa_nm} />
-        <Row label="סוג הנעה" value={w.hanaa_nm} />
-        <Row label='נפח מנוע (סמ"ק)' value={engineCc} />
-        <Row label="כוח סוס" value={w.koah_sus} />
-        <Row label="תיבת הילוכים" value={gearbox} />
-        <Row label="סוג ממיר" value={w.sug_mamir_nm} />
-        <Row label="מושבים" value={w.mispar_moshavim} />
-        <Row label="דלתות" value={w.mispar_dlatot} />
-        <Row label='משקל כולל (ק"ג)' value={weight} />
-        <Row label='גובה (מ"מ)' value={height} />
-        <Row label='גרירה עם בלמים (ק"ג)' value={towWith} />
-        <Row label='גרירה ללא בלמים (ק"ג)' value={towWithout} />
-      </Sec>
-
-      {/* ── Tires ── */}
-      <Sec title="🔧 גלגלים וצמיגים">
-        <Row label="צמיג קדמי" value={record.zmig_kidmi} />
-        <Row label="צמיג אחורי" value={record.zmig_ahori || record.zmig_achori} />
-        <Row label="עומס צמיג קדמי" value={record.kod_omes_tzmig_kidmi} />
-        <Row label="עומס צמיג אחורי" value={record.kod_omes_tzmig_ahori} />
-        <Row label="מהירות צמיג קדמי" value={record.kod_mehirut_tzmig_kidmi} />
-        <Row label="מהירות צמיג אחורי" value={record.kod_mehirut_tzmig_ahori} />
-        <Row label="וו גרירה" value={record.grira_nm} />
-      </Sec>
-
-      {/* ── Equipment ── */}
-      <Sec title="🛋️ ציוד ונוחות">
-        <Row label="מיזוג אוויר" value={yn(w.mazgan_ind)} />
-        <Row label="הגה כוח" value={yn(w.hege_koah_ind)} />
-        <Row label="חלונות חשמל"
-          value={w.mispar_halonot_hashmal ? `${w.mispar_halonot_hashmal} חלונות` : null} />
-        <Row label="גג פנורמי/שמש" value={yn(w.halon_bagg_ind)} />
-        <Row label="חישוקי סגסוגת" value={yn(w.galgaley_sagsoget_kala_ind)} />
-        <Row label="ארגז/תא מטען" value={yn(w.argaz_ind)} />
-      </Sec>
-
-      {/* ── Safety ── */}
-      <Sec title="🛡️ בטיחות ופליטות">
-        <Row label="ניקוד בטיחות" value={w.nikud_betihut} />
-        <Row label="רמת ציוד בטיחותי" value={w.ramat_eivzur_betihuty} />
-        <Row label="כריות אוויר"
-          value={w.mispar_kariot_avir ? `${w.mispar_kariot_avir} כריות` : null} />
-        <Row label="ABS" value={yn(w.abs_ind)} />
-        <Row label="ESP" value={yn(w.bakarat_yatzivut_ind)} />
-        <Row label="קבוצת זיהום" value={record.kvutzat_zihum || record.kvuzat_zihum} />
-        <Row label="מדד ירוק" value={w.madad_yarok} />
-        <Row label='CO₂ WLTP (גר/ק"מ)' value={w.CO2_WLTP || w.kamut_CO2} />
-        <Row label="CO₂ NEDC" value={w.CO2_WLTP_NEDC} />
-        <Row label="CO₂ בעיר" value={w.kamut_CO2_city} />
-        <Row label="CO₂ בכביש" value={w.kamut_CO2_hway} />
-        <Row label="NOX" value={w.NOX_WLTP || w.kamut_NOX} />
-        <Row label="HC" value={w.HC_WLTP || w.kamut_HC} />
-        <Row label="PM10" value={w.PM_WLTP || w.kamut_PM10} />
-        <Row label="CO" value={w.CO_WLTP || w.kamut_CO} />
-      </Sec>
-
-      {/* ── ADAS ── */}
-      <Sec title="🤖 מערכות ADAS">
-        <Row label="שמירת נתיב" value={yn(w.bakarat_stiya_menativ_ind)} />
-        <Row label="בקרת סטייה אקטיבית" value={yn(w.bakarat_stiya_activ_s)} />
-        <Row label="ניטור מרחק קדמי" value={yn(w.nitur_merhak_milfanim_ind)} />
-        <Row label="זיהוי שטח עיוור" value={yn(w.zihuy_beshetah_nistar_ind)} />
-        <Row label="בקרת שיוט אדפטיבית" value={yn(w.bakarat_shyut_adaptivit_ind)} />
-        <Row label="בקרת מהירות ISA" value={yn(w.bakarat_mehirut_isa)} />
-        <Row label="זיהוי הולכי רגל" value={yn(w.zihuy_holchey_regel_ind)} />
-        <Row label="בלימת חירום אוטומטית" value={yn(w.maarechet_ezer_labalam_ind)} />
-        <Row label="בלימה לפני הולכי רגל" value={yn(w.blimat_hirum_lifnei_holhei_regel_ofanaim)} />
-        <Row label="בלימה אוטו' לאחור" value={yn(w.blima_otomatit_nesia_leahor)} />
-        <Row label="מצלמת רוורס" value={yn(w.matzlemat_reverse_ind)} />
-        <Row label="חיישני לחץ צמיגים" value={yn(w.hayshaney_lahatz_avir_batzmigim_ind)} />
-        <Row label="חיישן עייפות נהג" value={yn(w.hayshaney_hagorot_ind)} />
-        <Row label="זיהוי תמרורים" value={yn(w.zihuy_tamrurey_tnua_ind)} />
-        <Row label="שליטה אוטו' בפנסי גבוה" value={yn(w.shlita_automatit_beorot_gvohim_ind)} />
-        <Row label="התראת נסיעה קדימה" value={yn(w.teura_automatit_benesiya_kadima_ind)} />
-        <Row label="זיהוי התקרבות מסוכנת" value={yn(w.zihuy_matzav_hitkarvut_mesukenet_ind)} />
-        <Row label="זיהוי אופניים/קורקינט" value={yn(w.zihuy_rechev_do_galgali)} />
-        <Row label="נעילת אלכוהול" value={yn(w.alco_lock)} />
-        <Row label="מתח סולל" value={w.dg_metach_solela} />
-      </Sec>
-
-      {/* ── History ── */}
-      <Sec title="📅 היסטוריה ורישום">
-        <Row label="רישום ראשון" value={fmtDate(record.rishum_rishon_dt)} />
-        <Row label="עלייה לכביש" value={fmtDate(record.moed_aliya_lakvish)} />
-        <Row label='ק"מ בטסט אחרון'
-          value={km ? `${Number(km).toLocaleString('he-IL')} ק"מ` : null} />
-        <Row label="טסט אחרון" value={fmtDate(record.mivchan_acharon_dt)} />
-        <Row label="תוקף טסט" value={testStr} />
-        <Row label="שינוי מבנה" value={yn(record.shinui_mivne_ind)} />
-        <Row label="שינוי צבע" value={yn(record.shnui_zeva_ind)} />
-        <Row label="שינוי צמיגים" value={yn(record.shinui_zmig_ind)} />
-        <Row label="GAPAM" value={yn(record.gapam_ind)} />
-        <Row label="תו נכה" value={record._tag_nache ? '✅ כן' : '❌ לא'} />
-        {scrapped && <Row label="תאריך גרוטאה" value={fmtDate(scrapped)} />}
-      </Sec>
-
-      {/* ── Recalls ── */}
-      <div className="card" style={{ marginBottom: 12 }}>
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>
-          🔔 ריקולים{recalls.length > 0 ? ` (${recalls.length})` : ''}
-          {recalls.length > 0 && (
-            <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--hint)', marginRight: 6 }}>
-              {recallsByPlate ? '— ספציפי ללוחית' : '— לדגם'}
-            </span>
-          )}
-        </div>
-        {recalls.length === 0 ? (
-          <div style={{ fontSize: 13, color: 'var(--hint)' }}>✅ לא נמצאו ריקולים</div>
-        ) : recalls.map((r, i) => (
-          <div key={i} style={{
-            padding: '8px 0', borderBottom: i < recalls.length - 1 ? '1px solid rgba(0,100,200,0.1)' : 'none',
-            fontSize: 13,
-          }}>
-            {recallsByPlate ? (
-              <>
-                <div style={{ fontWeight: 600 }}>
-                  {r.TAARICH_PTICHA ? String(r.TAARICH_PTICHA).substring(0, 10) : ''}
-                  {r.SUG_TAKALA ? ` · ${r.SUG_TAKALA}` : ''}
-                </div>
-                <div style={{ marginTop: 2 }}>{r.TEUR_TAKALA || ''}</div>
-                {r.SUG_RECALL && <div style={{ color: 'var(--hint)', marginTop: 2 }}>סוג: {r.SUG_RECALL}</div>}
-              </>
-            ) : (
-              <>
-                <div style={{ fontWeight: 600 }}>{r.SHNAT_RECALL || ''}</div>
-                <div style={{ marginTop: 2 }}>{r.TEUR_TAKALA || ''}</div>
-                {r.OFEN_TIKUN && <div style={{ color: 'var(--hint)', marginTop: 2 }}>תיקון: {r.OFEN_TIKUN}</div>}
-                {r.TELEPHONE && <div style={{ color: 'var(--hint)', marginTop: 2 }}>📞 {r.TELEPHONE}</div>}
-              </>
-            )}
-          </div>
-        ))}
-      </div>
+      {layout.full.map(id => <Fragment key={id}>{fullSections[id]}</Fragment>)}
 
       {/* ── Copy report ── */}
       <button className="btn btn-secondary" style={{ width: '100%', marginBottom: 12 }} onClick={handleCopy}>

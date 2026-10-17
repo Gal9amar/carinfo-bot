@@ -41,6 +41,7 @@ import {
   adminFetchProducts, adminAddProduct, adminUpdateProduct, adminDeleteProduct,
   adminUploadProductStock, adminFetchProductStock, adminDeleteProductStockUnit,
   adminFetchBanners, adminAddBanner, adminUpdateBanner, adminDeleteBanner, adminReorderBanners,
+  adminFetchReportLayout, adminSaveReportLayout, adminResetReportLayout,
 } from '../api.js'
 import BackButton from '../components/BackButton.jsx'
 import AdminItemCard, { AdminItemBtn, AdminItemConfirm } from '../components/AdminItemCard.jsx'
@@ -52,6 +53,7 @@ const TABS = [
   { id: 'packages', icon: '🛒', label: 'מוצרים' },
   { id: 'products', icon: '📦', label: 'מוצרים דיגיטליים' },
   { id: 'banners',  icon: '🖼️', label: 'באנרים' },
+  { id: 'report_layout', icon: '🧩', label: 'סדר הדוח' },
   { id: 'grants',   icon: '🎁', label: 'הטבות מנהל' },
   { id: 'codes',    icon: '🔑', label: 'קודים' },
   { id: 'users',     icon: '👥', label: 'משתמשים' },
@@ -124,6 +126,7 @@ export default function AdminPage({ user, onBack }) {
       {tab === 'packages' && <PackagesTab />}
       {tab === 'products' && <ProductsTab />}
       {tab === 'banners'  && <BannersTab />}
+      {tab === 'report_layout' && <ReportLayoutTab />}
       {tab === 'grants'   && <AdminGrantsTab />}
       {tab === 'codes'    && <CodesSection standalone />}
       {tab === 'users'     && <UsersTab />}
@@ -136,6 +139,238 @@ export default function AdminPage({ user, onBack }) {
       {tab === 'tickets'         && <TicketsTab />}
       {tab === 'payment_methods' && <PaymentMethodsTab />}
       {tab === 'watches'   && <WatchesTab />}
+    </div>
+  )
+}
+
+// ── Report layout tab (order / visibility of report components) ───
+const RL_PREMIUM = new Set(['market', 'alerts', 'pdf'])
+const RL_SEGMENTS = [
+  { id: 'summary', label: 'דוח סיכום' },
+  { id: 'full', label: 'דוח מלא' },
+]
+const rlClean = (layout) => ({
+  summary: (Array.isArray(layout?.summary) ? layout.summary : []).map(i => ({ id: i.id, visible: i.visible !== false })),
+  full: (Array.isArray(layout?.full) ? layout.full : []).map(i => ({ id: i.id, visible: i.visible !== false })),
+})
+
+function ReportLayoutTab() {
+  const [state, setState] = useState('loading') // loading | error | ready
+  const [saved, setSaved] = useState(null)      // last layout known to the server
+  const [layout, setLayout] = useState(null)    // local edits (both reports)
+  const [catalog, setCatalog] = useState({ summary: [], full: [] })
+  const [seg, setSeg] = useState('summary')
+  const [busy, setBusy] = useState(false)       // saving / resetting
+  const [msg, setMsg] = useState(null)          // { ok, text }
+  const [confirmReset, setConfirmReset] = useState(false)
+  const [announce, setAnnounce] = useState('')
+  const [focusReq, setFocusReq] = useState(null)
+  const tabRefs = useRef({})
+
+  function applyServer(data) {
+    const l = rlClean(data?.layout)
+    setSaved(l); setLayout(l)
+    setCatalog({ summary: data?.components?.summary || [], full: data?.components?.full || [] })
+  }
+
+  function load() {
+    setState('loading')
+    adminFetchReportLayout().then(d => { applyServer(d); setState('ready') }).catch(() => setState('error'))
+  }
+  useEffect(load, [])
+
+  // keep focus on the moved item's button (the list re-renders in a new order)
+  useEffect(() => {
+    if (!focusReq) return
+    const el = document.querySelector(`[data-rl="${focusReq.seg}:${focusReq.id}:${focusReq.dir}"]`)
+    const alt = document.querySelector(`[data-rl="${focusReq.seg}:${focusReq.id}:${focusReq.dir === 'up' ? 'down' : 'up'}"]`)
+    const target = el && !el.disabled ? el : alt
+    if (target) target.focus()
+    setFocusReq(null)
+  }, [focusReq])
+
+  const dirty = !!layout && !!saved && JSON.stringify(layout) !== JSON.stringify(saved)
+
+  function move(id, delta, dir) {
+    const list = layout[seg]
+    const from = list.findIndex(i => i.id === id)
+    const to = from + delta
+    if (from < 0 || to < 0 || to >= list.length) return
+    const next = [...list]
+    const [it] = next.splice(from, 1)
+    next.splice(to, 0, it)
+    setLayout({ ...layout, [seg]: next })
+    setMsg(null)
+    setAnnounce(`הוזז למקום ${to + 1} מתוך ${list.length}`)
+    setFocusReq({ seg, id, dir })
+  }
+
+  function toggle(id) {
+    setLayout({ ...layout, [seg]: layout[seg].map(i => i.id === id ? { ...i, visible: !i.visible } : i) })
+    setMsg(null)
+  }
+
+  async function save() {
+    setBusy(true); setMsg(null)
+    try {
+      const r = await adminSaveReportLayout(layout)
+      if (r?.layout) applyServer({ layout: r.layout, components: { summary: catalog.summary, full: catalog.full } })
+      else setSaved(layout)
+      setMsg({ ok: true, text: 'הסדר נשמר ויוצג למשתמשים בדוחות' })
+    } catch { setMsg({ ok: false, text: 'השמירה נכשלה. נסה שוב.' }) }
+    setBusy(false)
+  }
+
+  async function reset() {
+    setBusy(true); setMsg(null)
+    try {
+      await adminResetReportLayout()
+      applyServer(await adminFetchReportLayout())
+      setConfirmReset(false)
+      setMsg({ ok: true, text: 'הסדר אופס לברירת המחדל' })
+    } catch { setMsg({ ok: false, text: 'האיפוס נכשל. נסה שוב.' }) }
+    setBusy(false)
+  }
+
+  function onSegKey(e) {
+    const i = RL_SEGMENTS.findIndex(s => s.id === seg)
+    // RTL: the first tab is on the right, so ArrowLeft goes to the next one
+    let n = null
+    if (e.key === 'ArrowLeft') n = (i + 1) % RL_SEGMENTS.length
+    else if (e.key === 'ArrowRight') n = (i - 1 + RL_SEGMENTS.length) % RL_SEGMENTS.length
+    else if (e.key === 'Home') n = 0
+    else if (e.key === 'End') n = RL_SEGMENTS.length - 1
+    if (n == null) return
+    e.preventDefault()
+    setSeg(RL_SEGMENTS[n].id)
+    tabRefs.current[RL_SEGMENTS[n].id]?.focus()
+  }
+
+  const header = (
+    <div className="card" style={{ padding: 20, marginBottom: 16, background: 'linear-gradient(to right, rgba(99, 102, 241, 0.05), transparent)' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+        <span style={{ fontSize: 24 }} aria-hidden="true">🧩</span>
+        <div style={{ minWidth: 0 }}>
+          <h2 style={{ margin: 0, fontWeight: 800, fontSize: 18, color: 'var(--text-main)', letterSpacing: '-0.3px' }}>סדר הדוח</h2>
+          <p style={{ margin: '4px 0 0', fontSize: 13, lineHeight: 1.5, color: 'var(--ai-muted, #566070)' }}>קבע באיזה סדר יוצגו הרכיבים בדוח הסיכום ובדוח המלא, והסתר רכיבים שלא רלוונטיים</p>
+        </div>
+      </div>
+    </div>
+  )
+
+  if (state === 'loading') {
+    return (
+      <div className="tab-fade-in" aria-busy="true">
+        {header}
+        <div className="admin-item-list" role="status" aria-label="טוען">
+          {[0, 1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 150, borderRadius: 20 }} />)}
+        </div>
+      </div>
+    )
+  }
+  if (state === 'error' || !layout) {
+    return (
+      <div className="tab-fade-in">
+        {header}
+        <div className="card" role="alert" style={{ padding: 20, textAlign: 'center' }}>
+          <p style={{ margin: '0 0 12px', fontWeight: 700, color: 'var(--text-main)' }}>לא הצלחנו לטעון את סדר הדוח</p>
+          <button type="button" className="btn" onClick={load} style={{ minHeight: 48 }}>נסה שוב</button>
+        </div>
+      </div>
+    )
+  }
+
+  const items = layout[seg] || []
+  const byId = Object.fromEntries((catalog[seg] || []).map(c => [c.id, c]))
+  const visibleCount = items.filter(i => i.visible).length
+
+  return (
+    <div className="tab-fade-in">
+      {header}
+
+      <div role="tablist" aria-label="בחירת דוח" onKeyDown={onSegKey}
+        style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, padding: 4, marginBottom: 12, borderRadius: 16, background: 'rgba(0, 100, 200, 0.08)' }}>
+        {RL_SEGMENTS.map(s => {
+          const on = seg === s.id
+          return (
+            <button key={s.id} type="button" role="tab" id={`rl-tab-${s.id}`} aria-selected={on} aria-controls="rl-panel"
+              tabIndex={on ? 0 : -1} ref={el => { tabRefs.current[s.id] = el }} onClick={() => setSeg(s.id)}
+              style={{ minHeight: 48, padding: '0 8px', borderRadius: 12, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 15, fontWeight: 800,
+                background: on ? '#fff' : 'transparent', color: on ? '#0a4aa6' : 'var(--text-main)', boxShadow: on ? '0 2px 8px rgba(0, 50, 150, 0.12)' : 'none' }}>
+              {s.label}
+            </button>
+          )
+        })}
+      </div>
+
+      <div role="tabpanel" id="rl-panel" aria-labelledby={`rl-tab-${seg}`}>
+        <p style={{ margin: '0 0 12px', fontSize: 13, lineHeight: 1.5, color: 'var(--ai-muted, #566070)' }}>
+          {visibleCount} מתוך {items.length} רכיבים מוצגים.
+          {seg === 'full' && ' כפתורי ההעתקה והסגירה תמיד נשארים בתחתית הדוח.'}
+        </p>
+        <div className="admin-item-list" style={{ marginBottom: 16 }}>
+          {items.map((it, idx) => {
+            const c = byId[it.id] || {}
+            const premium = RL_PREMIUM.has(it.id)
+            const label = String(c.label || it.id).replace(/\s*\(פרימיום\)\s*/, '')
+            return (
+              <AdminItemCard
+                key={it.id}
+                style={it.visible ? undefined : { background: 'rgba(240, 242, 246, 0.85)' }}
+                leading={<span aria-label={`מקום ${idx + 1}`}>{idx + 1}</span>}
+                title={<span style={it.visible ? undefined : { textDecoration: 'none', color: 'var(--ai-muted, #566070)' }}>{label}</span>}
+                badge={premium ? 'פרימיום' : (!it.visible ? 'מוסתר' : null)}
+                badgeTone={premium ? 'warn' : 'mute'}
+                subtitle={c.description}
+                meta={
+                  <button type="button" role="switch" aria-checked={it.visible} aria-label={`הצגת הרכיב בדוח: ${label}`} onClick={() => toggle(it.id)}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, width: '100%', minHeight: 48, padding: '0 14px', textAlign: 'start', fontFamily: 'inherit', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, color: 'var(--text-main)', cursor: 'pointer' }}>
+                    <span style={{ fontSize: 14, fontWeight: 700 }}>{it.visible ? 'מוצג' : 'מוסתר'}</span>
+                    <span aria-hidden="true" style={{ width: 44, height: 24, borderRadius: 12, flexShrink: 0, position: 'relative', background: it.visible ? '#177a33' : '#6e6e73', transition: 'background 0.2s' }}>
+                      <span style={{ position: 'absolute', top: 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'inset-inline-start 0.2s', insetInlineStart: it.visible ? 23 : 3 }} />
+                    </span>
+                  </button>
+                }
+                cols={2}
+                actions={<>
+                  
+                  <button type="button" className="admin-item-btn" data-rl={`${seg}:${it.id}:up`} disabled={idx === 0 || busy}
+                      aria-label={`הזז למעלה: ${label}`} onClick={() => move(it.id, -1, 'up')}>
+                      <span className="ico" aria-hidden="true">▲</span><span>למעלה</span>
+                    </button>
+                  <button type="button" className="admin-item-btn" data-rl={`${seg}:${it.id}:down`} disabled={idx === items.length - 1 || busy}
+                    aria-label={`הזז למטה: ${label}`} onClick={() => move(it.id, 1, 'down')}>
+                    <span className="ico" aria-hidden="true">▼</span><span>למטה</span>
+                  </button>
+                </>}
+              />
+            )
+          })}
+        </div>
+      </div>
+
+      <div aria-live="polite" role="status" className="sr-only">{announce}</div>
+
+      <div style={{ position: 'sticky', bottom: 0, zIndex: 20, margin: '0 -4px', padding: '12px 4px calc(12px + env(safe-area-inset-bottom))', background: 'linear-gradient(to top, var(--bg) 70%, rgba(240, 244, 248, 0))' }}>
+        {dirty && !msg && <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700, color: '#8a4b08' }}>יש שינויים שלא נשמרו</p>}
+        {msg && (
+          <p role={msg.ok ? 'status' : 'alert'} style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700, color: msg.ok ? '#166534' : '#b42318' }}>
+            {msg.ok ? '✓ ' : '✕ '}{msg.text}
+          </p>
+        )}
+        <button type="button" className="btn" onClick={save} disabled={!dirty || busy} style={{ width: '100%', minHeight: 52, fontWeight: 800 }}>
+          {busy && !confirmReset ? 'שומר...' : 'שמור סדר'}
+        </button>
+        {confirmReset ? (
+          <AdminItemConfirm text="לאפס את הסדר והנראות של שני הדוחות לברירת המחדל? שינויים שלא נשמרו יאבדו."
+            yesLabel="כן, אפס" busy={busy} onYes={reset} onNo={() => setConfirmReset(false)} />
+        ) : (
+          <button type="button" className="btn btn-outline" onClick={() => { setConfirmReset(true); setMsg(null) }} disabled={busy}
+            style={{ width: '100%', minHeight: 48, marginTop: 8 }}>
+            איפוס לברירת מחדל
+          </button>
+        )}
+      </div>
     </div>
   )
 }
