@@ -812,7 +812,7 @@ function BannersTab() {
               </div>
               <div className="bn-text">
                 <span className={`bn-badge ${isActive ? 'on' : 'off'}`}>{isActive ? '✓ פעיל' : '⏸ מושבת'}</span>
-                <h3 className="bn-title">{b.title}</h3>
+                <div className="bn-title">{b.title}</div>
                 {b.subtitle ? <p className="bn-sub">{b.subtitle}</p> : null}
               </div>
             </div>
