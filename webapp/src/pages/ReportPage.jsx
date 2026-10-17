@@ -451,10 +451,9 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
     setError(null)
     let cancelled = false
     let revealTimer = null
-    // Keep the search-progress loader on screen for a minimum stretch so its
-    // steps are actually visible, even when the API responds almost instantly
-    // (e.g. a cache hit) — otherwise it can flash and vanish before it renders.
-    const MIN_LOADING_MS = 3800
+    // Never make the user wait just to show the loader: a short minimum only avoids a flash when the
+    // answer is instant (cache hit); real lookups show the report as soon as the data arrives.
+    const MIN_LOADING_MS = 500
     const startedAt = Date.now()
     const revealRecord = (r) => {
       const remaining = MIN_LOADING_MS - (Date.now() - startedAt)

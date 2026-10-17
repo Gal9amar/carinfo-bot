@@ -176,42 +176,67 @@ async def _fetch_fallback_vehicle(mispar: int) -> Optional[dict]:
 
 
 async def fetch_vehicle_data(plate: str) -> Optional[dict]:
+    """Registry lookup. Latency matters (the user waits on it), so everything that only needs the plate
+    number starts immediately and together with the main record, over ONE shared connection pool; the
+    few lookups that need the main record (WLTP, importer price, same-model count, model recalls) then
+    run in parallel with each other instead of one after another."""
     clean = plate.replace("-", "").strip()
+    mispar = int(clean)
 
-    async with httpx.AsyncClient(timeout=15, headers=GOV_HEADERS) as client:
-        main_records, history_records, ext_records = await asyncio.gather(
-            _search_filter(client, RES_MAIN, {"mispar_rechev": int(clean)}, limit=1, strict=True),
-            _search_filter(client, RES_HISTORY, {"mispar_rechev": int(clean)}, limit=1),
-            _search_filter(client, RES_MAIN_EXT, {"mispar_rechev": int(clean)}, limit=1),
-        )
+    limits = httpx.Limits(max_connections=20, max_keepalive_connections=20)
+    async with httpx.AsyncClient(timeout=15, headers=GOV_HEADERS, limits=limits) as client:
+        # Plate-only lookups: independent of the main record, so they start right away.
+        side = asyncio.ensure_future(asyncio.gather(
+            _search_filter(client, RES_OWNERSHIP, {"mispar_rechev": mispar}, limit=50),
+            _search_filter(client, RES_RECALL_CAR, {"MISPAR_RECHEV": mispar}, limit=10),
+            _search_filter(client, RES_TAG_NACHE, {"MISPAR RECHEV": mispar}, limit=1),
+            _search_filter(client, RES_INACTIVE, {"mispar_rechev": mispar}, limit=1),
+            _search_filter(client, RES_INACTIVE_NODEG, {"mispar_rechev": mispar}, limit=1),
+            _search_filter(client, RES_PERSONAL_IMPORT, {"mispar_rechev": mispar}, limit=1),
+            _search_filter(client, RES_SCRAPPED, {"mispar_rechev": mispar}, limit=1),
+            _search_filter(client, RES_EMISSION_FILTER, {"mispar_rechev": mispar}, limit=1),
+            _search_filter(client, RES_SCRAPPED_2010, {"mispar_rechev": f"{mispar:08d}"}, limit=1),
+            _search_filter(client, RES_SCRAPPED_2000, {"mispar_rechev": f"{mispar:08d}"}, limit=1),
+            _search_filter(client, RES_ANCHOR_POINTS, {"mispar_rechev": mispar}, limit=1),
+            _search_filter(client, RES_SAFETY_DISCOUNT, {"mispar_rechev": mispar}, limit=1),
+        ))
+        try:
+            main_records, history_records, ext_records = await asyncio.gather(
+                _search_filter(client, RES_MAIN, {"mispar_rechev": mispar}, limit=1, strict=True),
+                _search_filter(client, RES_HISTORY, {"mispar_rechev": mispar}, limit=1),
+                _search_filter(client, RES_MAIN_EXT, {"mispar_rechev": mispar}, limit=1),
+            )
+        except BaseException:
+            side.cancel()
+            raise
 
-    if not main_records:
-        return await _fetch_fallback_vehicle(int(clean))
+        record = main_records[0] if main_records else None
+        raw_plate = str(record.get("mispar_rechev", "")).replace("-", "").strip() if record else ""
+        if not record or raw_plate != clean:
+            side.cancel()
+            try:
+                await side
+            except BaseException:
+                pass
+            return await _fetch_fallback_vehicle(mispar) if not record else None
 
-    record = main_records[0]
-    raw_plate = str(record.get("mispar_rechev", "")).replace("-", "").strip()
-    if raw_plate != clean:
-        return None
+        if ext_records:
+            _merge_ext_fields(record, ext_records[0])
 
-    if ext_records:
-        _merge_ext_fields(record, ext_records[0])
+        if history_records:
+            h = history_records[0]
+            record["mispar_manoa"]          = h.get("mispar_manoa")
+            record["kilometer_test_aharon"] = h.get("kilometer_test_aharon")
+            record["shinui_mivne_ind"]      = h.get("shinui_mivne_ind")
+            record["gapam_ind"]             = h.get("gapam_ind")
+            record["shnui_zeva_ind"]        = h.get("shnui_zeva_ind")
+            record["shinui_zmig_ind"]       = h.get("shinui_zmig_ind")
+            record["rishum_rishon_dt"]      = h.get("rishum_rishon_dt") or record.get("rishum_rishon_dt")
+            record["mkoriut_nm"]            = h.get("mkoriut_nm")
 
-    if history_records:
-        h = history_records[0]
-        record["mispar_manoa"]          = h.get("mispar_manoa")
-        record["kilometer_test_aharon"] = h.get("kilometer_test_aharon")
-        record["shinui_mivne_ind"]      = h.get("shinui_mivne_ind")
-        record["gapam_ind"]             = h.get("gapam_ind")
-        record["shnui_zeva_ind"]        = h.get("shnui_zeva_ind")
-        record["shinui_zmig_ind"]       = h.get("shinui_zmig_ind")
-        record["rishum_rishon_dt"]      = h.get("rishum_rishon_dt") or record.get("rishum_rishon_dt")
-        record["mkoriut_nm"]            = h.get("mkoriut_nm")
+        degem_cd   = record.get("degem_cd") or record.get("sug_degem")
+        tozeret_cd = record.get("tozeret_cd")
 
-    degem_cd   = record.get("degem_cd") or record.get("sug_degem")
-    tozeret_cd = record.get("tozeret_cd")
-    mispar     = int(clean)
-
-    async with httpx.AsyncClient(timeout=12, headers=GOV_HEADERS) as client:
         async def _empty():
             return []
 
@@ -231,6 +256,22 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
                 client, RES_WLTP, {"degem_cd": degem_cd, "tozeret_cd": tozeret_cd}, limit=1,
             )
 
+        async def _same_model_count():
+            _degem, _tozeret = str(degem_cd or "").strip(), str(tozeret_cd or "").strip()
+            if not (_degem and _tozeret):
+                return None
+            try:
+                _filters = {"tozeret_cd": int(float(_tozeret)), "degem_cd": int(float(_degem))}
+                if record.get("shnat_yitzur"):
+                    _filters["shnat_yitzur"] = record["shnat_yitzur"]
+                _r = await client.get(BASE_URL, params={
+                    "resource_id": RES_MAIN, "filters": json.dumps(_filters), "limit": 1,
+                })
+                return _r.json().get("result", {}).get("total")
+            except Exception as exc:
+                logger.warning("same_model_count failed plate=%s: %s", clean, exc)
+                return None
+
         importer_task = (
             _search_filter(client, RES_IMPORTER, {
                 "tozeret_cd": tozeret_cd,
@@ -240,28 +281,18 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
             if degem_cd and tozeret_cd else _empty()
         )
 
-        tasks = [
-            _search_filter(client, RES_OWNERSHIP, {"mispar_rechev": mispar}, limit=50),
-            _wltp_with_fallback(),
-            _search_filter(client, RES_RECALL_CAR, {"MISPAR_RECHEV": mispar}, limit=10),
-            _search_filter(client, RES_TAG_NACHE, {"MISPAR RECHEV": mispar}, limit=1),
-            _search_filter(client, RES_INACTIVE, {"mispar_rechev": mispar}, limit=1),
-            _search_filter(client, RES_INACTIVE_NODEG, {"mispar_rechev": mispar}, limit=1),
-            _search_filter(client, RES_PERSONAL_IMPORT, {"mispar_rechev": mispar}, limit=1),
-            importer_task,
-            _search_filter(client, RES_SCRAPPED, {"mispar_rechev": mispar}, limit=1),
-            _search_filter(client, RES_EMISSION_FILTER, {"mispar_rechev": mispar}, limit=1),
-            _search_filter(client, RES_SCRAPPED_2010, {"mispar_rechev": f"{mispar:08d}"}, limit=1),
-            _search_filter(client, RES_SCRAPPED_2000, {"mispar_rechev": f"{mispar:08d}"}, limit=1),
-            _search_filter(client, RES_ANCHOR_POINTS, {"mispar_rechev": mispar}, limit=1),
-            _search_filter(client, RES_SAFETY_DISCOUNT, {"mispar_rechev": mispar}, limit=1),
-        ]
-        (
-            ownership_records, wltp_records, recall_car_records,
+        # Needs the main record; model recalls are only used when the plate has no recall of its own
+        # (started speculatively — one cheap request — so they don't add a serial round-trip).
+        (wltp_records, importer_records, same_model_total, model_recalls), (
+            ownership_records, recall_car_records,
             tag_nache_records, inactive_records, inactive_nodeg_records,
-            import_records, importer_records, scrapped_records, filter_records,
+            import_records, scrapped_records, filter_records,
             scrapped_2010, scrapped_2000, anchor_records, safety_discount_records,
-        ) = await asyncio.gather(*tasks)
+        ) = await asyncio.gather(
+            asyncio.gather(_wltp_with_fallback(), importer_task, _same_model_count(),
+                           _fetch_model_recalls(client, record)),
+            side,
+        )
 
     if ownership_records:
         ownership_records.sort(key=lambda r: str(r.get("baalut_dt", "")))
@@ -273,12 +304,9 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
     if recall_car_records:
         record["_recalls"] = recall_car_records
         record["_recalls_by_plate"] = True
-    else:
-        async with httpx.AsyncClient(timeout=12, headers=GOV_HEADERS) as client:
-            model_recalls = await _fetch_model_recalls(client, record)
-        if model_recalls:
-            record["_recalls"] = model_recalls
-            record["_recalls_by_plate"] = False
+    elif model_recalls:
+        record["_recalls"] = model_recalls
+        record["_recalls_by_plate"] = False
 
     if tag_nache_records:
         t = tag_nache_records[0]
@@ -308,25 +336,6 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
     record["_anchor_points_required"] = bool(anchor_records)
     record["_safety_discount_eligible"] = bool(safety_discount_records)
 
-    # Same-model count — separate request after main gather to avoid throttling
-    _degem_cd   = str(record.get("degem_cd") or record.get("sug_degem") or "").strip()
-    _tozeret_cd = str(record.get("tozeret_cd") or "").strip()
-    if _degem_cd and _tozeret_cd:
-        try:
-            _filters = {"tozeret_cd": int(float(_tozeret_cd)), "degem_cd": int(float(_degem_cd))}
-            _shnat = record.get("shnat_yitzur")
-            if _shnat:
-                _filters["shnat_yitzur"] = _shnat
-            async with httpx.AsyncClient(timeout=15, headers=GOV_HEADERS) as client:
-                _r = await client.get(BASE_URL, params={
-                    "resource_id": RES_MAIN,
-                    "filters": json.dumps(_filters),
-                    "limit": 1,
-                })
-                _total = _r.json().get("result", {}).get("total")
-                if _total is not None:
-                    record["_same_model_count"] = _total
-        except Exception as exc:
-            logger.warning("same_model_count failed plate=%s: %s", clean, exc)
-
+    if same_model_total is not None:
+        record["_same_model_count"] = same_model_total
     return record
