@@ -28,7 +28,7 @@ WEBAPP_URL   = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_U
 # Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
 # webapp can detect a new release and force-reload instead of running stale
 # cached JS. Falls back to process start time for non-Render environments.
-APP_VERSION = "1792231771"
+APP_VERSION = "1792232087"
 
 api = FastAPI()
 
@@ -61,11 +61,12 @@ class _MiniAppMirrorMiddleware:
             await self.app(scope, receive, send_wrapper)
         finally:
             try:
-                init = next((v.decode("latin-1") for k, v in scope["headers"] if k == b"x-init-data"), "")
-                user = _validate_init_data(init) if init else None
-                if user:
-                    from src import mirror
-                    await mirror.record_miniapp(user, scope["method"], scope["path"], status["code"])
+                from src import mirror
+                if await mirror.miniapp_active():
+                    init = next((v.decode("latin-1") for k, v in scope["headers"] if k == b"x-init-data"), "")
+                    user = _validate_init_data(init) if init else None
+                    if user:
+                        await mirror.record_miniapp(user, scope["method"], scope["path"], status["code"])
             except Exception:
                 pass
 

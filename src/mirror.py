@@ -66,6 +66,7 @@ def invalidate() -> None:
 async def _config() -> dict:
     if time.time() - _cfg["at"] < CONFIG_TTL:
         return _cfg
+    _cfg["at"] = time.time()          # stamp first: concurrent callers reuse the cached value instead of piling up reads
     from src.db import get_bot_setting
     try:
         chat = (await get_bot_setting("mirror_chat_id")) or ""
@@ -128,7 +129,7 @@ def parse_topic_link(text: str) -> tuple[int, int | None] | None:
 _PLATE = r"(?P<p>[\w\-]{4,12})"
 # (method, path regex, {status: text}) — only meaningful user actions, not page views
 _MINIAPP_RULES: list[tuple[str, str, dict[int, str]]] = [
-    ("GET", rf"^/api/vehicle/{_PLATE}$", {200: "🔍 חיפש לוחית {p}", 403: "🔒 ניסה לחפש לוחית {p} — נגמרה המכסה", 404: "❓ חיפש לוחית {p} — לא נמצא"}),
+    ("GET", rf"^/api/vehicle/{_PLATE}$", {200: "🔍 חיפש לוחית {p}", 403: "🔒 חיפוש לוחית {p} נדחה (מכסה או חסימה)", 404: "❓ חיפש לוחית {p} — לא נמצא"}),
     ("GET", rf"^/api/vehicle/{_PLATE}/pdf$", {200: "📄 הוריד דוח PDF ללוחית {p}"}),
     ("GET", rf"^/api/vehicle/{_PLATE}/market-price$", {200: "💰 בדק מחיר שוק ללוחית {p}"}),
     ("POST", r"^/api/notes/(?P<p>[\w\-]{4,12})$", {200: "📝 שמר הערה ללוחית {p}"}),
@@ -156,6 +157,15 @@ def describe_api_call(method: str, path: str, status: int) -> str | None:
             if match and status in outcomes:
                 return outcomes[status].format(**match.groupdict())
     return None
+
+
+async def miniapp_active() -> bool:
+    """Cheap, cached check used by the API middleware before it validates initData."""
+    try:
+        cfg = await _config()
+        return bool(cfg["enabled"] and cfg["miniapp"])
+    except Exception:
+        return False
 
 
 async def record_miniapp(user: dict, method: str, path: str, status: int) -> None:
