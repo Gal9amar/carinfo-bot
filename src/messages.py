@@ -494,7 +494,7 @@ def package_details(name: str, label: str, desc: str, price) -> str:
         f"• {esc(desc)}\n"
         f"• מחיר: {b(f'₪{price}')}\n\n"
         f"{b('איך משלמים?')}\n"
-        "1️⃣ לוחצים על כפתור התשלום למטה (PayPal או PayBox)\n"
+        "1️⃣ לוחצים על כפתור התשלום למטה\n"
         "2️⃣ משלימים את התשלום\n"
         "3️⃣ חוזרים לכאן ולוחצים <b>שילמתי</b> לשליחת אישור\n\n"
         + quote("הגישה נפתחת לאחר אישור ידני של המנהל — בדרך כלל תוך מספר דקות ⏱️")
@@ -837,7 +837,7 @@ def admin_payment_request(who: str, user_id: int, label: str, price, ref: str = 
         f"🆔 ID: {code(user_id)}\n"
         f"📦 {esc(label)}\n"
         f"💵 ₪{esc(price)}{ref_line}\n\n"
-        "לאחר אימות התשלום ב-PayPal לחץ אשר 👇"
+        "לאחר אימות התשלום לחץ אשר 👇"
     )
 
 

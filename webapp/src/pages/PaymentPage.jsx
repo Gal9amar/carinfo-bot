@@ -80,7 +80,7 @@ export default function PaymentPage({ pkg, onBack }) {
           <div className="card-title">{pkg.label}</div>
           <div className="card-subtitle">{desc}</div>
         </div>
-        <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-1px' }}>₪{totalPrice}</div>
+        <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-1px', unicodeBidi: 'isolate', direction: 'ltr' }}>₪{totalPrice}</div>
       </div>
 
       {preparing ? (

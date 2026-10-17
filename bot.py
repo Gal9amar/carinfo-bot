@@ -2559,7 +2559,7 @@ def main() -> None:
 
     STATUS_HE = {
         'created':   '🆕 הזמנה חדשה',
-        'approved':  '✅ אושר בפייפאל',
+        'approved':  '✅ אושר',
         'captured':  '💳 חיוב בוצע',
         'completed': '🎉 הושלם',
         'failed':    '❌ נכשל',

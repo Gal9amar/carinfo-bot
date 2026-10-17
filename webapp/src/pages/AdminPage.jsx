@@ -3672,7 +3672,7 @@ function PaymentMethodModal({ method, onClose, onSaved }) {
       >
         <span style={{ minWidth: 0 }}>
           <span style={{ display: 'block', fontSize: 14, fontWeight: 700 }}>אישור ידני</span>
-          <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)' }}>{manual ? 'מנהל מאשר ידנית לאחר קבלת תשלום' : 'אישור אוטומטי מיידי (כגון PayPal API)'}</span>
+          <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)' }}>{manual ? 'מנהל מאשר ידנית לאחר קבלת תשלום' : 'אישור אוטומטי מיידי'}</span>
         </span>
         <span aria-hidden="true" style={{
           width: 44, height: 24, borderRadius: 12, transition: 'background 0.2s', flexShrink: 0,

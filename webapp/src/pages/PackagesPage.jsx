@@ -566,7 +566,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
                 display: 'flex', alignItems: 'baseline', justifyContent: 'center',
                 gap: 6, marginBottom: 12,
               }}>
-                <span style={{ fontSize: 40, fontWeight: 900, color: accent, lineHeight: 1 }}>
+                <span style={{ fontSize: 40, fontWeight: 900, color: accent, lineHeight: 1, unicodeBidi: 'isolate', direction: 'ltr' }}>
                   ₪{totalPrice}
                 </span>
                 {isUnlimited ? (
