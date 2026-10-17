@@ -62,6 +62,7 @@ export default function HomePage({ user, onNavigate, onSearchPlate }) {
     user?.show_watch && { id: 'orders', label: 'הזמנות' },
     { id: 'ticket',  label: 'תמיכה' },
     { id: 'privacy', label: 'פרטיות' },
+    { id: 'accessibility', label: 'נגישות' },
   ].filter(Boolean)
 
   return (

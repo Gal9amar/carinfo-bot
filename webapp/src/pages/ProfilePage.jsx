@@ -128,7 +128,7 @@ export default function ProfilePage({ user, onNavigate, onBack }) {
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginTop: 22 }}>
-        {[{ id: 'ticket', label: 'תמיכה' }, { id: 'privacy', label: 'פרטיות' }, { id: 'howItWorks', label: 'איך זה עובד' }].map(l => (
+        {[{ id: 'ticket', label: 'תמיכה' }, { id: 'privacy', label: 'פרטיות' }, { id: 'accessibility', label: 'נגישות' }, { id: 'howItWorks', label: 'איך זה עובד' }].map(l => (
           <button
             key={l.id}
             onClick={() => onNavigate(l.id)}

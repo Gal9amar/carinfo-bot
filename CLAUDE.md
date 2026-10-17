@@ -149,9 +149,9 @@ stats · users (+`/{id}/grant`, `/block`, `/message`, `/watch-quota`, `/revoke-s
 
 ## Frontend Navigation (App.jsx)
 
-Screen state machine (`screen` + `screenStack`; `navigate()` / `goBack()`; Telegram BackButton wired to `goBack`). Deep links: `?plate=X` (report) and `?page=privacy|howItWorks|history|ticket|referral|garage|garageHowItWorks|profile…`.
+Screen state machine (`screen` + `screenStack`; `navigate()` / `goBack()`; Telegram BackButton wired to `goBack`). Deep links: `?plate=X` (report) and `?page=privacy|accessibility|howItWorks|history|ticket|referral|garage|garageHowItWorks|profile…`.
 
-Screens: `loading`, `error`, `home`, `report`, `packages`, `payment`, `success`, `profile`, `orders`, `history`, `garage`, `garageHowItWorks`, `watches`, `referral`, `ticket`, `howItWorks`, `privacy`, `admin` (lazy). Admin panel is reached via **Profile → "פאנל ניהול"** (only if `user.is_admin`). `BottomNav` tabs: בית / חיפושים שלי / רכבים שקניתי / אזור אישי. The client polls `/api/version` and hard-reloads on change.
+Screens: `loading`, `error`, `home`, `report`, `packages`, `payment`, `success`, `profile`, `orders`, `history`, `garage`, `garageHowItWorks`, `watches`, `referral`, `ticket`, `howItWorks`, `privacy`, `accessibility`, `notFound`, `admin` (lazy). Admin panel is reached via **Profile → "פאנל ניהול"** (only if `user.is_admin`). `BottomNav` tabs: בית / חיפושים שלי / רכבים שקניתי / אזור אישי. The client polls `/api/version` and hard-reloads on change.
 
 ---
 

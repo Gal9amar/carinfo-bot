@@ -18,12 +18,14 @@ const loaders = {
   watches: () => import('./pages/WatchesPage.jsx'),
   garage: () => import('./pages/GaragePage.jsx'),
   garageHowItWorks: () => import('./pages/GarageHowItWorksPage.jsx'),
+  accessibility: () => import('./pages/AccessibilityPage.jsx'),
 }
 const AdminPage = lazy(() => import('./pages/AdminPage.jsx'))
 const ReportPage = lazy(loaders.report)
 const PackagesPage = lazy(loaders.packages)
 const PaymentPage = lazy(loaders.payment)
 const PrivacyPolicyPage = lazy(loaders.privacy)
+const AccessibilityPage = lazy(loaders.accessibility)
 const TicketPage = lazy(loaders.ticket)
 const HowItWorksPage = lazy(loaders.howItWorks)
 const ReferralPage = lazy(loaders.referral)
@@ -54,6 +56,7 @@ function AppInner() {
       return
     }
     if (page === 'privacy') { setScreen('privacy'); return }
+    if (page === 'accessibility') { setScreen('accessibility'); return }
     if (page === 'howItWorks') { setScreen('howItWorks'); return }
     if (page === 'history') { setScreen('history'); return }
     if (page === 'ticket') { setScreen('ticket'); return }
@@ -164,7 +167,15 @@ function AppInner() {
   if (screen === 'privacy') {
     return (
       <div key="privacy" className="page-enter">
-        <PrivacyPolicyPage onBack={goBack} onContact={() => navigate('ticket')} onNavigate={navigate} />
+        <PrivacyPolicyPage onBack={goBack} onContact={() => navigate('ticket')} onNavigate={navigate} onAccessibility={() => navigate('accessibility')} />
+      </div>
+    )
+  }
+
+  if (screen === 'accessibility') {
+    return (
+      <div key="accessibility" className="page-enter">
+        <AccessibilityPage onBack={goBack} onContact={() => navigate('ticket')} />
       </div>
     )
   }
