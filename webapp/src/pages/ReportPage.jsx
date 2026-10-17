@@ -396,6 +396,25 @@ function Sec({ title, children }) {
 
 // ── main component ────────────────────────────────────────────────────────────
 
+// Shared header of the premium cards: title on ONE line with the "subscribers only" badge beside it;
+// the optional public-mode explanation sits on its own line underneath (never squeezes the title).
+function PremiumHeader({ title, publicLabel }) {
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <div style={{ fontWeight: 700, fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{title}</div>
+        <span style={{
+          flexShrink: 0, fontSize: 11, fontWeight: 700, background: '#0066d6', color: '#fff',
+          borderRadius: 20, padding: '4px 10px', whiteSpace: 'nowrap',
+        }}>למנויים בלבד</span>
+      </div>
+      {publicLabel && (
+        <div style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--text-muted)', marginTop: 6 }}>{publicLabel}</div>
+      )}
+    </div>
+  )
+}
+
 export default function ReportPage({ plate, onBack, user, onNavigate }) {
   const [activeTab, setActiveTab] = useState('summary')
   const [record, setRecord] = useState(null)
@@ -653,21 +672,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
       <PremiumLock locked={locked} title="מחיר שוק – Yad2" publicLabel={marketData?.public_label} onNavigate={onNavigate}>
       <div className="card" style={locked ? { margin: 0 } : { marginBottom: 12 }} {...(locked ? {} : { 'aria-label': 'מחיר שוק', role: 'group' })}>
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-          <div>
-            <div style={{
-              display: 'inline-block', fontSize: 11, fontWeight: 700,
-              background: '#0066d6', color: '#fff',
-              borderRadius: 20, padding: '4px 10px', marginBottom: 6,
-            }}>למנויים בלבד</div>
-            <div style={{ fontWeight: 700, fontSize: 15 }}>💰 מחיר שוק – Yad2</div>
-          </div>
-          {!locked && marketData?.public_label && (
-            <div style={{ fontSize: 11, color: 'var(--hint)', textAlign: 'left', whiteSpace: 'nowrap' }}>
-              {marketData.public_label}
-            </div>
-          )}
-        </div>
+        <PremiumHeader title="💰 מחיר שוק – Yad2" publicLabel={!locked ? marketData?.public_label : ''} />
         {/* Stats — only values blurred for unauthorized users */}
         {[
           ['ממוצע שוק',  `₪${median.toLocaleString()}`],
@@ -724,21 +729,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
   const watchCard = (watchLocked || make) && (
     <PremiumLock locked={watchLocked} title="התראות יד2" publicLabel={user?.watch_public_label} onNavigate={onNavigate}>
     <div className="card" style={watchLocked ? { margin: 0 } : { marginBottom: 12 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-        <div>
-          <div style={{
-            display: 'inline-block', fontSize: 11, fontWeight: 700,
-            background: '#0066d6', color: '#fff',
-            borderRadius: 20, padding: '4px 10px', marginBottom: 6,
-          }}>למנויים בלבד</div>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>🔔 התראות יד2</div>
-        </div>
-        {!watchLocked && user?.watch_public_label && (
-          <div style={{ fontSize: 11, color: 'var(--hint)', textAlign: 'left', whiteSpace: 'nowrap' }}>
-            {user.watch_public_label}
-          </div>
-        )}
-      </div>
+      <PremiumHeader title="🔔 התראות יד2" publicLabel={!watchLocked ? user?.watch_public_label : ''} />
       <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 12 }}>
         קבל התראה בטלגרם כשתתווסף מודעה חדשה ל-Yad2 עבור <strong>{(watchLocked ? 'יונדאי i20 2019' : [make, model, year].filter(Boolean).join(' '))}</strong>
       </div>
@@ -830,21 +821,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
   const pdfCard = (
     <PremiumLock locked={!pdfAuthorized} title="דוח PDF" publicLabel={user?.pdf_public_label} onNavigate={onNavigate}>
     <div className="card" style={!pdfAuthorized ? { margin: 0 } : { marginBottom: 12 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-        <div>
-          <div style={{
-            display: 'inline-block', fontSize: 11, fontWeight: 700,
-            background: '#0066d6', color: '#fff',
-            borderRadius: 20, padding: '4px 10px', marginBottom: 6,
-          }}>למנויים בלבד</div>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>📄 דוח PDF</div>
-        </div>
-        {pdfAuthorized && user?.pdf_public_label && (
-          <div style={{ fontSize: 11, color: 'var(--hint)', textAlign: 'left', whiteSpace: 'nowrap' }}>
-            {user.pdf_public_label}
-          </div>
-        )}
-      </div>
+      <PremiumHeader title="📄 דוח PDF" publicLabel={pdfAuthorized ? user?.pdf_public_label : ''} />
       <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8, lineHeight: 1.5 }}>
         דוח PDF מלא כולל הערות אישיות — יישלח לצ'אט שלך לשמירה ולשיתוף.
       </div>
