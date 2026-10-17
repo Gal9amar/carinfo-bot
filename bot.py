@@ -36,7 +36,9 @@ from src.users import (
     log_sent_message,
     set_broadcast_consent, get_broadcast_consent,
 )
+from src.rich import rich_enabled, send_rich_message
 from src.formatter import (
+    quick_summary_rich,
     get_summary,
     get_share_text,
     yad2_label,
@@ -1800,12 +1802,16 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         )
         return
 
+    footer_text = ""
     if not is_repeat:
         if left == -1:
             from src.users import get_quota_expires
-            card += M.result_quota_footer(-1, await get_quota_expires(user_id))
+            expires = await get_quota_expires(user_id)
+            card += M.result_quota_footer(-1, expires)
+            footer_text = M.result_quota_text(-1, expires)
         elif left > 0:
             card += M.result_quota_footer(left - 1, None)
+            footer_text = M.result_quota_text(left - 1, None)
 
     if searching_msg:
         try:
@@ -1814,6 +1820,16 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             pass
 
     yad2_link = _yad2.build_url(record)
+    result_kb = build_result_keyboard(
+        is_admin=(user_id == ADMIN_ID), record=record, yad2_link=yad2_link,
+    )
+    # Table layout via sendRichMessage (opt-in, RICH_MESSAGES=1); any failure falls through to classic HTML.
+    if rich_enabled() and await send_rich_message(
+        update.effective_chat.id,
+        M.result_card_rich(name, plate, quick_summary_rich(record), footer_text),
+        reply_markup=result_kb,
+    ):
+        return
     try:
         await update.message.reply_text(
             card,

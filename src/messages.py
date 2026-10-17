@@ -289,14 +289,27 @@ def result_intro(name: str, plate: str) -> str:
     return f"🔖 {_n(name)}, הנה מה שמצאתי על לוחית {code(plate)}:\n\n"
 
 
-def result_quota_footer(left: int, expires: Optional[str]) -> str:
-    """Footer under a result card. left = remaining AFTER this search (or -1)."""
+def result_quota_text(left: int, expires: Optional[str]) -> str:
+    """Plain-text quota note under a result card. left = remaining AFTER this search (or -1)."""
     if left == -1:
         if expires:
-            return f"\n{i('♾️ מנוי חודשי פעיל — תוקף עד ' + _fmt_date(expires))}"
-        return f"\n{i('✅ גישה בלתי מוגבלת')}"
+            return '♾️ מנוי חודשי פעיל — תוקף עד ' + _fmt_date(expires)
+        return '✅ גישה בלתי מוגבלת'
     emoji = "🟢" if left > 5 else ("🟡" if left > 1 else "🔴")
-    return f"\n{i(f'{emoji} נותרו לך ' + _count(left, 'בדיקה אחת', 'בדיקות'))}"
+    return f'{emoji} נותרו לך ' + _count(left, 'בדיקה אחת', 'בדיקות')
+
+
+def result_quota_footer(left: int, expires: Optional[str]) -> str:
+    return f"\n{i(result_quota_text(left, expires))}"
+
+
+def result_card_rich(name: str, plate: str, summary_html: str, footer_text: str = "") -> str:
+    """Result card for sendRichMessage (summary_html is already Rich HTML)."""
+    footer = f"<p><i>{esc(footer_text)}</i></p>" if footer_text else ""
+    return (
+        f"<p>🔖 {b(name)}, הנה מה שמצאתי על לוחית {code(plate)}:</p>"
+        f"{summary_html}{footer}"
+    )
 
 
 def pdf_preparing(name: str) -> str:

@@ -46,6 +46,7 @@ carinfo-bot/
 │   ├── yad2_models.json   # manufacturer→model→Yad2 ID map
 │   ├── yad2_watcher.py     # new-listing alerts ("watches")
 │   ├── formatter.py        # vehicle data → Telegram text (HTML)
+│   ├── rich.py             # sendRichMessage client (tables), opt-in via RICH_MESSAGES
 │   ├── messages.py         # ALL user/admin bot copy: HTML builders, personal tone, first-name greeting
 │   ├── pdf_report.py       # PDF report (reportlab + python-bidi)
 │   ├── tickets.py  activity.py  cache.py(1h TTL)  
@@ -227,6 +228,7 @@ Seeded when table empty: 🔍 50 חיפושים ₪10 · 🔍 100 חיפושים
 | `YAD2_PROXY_URL`, `YAD2_PROXY_SECRET`, `YAD2_CF_WORKER_URL` | — | Israeli-IP proxy for Yad2 (secrets: set via env, don't commit) |
 | `PORT` | 8080 | Server port |
 | `LOGO_PATH`, `COVER_PATH` | — | PDF assets |
+| `RICH_MESSAGES` | 0 | `1` = send the lookup result card as a table via `sendRichMessage` (Bot API 10.1+, `src/rich.py`); any API failure falls back to the classic HTML card |
 
 `APP_VERSION` in `api.py` is a **hardcoded string** (comment about `RENDER_GIT_COMMIT` is outdated): bump it to force all clients to reload.
 

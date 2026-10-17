@@ -507,8 +507,8 @@ def cat_recalls(record: dict) -> str:
     return "".join(lines)
 
 
-def quick_summary(record: dict) -> str:
-    """Short summary block for the top of every result (HTML)."""
+def _summary_fields(record: dict) -> dict:
+    """Facts shown in the short summary, independent of rendering."""
     manufacturer = _val(record, "tozeret_nm")
     model        = _val(record, "kinuy_mishari", "degem_nm")
     year         = _val(record, "shnat_yitzur")
@@ -579,32 +579,70 @@ def quick_summary(record: dict) -> str:
     sug_delek  = _val(record, "sug_delek_nm") or _val(w, "sug_delek_nm")
     agra_str   = _agra_from_group(agra_group, shnat, sug_delek) if agra_group else ""
 
-    color_str = f" · {color}" if color else ""
-    header = f"🚗 <b>{_escape(manufacturer)} {_escape(model)}</b> {_escape(year)}{_escape(color_str)}"
+    return {
+        "title": f"{manufacturer} {model} {year}" + (f" · {color}" if color else ""),
+        "make_model": f"{manufacturer} {model}",
+        "rest_of_title": f"{year}" + (f" · {color}" if color else ""),
+        "owners": owner_count,
+        "baalut": baalut,
+        "km": km_str or "—",
+        "test": test_str,
+        "agra": agra_str,
+        "tag_nache": bool(tag_nache),
+        "personal_import": personal_imp,
+        "flags": [flag.lstrip("⚠️🚨📦 ") for flag in flags_plain],
+    }
 
+
+def quick_summary(record: dict) -> str:
+    """Short summary block for the top of every result (HTML parse mode)."""
+    f = _summary_fields(record)
+    header = f"🚗 <b>{_escape(f['make_model'])}</b> {_escape(f['rest_of_title'])}"
     lines = [
         f"{header}\n",
         "\n",
-        f"👥 {_escape(str(owner_count))} {_escape('בעלים')}\n",
-        f"🏷 <b>{_escape('בעלות נוכחית')}:</b> {_escape(baalut)}\n",
-        f"🛣 {_escape(km_str or '—')}\n",
-        f"📅 <b>{_escape('טסט')}:</b> {_escape(test_str)}\n",
+        f"👥 {_escape(str(f['owners']))} {_escape('בעלים')}\n",
+        f"🏷 <b>{_escape('בעלות נוכחית')}:</b> {_escape(f['baalut'])}\n",
+        f"🛣 {_escape(f['km'])}\n",
+        f"📅 <b>{_escape('טסט')}:</b> {_escape(f['test'])}\n",
     ]
-
-    if agra_str:
-        lines.append(f"📋 <b>{_escape('אגרת רישוי')}:</b> {_escape(agra_str)}\n")
+    if f["agra"]:
+        lines.append(f"📋 <b>{_escape('אגרת רישוי')}:</b> {_escape(f['agra'])}\n")
         lines.append(f"<i>{_escape('הסכום המדויק מופיע ברשיון הרכב')}</i>\n")
-    if tag_nache:
+    if f["tag_nache"]:
         lines.append(f"♿ <b>{_escape('תו נכה')}:</b> ✅\n")
-    if personal_imp:
+    if f["personal_import"]:
         lines.append(f"📦 <b>{_escape('יבוא אישי')}:</b> ✅\n")
-
-    if flags_plain:
+    if f["flags"]:
         lines.append("\n")
-        flags_html = "\n".join(f"⚠️ {_escape(flag.lstrip('⚠️🚨📦 '))}" for flag in flags_plain)
+        flags_html = "\n".join(f"⚠️ {_escape(flag)}" for flag in f["flags"])
         lines.append(f"<blockquote>{flags_html}</blockquote>\n")
-
     return "".join(lines)
+
+
+def quick_summary_rich(record: dict) -> str:
+    """Same facts as quick_summary, as a table in Rich HTML (sendRichMessage)."""
+    f = _summary_fields(record)
+    rows = [
+        ("👥 בעלים", str(f["owners"])),
+        ("🏷 בעלות נוכחית", f["baalut"] or "—"),
+        ("🛣 קילומטראז'", f["km"]),
+        ("📅 טסט", f["test"]),
+    ]
+    if f["agra"]:
+        rows.append(("📋 אגרת רישוי (משוער)", f["agra"]))
+    if f["tag_nache"]:
+        rows.append(("♿ תו נכה", "✅"))
+    if f["personal_import"]:
+        rows.append(("📦 יבוא אישי", "✅"))
+    body = "".join(f"<tr><td>{_escape(k)}</td><td>{_escape(v)}</td></tr>" for k, v in rows)
+    out = (
+        f"<h3>🚗 {_escape(f['make_model'])} {_escape(f['rest_of_title'])}</h3>"
+        f"<table bordered striped><tr><th>נתון</th><th>פירוט</th></tr>{body}</table>"
+    )
+    if f["flags"]:
+        out += "<blockquote>" + "<br>".join(f"⚠️ {_escape(flag)}" for flag in f["flags"]) + "</blockquote>"
+    return out
 
 
 def get_share_text(record: dict) -> str:
