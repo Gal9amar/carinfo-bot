@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { getPlan, formatPlanExpiry, daysLeftLabel, planIcon } from '../utils/plan.js'
 import BackButton from '../components/BackButton.jsx'
 import PageBanners from '../components/PageBanners.jsx'
 import { fetchProducts } from '../api.js'
@@ -38,8 +39,9 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
   function handleSelect(pkg) { onSelect(pkg) }
   function handleSelectProduct(p, qty = 1) { onSelect({ ...p, label: p.name, _isProduct: true, _qty: qty }) }
 
-  const isFreeUser = user && !user.is_subscriber
-  const subLabel   = user?.subscription_label || null
+  const plan       = getPlan(user)
+  const isFreeUser = !!plan?.isFree
+  const subLabel   = plan?.kind === 'searches' ? plan.name : null
 
   const freePackage    = packages.find(p => p.searches === 0 && (p.package_type ?? 'searches') === 'searches')
   const alertPackages  = packages.filter(p => p.package_type === 'alerts')
@@ -52,20 +54,25 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
 
       <PageBanners page="packages" onNavigate={onNavigate} />
 
-      {user && (
-        <div className="card" style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 14, color: 'var(--text-main)', marginBottom: user.is_subscriber ? 10 : 0 }}>
-            שלום {user.first_name} · נותרו לך{' '}
-            <strong style={{ color: 'var(--primary)', fontSize: 16 }}>{user.searches_left === -1 ? '∞' : user.searches_left}</strong> חיפושים
+      {user && plan && (
+        <div className="card" style={{ marginBottom: 16 }} aria-label="המסלול שלך">
+          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+            {user.first_name ? `שלום ${user.first_name} · ` : ''}המסלול שלך
           </div>
-          {user.is_subscriber && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 4 }}>
+            <span style={{ fontWeight: 800, fontSize: 17, minWidth: 0, overflowWrap: 'anywhere' }}>
+              <span aria-hidden="true">{planIcon(plan)} </span>{plan.name}
+            </span>
+            <span style={{ flexShrink: 0, fontSize: 13, color: 'var(--text-muted)' }}>
+              <strong style={{ color: 'var(--primary)', fontSize: 18 }}>{user.searches_left === -1 ? '∞' : (user.searches_left ?? 0)}</strong> חיפושים
+            </span>
+          </div>
+          {plan.expires && (
             <div style={{
-              fontSize: 13, fontWeight: 500,
-              background: 'linear-gradient(135deg, var(--primary), #0b6fc2)',
-              color: '#fff', borderRadius: 12, padding: '8px 12px',
-              lineHeight: 1.4, display: 'inline-block'
+              marginTop: 8, fontSize: 13, lineHeight: 1.5,
+              color: plan.expiringSoon ? '#b45309' : 'var(--text-main)', fontWeight: plan.expiringSoon ? 700 : 500,
             }}>
-              {user.subscription_label || 'מנוי'}
+              {plan.expiringSoon ? '⚠️ ' : ''}בתוקף עד <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>{formatPlanExpiry(plan.expires)}</span> · {daysLeftLabel(plan.daysLeft)}
             </div>
           )}
         </div>
@@ -254,7 +261,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
         const freeGrad   = 'linear-gradient(135deg,#1b4332,#2d6a4f)'
         const searchesLeft = user?.searches_left ?? 0
         return (
-          <div style={{
+          <div aria-current={isFreeUser ? 'true' : undefined} style={{
             borderRadius: 20, overflow: 'hidden', marginBottom: 22,
             boxShadow: isFreeUser
               ? '0 4px 18px rgba(20,60,120,0.08), 0 0 0 2px #2e7d32'
@@ -266,7 +273,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
                 background: 'linear-gradient(90deg,#2e7d32,#2e7d32)',
                 padding: '6px 14px', fontSize: 12, fontWeight: 700, color: '#fff',
                 display: 'flex', alignItems: 'center', gap: 6,
-              }}>✓ המנוי שלך כרגע</div>
+              }}>✓ המסלול הנוכחי שלך</div>
             )}
 
             {/* Hero */}
@@ -344,14 +351,30 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
 
             {/* CTA */}
             <div style={{ padding: '10px 14px 16px' }}>
-              <button
-                onClick={onReferral}
-                style={{
-                  width: '100%', padding: '14px 0', border: 'none', borderRadius: 14,
-                  background: freeGrad, color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer',
-                  boxShadow: '0 4px 14px rgba(20,60,120,0.2)',
-                }}
-              >🤝 קבל עוד חיפושים חינם</button>
+              {isFreeUser ? (
+                <>
+                  <div style={{
+                    width: '100%', padding: '14px 0', borderRadius: 14, textAlign: 'center',
+                    background: 'rgba(0,100,200,0.08)', color: 'var(--text-main)', fontSize: 15, fontWeight: 700,
+                  }}>✓ המסלול הפעיל</div>
+                  <button
+                    onClick={onReferral}
+                    style={{
+                      width: '100%', minHeight: 44, marginTop: 8, border: 'none', background: 'none',
+                      color: 'var(--primary)', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                    }}
+                  >🤝 קבלו עוד חיפושים חינם</button>
+                </>
+              ) : (
+                <button
+                  onClick={onReferral}
+                  style={{
+                    width: '100%', padding: '14px 0', border: 'none', borderRadius: 14,
+                    background: freeGrad, color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer',
+                    boxShadow: '0 4px 14px rgba(20,60,120,0.2)',
+                  }}
+                >🤝 קבל עוד חיפושים חינם</button>
+              )}
             </div>
           </div>
         )
@@ -377,11 +400,13 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
         const grad   = 'linear-gradient(135deg,#1e40af,#0b6fc2)'
         const accent = '#0066d6'
 
-        const isCurrentPlan = user?.is_subscriber && subLabel &&
-          (subLabel === pkg.label || subLabel.startsWith(pkg.label + ' ×'))
+        const isCurrentPlan = !!plan && (plan.isPremium
+          ? isUnlimited && pkg.id === paidPackages.find(p => p.searches === -1)?.id
+          : !!subLabel && (subLabel === pkg.label || subLabel.startsWith(pkg.label + ' ×')))
+        const isFixedActive = isCurrentPlan && plan.isFixed
 
         return (
-          <div key={pkg.id} style={{
+          <div key={pkg.id} aria-current={isCurrentPlan ? 'true' : undefined} style={{
             borderRadius: 20, overflow: 'hidden', marginBottom: 22,
             boxShadow: isCurrentPlan
               ? '0 4px 18px rgba(20,60,120,0.08), 0 0 0 2px #2e7d32'
@@ -394,7 +419,16 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
               background: 'linear-gradient(90deg,#2e7d32,#2e7d32)',
               padding: '6px 14px', fontSize: 12, fontWeight: 700, color: '#fff',
               display: 'flex', alignItems: 'center', gap: 6,
-            }}>✓ המנוי שלך כרגע</div>
+            }}>{plan.isPremium ? '✓ המסלול הפעיל שלך ✓' : '✓ המסלול הנוכחי שלך'}</div>
+          )}
+          {isCurrentPlan && plan.expires && (
+            <div style={{
+              padding: '8px 14px', fontSize: 13, fontWeight: 600, lineHeight: 1.5,
+              background: plan.expiringSoon ? 'rgba(255,149,0,0.14)' : 'rgba(46,125,50,0.08)',
+              color: plan.expiringSoon ? '#b45309' : '#1b5e20',
+            }}>
+              {plan.expiringSoon ? '⚠️ ' : ''}בתוקף עד <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>{formatPlanExpiry(plan.expires)}</span> · {daysLeftLabel(plan.daysLeft)}
+            </div>
           )}
 
             {/* ── Hero ── */}
@@ -498,6 +532,12 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
                   <span style={{ fontSize: 12, color: 'var(--hint)' }}>({qty} × ₪{pkg.price})</span>
                 )}
               </div>
+              {isFixedActive ? (
+                <div style={{
+                  width: '100%', padding: '14px 0', borderRadius: 14, textAlign: 'center',
+                  background: 'rgba(46,125,50,0.1)', color: '#1b5e20', fontSize: 15, fontWeight: 700,
+                }}>✓ המסלול פעיל — אין צורך ברכישה</div>
+              ) : (
               <button
                 onClick={() => handleSelect(pkg)}
                 style={{
@@ -508,7 +548,8 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
                   boxShadow: `0 4px 14px rgba(20,60,120,0.2)`,
                   letterSpacing: 0.4,
                 }}
-              >🛒 רכישת חבילה</button>
+              >{isCurrentPlan && plan.isPremium ? '🔄 הארכת המסלול' : '🛒 רכישת חבילה'}</button>
+              )}
             </div>
           </div>
         )
