@@ -16,7 +16,7 @@ from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
 BOT_TOKEN    = os.environ.get("TELEGRAM_BOT_TOKEN", "")
@@ -29,7 +29,7 @@ WEBAPP_URL   = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_U
 # Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
 # webapp can detect a new release and force-reload instead of running stale
 # cached JS. Falls back to process start time for non-Render environments.
-APP_VERSION = "1792235544"
+APP_VERSION = "1792235583"
 
 api = FastAPI()
 
@@ -2582,11 +2582,33 @@ _DIST = os.path.join(os.path.dirname(__file__), "webapp", "dist")
 
 api.mount("/uploads", StaticFiles(directory=_UPLOADS_DIR), name="uploads")
 
+_NOT_FOUND_HTML = """<!doctype html>
+<html lang="he" dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>404 - הדף לא נמצא</title>
+<style>
+:root{--bg:#f4f6fb;--fg:#0f172a;--mut:#64748b;--ac:#2563eb}
+@media (prefers-color-scheme:dark){:root{--bg:#0b1220;--fg:#e5e7eb;--mut:#94a3b8;--ac:#60a5fa}}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",Heebo,sans-serif;text-align:center;padding:16px;box-sizing:border-box}
+h1{font-size:72px;margin:0;color:var(--ac)}p{color:var(--mut);margin:8px 0 24px}
+a{display:inline-block;background:var(--ac);color:#fff;text-decoration:none;padding:12px 28px;border-radius:14px;font-weight:600}
+</style></head><body><main><div style="font-size:48px">🚗</div><h1>404</h1>
+<p>הדף שחיפשת לא נמצא</p><a href="/">חזרה לדף הבית</a></main></body></html>"""
+
 if os.path.isdir(_DIST):
     api.mount("/assets", StaticFiles(directory=os.path.join(_DIST, "assets")), name="assets")
 
     @api.get("/{full_path:path}")
     async def serve_spa(full_path: str):
+        if full_path == "api" or full_path.startswith("api/"):
+            return JSONResponse({"detail": "Not Found"}, status_code=404)
+        if full_path not in ("", "index.html"):
+            # The SPA has no client-side routes: anything but "/" is a static
+            # file from dist (public assets) or a real 404.
+            candidate = os.path.realpath(os.path.join(_DIST, full_path))
+            if candidate.startswith(os.path.realpath(_DIST) + os.sep) and os.path.isfile(candidate):
+                return FileResponse(candidate)
+            return HTMLResponse(_NOT_FOUND_HTML, status_code=404, headers={"Cache-Control": "no-store"})
         # index.html must never be cached — it references the current
         # content-hashed JS/CSS bundle. A cached stale index.html is what
         # causes clients to keep running an old build after a deploy.

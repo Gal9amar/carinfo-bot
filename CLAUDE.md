@@ -127,7 +127,7 @@ Created idempotently at startup (`init_db()` in `src/db.py` plus per-module `ini
 
 ## API Endpoints (api.py)
 
-Auth: header `X-Init-Data` = Telegram WebApp initData, HMAC-validated with the bot token (`_get_user`, 401 if invalid). Admin = `user.id == ADMIN_TELEGRAM_ID` (`_require_admin`, 403). Handlers use lazy `from src.x import …`. The SPA catch-all must stay the **last** route.
+Auth: header `X-Init-Data` = Telegram WebApp initData, HMAC-validated with the bot token (`_get_user`, 401 if invalid). Admin = `user.id == ADMIN_TELEGRAM_ID` (`_require_admin`, 403). Handlers use lazy `from src.x import …`. The SPA catch-all must stay the **last** route; it returns JSON 404 for unknown `/api/*`, serves real files from `webapp/dist`, and an HTML 404 page (`_NOT_FOUND_HTML`) for any other path. In the app an unknown `?page=` shows the `notFound` screen.
 
 ### Public
 `GET /health` (also HEAD) · `/api/version` (APP_VERSION, no-store) · `/api/packages` · `/api/payment-methods` · `/api/banners?page=` · `/api/products` · `GET /api/payment/cancel/{ref}` · `/yad2?secret=…&manufacturer=&model=&year=` (Yad2 proxy, secret-gated)

@@ -72,6 +72,8 @@ function AppInner() {
       return
     }
 
+    if (page) { setScreen('notFound'); return }   // unknown ?page=… deep link
+
     // Show Home immediately; user and packages load in parallel and fill in
     // as they arrive (neither blocks first paint).
     setScreen('home')
@@ -137,7 +139,7 @@ function AppInner() {
   useEffect(() => {
     const tg = window.Telegram?.WebApp
     if (!tg?.BackButton) return
-    if (screen === 'home' || screen === 'loading') {
+    if (screen === 'home' || screen === 'loading' || screen === 'notFound') {
       tg.BackButton.hide()
     } else {
       tg.BackButton.show()
@@ -254,6 +256,23 @@ function AppInner() {
     return (
       <div key="watches" className="page-enter">
         <WatchesPage onBack={goBack} onPackages={() => navigate('packages')} user={user} onNavigate={navigate} />
+      </div>
+    )
+  }
+
+  if (screen === 'notFound') {
+    return (
+      <div className="page">
+        <div className="card" style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 48 }}>🚗</div>
+          <div style={{ fontSize: 48, fontWeight: 800 }}>404</div>
+          <div style={{ margin: '8px 0 16px' }}>הדף שחיפשת לא נמצא</div>
+          <button className="btn" style={{ marginTop: 0 }} onClick={() => {
+            window.history.replaceState(null, '', window.location.pathname)
+            setScreen('home')
+            loadHome()
+          }}>חזרה לדף הבית</button>
+        </div>
       </div>
     )
   }
