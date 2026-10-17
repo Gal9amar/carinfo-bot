@@ -2696,6 +2696,44 @@ def main() -> None:
         except Exception as e:
             logger.warning("Test reminders job error: %s", e)
 
+    async def _scheduled_broadcast_job(context):
+        """Send broadcasts whose scheduled time has come; tell the admin how they went."""
+        from src import scheduled_broadcast as sb
+        try:
+            for row in await sb.sweep():
+                why = "עבר יותר מדי זמן מהמועד (הבוט היה כבוי) ולכן לא נשלח" if row["status"] == "missed" else "הבוט נעצר באמצע השליחה ולכן לא נשלח שוב אוטומטית"
+                await context.bot.send_message(
+                    ADMIN_ID, f"⚠️ שידור מתוזמן #{row['id']} לא נשלח: {why}.\n\n{M.esc(row['message'][:200])}", parse_mode=HTML,
+                )
+            for row in await sb.claim_due():
+                try:
+                    if row["image_b64"]:
+                        result = await _do_broadcast_photo(row["message"], row["image_b64"])
+                    else:
+                        result = await _do_broadcast(row["message"])
+                    await sb.finish(row["id"], "sent", result.get("sent", 0), result.get("failed", 0))
+                    from src.db import execute as _exec
+                    await _exec(
+                        "INSERT INTO broadcast_history (message, has_image, sent, failed) VALUES (?, ?, ?, ?)",
+                        [row["message"], 1 if row["image_b64"] else 0, result.get("sent", 0), result.get("failed", 0)],
+                    )
+                    try:
+                        from src.activity import log as _log
+                        await _log("broadcast", f"שידור מתוזמן נשלח: {row['message'][:80]}")
+                    except Exception:
+                        pass
+                    await context.bot.send_message(
+                        ADMIN_ID,
+                        f"📢 השידור המתוזמן #{row['id']} נשלח: {result.get('sent', 0)} משתמשים"
+                        + (f", נכשל: {result.get('failed', 0)}" if result.get("failed") else ""),
+                    )
+                except Exception as exc:
+                    logger.error("scheduled broadcast %s failed: %s", row["id"], exc)
+                    await sb.finish(row["id"], "failed")
+                    await context.bot.send_message(ADMIN_ID, f"❌ השידור המתוזמן #{row['id']} נכשל: {type(exc).__name__}")
+        except Exception as exc:
+            logger.warning("Scheduled broadcast job error: %s", exc)
+
     async def _expire_subscriptions_job(context):
         try:
             expired = await expire_subscriptions()
@@ -2720,6 +2758,7 @@ def main() -> None:
             await mirror.flush(context.bot)
 
         app.job_queue.run_repeating(_mirror_flush_job, interval=3, first=6, name="mirror_flush")
+        app.job_queue.run_repeating(_scheduled_broadcast_job, interval=30, first=20, name="scheduled_broadcast")
         app.job_queue.run_daily(
             _test_reminders_job,
             time=_dt.time(hour=7, minute=0, tzinfo=_dt.timezone.utc),   # 10:00 Israel (summer)

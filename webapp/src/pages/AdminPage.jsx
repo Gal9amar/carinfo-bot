@@ -12,7 +12,7 @@ import {
   adminFetchTickets, adminFetchTicket, adminReplyTicket, adminUpdateTicketStatus,
   adminFetchPayments, adminApprovePayment, adminDeclinePayment,
   adminFetchCodes, adminCreateCode, adminDeleteCode,
-  adminBroadcast, adminFetchBroadcastHistory,
+  adminBroadcast, adminFetchBroadcastHistory, adminFetchScheduledBroadcasts, adminCancelScheduledBroadcast,
   adminToggleBlock,
   adminSendUserMessage,
   adminFetchUserHistory,
@@ -4418,13 +4418,34 @@ function BroadcastTab() {
   const [sending, setSending]     = useState(false)
   const [history, setHistory]     = useState(null)
   const [viewing, setViewing]     = useState(null)
+  const [schedule, setSchedule]   = useState(false)
+  const [when, setWhen]           = useState('')          // datetime-local value, device time
+  const [scheduled, setScheduled] = useState(null)
   const fileRef                   = useRef()
 
   async function loadHistory() {
     try { setHistory(await adminFetchBroadcastHistory()) } catch { setHistory([]) }
+    try { setScheduled(await adminFetchScheduledBroadcasts()) } catch { setScheduled([]) }
   }
 
   useEffect(() => { loadHistory() }, [])
+
+  // earliest selectable time = now + 1 minute, in the datetime-local format
+  function minWhen() {
+    const d = new Date(Date.now() + 60_000)
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset())
+    return d.toISOString().slice(0, 16)
+  }
+
+  const SCHEDULE_STATUS = { pending: '⏳ ממתין', sending: '📤 נשלח כעת', sent: '✅ נשלח', cancelled: '🚫 בוטל', missed: '⚠️ הוחמץ', interrupted: '⚠️ הופסק', failed: '❌ נכשל' }
+
+  async function cancelScheduled(item) {
+    window.Telegram?.WebApp?.showConfirm('לבטל את השידור המתוזמן?', async ok => {
+      if (!ok) return
+      try { await adminCancelScheduledBroadcast(item.id); await loadHistory() }
+      catch { window.Telegram?.WebApp?.showAlert('לא ניתן לבטל — ייתכן שהשידור כבר נשלח') }
+    })
+  }
 
   function handleFile(e) {
     const file = e.target.files?.[0]
@@ -4451,17 +4472,34 @@ function BroadcastTab() {
 
   async function send() {
     if (!msg.trim()) return
+    let sendAt = null
+    if (schedule) {
+      const d = when ? new Date(when) : null
+      if (!d || isNaN(d) || d.getTime() < Date.now() + 30_000) {
+        window.Telegram?.WebApp?.showAlert('בחר תאריך ושעה עתידיים לשידור')
+        return
+      }
+      sendAt = d.toISOString()
+    }
+    const question = sendAt
+      ? `לתזמן את ההודעה ל-${fmtDateTime(sendAt)}?\n\n"${msg.slice(0, 80)}"`
+      : `לשלוח הודעה לכל המשתמשים?\n\n"${msg.slice(0, 80)}"`
     window.Telegram?.WebApp?.showConfirm(
-      `לשלוח הודעה לכל המשתמשים?\n\n"${msg.slice(0, 80)}"`,
+      question,
       async ok => {
         if (!ok) return
         setSending(true)
         try {
-          const res = await adminBroadcast(msg.trim(), imageb64)
-          window.Telegram?.WebApp?.showAlert(`✅ נשלח ל-${res.sent} משתמשים${res.failed ? `, נכשל: ${res.failed}` : ''}`)
+          const res = await adminBroadcast(msg.trim(), imageb64, sendAt)
+          if (res.scheduled) {
+            window.Telegram?.WebApp?.showAlert(`⏰ השידור תוזמן ל-${fmtDateTime(res.send_at)}`)
+            setSchedule(false); setWhen('')
+          } else {
+            window.Telegram?.WebApp?.showAlert(`✅ נשלח ל-${res.sent} משתמשים${res.failed ? `, נכשל: ${res.failed}` : ''}`)
+          }
           setMsg(''); clearImage()
           await loadHistory()
-        } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+        } catch (e) { window.Telegram?.WebApp?.showAlert(e?.message && e.message !== 'Failed' ? e.message : 'שגיאה') }
         setSending(false)
       }
     )
@@ -4487,7 +4525,7 @@ function BroadcastTab() {
         <textarea
           className="input"
           rows={5}
-          placeholder="כתוב את ההודעה שתשלח לכלל המשתמשים בבוט (תומך בעיצוב Markdown)..."
+          placeholder="כתוב את ההודעה שתשלח לכלל המשתמשים בבוט (טקסט פשוט — כל משתמש יקבל אותה עם ברכה בשמו הפרטי)..."
           value={msg}
           onChange={e => setMsg(e.target.value)}
           style={{ resize: 'vertical', fontFamily: 'inherit', borderRadius: 12, marginBottom: 16, fontSize: 14 }}
@@ -4529,10 +4567,54 @@ function BroadcastTab() {
           <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
         </div>
 
-        <button className="btn" disabled={sending || !msg.trim()} onClick={send} style={{ width: '100%', margin: 0, height: 50, borderRadius: 12, fontSize: 15, fontWeight: 800, background: 'var(--primary)', color: '#fff', boxShadow: '0 4px 12px rgba(0, 122, 255, 0.2)' }}>
-          {sending ? '⏳ מבצע שליחה המונית...' : '🚀 שלח הודעה לכולם עכשיו'}
+        {/* Scheduling */}
+        <label style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: schedule ? 10 : 16, cursor: 'pointer', fontSize: 14, fontWeight: 800, color: 'var(--text-main)' }}>
+          <input type="checkbox" checked={schedule} onChange={e => setSchedule(e.target.checked)} style={{ width: 20, height: 20 }} />
+          ⏰ תזמן לשעה מאוחרת
+        </label>
+        {schedule && (
+          <div style={{ marginBottom: 16 }}>
+            <input
+              type="datetime-local" className="input" value={when} min={minWhen()}
+              onChange={e => setWhen(e.target.value)} aria-label="תאריך ושעה לשידור"
+              style={{ width: '100%', borderRadius: 12, fontSize: 15, direction: 'ltr', textAlign: 'right' }}
+            />
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
+              {when && !isNaN(new Date(when)) ? `יישלח ב-${fmtDateTime(new Date(when).toISOString())} (שעון ישראל)` : 'בחר תאריך ושעה. השידור נשלח אוטומטית, גם אם האפליקציה סגורה.'}
+            </div>
+          </div>
+        )}
+
+        <button className="btn" disabled={sending || !msg.trim() || (schedule && !when)} onClick={send} style={{ width: '100%', margin: 0, height: 50, borderRadius: 12, fontSize: 15, fontWeight: 800, background: 'var(--primary)', color: '#fff', boxShadow: '0 4px 12px rgba(0, 122, 255, 0.2)' }}>
+          {sending ? (schedule ? '⏳ מתזמן...' : '⏳ מבצע שליחה המונית...') : (schedule ? '⏰ תזמן שידור' : '🚀 שלח הודעה לכולם עכשיו')}
         </button>
       </div>
+
+      {/* Scheduled broadcasts */}
+      {scheduled && scheduled.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-main)', marginBottom: 12 }}>⏰ שידורים מתוזמנים</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {scheduled.map(s => (
+              <div key={s.id} className="card" style={{ padding: 14, borderRadius: 12, borderLeft: `4px solid ${s.status === 'pending' ? '#f59e0b' : s.status === 'sent' ? '#10b981' : '#9ca3af'}` }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', marginBottom: 6 }}>
+                  <span style={{ fontSize: 13, fontWeight: 800 }}>{SCHEDULE_STATUS[s.status] || s.status}</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{fmtDateTime(s.send_at)}</span>
+                </div>
+                <div style={{ fontSize: 14, color: 'var(--text-main)', lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                  {s.has_image ? '🖼️ ' : ''}{s.message}
+                </div>
+                {s.status === 'sent' && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>נשלח ל-{s.sent}{s.failed ? `, נכשל: ${s.failed}` : ''}</div>}
+                {s.status === 'pending' && (
+                  <button className="btn" onClick={() => cancelScheduled(s)} style={{ margin: '10px 0 0', height: 36, padding: '0 14px', fontSize: 13, borderRadius: 10, background: 'transparent', color: 'var(--danger)', border: '1px solid var(--danger)' }}>
+                    🚫 בטל תזמון
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* History */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>

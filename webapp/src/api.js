@@ -480,10 +480,26 @@ export async function adminFetchBroadcastHistory() {
   return r.json()
 }
 
-export async function adminBroadcast(message, image_b64 = '') {
+export async function adminBroadcast(message, image_b64 = '', send_at = null) {
   const r = await fetch(`${BASE}/api/admin/broadcast`, {
-    method: 'POST', headers: headers(), body: JSON.stringify({ message, image_b64 }),
+    method: 'POST', headers: headers(), body: JSON.stringify({ message, image_b64, ...(send_at ? { send_at } : {}) }),
   })
+  if (!r.ok) {
+    let detail = ''
+    try { detail = (await r.json()).detail || '' } catch { /* ignore */ }
+    throw new Error(detail || 'Failed')
+  }
+  return r.json()
+}
+
+export async function adminFetchScheduledBroadcasts() {
+  const r = await fetch(`${BASE}/api/admin/broadcast/scheduled`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+export async function adminCancelScheduledBroadcast(id) {
+  const r = await fetch(`${BASE}/api/admin/broadcast/scheduled/${id}`, { method: 'DELETE', headers: headers() })
   if (!r.ok) throw new Error('Failed')
   return r.json()
 }

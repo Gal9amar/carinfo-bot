@@ -240,6 +240,20 @@ async def init_db() -> None:
     amount           REAL NOT NULL,
     created_at       TEXT NOT NULL DEFAULT (datetime('now'))
 )""")
+    migrations.append("""CREATE TABLE IF NOT EXISTS scheduled_broadcasts (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    message    TEXT NOT NULL,
+    image_b64  TEXT NOT NULL DEFAULT '',
+    send_at    TEXT NOT NULL,
+    status     TEXT NOT NULL DEFAULT 'pending',
+    sent       INTEGER NOT NULL DEFAULT 0,
+    failed     INTEGER NOT NULL DEFAULT 0,
+    created_by INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    claimed_at TEXT,
+    claim_token TEXT,
+    sent_at    TEXT
+)""")
     migrations.append("""CREATE TABLE IF NOT EXISTS test_reminders (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id      INTEGER NOT NULL,
@@ -270,6 +284,7 @@ async def init_db() -> None:
         "CREATE INDEX IF NOT EXISTS idx_ove_owned  ON owned_vehicle_expenses(owned_vehicle_id)",
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_ov_active_unique ON owned_vehicles(user_id, plate) WHERE status='owned'",
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_tr_user_plate ON test_reminders(user_id, plate)",
+        "CREATE INDEX IF NOT EXISTS idx_sb_status_time ON scheduled_broadcasts(status, send_at)",
         "CREATE INDEX IF NOT EXISTS idx_yw_user    ON yad2_watches(user_id)",
         "CREATE INDEX IF NOT EXISTS idx_tickets_user ON tickets(user_id)",
         "CREATE INDEX IF NOT EXISTS idx_tr_ticket  ON ticket_replies(ticket_id)",

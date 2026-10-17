@@ -28,7 +28,7 @@ WEBAPP_URL   = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_U
 # Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
 # webapp can detect a new release and force-reload instead of running stale
 # cached JS. Falls back to process start time for non-Render environments.
-APP_VERSION = "1792232087"
+APP_VERSION = "1792233916"
 
 api = FastAPI()
 
@@ -1977,14 +1977,33 @@ async def admin_delete_code(code: str, _: dict = Depends(_require_admin)):
 class BroadcastBody(BaseModel):
     message: str
     image_b64: str = ""
+    send_at: str | None = None   # ISO-8601 timestamp; when set the broadcast is scheduled instead of sent now
 
 
 @api.post("/api/admin/broadcast")
-async def admin_broadcast(body: BroadcastBody, _: dict = Depends(_require_admin)):
+async def admin_broadcast(body: BroadcastBody, admin: dict = Depends(_require_admin)):
     from src.db import execute as _db_execute
     msg = body.message.strip()[:2000]
     if not msg:
         raise HTTPException(status_code=400, detail="Empty message")
+    if body.send_at:
+        from src import scheduled_broadcast as sb
+        try:
+            when = sb.parse_when(body.send_at)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="invalid send_at")
+        problem = sb.validate_when(when)
+        if problem:
+            raise HTTPException(status_code=400, detail=problem)
+        if len(body.image_b64) > sb.MAX_IMAGE_CHARS:
+            raise HTTPException(status_code=413, detail="image too large")
+        row = await sb.create(msg, body.image_b64, when, admin["id"])
+        try:
+            from src.activity import log as _log
+            await _log("broadcast", f"שידור תוזמן ל-{row['send_at']} UTC: {msg[:60]}")
+        except Exception:
+            pass
+        return {"ok": True, "scheduled": True, **sb.public(row)}
     if body.image_b64:
         from src.notifier import notify_broadcast_photo
         result = await notify_broadcast_photo(msg, body.image_b64)
@@ -2004,6 +2023,20 @@ async def admin_broadcast(body: BroadcastBody, _: dict = Depends(_require_admin)
     except Exception:
         pass
     return result
+
+
+@api.get("/api/admin/broadcast/scheduled")
+async def admin_broadcast_scheduled(_: dict = Depends(_require_admin)):
+    from src import scheduled_broadcast as sb
+    return [sb.public(r) for r in await sb.list_recent()]
+
+
+@api.delete("/api/admin/broadcast/scheduled/{sid}")
+async def admin_cancel_scheduled_broadcast(sid: int, _: dict = Depends(_require_admin)):
+    from src import scheduled_broadcast as sb
+    if not await sb.cancel(sid):
+        raise HTTPException(status_code=409, detail="not pending (already sent, cancelled or not found)")
+    return {"ok": True}
 
 
 @api.get("/api/admin/broadcast/history")
