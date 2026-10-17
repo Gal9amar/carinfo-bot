@@ -481,15 +481,37 @@ async def check_new_user(user_id: int) -> bool:
     return not bool(r.rows)
 
 
-async def record_referral(new_user_id: int, referrer_id: int, bonus: int = 10) -> None:
+async def record_referral(new_user_id: int, referrer_id: int, bonus: int = 10, bonus_days: int = 0) -> None:
     """Record that new_user_id was referred by referrer_id (only if not already set)."""
     r = await execute("SELECT referred_by FROM users WHERE user_id=?", [new_user_id])
     if r.rows and r.rows[0][0] is None:
         await execute("UPDATE users SET referred_by=? WHERE user_id=?", [referrer_id, new_user_id])
         await execute(
-            "INSERT INTO referrals (referrer_id, referee_id, bonus) VALUES (?, ?, ?)",
-            [referrer_id, new_user_id, bonus],
+            "INSERT INTO referrals (referrer_id, referee_id, bonus, bonus_days) VALUES (?, ?, ?, ?)",
+            [referrer_id, new_user_id, bonus, bonus_days],
         )
+
+
+async def get_premium_expiry(user_id: int) -> Optional[datetime]:
+    """Expiry of a live time-limited unlimited plan ("Premium"), else None."""
+    r = await execute("SELECT searches_quota, quota_expires FROM users WHERE user_id=?", [user_id])
+    if not r.rows or r.rows[0][0] != -1 or not r.rows[0][1]:
+        return None
+    try:
+        exp = datetime.fromisoformat(r.rows[0][1])
+    except ValueError:
+        return None
+    return exp if exp > datetime.now() else None
+
+
+async def extend_premium_days(user_id: int, days: int) -> Optional[str]:
+    """Add `days` to a live Premium plan; returns the new expiry (ISO) or None if not Premium."""
+    exp = await get_premium_expiry(user_id)
+    if exp is None or days <= 0:
+        return None
+    new_exp = (exp + timedelta(days=days)).isoformat()
+    await execute("UPDATE users SET quota_expires=? WHERE user_id=?", [new_exp, user_id])
+    return new_exp
 
 
 async def get_referral_count(user_id: int) -> int:
@@ -502,7 +524,7 @@ async def get_referrals(referrer_id: int) -> list[dict]:
     """Return all referrals made by referrer_id with the referred user's info."""
     r = await execute(
         """SELECT rf.id, rf.referee_id, rf.bonus, rf.joined_at,
-                  u.username, u.full_name
+                  u.username, u.full_name, COALESCE(rf.bonus_days, 0)
            FROM referrals rf
            LEFT JOIN users u ON u.user_id = rf.referee_id
            WHERE rf.referrer_id = ?
@@ -518,6 +540,7 @@ async def get_referrals(referrer_id: int) -> list[dict]:
             "id":        row[0],
             "referee_id": row[1],
             "bonus":     row[2],
+            "bonus_days": row[6],
             "joined_at": row[3],
             "name":      name,
         })

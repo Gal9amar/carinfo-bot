@@ -11,12 +11,12 @@ export default function HowItWorksPage({ onBack, freeSearches = 10, onPrivacy, o
 
       {/* Hero */}
       <div style={{
-        background: 'linear-gradient(135deg,#2481cc,#1a5fa8)',
+        background: 'linear-gradient(135deg,#1f6fb5,#1a5fa8)',
         borderRadius: 16, padding: '18px 18px', marginBottom: 16, color: '#fff', textAlign: 'center',
       }}>
-        <div style={{ fontSize: 36, marginBottom: 8 }}>🚗</div>
+        <div style={{ fontSize: 36, marginBottom: 8 }} aria-hidden="true">🚗</div>
         <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>הבוט החכם לבדיקת רכבים בישראל</div>
-        <div style={{ fontSize: 13, opacity: 0.85 }}>שלח מספר לוחית רישוי — קבל דוח מלא תוך שניות</div>
+        <div style={{ fontSize: 13 }}>שלח מספר לוחית רישוי — קבל דוח מלא תוך שניות</div>
       </div>
 
       {/* Steps */}
@@ -114,9 +114,9 @@ export default function HowItWorksPage({ onBack, freeSearches = 10, onPrivacy, o
 function Section({ title, children }) {
   return (
     <div className="card" style={{ marginBottom: 12 }}>
-      <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10, borderBottom: '1px solid rgba(0,100,200,0.1)', paddingBottom: 8 }}>
+      <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 10, borderBottom: '1px solid rgba(0,100,200,0.1)', paddingBottom: 8 }}>
         {title}
-      </div>
+      </h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {children}
       </div>

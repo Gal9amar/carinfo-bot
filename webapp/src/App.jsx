@@ -299,8 +299,8 @@ function AppInner() {
     return (
       <div className="page">
         <div className="card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 48 }}>🚗</div>
-          <div style={{ fontSize: 48, fontWeight: 800 }}>404</div>
+          <div style={{ fontSize: 48 }} aria-hidden="true">🚗</div>
+          <h1 style={{ fontSize: 48, fontWeight: 800 }}>404</h1>
           <div style={{ margin: '8px 0 16px' }}>הדף שחיפשת לא נמצא</div>
           <button className="btn" style={{ marginTop: 0 }} onClick={() => {
             window.history.replaceState(null, '', window.location.pathname)
@@ -319,7 +319,7 @@ function AppInner() {
   if (screen === 'admin') {
     return (
       <div key="admin" className="page-enter">
-        <Suspense fallback={<div className="loading"></div>}>
+        <Suspense fallback={<div className="loading" role="status" aria-label="טוען"></div>}>
           <AdminPage user={user} onBack={goBack} />
         </Suspense>
       </div>
@@ -343,10 +343,10 @@ function AppInner() {
         <div className="page">
           <div style={{
             width: 88, height: 88, borderRadius: '50%', margin: '56px auto 18px',
-            background: 'rgba(52, 199, 89, 0.15)', color: '#1b8a3a',
+            background: 'rgba(52, 199, 89, 0.15)', color: '#177a33',
             display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 44,
-          }}>✓</div>
-          <div className="success-title">הבקשה נשלחה!</div>
+          }} aria-hidden="true">✓</div>
+          <h1 className="success-title" role="status">הבקשה נשלחה!</h1>
           <div className="success-text">
             נאשר את הרכישה בקרוב ותקבל הודעה בטלגרם.
           </div>
@@ -388,9 +388,9 @@ function AppInner() {
   if (screen === 'home' && loadError && !user) {
     return (
       <div className="page">
-        <div className="card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 40 }}>⚠️</div>
-          <div style={{ margin: '8px 0 16px' }}>לא הצלחנו לטעון את הנתונים. בדוק את החיבור ונסה שוב</div>
+        <div className="card" style={{ textAlign: 'center' }} role="alert">
+          <div style={{ fontSize: 40 }} aria-hidden="true">⚠️</div>
+          <h1 style={{ margin: '8px 0 16px', fontSize: 16, fontWeight: 400 }}>לא הצלחנו לטעון את הנתונים. בדוק את החיבור ונסה שוב</h1>
           <button className="btn" style={{ marginTop: 0 }} onClick={loadHome}>🔄 נסה שוב</button>
         </div>
       </div>
@@ -461,7 +461,7 @@ function ConsentScreen({ onPrivacy, onApproved }) {
 
 function HomeSkeleton() {
   return (
-    <div className="page" aria-busy="true">
+    <div className="page" aria-busy="true" role="status" aria-label="טוען">
       <div className="skeleton" style={{ height: 120, borderRadius: 20, marginBottom: 16 }} />
       <div className="skeleton" style={{ height: 64, borderRadius: 20, marginBottom: 16 }} />
       <div className="skeleton" style={{ height: 160, borderRadius: 20 }} />

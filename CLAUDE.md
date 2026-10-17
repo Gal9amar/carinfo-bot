@@ -111,7 +111,8 @@ Created idempotently at startup (`init_db()` in `src/db.py` plus per-module `ini
 |-----|---------|---------|
 | `maintenance` | 0 | Blocks lookups for non-admins when 1 (see Maintenance) |
 | `free_searches` | 10 | Welcome quota for new users |
-| `referral_bonus` | 10 | Searches awarded per referral |
+| `referral_bonus` | 10 | Searches awarded per referral to a free / search-pack referrer |
+| `referral_bonus_premium_days` | 7 | Days added to a live Premium plan (`quota=-1` with `quota_expires`) per referral; 0 = no benefit. Referral rows store `bonus_days` |
 | `promo_searches` / `promo_duration_days` / `promo_is_subscriber` / `promo_label` / `promo_start` / `promo_end` | 0 / 30 / 0 / "" / "" / "" | Join promo (searches: 0=off, -1=unlimited, >0=count). `promo_is_subscriber=1` also adds new users to "מנויים" |
 | `global_unlimited_enabled` / `_start` / `_end` / `_label` | — | Admin's "unlimited for everyone" benefit (see VIP below) |
 | `yad2_market_enabled` / `_public` / `_public_start` / `_public_end` / `_public_label` / `_groups` | 0 … [] | Market-price feature gate (see Feature access) |
@@ -182,7 +183,7 @@ Bot also supports Telegram invoices (`PreCheckoutQueryHandler`, `PAYMENT_PROVIDE
 Explicit consent: `users.consent_version` / `consent_at`; `users.CONSENT_VERSION` (bump it when the terms change → **every user, existing ones included, is re-asked on their next action**). `/start` creates the account but shows the consent screen (`M.consent_screen`, 4 toggle buttons `consent|t|idx|bits`, `consent|ok|…` only continues when all four are ticked; callback `handle_consent_callback` records it and sends the welcome). Gate: `bot._consent_gate` (handler group -2; admin exempt) → no account: "send /start"; account without current consent: consent screen. API: `_get_user` returns `403 consent_required` (exempt: `/api/user`, `/api/user/consent`, `/api/user/account`); `GET /api/user` returns `consent_required` + `consent_stage` (`none` = must /start, `pending` = the app shows `ConsentScreen` with 4 checkboxes → `POST /api/user/consent`). `DELETE /api/user/account` (`{"confirm":"DELETE"}`; admin cannot) → `users.delete_user_data`: erases the user from every table; `paypal_transactions` are kept anonymised (`user_id=0`), spent promo codes get `used_by=0`; Profile shows a confirmation card first. After deletion the user must /start and approve again. Keep `delete_user_data` in sync when adding tables with user data.
 
 ### Referral
-Link `https://t.me/{BOT_USERNAME}?start=ref_{referrer_id}` → `/start ref_X` → for a **new** user `record_referral(new, referrer, bonus)` logs + adds `referral_bonus` searches to referrer. No subscriber status.
+Link `https://t.me/{BOT_USERNAME}?start=ref_{referrer_id}` → `/start ref_X` → for a **new** user, if the referrer has a live Premium plan (`users.get_premium_expiry`) their `quota_expires` is extended by `referral_bonus_premium_days` (`extend_premium_days`); otherwise `referral_bonus` searches are added. Admin: Settings → referral card (both values). No subscriber status.
 
 ### Feature access (market price / PDF / alerts)
 `/api/user` computes `show_*` via `_check_feature(prefix)`: admin ✔ · quota −1 ✔ · subscriber (incl. VIP) ✔ · quota left > 0 ✔ · else if `{prefix}_enabled != 0` and public mode active within its date window ✔. `public_label` fields are shown only while public mode is active.

@@ -115,7 +115,7 @@ export default function WatchesPage({ onBack, onPackages, user, onNavigate }) {
               onClick={onPackages}
               style={{
                 width: '100%', padding: '14px 0', borderRadius: 14, border: 'none',
-                background: 'linear-gradient(135deg, #007aff, #00c6ff)',
+                background: 'var(--grad-primary)',
                 color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer',
               }}
             >🛒 רכישת חבילה</button>
@@ -150,16 +150,16 @@ export default function WatchesPage({ onBack, onPackages, user, onNavigate }) {
                 color: full ? 'var(--danger)' : used > 0 ? 'var(--primary)' : 'var(--text-muted)',
               }}>{used} / {max}</span>
             </div>
-            <div style={{ background: 'rgba(0, 100, 200, 0.1)', borderRadius: 20, height: 8, overflow: 'hidden' }}>
+            <div aria-hidden="true" style={{ background: 'rgba(0, 100, 200, 0.1)', borderRadius: 20, height: 8, overflow: 'hidden' }}>
               <div style={{
                 height: '100%', borderRadius: 20,
                 width: `${pct}%`,
-                background: full ? 'var(--danger)' : 'linear-gradient(90deg, #007aff, #00c6ff)',
+                background: full ? 'var(--danger)' : 'linear-gradient(90deg, #0066d6, #00c6ff)',
                 transition: 'width 0.4s ease',
               }} />
             </div>
             {full && (
-              <div style={{ fontSize: 11, color: '#e53e3e', marginTop: 6 }}>
+              <div style={{ fontSize: 11, color: '#c53030', marginTop: 6 }}>
                 הגעת למגבלה. מחק מעקב קיים או רכוש חבילת התראות נוספת.
               </div>
             )}
@@ -167,13 +167,13 @@ export default function WatchesPage({ onBack, onPackages, user, onNavigate }) {
         )
       })()}
 
-      {error && <div style={{ color: '#e53e3e', fontSize: 13, textAlign: 'center', padding: 16 }}>{error}</div>}
+      {error && <div role="alert" style={{ color: '#c53030', fontSize: 13, textAlign: 'center', padding: 16 }}>{error}</div>}
       {!watches && !error && (
-        <>
+        <div role="status" aria-label="טוען">
           <SkeletonWatchCard />
           <SkeletonWatchCard />
           <SkeletonWatchCard />
-        </>
+        </div>
       )}
 
       {/* ── Add form ── */}
@@ -182,22 +182,22 @@ export default function WatchesPage({ onBack, onPackages, user, onNavigate }) {
           <div className="card" style={{ padding: 16, marginBottom: 14 }}>
             <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>➕ הוסף מעקב חדש</div>
 
-            <select value={selMake} onChange={e => setSelMake(e.target.value)} style={selectStyle}>
+            <select aria-label="יצרן" value={selMake} onChange={e => setSelMake(e.target.value)} style={selectStyle}>
               <option value="">— בחר יצרן —</option>
               {makes.map(m => <option key={m} value={m}>{m}</option>)}
             </select>
 
-            <select value={selModel} onChange={e => setSelModel(e.target.value)} style={selectStyle} disabled={!selMake}>
+            <select aria-label="דגם" value={selModel} onChange={e => setSelModel(e.target.value)} style={selectStyle} disabled={!selMake}>
               <option value="">— כל הדגמים —</option>
               {models.map(m => <option key={m} value={m}>{m}</option>)}
             </select>
 
-            <select value={selYear} onChange={e => setSelYear(e.target.value)} style={selectStyle}>
+            <select aria-label="שנה" value={selYear} onChange={e => setSelYear(e.target.value)} style={selectStyle}>
               <option value="">— כל השנים —</option>
               {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
 
-            {addError && <div style={{ color: '#e53e3e', fontSize: 12, marginBottom: 8 }}>{addError}</div>}
+            {addError && <div role="alert" style={{ color: '#c53030', fontSize: 12, marginBottom: 8 }}>{addError}</div>}
 
             <div style={{ display: 'flex', gap: 8 }}>
               <button
@@ -205,7 +205,7 @@ export default function WatchesPage({ onBack, onPackages, user, onNavigate }) {
                 disabled={saving || !selMake}
                 style={{
                   flex: 1, padding: '11px 0', borderRadius: 13, border: 'none',
-                  background: (!selMake || saving) ? 'rgba(0,0,0,0.12)' : 'linear-gradient(135deg, #007aff, #00c6ff)',
+                  background: (!selMake || saving) ? 'rgba(0,0,0,0.12)' : 'var(--grad-primary)',
                   color: (!selMake || saving) ? 'var(--hint)' : '#fff',
                   fontSize: 13, fontWeight: 600, cursor: (!selMake || saving) ? 'not-allowed' : 'pointer',
                 }}
@@ -248,7 +248,7 @@ export default function WatchesPage({ onBack, onPackages, user, onNavigate }) {
             return (
               <div key={w.id} className="card" style={{
                 margin: 0, padding: '14px 16px',
-                opacity: w.active ? 1 : 0.6,
+                border: w.active ? undefined : '1px dashed var(--text-muted)',
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div>
@@ -259,11 +259,13 @@ export default function WatchesPage({ onBack, onPackages, user, onNavigate }) {
                   </div>
                   <div style={{ display: 'flex', gap: 6 }}>
                     <button onClick={() => handleToggle(w.id)} title={w.active ? 'השהה' : 'הפעל'}
-                      style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 10, padding: '6px 10px', cursor: 'pointer', fontSize: 14 }}
-                    >{w.active ? '⏸️' : '▶️'}</button>
+                      aria-label={`${w.active ? 'השהה' : 'הפעל'} מעקב: ${label}`}
+                      style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 10, padding: '6px 10px', minWidth: 40, minHeight: 40, cursor: 'pointer', fontSize: 14 }}
+                    ><span aria-hidden="true">{w.active ? '⏸️' : '▶️'}</span></button>
                     <button onClick={() => handleDelete(w.id)} title="מחק"
-                      style={{ background: 'rgba(255,59,48,0.1)', border: '1px solid rgba(255,59,48,0.25)', borderRadius: 10, padding: '6px 10px', cursor: 'pointer', fontSize: 14 }}
-                    >🗑️</button>
+                      aria-label={`מחק מעקב: ${label}`}
+                      style={{ background: 'rgba(255,59,48,0.1)', border: '1px solid rgba(255,59,48,0.25)', borderRadius: 10, padding: '6px 10px', minWidth: 40, minHeight: 40, cursor: 'pointer', fontSize: 14 }}
+                    ><span aria-hidden="true">🗑️</span></button>
                   </div>
                 </div>
               </div>

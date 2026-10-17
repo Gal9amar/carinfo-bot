@@ -20,7 +20,7 @@ export default function LicensePlate({ plate, size = 'md', fill = false }) {
   const s = SIZES[size] || SIZES.md
 
   return (
-    <div style={{
+    <div role="img" aria-label={`מספר רישוי ${String(plate).replace(/\D/g, '') || plate}`} style={{
       display: fill ? 'flex' : 'inline-flex',
       alignItems: 'stretch',
       borderRadius: s.r,

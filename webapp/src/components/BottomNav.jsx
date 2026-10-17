@@ -14,12 +14,13 @@ const NAV = [
 
 export default function BottomNav({ screen, onNavigate }) {
   return (
-    <nav className="bottom-nav">
+    <nav className="bottom-nav" aria-label="ניווט ראשי">
       {NAV.map(item => (
         <button
           key={item.id}
           className={`bottom-nav-item${screen === item.id ? ' active' : ''}`}
           onClick={() => onNavigate(item.id)}
+          aria-current={screen === item.id ? 'page' : undefined}
         >
           <span className="nav-icon">
             <svg viewBox="0 0 24 24" aria-hidden="true">{ICONS[item.id]}</svg>

@@ -87,7 +87,7 @@ export default function HomePage({ user, onNavigate, onSearchPlate }) {
             background: 'rgba(255, 149, 0, 0.12)', border: '1px solid rgba(255, 149, 0, 0.35)',
           }}
         >
-          <div style={{ fontSize: 24 }}>🔧</div>
+          <div style={{ fontSize: 24 }} aria-hidden="true">🔧</div>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, fontSize: 15, color: '#b45309' }}>השירות בתחזוקה כרגע</div>
             <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
@@ -107,7 +107,7 @@ export default function HomePage({ user, onNavigate, onSearchPlate }) {
           onSubmit={e => { e.preventDefault(); handleSearch() }}
           style={{ margin: 0 }}
         >
-          <div style={{
+          <div className="plate-input-wrap" style={{
             display: 'flex', direction: 'ltr', height: 64, borderRadius: 10, overflow: 'hidden',
             border: '3px solid #111', background: '#FFE500',
           }}>
@@ -162,10 +162,10 @@ export default function HomePage({ user, onNavigate, onSearchPlate }) {
               {isUnlimited ? 'פרטי המנוי' : 'הוסף בדיקות'}
             </span>
           </div>
-          <div style={{ height: 8, borderRadius: 99, background: 'rgba(0, 100, 200, 0.1)', overflow: 'hidden' }}>
+          <div aria-hidden="true" style={{ height: 8, borderRadius: 99, background: 'rgba(0, 100, 200, 0.1)', overflow: 'hidden' }}>
             <div style={{
               width: `${quotaPct}%`, height: '100%', borderRadius: 99,
-              background: 'linear-gradient(90deg, #007aff, #00c6ff)',
+              background: 'linear-gradient(90deg, #0066d6, #00c6ff)',
             }} />
           </div>
         </button>
@@ -185,7 +185,7 @@ export default function HomePage({ user, onNavigate, onSearchPlate }) {
               border: SUBTLE_BORDER, borderRadius: 18,
             }}
           >
-            <span style={{ fontSize: 26, lineHeight: 1 }}>{t.icon}</span>
+            <span style={{ fontSize: 26, lineHeight: 1 }} aria-hidden="true">{t.icon}</span>
             <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-main)' }}>{t.label}</span>
             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t.sub}</span>
           </button>
@@ -200,6 +200,7 @@ export default function HomePage({ user, onNavigate, onSearchPlate }) {
               <button
                 key={r.plate}
                 onClick={() => !searchBlocked && onSearchPlate(String(r.plate).replace(/\D/g, ''))}
+                aria-label={`חיפוש חוזר של רכב ${String(r.plate).replace(/\D/g, '')}`}
                 className="plate-chip"
               >
                 {chipPlate(r.plate)}

@@ -8,12 +8,12 @@ export default function GarageHowItWorksPage({ onBack, onNavigate }) {
 
       {/* Hero */}
       <div style={{
-        background: 'linear-gradient(135deg,#1e40af,#0ea5e9)',
+        background: 'linear-gradient(135deg,#1e40af,#0b6fc2)',
         borderRadius: 16, padding: '18px 18px', marginBottom: 16, color: '#fff', textAlign: 'center',
       }}>
-        <div style={{ fontSize: 36, marginBottom: 8 }}>🚘</div>
+        <div style={{ fontSize: 36, marginBottom: 8 }} aria-hidden="true">🚘</div>
         <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>מעקב קנייה־מכירה לכל רכב</div>
-        <div style={{ fontSize: 13, opacity: 0.9 }}>מחיר רכישה, הוצאות, מכירה ורווח/הפסד — הכל במקום אחד</div>
+        <div style={{ fontSize: 13 }}>מחיר רכישה, הוצאות, מכירה ורווח/הפסד — הכל במקום אחד</div>
       </div>
 
       <Section title="🚗 קניתי רכב">
@@ -69,7 +69,7 @@ export default function GarageHowItWorksPage({ onBack, onNavigate }) {
       {/* Suggest a feature */}
       <div className="card" style={{
         marginBottom: 12, textAlign: 'center',
-        background: 'linear-gradient(135deg,#007aff,#00c6ff)', color: '#fff',
+        background: 'var(--grad-primary)', color: '#fff',
       }}>
         <div style={{ fontSize: 28, marginBottom: 6 }}>💡</div>
         <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>יש לך רעיון לפיצ'ר או שיפור?</div>
@@ -80,7 +80,7 @@ export default function GarageHowItWorksPage({ onBack, onNavigate }) {
           onClick={() => onNavigate('ticket')}
           style={{
             width: '100%', padding: '11px 0', border: 'none', borderRadius: 12,
-            background: '#fff', color: '#007aff', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+            background: '#fff', color: '#0066d6', fontSize: 14, fontWeight: 700, cursor: 'pointer',
           }}
         >🎫 פתח פנייה</button>
       </div>
@@ -91,9 +91,9 @@ export default function GarageHowItWorksPage({ onBack, onNavigate }) {
 function Section({ title, children }) {
   return (
     <div className="card" style={{ marginBottom: 12 }}>
-      <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10, borderBottom: '1px solid rgba(0,100,200,0.1)', paddingBottom: 8 }}>
+      <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 10, borderBottom: '1px solid rgba(0,100,200,0.1)', paddingBottom: 8 }}>
         {title}
-      </div>
+      </h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {children}
       </div>

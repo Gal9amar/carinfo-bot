@@ -7,6 +7,7 @@ export default function BackButton({ onClick, label = 'חזרה לתפריט' })
         alignItems: 'center',
         gap: 6,
         padding: '8px 14px',
+        minHeight: 40,
         fontSize: 14,
         fontWeight: 700,
         color: 'var(--primary)',
@@ -17,7 +18,7 @@ export default function BackButton({ onClick, label = 'חזרה לתפריט' })
         background: 'rgba(255, 255, 255, 0.85)',
       }}
     >
-      → {label}
+      <span aria-hidden="true">→</span> {label}
     </button>
   )
 }

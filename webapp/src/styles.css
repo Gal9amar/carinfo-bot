@@ -8,12 +8,13 @@
 :root {
   --bg: #f3f6fb;
   --bg-card: #ffffff;
-  --primary: #007aff;
-  --secondary: #34c759;
+  --primary: #0066d6; /* a11y: 5.4:1 on white (was #007aff, 4.0:1) */
+  --grad-primary: linear-gradient(135deg, #0062cc, #0071e3); /* white text >= 4.5:1 across the gradient */
+  --secondary: #177a33;
   --text-main: #1d1d1f;
-  --text-muted: #86868b;
+  --text-muted: #636366; /* a11y: 5.5:1 on --bg (was #86868b, 3.3:1) */
   --border: rgba(0, 100, 200, 0.18); /* Subtle blue-tinted frame used on every surface */
-  --danger: #ff3b30;
+  --danger: #d32f2f;
   --shadow: 0 10px 32px rgba(0, 50, 150, 0.07); /* Deeper, slightly blue shadow */
   --radius: 20px;
 
@@ -145,6 +146,8 @@ button.card:active { transform: scale(0.98); }
 }
 
 .input:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
   border-color: var(--primary);
   background: rgba(255, 255, 255, 0.85);
   box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.15);
@@ -159,7 +162,7 @@ button.card:active { transform: scale(0.98); }
   font-weight: 700;
   cursor: pointer;
   transition: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  background: linear-gradient(135deg, #007aff, #00c6ff);
+  background: var(--grad-primary);
   color: #fff;
   box-shadow: 0 6px 20px rgba(0, 122, 255, 0.35);
   margin-top: 8px;
@@ -418,3 +421,12 @@ button:focus-visible, a:focus-visible, [role="button"]:focus-visible, [tabindex]
 }
 
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Accessibility helpers */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
+  clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+.plate-input-wrap:focus-within { outline: 3px solid var(--primary); outline-offset: 2px; }
+.plate-input-wrap input::placeholder { color: #555; opacity: 1; }
+.input::placeholder { color: #6b6b70; opacity: 1; }

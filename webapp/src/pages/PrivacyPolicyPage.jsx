@@ -406,26 +406,26 @@ export default function PrivacyPolicyPage({ onBack, onContact, onNavigate, onAcc
 
 function SectionHeader({ children }) {
   return (
-    <div style={{
+    <h2 style={{
       fontSize: 14, fontWeight: 700, color: 'var(--btn)',
       borderBottom: '2px solid var(--btn)',
       paddingBottom: 6, marginBottom: 12, marginTop: 8,
       letterSpacing: 0.3,
     }}>
       {children}
-    </div>
+    </h2>
   )
 }
 
 function Section({ title, children }) {
   return (
     <div className="card" style={{ marginBottom: 10 }}>
-      <div style={{
+      <h3 style={{
         fontSize: 14, fontWeight: 700, marginBottom: 8, color: 'var(--text)',
         borderBottom: '1px solid rgba(0,100,200,0.1)', paddingBottom: 6,
       }}>
         {title}
-      </div>
+      </h3>
       <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.75, display: 'flex', flexDirection: 'column', gap: 6 }}>
         {children}
       </div>
@@ -435,8 +435,8 @@ function Section({ title, children }) {
 
 function SubHeading({ children }) {
   return (
-    <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--hint)', marginTop: 4 }}>
+    <h4 style={{ fontWeight: 600, fontSize: 12, color: 'var(--hint)', marginTop: 4 }}>
       {children}
-    </div>
+    </h4>
   )
 }

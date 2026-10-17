@@ -146,6 +146,7 @@ async def init_db() -> None:
     bonus       INTEGER NOT NULL DEFAULT 10,
     joined_at   TEXT    DEFAULT (datetime('now'))
 )""",
+        "ALTER TABLE referrals ADD COLUMN bonus_days INTEGER DEFAULT 0",
         """CREATE TABLE IF NOT EXISTS user_groups (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     name       TEXT NOT NULL UNIQUE,
@@ -319,6 +320,7 @@ async def init_db() -> None:
     conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('mirror_enabled', '0')")
     conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('mirror_miniapp', '1')")
     conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('referral_bonus', '10')")
+    conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('referral_bonus_premium_days', '7')")
     conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('free_searches', '10')")
     conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('promo_searches', '0')")
     conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('promo_duration_days', '30')")

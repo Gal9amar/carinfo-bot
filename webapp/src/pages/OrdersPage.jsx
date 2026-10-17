@@ -5,23 +5,23 @@ import PageBanners from '../components/PageBanners.jsx'
 import BackButton from '../components/BackButton.jsx'
 
 const STATUS_META = {
-  created:   { label: 'ממתין לתשלום', color: '#888',    icon: '⏳' },
-  approved:  { label: 'אושר',          color: '#2196F3', icon: '✅' },
-  captured:  { label: 'נגבה',          color: '#00bcd4', icon: '💳' },
-  completed: { label: 'הושלם',         color: '#4caf50', icon: '✅' },
-  failed:    { label: 'נכשל',          color: '#f44336', icon: '❌' },
-  expired:   { label: 'מבוטלת',        color: '#ff9800', icon: '🚫' },
-  declined:  { label: 'נדחה',          color: '#f44336', icon: '🚫' },
-  cancelled:        { label: 'בוטל',              color: '#ff9800', icon: '🚫' },
-  user_cancelled:   { label: 'בוטל ע״י משתמש',   color: '#ff9800', icon: '🚫' },
-  admin_approved:   { label: 'אושר ע״י מנהל',  color: '#4caf50', icon: '✅' },
-  admin_cancelled:  { label: 'בוטל ע״י מנהל',  color: '#ff9800', icon: '🚫' },
-  pending_delivery: { label: 'ממתין למשלוח',   color: '#ff9800', icon: '📦' },
+  created:   { label: 'ממתין לתשלום', color: '#636366',    icon: '⏳' },
+  approved:  { label: 'אושר',          color: '#0066d6', icon: '✅' },
+  captured:  { label: 'נגבה',          color: '#006d77', icon: '💳' },
+  completed: { label: 'הושלם',         color: '#2e7d32', icon: '✅' },
+  failed:    { label: 'נכשל',          color: '#c53030', icon: '❌' },
+  expired:   { label: 'מבוטלת',        color: '#a8520a', icon: '🚫' },
+  declined:  { label: 'נדחה',          color: '#c53030', icon: '🚫' },
+  cancelled:        { label: 'בוטל',              color: '#a8520a', icon: '🚫' },
+  user_cancelled:   { label: 'בוטל ע״י משתמש',   color: '#a8520a', icon: '🚫' },
+  admin_approved:   { label: 'אושר ע״י מנהל',  color: '#2e7d32', icon: '✅' },
+  admin_cancelled:  { label: 'בוטל ע״י מנהל',  color: '#a8520a', icon: '🚫' },
+  pending_delivery: { label: 'ממתין למשלוח',   color: '#a8520a', icon: '📦' },
 }
 
 function OrderRow({ order }) {
   const [open, setOpen] = useState(false)
-  const meta = STATUS_META[order.status] || { label: order.status, color: '#888', icon: '❓' }
+  const meta = STATUS_META[order.status] || { label: order.status, color: '#636366', icon: '❓' }
   const isExpired = order.status === 'expired'
   const date = fmtDateTime(order.created_at)
 
@@ -31,7 +31,11 @@ function OrderRow({ order }) {
       style={{ padding: 0, marginBottom: 10, overflow: 'hidden', borderColor: isExpired ? 'rgba(255,152,0,0.35)' : undefined }}
     >
       <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
         onClick={() => setOpen(o => !o)}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(o => !o) } }}
         style={{ padding: '12px 14px', cursor: 'pointer', userSelect: 'none' }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -47,7 +51,7 @@ function OrderRow({ order }) {
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 5, alignItems: 'center' }}>
           <span style={{ fontSize: 13, fontWeight: 600 }}>{order.label}</span>
-          <span style={{ fontSize: 14, fontWeight: 700, color: '#4caf50' }}>₪{order.amount}</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#2e7d32' }}>₪{order.amount}</span>
         </div>
         <div style={{ fontSize: 11, color: 'var(--hint)', marginTop: 3 }}>{date}</div>
       </div>
@@ -61,7 +65,7 @@ function OrderRow({ order }) {
           {isExpired && (
             <div style={{
               background: 'rgba(255,152,0,0.1)', borderRadius: 8,
-              padding: '8px 12px', marginBottom: 8, color: '#ff9800', fontSize: 13,
+              padding: '8px 12px', marginBottom: 8, color: '#a8520a', fontSize: 13,
             }}>
               ⚠️ הזמנה לא הושלמה — התשלום לא בוצע בזמן
             </div>
@@ -75,7 +79,7 @@ function OrderRow({ order }) {
               {order.status === 'pending_delivery' && (
                 <div style={{
                   background: 'rgba(255,152,0,0.1)', borderRadius: 8,
-                  padding: '8px 12px', margin: '8px 0', color: '#ff9800', fontSize: 13,
+                  padding: '8px 12px', margin: '8px 0', color: '#a8520a', fontSize: 13,
                 }}>
                   ⏳ ההזמנה התקבלה ובתהליך עיבוד — תישלח הודעה עם פרטי ההזמנה כשתושלם
                 </div>
@@ -117,12 +121,12 @@ export default function OrdersPage({ onBack, onNavigate }) {
       <PageBanners page="orders" onNavigate={onNavigate} />
 
       {orders === null && (
-        <div style={{ textAlign: 'center', color: 'var(--hint)', marginTop: 40 }}>טוען...</div>
+        <div role="status" style={{ textAlign: 'center', color: 'var(--hint)', marginTop: 40 }}>טוען...</div>
       )}
 
       {orders?.length === 0 && (
         <div style={{ textAlign: 'center', color: 'var(--hint)', marginTop: 40 }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
+          <div style={{ fontSize: 40, marginBottom: 12 }} aria-hidden="true">📭</div>
           <div>אין הזמנות עדיין</div>
         </div>
       )}

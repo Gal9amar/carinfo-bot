@@ -32,6 +32,8 @@ export default function ReferralPage({ onBack, onNavigate }) {
   function fmtDate(ts) { return fmtDateIL(ts) }
 
   const totalBonus = (referrals || []).reduce((s, r) => s + r.bonus, 0)
+  const totalDays  = (referrals || []).reduce((s, r) => s + (r.bonus_days || 0), 0)
+  const premium    = !!info?.premium
 
   return (
     <div className="page">
@@ -47,20 +49,22 @@ export default function ReferralPage({ onBack, onNavigate }) {
           <div className="stat-label">הצטרפו</div>
         </div>
         <div className="stat-card">
-          <div className="stat-value">{totalBonus || '—'}</div>
-          <div className="stat-label">חיפושים הרווחת</div>
+          <div className="stat-value">{premium ? (totalDays || '—') : (totalBonus || '—')}</div>
+          <div className="stat-label">{premium ? 'ימי Premium הרווחת' : 'חיפושים הרווחת'}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-value">{info?.bonus ?? '—'}</div>
+          <div className="stat-value">{premium ? (info?.bonus_days ?? '—') : (info?.bonus ?? '—')}</div>
           <div className="stat-label">בונוס להפניה</div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 2, marginBottom: 20, padding: 3, borderRadius: 14, background: 'rgba(0, 100, 200, 0.08)' }}>
+      <div role="tablist" aria-label="תצוגות הפניות" style={{ display: 'flex', gap: 2, marginBottom: 20, padding: 3, borderRadius: 14, background: 'rgba(0, 100, 200, 0.08)' }}>
         {[['share', '🔗 שיתוף'], ['history', '📋 הפניות שלי']].map(([id, label]) => (
           <button
             key={id}
+            role="tab"
+            aria-selected={tab === id}
             onClick={() => setTab(id)}
             style={{
               flex: 1, padding: '9px 4px', border: 'none', borderRadius: 11, cursor: 'pointer',
@@ -91,9 +95,9 @@ export default function ReferralPage({ onBack, onNavigate }) {
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-secondary" style={{ flex: 1, marginTop: 0 }} onClick={copyLink}>
-                {copied ? '✅ הועתק!' : '📋 העתק'}
+                {copied ? <span role="status">✅ הועתק!</span> : '📋 העתק'}
               </button>
-              <button className="btn" style={{ flex: 1, marginTop: 0, background: '#34c759', boxShadow: '0 6px 20px rgba(52, 199, 89, 0.35)' }} onClick={shareLink}>
+              <button className="btn" style={{ flex: 1, marginTop: 0, background: '#177a33', boxShadow: '0 6px 20px rgba(23, 122, 51, 0.35)' }} onClick={shareLink}>
                 📤 שתף בטלגרם
               </button>
             </div>
@@ -104,12 +108,12 @@ export default function ReferralPage({ onBack, onNavigate }) {
             {[
               'שלח את הלינק לחבר',
               'החבר לוחץ ומצטרף לבוט',
-              `אתה מקבל ${info?.bonus ?? 10} חיפושים במתנה אוטומטית`,
+              premium ? `המסלול שלך מוארך אוטומטית ב-${info?.bonus_days} ימים` : `אתה מקבל ${info?.bonus ?? 10} חיפושים במתנה אוטומטית`,
             ].map((text, i) => (
               <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 }}>
                 <span style={{
                   width: 26, height: 26, borderRadius: '50%', flexShrink: 0, color: '#fff',
-                  background: 'linear-gradient(135deg, #007aff, #00c6ff)', fontSize: 12, fontWeight: 700,
+                  background: 'var(--grad-primary)', fontSize: 12, fontWeight: 700,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>{i + 1}</span>
                 <span style={{ fontSize: 14 }}>{text}</span>
@@ -122,7 +126,7 @@ export default function ReferralPage({ onBack, onNavigate }) {
       {/* History tab */}
       {tab === 'history' && (
         <div>
-          {referrals === null && <div className="loading"></div>}
+          {referrals === null && <div className="loading" role="status" aria-label="טוען"></div>}
 
           {referrals !== null && referrals.length === 0 && (
             <div style={{ textAlign: 'center', padding: '32px 16px' }}>
@@ -150,7 +154,7 @@ export default function ReferralPage({ onBack, onNavigate }) {
                     background: 'rgba(0, 122, 255, 0.1)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: 18, flexShrink: 0,
-                  }}>
+                  }} aria-hidden="true">
                     👤
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -163,11 +167,11 @@ export default function ReferralPage({ onBack, onNavigate }) {
                   </div>
                   <div style={{ textAlign: 'left', flexShrink: 0 }}>
                     <div style={{
-                      background: '#38a16920', color: '#38a169',
+                      background: '#177a3320', color: '#177a33',
                       borderRadius: 20, padding: '3px 10px',
                       fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
                     }}>
-                      ✅ +{ref.bonus} חיפושים
+                      {ref.bonus_days > 0 ? `✅ +${ref.bonus_days} ימים` : `✅ +${ref.bonus} חיפושים`}
                     </div>
                   </div>
                 </div>

@@ -221,7 +221,7 @@ function SummaryTab({ record, ownership, recalls, make, model, year, color, km, 
               fontSize: 13, paddingBottom: 5,
             }}>
               <span style={{ fontSize: 14, flexShrink: 0 }}>{f.icon}</span>
-              <span style={{ color: f.ok ? 'var(--hint)' : f.warn ? '#d69e2e' : '#e53e3e' }}>{f.text}</span>
+              <span style={{ color: f.ok ? 'var(--hint)' : f.warn ? '#975a16' : '#c53030' }}>{f.text}</span>
             </div>
           ))}
         </div>
@@ -274,7 +274,7 @@ function SummaryTab({ record, ownership, recalls, make, model, year, color, km, 
             {/* שורה 1 — תגית + public_label */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <div style={{
-                fontSize: 11, fontWeight: 700, background: '#007aff', color: '#fff',
+                fontSize: 11, fontWeight: 700, background: '#0066d6', color: '#fff',
                 borderRadius: 20, padding: '3px 10px', whiteSpace: 'nowrap',
               }}>למנויים בלבד</div>
               {marketData.public_label && (
@@ -287,8 +287,8 @@ function SummaryTab({ record, ownership, recalls, make, model, year, color, km, 
               <span style={{ fontSize: 13, color: 'var(--hint)', fontWeight: 500 }}>ממוצע שוק – Yad2</span>
             </div>
             {/* שורה 3 — מחיר מרוכז */}
-            <div style={{
-              textAlign: 'center', fontSize: 26, fontWeight: 900, color: '#007aff',
+            <div aria-hidden={authorized ? undefined : 'true'} style={{
+              textAlign: 'center', fontSize: 26, fontWeight: 900, color: '#0066d6',
               ...(authorized ? {} : { filter: 'blur(6px)', userSelect: 'none' }),
             }}>₪{median.toLocaleString()}</div>
           </div>
@@ -306,9 +306,9 @@ function SummaryTab({ record, ownership, recalls, make, model, year, color, km, 
           </div>
           <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
             {[
-              { label: 'סה"כ', val: ownership.length, color: '#007aff' },
-              { label: 'פרטי', val: ownersPrivate, color: '#1b8a3a' },
-              { label: 'סוחר', val: ownersDealer, color: '#d69e2e' },
+              { label: 'סה"כ', val: ownership.length, color: '#0066d6' },
+              { label: 'פרטי', val: ownersPrivate, color: '#177a33' },
+              { label: 'סוחר', val: ownersDealer, color: '#975a16' },
             ].map(({ label, val, color }) => (
               <div key={label} style={{
                 flex: 1, textAlign: 'center', background: 'var(--bg)',
@@ -327,7 +327,7 @@ function SummaryTab({ record, ownership, recalls, make, model, year, color, km, 
             }} />
             {ownership.map((o, i) => {
               const isDealer = o.baalut === 'סוחר'
-              const dotColor = isDealer ? '#d69e2e' : '#1b8a3a'
+              const dotColor = isDealer ? '#975a16' : '#177a33'
               return (
                 <div key={i} style={{
                   display: 'flex', alignItems: 'center', gap: 12,
@@ -379,8 +379,8 @@ function SummaryTab({ record, ownership, recalls, make, model, year, color, km, 
       {/* ── Recalls summary ── */}
       <div style={{
         borderRadius: 14, padding: '14px 16px', marginBottom: 14,
-        background: recalls.length > 0 ? '#e53e3e11' : '#1b8a3a14',
-        border: `1px solid ${recalls.length > 0 ? '#e53e3e33' : '#1b8a3a33'}`,
+        background: recalls.length > 0 ? '#c5303011' : '#177a3314',
+        border: `1px solid ${recalls.length > 0 ? '#c5303033' : '#177a3333'}`,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 22 }}>{recalls.length > 0 ? '⚠️' : '✅'}</span>
@@ -506,12 +506,12 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
     const info = ERROR_INFO[error] || ERROR_INFO.SERVER_ERROR
     return (
       <div className="page">
-        <div className="card" style={{
+        <div className="card" role="alert" style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
           padding: '40px 20px', textAlign: 'center', marginTop: 24,
         }}>
-          <span style={{ fontSize: 40 }}>{info.icon}</span>
-          <span style={{ fontSize: 16, fontWeight: 700 }}>{info.text}</span>
+          <span style={{ fontSize: 40 }} aria-hidden="true">{info.icon}</span>
+          <h1 style={{ fontSize: 16, fontWeight: 700 }}>{info.text}</h1>
         </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
           {error === 'QUOTA_EXCEEDED' && onNavigate && (
@@ -561,10 +561,10 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
   if (record._personal_import) flags.push('📦 רכב יבוא אישי')
 
   let statusLabel = '🟢 תקין'
-  let statusColor = '#1b8a3a'
-  if (scrapped || inactive || inactiveNd) { statusLabel = '🔴 דורש בדיקה'; statusColor = '#e53e3e' }
+  let statusColor = '#177a33'
+  if (scrapped || inactive || inactiveNd) { statusLabel = '🔴 דורש בדיקה'; statusColor = '#c53030' }
   else if (bodyChange || (testStr && (testStr.startsWith('🟡') || testStr.startsWith('🔴')))) {
-    statusLabel = '🟡 שים לב'; statusColor = '#d69e2e'
+    statusLabel = '🟡 שים לב'; statusColor = '#975a16'
   }
 
   const auto = w.automatic_ind
@@ -662,10 +662,10 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
 
     score = Math.max(0, Math.min(100, score))
     const base = { factors }
-    if (score >= 80) return { ...base, grade: 'A', label: 'מצוין', color: '#1b8a3a', bg: '#1b8a3a1f' }
-    if (score >= 60) return { ...base, grade: 'B', label: 'טוב', color: '#d69e2e', bg: '#d69e2e22' }
-    if (score >= 40) return { ...base, grade: 'C', label: 'בינוני', color: '#dd6b20', bg: '#dd6b2022' }
-    return { ...base, grade: 'D', label: 'דורש בדיקה', color: '#e53e3e', bg: '#e53e3e22' }
+    if (score >= 80) return { ...base, grade: 'A', label: 'מצוין', color: '#177a33', bg: '#177a331f' }
+    if (score >= 60) return { ...base, grade: 'B', label: 'טוב', color: '#975a16', bg: '#975a1622' }
+    if (score >= 40) return { ...base, grade: 'C', label: 'בינוני', color: '#a8520a', bg: '#a8520a22' }
+    return { ...base, grade: 'D', label: 'דורש בדיקה', color: '#c53030', bg: '#c5303022' }
   }
   const score = calcScore()
 
@@ -678,7 +678,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
 
       {/* ── Header ── */}
       <div style={{ textAlign: 'center', marginBottom: 16 }}>
-        <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 8 }}>דוח רכב</div>
+        <h1 style={{ fontSize: 12, fontWeight: 400, color: 'var(--hint)', marginBottom: 8 }}>דוח רכב</h1>
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
           <LicensePlate plate={plateNum} size="lg" />
         </div>
@@ -693,7 +693,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
       </div>
 
       {/* ── Tab bar ── */}
-      <div style={{
+      <div role="tablist" aria-label="תצוגות הדוח" style={{
         display: 'flex', gap: 2, marginBottom: 16,
         background: 'rgba(0, 100, 200, 0.08)', borderRadius: 14, padding: 3,
       }}>
@@ -702,7 +702,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
           { id: 'full',     label: '📋 דוח מלא' },
           { id: 'transfer', label: '🔄 העברת בעלות' },
         ].map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
+          <button key={tab.id} role="tab" aria-selected={activeTab === tab.id} onClick={() => setActiveTab(tab.id)} style={{
             flex: 1, padding: '9px 0', border: 'none', borderRadius: 11,
             fontSize: 14, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s',
             background: activeTab === tab.id ? '#fff' : 'transparent',
@@ -771,7 +771,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <span style={{
-                  fontSize: 11, fontWeight: 700, background: '#007aff1f', color: '#007aff',
+                  fontSize: 11, fontWeight: 700, background: '#0066d61f', color: '#0066d6',
                   borderRadius: 20, padding: '4px 10px',
                 }}>🚗 במלאי שלי</span>
               </div>
@@ -784,29 +784,29 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
           ) : buying ? (
             <>
               <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>💰 הוספה ל"רכבים שקניתי"</div>
-              <div style={{ marginBottom: 10 }}>
-                <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 4, fontWeight: 600 }}>מחיר רכישה (₪)</div>
+              <label style={{ display: 'block', marginBottom: 10 }}>
+                <span style={{ display: 'block', fontSize: 12, color: 'var(--hint)', marginBottom: 4, fontWeight: 600 }}>מחיר רכישה (₪)</span>
                 <input
                   type="number" className="input" style={{ background: 'var(--bg)', border: '1.5px solid var(--border)' }}
                   value={buyPrice} onChange={e => setBuyPrice(e.target.value)}
                 />
-              </div>
-              <div style={{ marginBottom: 10 }}>
-                <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 4, fontWeight: 600 }}>ק"מ בזמן הרכישה</div>
+              </label>
+              <label style={{ display: 'block', marginBottom: 10 }}>
+                <span style={{ display: 'block', fontSize: 12, color: 'var(--hint)', marginBottom: 4, fontWeight: 600 }}>ק"מ בזמן הרכישה</span>
                 <input
                   type="number" className="input" style={{ background: 'var(--bg)', border: '1.5px solid var(--border)' }}
                   value={buyKm} onChange={e => setBuyKm(e.target.value)}
                 />
-              </div>
-              <div style={{ marginBottom: 10 }}>
-                <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 4, fontWeight: 600 }}>הערות / הוצאות נוספות (לא חובה)</div>
+              </label>
+              <label style={{ display: 'block', marginBottom: 10 }}>
+                <span style={{ display: 'block', fontSize: 12, color: 'var(--hint)', marginBottom: 4, fontWeight: 600 }}>הערות / הוצאות נוספות (לא חובה)</span>
                 <textarea
                   className="input" rows={3}
                   placeholder={'לדוגמה: יש לתקן כנף שמאל, יש להחליף מצבר'}
                   value={buyNotes} onChange={e => setBuyNotes(e.target.value)}
                   style={{ background: 'var(--bg)', border: '1.5px solid var(--border)', resize: 'vertical', fontFamily: 'inherit' }}
                 />
-              </div>
+              </label>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn" style={{ flex: 1 }} disabled={buySubmitting || !buyPrice}
                   onClick={handleConfirmBuy}>{buySubmitting ? '...' : 'שמור'}</button>
@@ -834,7 +834,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
               <div>
                 <div style={{
                   display: 'inline-block', fontSize: 11, fontWeight: 700,
-                  background: '#007aff', color: '#fff',
+                  background: '#0066d6', color: '#fff',
                   borderRadius: 20, padding: '4px 10px', marginBottom: 6,
                 }}>למנויים בלבד</div>
                 <div style={{ fontWeight: 700, fontSize: 15 }}>💰 מחיר שוק – Yad2</div>
@@ -857,7 +857,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
                 padding: '6px 0', borderBottom: '1px solid rgba(0,100,200,0.1)', fontSize: 14, gap: 8,
               }}>
                 <span style={{ color: 'var(--hint)', flexShrink: 0, minWidth: 120 }}>{label}</span>
-                <span style={{
+                <span aria-hidden={authorized ? undefined : 'true'} style={{
                   fontWeight: 500, textAlign: 'end',
                   ...(authorized ? {} : { filter: 'blur(5px)', userSelect: 'none' }),
                 }}>{val}</span>
@@ -867,7 +867,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
             {authorized && marketData.yad2_url ? (
               <a href={marketData.yad2_url} target="_blank" rel="noopener noreferrer" style={{
                 display: 'block', marginTop: 10, padding: '8px 0',
-                background: '#FF4301', color: '#fff',
+                background: '#c23400', color: '#fff',
                 borderRadius: 10, textAlign: 'center', fontSize: 13,
                 fontWeight: 700, textDecoration: 'none',
               }}>חפש ב-Yad2</a>
@@ -906,7 +906,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
             <div>
               <div style={{
                 display: 'inline-block', fontSize: 11, fontWeight: 700,
-                background: '#007aff', color: '#fff',
+                background: '#0066d6', color: '#fff',
                 borderRadius: 20, padding: '4px 10px', marginBottom: 6,
               }}>למנויים בלבד</div>
               <div style={{ fontWeight: 700, fontSize: 15 }}>🔔 התראות יד2</div>
@@ -922,36 +922,36 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
           </div>
           {(watchState === 'exists') ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ textAlign: 'center', color: '#007aff', fontWeight: 700, fontSize: 14, padding: '4px 0' }}>
+              <div style={{ textAlign: 'center', color: '#0066d6', fontWeight: 700, fontSize: 14, padding: '4px 0' }}>
                 🔔 מעקב פעיל לרכב זה
               </div>
               <button
                 onClick={() => onBack('watches')}
                 style={{
                   display: 'block', width: '100%', padding: '9px 0',
-                  background: '#007aff1f', color: '#007aff',
+                  background: '#0066d61f', color: '#0066d6',
                   borderRadius: 10, fontSize: 13, fontWeight: 600,
-                  border: '1px solid #007aff4d', cursor: 'pointer',
+                  border: '1px solid #0066d64d', cursor: 'pointer',
                 }}
               >📋 עבור לרשימת המעקבים שלי</button>
             </div>
           ) : watchState === 'done' ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ textAlign: 'center', color: '#1b8a3a', fontWeight: 700, fontSize: 14, padding: '4px 0' }}>
+              <div role="status" style={{ textAlign: 'center', color: '#177a33', fontWeight: 700, fontSize: 14, padding: '4px 0' }}>
                 ✅ המעקב נוסף בהצלחה!
               </div>
               <button
                 onClick={() => onBack('watches')}
                 style={{
                   display: 'block', width: '100%', padding: '9px 0',
-                  background: '#007aff1f', color: '#007aff',
+                  background: '#0066d61f', color: '#0066d6',
                   borderRadius: 10, fontSize: 13, fontWeight: 600,
-                  border: '1px solid #007aff4d', cursor: 'pointer',
+                  border: '1px solid #0066d64d', cursor: 'pointer',
                 }}
               >📋 עבור לרשימת המעקבים שלי</button>
             </div>
           ) : watchState === 'error' ? (
-            <div style={{ textAlign: 'center', color: '#e53e3e', fontSize: 13, padding: '8px 0' }}>
+            <div role="alert" style={{ textAlign: 'center', color: '#c53030', fontSize: 13, padding: '8px 0' }}>
               ❌ שגיאה בהוספת המעקב. ייתכן שהגעת למגבלת המעקבים.
             </div>
           ) : (
@@ -968,7 +968,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
               disabled={watchState === 'loading'}
               style={{
                 display: 'block', width: '100%', padding: '9px 0',
-                background: watchState === 'loading' ? 'rgba(0,0,0,0.12)' : '#007aff',
+                background: watchState === 'loading' ? 'rgba(0,0,0,0.12)' : '#0066d6',
                 color: watchState === 'loading' ? 'var(--hint)' : '#fff',
                 borderRadius: 10, fontSize: 13, fontWeight: 700,
                 border: 'none', cursor: watchState === 'loading' ? 'not-allowed' : 'pointer',
@@ -1200,7 +1200,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
               <div>
                 <div style={{
                   display: 'inline-block', fontSize: 11, fontWeight: 700,
-                  background: '#007aff', color: '#fff',
+                  background: '#0066d6', color: '#fff',
                   borderRadius: 20, padding: '4px 10px', marginBottom: 6,
                 }}>למנויים בלבד</div>
                 <div style={{ fontWeight: 700, fontSize: 15 }}>📄 דוח PDF + הערות אישיות</div>
@@ -1220,12 +1220,13 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
               {authorized ? (
                 <>
                   <textarea
+                    aria-label="הערות אישיות לרכב"
                     value={note}
                     onChange={e => { setNote(e.target.value); setNoteDirty(true) }}
                     rows={4}
                     style={{
                       width: '100%', boxSizing: 'border-box',
-                      background: 'var(--bg)', border: `1px solid ${noteDirty ? '#007aff' : 'rgba(0,100,200,0.18)'}`,
+                      background: 'var(--bg)', border: `1px solid ${noteDirty ? '#0066d6' : 'rgba(0,100,200,0.18)'}`,
                       borderRadius: 10, padding: '10px 12px', color: 'var(--text)',
                       fontSize: 14, lineHeight: 1.6, resize: 'vertical',
                       fontFamily: 'inherit', direction: 'rtl',
@@ -1239,13 +1240,13 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
                         disabled={noteSaving}
                         style={{
                           padding: '7px 18px', borderRadius: 8, border: 'none',
-                          background: '#007aff', color: '#fff', fontSize: 13,
+                          background: '#0066d6', color: '#fff', fontSize: 13,
                           fontWeight: 600, cursor: 'pointer', opacity: noteSaving ? 0.6 : 1,
                         }}
                       >{noteSaving ? '...' : '💾 שמור הערה'}</button>
                     )}
                     {noteSaved && (
-                      <span style={{ fontSize: 11, color: '#1b8a3a' }}>✅ נשמר</span>
+                      <span role="status" style={{ fontSize: 11, color: '#177a33' }}>✅ נשמר</span>
                     )}
                   </div>
                 </>
@@ -1257,7 +1258,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
                 }}>{note}</div>
               ) : (
                 <div style={{
-                  fontSize: 12, color: 'rgba(255,255,255,0.25)', fontStyle: 'italic',
+                  fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic',
                   padding: '8px 0',
                 }}>🔒 הערות אישיות — זמין למנויים</div>
               )}
@@ -1273,7 +1274,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
               pdfSent ? (
                 <div style={{
                   width: '100%', padding: '10px 0', borderRadius: 10,
-                  background: '#1a4731', color: '#1b8a3a',
+                  background: 'rgba(23,122,51,0.12)', color: '#177a33',
                   textAlign: 'center', fontSize: 14, fontWeight: 700, marginBottom: 8,
                 }}>✅ הדוח נשלח לצ'אט שלך!</div>
               ) : (
@@ -1282,7 +1283,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
                   disabled={pdfLoading}
                   style={{
                     width: '100%', padding: '10px 0', border: 'none', borderRadius: 10,
-                    background: pdfLoading ? '#9aa4b2' : 'linear-gradient(135deg,#007aff,#00c6ff)',
+                    background: pdfLoading ? '#9aa4b2' : 'var(--grad-primary)',
                     color: '#fff', fontSize: 14, fontWeight: 700, cursor: pdfLoading ? 'default' : 'pointer',
                     marginBottom: 8,
                   }}
@@ -1303,7 +1304,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
               style={{ width: '100%', marginTop: 0 }}
               onClick={handleCopy}
             >
-              {copied ? '✅ הועתק!' : '📋 העתק דוח'}
+              {copied ? <span role="status">✅ הועתק!</span> : '📋 העתק דוח'}
             </button>
           </div>
         )
@@ -1324,7 +1325,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
           <div style={{
             borderRadius: 16, padding: '20px 18px', marginBottom: 14,
             background: 'linear-gradient(135deg,#1e3a5f,#0f2942)',
-            border: '1px solid #007aff33',
+            border: '1px solid #0066d633',
           }}>
             <div style={{ fontSize: 36, marginBottom: 8 }}>🔄</div>
             <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 6, color: '#fff' }}>העברת בעלות אונליין</div>
@@ -1367,7 +1368,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
               <div key={i} style={{ display: 'flex', gap: 12, marginBottom: i < 4 ? 14 : 0 }}>
                 <div style={{
                   width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
-                  background: 'linear-gradient(135deg,#1e40af,#0ea5e9)',
+                  background: 'linear-gradient(135deg,#1e40af,#0b6fc2)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 13, fontWeight: 800, color: '#fff',
                 }}>{i + 1}</div>
@@ -1391,7 +1392,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
                   flex: 1, textAlign: 'center', background: 'var(--bg)',
                   borderRadius: 10, padding: '12px 8px',
                 }}>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: '#007aff' }}>{price}</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: '#0066d6' }}>{price}</div>
                   <div style={{ fontSize: 12, color: 'var(--hint)', marginTop: 4 }}>{label}</div>
                 </div>
               ))}
@@ -1401,7 +1402,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
           {/* Warnings */}
           <div style={{
             borderRadius: 14, padding: '14px 16px', marginBottom: 14,
-            background: '#d69e2e11', border: '1px solid #d69e2e33',
+            background: '#975a1611', border: '1px solid #975a1633',
           }}>
             <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>⚠️ חשוב לדעת</div>
             {[
@@ -1427,7 +1428,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
             style={{
               display: 'block', width: '100%', boxSizing: 'border-box',
               padding: '14px 0', marginBottom: 10,
-              background: 'linear-gradient(135deg,#1e40af,#0ea5e9)',
+              background: 'linear-gradient(135deg,#1e40af,#0b6fc2)',
               color: '#fff', borderRadius: 14,
               textAlign: 'center', fontSize: 15, fontWeight: 800,
               textDecoration: 'none',

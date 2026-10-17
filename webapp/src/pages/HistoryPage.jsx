@@ -35,11 +35,11 @@ export default function HistoryPage({ onBack, onViewPlate, onNavigate }) {
       <PageBanners page="history" onNavigate={onNavigate} />
 
       {items === null && (
-        <>
+        <div role="status" aria-label="טוען">
           <SkeletonHistoryCard />
           <SkeletonHistoryCard />
           <SkeletonHistoryCard />
-        </>
+        </div>
       )}
 
       {items !== null && (
@@ -48,6 +48,7 @@ export default function HistoryPage({ onBack, onViewPlate, onNavigate }) {
           <input
             type="text"
             className="input"
+            aria-label="חיפוש לפי מספר רכב"
             placeholder="🔍 חפש לפי מספר רכב"
             value={query}
             onChange={e => setQuery(e.target.value)}
@@ -109,6 +110,7 @@ export default function HistoryPage({ onBack, onViewPlate, onNavigate }) {
                       {/* Column 2: button spanning both rows */}
                       <button
                         onClick={() => onViewPlate(plate)}
+                        aria-label={`הצג פרטים לרכב ${String(plate).replace(/\D/g, '')}`}
                         style={{
                           flexShrink: 0,
                           alignSelf: 'stretch',

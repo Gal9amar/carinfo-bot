@@ -29,7 +29,7 @@ WEBAPP_URL   = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_U
 # Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
 # webapp can detect a new release and force-reload instead of running stale
 # cached JS. Falls back to process start time for non-Render environments.
-APP_VERSION = "1792236583"
+APP_VERSION = "1792237631"
 
 api = FastAPI()
 
@@ -927,6 +927,7 @@ async def admin_get_settings(_: dict = Depends(_require_admin)):
         "mirror_bound": bool(await get_bot_setting("mirror_chat_id")),
         "free_searches":       _u.FREE_SEARCHES,
         "referral_bonus":      int((await get_bot_setting("referral_bonus")) or "10"),
+        "referral_bonus_premium_days": int((await get_bot_setting("referral_bonus_premium_days")) or "0"),
         "promo_searches":      _u.PROMO_SEARCHES,
         "promo_start":         _u.PROMO_START,
         "promo_end":           _u.PROMO_END,
@@ -968,6 +969,7 @@ class SettingsUpdate(BaseModel):
     mirror_miniapp: bool              | None = None
     free_searches:       int          | None = None
     referral_bonus:      int          | None = None
+    referral_bonus_premium_days: int  | None = None
     promo_searches:      int          | None = None
     promo_start:         str          | None = None
     promo_end:           str          | None = None
@@ -1028,6 +1030,8 @@ async def admin_update_settings(body: SettingsUpdate, _: dict = Depends(_require
             await set_bot_setting("referral_bonus", str(rb))
         except Exception:
             pass
+    if body.referral_bonus_premium_days is not None:
+        await set_bot_setting("referral_bonus_premium_days", str(max(0, min(365, int(body.referral_bonus_premium_days)))))
     if body.promo_searches is not None:
         _u.PROMO_SEARCHES = body.promo_searches
         await set_bot_setting("promo_searches", str(_u.PROMO_SEARCHES))
@@ -2390,7 +2394,12 @@ async def user_referral_info(user: dict = Depends(_get_user)):
     bonus = int(bonus_str) if bonus_str and bonus_str.isdigit() else 10
     bot_username = os.environ.get("BOT_USERNAME", "israelcarinfobot")
     link = f"https://t.me/{bot_username}?start=ref_{uid}"
-    return {"link": link, "count": count, "bonus": bonus, "total_earned": count * bonus}
+    from src.users import get_premium_expiry
+    days_str = await get_bot_setting("referral_bonus_premium_days")
+    bonus_days = int(days_str) if days_str and days_str.isdigit() else 0
+    premium = bool(bonus_days > 0 and await get_premium_expiry(uid))
+    return {"link": link, "count": count, "bonus": bonus, "total_earned": count * bonus,
+            "premium": premium, "bonus_days": bonus_days}
 
 
 

@@ -27,13 +27,13 @@ export default function PageBanners({ page, onNavigate }) {
             marginBottom: 20, cursor: 'pointer', textAlign: 'right',
           }}
         >
-          <span style={{ fontSize: 34, flexShrink: 0 }}>{b.icon}</span>
+          <span style={{ fontSize: 34, flexShrink: 0 }} aria-hidden="true">{b.icon}</span>
           <div>
             <div style={{ color: '#fff', fontWeight: 700, fontSize: 15, marginBottom: 2 }}>
               {b.title}
             </div>
             {b.subtitle && (
-              <div style={{ color: 'rgba(255,255,255,0.82)', fontSize: 12 }}>
+              <div style={{ color: '#fff', fontSize: 12 }}>
                 {b.subtitle}
               </div>
             )}

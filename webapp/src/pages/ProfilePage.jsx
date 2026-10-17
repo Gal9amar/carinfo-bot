@@ -86,10 +86,10 @@ export default function ProfilePage({ user, onNavigate, onBack, onAccountDeleted
             color: searchesLeft === 0 ? 'var(--danger)' : 'var(--text-main)',
           }}>{isUnlimited ? '∞' : searchesLeft}</span>
         </div>
-        <div style={{ height: 8, borderRadius: 99, background: 'rgba(0, 100, 200, 0.1)', overflow: 'hidden' }}>
+        <div aria-hidden="true" style={{ height: 8, borderRadius: 99, background: 'rgba(0, 100, 200, 0.1)', overflow: 'hidden' }}>
           <div style={{
             width: `${quotaPct}%`, height: '100%', borderRadius: 99,
-            background: searchesLeft === 0 ? 'var(--danger)' : 'linear-gradient(90deg, #007aff, #00c6ff)',
+            background: searchesLeft === 0 ? 'var(--danger)' : 'linear-gradient(90deg, #0066d6, #00c6ff)',
           }} />
         </div>
         {isUnlimited && quotaExpires && (
@@ -118,7 +118,7 @@ export default function ProfilePage({ user, onNavigate, onBack, onAccountDeleted
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 26, lineHeight: 1 }}>{t.icon}</span>
+              <span style={{ fontSize: 26, lineHeight: 1 }} aria-hidden="true">{t.icon}</span>
               {t.value != null && (
                 <span style={{
                   fontSize: 12, fontWeight: 700, color: 'var(--primary)',

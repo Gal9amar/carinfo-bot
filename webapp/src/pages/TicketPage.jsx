@@ -5,7 +5,7 @@ import BackButton from '../components/BackButton.jsx'
 import PageBanners from '../components/PageBanners.jsx'
 
 const STATUS_LABEL = { open: 'פתוח', in_progress: 'בטיפול', closed: 'סגור' }
-const STATUS_COLOR = { open: '#c2610a', in_progress: '#007aff', closed: '#1b8a3a' }
+const STATUS_COLOR = { open: '#a8520a', in_progress: '#0066d6', closed: '#177a33' }
 const STATUS_ICON  = { open: '🔴', in_progress: '🟡', closed: '🟢' }
 
 export default function TicketPage({ onBack, onNavigate }) {
@@ -60,7 +60,7 @@ export default function TicketPage({ onBack, onNavigate }) {
         ✉️ פנייה חדשה
       </button>
 
-      {loading && <div className="loading"></div>}
+      {loading && <div className="loading" role="status" aria-label="טוען"></div>}
 
       {!loading && tickets.length === 0 && (
         <div className="card" style={{ textAlign: 'center', color: 'var(--hint)', fontSize: 14 }}>
@@ -68,16 +68,21 @@ export default function TicketPage({ onBack, onNavigate }) {
         </div>
       )}
 
-      {tickets.map(t => (
+      {tickets.map(t => {
+        const openTicket = async () => {
+          const full = await fetchTicket(t.id)
+          setSelected(full)
+          setView('thread')
+        }
+        return (
         <div
           key={t.id}
           className="card"
+          role="button"
+          tabIndex={0}
           style={{ cursor: 'pointer', padding: '14px 16px' }}
-          onClick={async () => {
-            const full = await fetchTicket(t.id)
-            setSelected(full)
-            setView('thread')
-          }}
+          onClick={openTicket}
+          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openTicket() } }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div className="card-title" style={{ fontSize: 14, flex: 1 }}>{t.subject}</div>
@@ -91,7 +96,8 @@ export default function TicketPage({ onBack, onNavigate }) {
           </div>
           <div className="card-subtitle" style={{ marginTop: 4 }}>#{t.id} · {fmtDate(t.created_at)}</div>
         </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -123,6 +129,7 @@ function CreateView({ onBack, onCreated }) {
 
       <input
         className="input"
+        aria-label="נושא הפנייה"
         placeholder="נושא הפנייה"
         maxLength={120}
         value={subject}
@@ -130,6 +137,7 @@ function CreateView({ onBack, onCreated }) {
       />
       <textarea
         className="input"
+        aria-label="תיאור הפנייה"
         placeholder="תאר את הבעיה או השאלה..."
         maxLength={2000}
         rows={6}
@@ -196,7 +204,7 @@ function ThreadView({ ticket, onBack, onRefresh }) {
         }}>
           <div style={{
             maxWidth: '85%',
-            background: msg.is_admin ? '#fff' : 'linear-gradient(135deg, #007aff, #00c6ff)',
+            background: msg.is_admin ? '#fff' : 'var(--grad-primary)',
             color: msg.is_admin ? 'var(--text-main)' : '#fff',
             border: msg.is_admin ? '1px solid var(--border)' : 'none',
             borderRadius: msg.is_admin ? '4px 16px 16px 16px' : '16px 4px 16px 16px',
@@ -221,6 +229,7 @@ function ThreadView({ ticket, onBack, onRefresh }) {
             <input
               className="input"
               style={{ flex: 1, marginBottom: 0 }}
+              aria-label="הוסף תגובה"
               placeholder="הוסף תגובה..."
               value={reply}
               onChange={e => setReply(e.target.value)}
@@ -232,7 +241,7 @@ function ThreadView({ ticket, onBack, onRefresh }) {
               disabled={sending || !reply.trim()}
               onClick={sendReply}
             >
-              {sending ? '⏳' : '↑'}
+              <span aria-hidden="true">{sending ? '⏳' : '↑'}</span><span className="sr-only">{sending ? 'שולח' : 'שלח תגובה'}</span>
             </button>
           </div>
         </div>

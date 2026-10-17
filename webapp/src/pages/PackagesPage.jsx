@@ -46,7 +46,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
           {user.is_subscriber && (
             <div style={{
               fontSize: 13, fontWeight: 500,
-              background: 'linear-gradient(135deg, var(--primary), #0ea5e9)',
+              background: 'linear-gradient(135deg, var(--primary), #0b6fc2)',
               color: '#fff', borderRadius: 12, padding: '8px 12px',
               lineHeight: 1.4, display: 'inline-block'
             }}>
@@ -62,7 +62,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
         border: '1px solid #7928ca33',
         borderRadius: 16, padding: '16px 18px', marginBottom: 20,
       }}>
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10, color: '#007aff' }}>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10, color: '#0066d6' }}>
           ⭐ מה זה חבילת חיפושים CarInfo?
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9, fontSize: 13 }}>
@@ -76,7 +76,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
         <div style={{
           marginTop: 14, padding: '10px 14px',
           background: 'rgba(56,161,105,0.12)', borderRadius: 10,
-          fontSize: 12, color: '#1b8a3a', fontWeight: 600,
+          fontSize: 12, color: '#177a33', fontWeight: 600,
           display: 'flex', alignItems: 'center', gap: 8,
         }}>
           <span style={{ fontSize: 16 }}>✅</span>
@@ -91,22 +91,22 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
             🛍️ מוצרים דיגיטליים
           </div>
           {products.map(p => {
-            const accent = '#007aff'
-            const grad   = 'linear-gradient(135deg,#1e40af,#0ea5e9)'
+            const accent = '#0066d6'
+            const grad   = 'linear-gradient(135deg,#1e40af,#0b6fc2)'
             const maxQty = Math.max(1, Math.min(10, p.stock_count ?? 1))
             const qty    = Math.min(getQty(p.id), maxQty)
             const totalPrice = p.price * qty
             const isComingSoon = p.availability_status === 'coming_soon'
             const isBuyable = p.in_stock && !isComingSoon
-            const ribbon = isComingSoon ? { text: '🔜 בקרוב', bg: '#3182ce' } : !p.in_stock ? { text: 'אזל המלאי', bg: '#e53e3e' } : null
+            const ribbon = isComingSoon ? { text: '🔜 בקרוב', bg: '#2b6cb0' } : !p.in_stock ? { text: 'אזל המלאי', bg: '#c53030' } : null
             const isHighlighted = String(highlightProductId) === String(p.id)
             return (
               <div key={p.id} id={`product-${p.id}`} style={{
                 borderRadius: 20, overflow: 'hidden', marginBottom: 22, position: 'relative',
                 boxShadow: isHighlighted
-                  ? '0 4px 18px rgba(20,60,120,0.08), 0 0 0 2px #007aff'
+                  ? '0 4px 18px rgba(20,60,120,0.08), 0 0 0 2px #0066d6'
                   : '0 4px 18px rgba(20,60,120,0.08), 0 0 0 1px rgba(0,100,200,0.18)',
-                background: 'var(--bg2)', opacity: isBuyable ? 1 : 0.6,
+                background: 'var(--bg2)',
               }}>
                 {ribbon && (
                   <div style={{
@@ -115,7 +115,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
                     borderRadius: 20, padding: '3px 10px',
                   }}>{ribbon.text}</div>
                 )}
-                <div style={{ position: 'relative', height: p.image_url ? 170 : 150 }}>
+                <div style={{ position: 'relative', height: p.image_url ? 170 : 150, opacity: isBuyable ? 1 : 0.6 }}>
                   {p.image_url
                     ? <img loading="lazy" decoding="async" src={p.image_url} alt={p.name}
                         style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
@@ -132,7 +132,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
                   }}>
                     <span style={{
                       fontSize: 13, fontWeight: 400, padding: '4px 12px',
-                      background: accent, color: '#000', borderRadius: 20, whiteSpace: 'nowrap',
+                      background: accent, color: '#fff', borderRadius: 20, whiteSpace: 'nowrap',
                     }}>📦 {p.name}</span>
                   </div>
                 </div>
@@ -163,7 +163,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
                         }
                         const included = f.state === 'included'
                         return (
-                          <div key={i} style={{ color: included ? 'var(--hint)' : '#e53e3e', opacity: included ? 1 : 0.75 }}>
+                          <div key={i} style={{ color: included ? 'var(--hint)' : '#c53030' }}>
                             {included ? '✅' : '✗'} {f.text}
                           </div>
                         )
@@ -182,13 +182,13 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
                       <span style={{ fontSize: 13, color: 'var(--hint)' }}>כמות</span>
                       <div style={{ display: 'flex', alignItems: 'center',
                         background: 'var(--bg)', borderRadius: 12, overflow: 'hidden' }}>
-                        <button onClick={() => setQty(p.id, qty - 1, maxQty)} disabled={qty <= 1} style={{
+                        <button onClick={() => setQty(p.id, qty - 1, maxQty)} aria-label="הפחת כמות" disabled={qty <= 1} style={{
                           width: 44, height: 40, border: 'none', background: 'transparent',
                           fontSize: 22, cursor: qty <= 1 ? 'default' : 'pointer',
                           color: qty <= 1 ? 'var(--hint)' : accent, fontWeight: 700,
                         }}>−</button>
-                        <span style={{ width: 34, textAlign: 'center', fontWeight: 800, fontSize: 16 }}>{qty}</span>
-                        <button onClick={() => setQty(p.id, qty + 1, maxQty)} disabled={qty >= maxQty} style={{
+                        <span style={{ width: 34, textAlign: 'center', fontWeight: 800, fontSize: 16 }} role="status" aria-label={`כמות ${qty}`}>{qty}</span>
+                        <button onClick={() => setQty(p.id, qty + 1, maxQty)} aria-label="הוסף כמות" disabled={qty >= maxQty} style={{
                           width: 44, height: 40, border: 'none', background: 'transparent',
                           fontSize: 22, cursor: qty >= maxQty ? 'default' : 'pointer',
                           color: qty >= maxQty ? 'var(--hint)' : accent, fontWeight: 700,
@@ -234,20 +234,20 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
 
       {/* ── FREE card ── */}
       {(() => {
-        const freeAccent = '#52b788'
+        const freeAccent = '#177a33'
         const freeGrad   = 'linear-gradient(135deg,#1b4332,#2d6a4f)'
         const searchesLeft = user?.searches_left ?? 0
         return (
           <div style={{
             borderRadius: 20, overflow: 'hidden', marginBottom: 22,
             boxShadow: isFreeUser
-              ? '0 4px 18px rgba(20,60,120,0.08), 0 0 0 2px #4caf50'
+              ? '0 4px 18px rgba(20,60,120,0.08), 0 0 0 2px #2e7d32'
               : '0 4px 18px rgba(20,60,120,0.08), 0 0 0 1px rgba(0,100,200,0.18)',
             background: 'var(--bg2)',
           }}>
             {isFreeUser && (
               <div style={{
-                background: 'linear-gradient(90deg,#4caf50,#2e7d32)',
+                background: 'linear-gradient(90deg,#2e7d32,#2e7d32)',
                 padding: '6px 14px', fontSize: 12, fontWeight: 700, color: '#fff',
                 display: 'flex', alignItems: 'center', gap: 6,
               }}>✓ המנוי שלך כרגע</div>
@@ -270,14 +270,14 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
                         <span style={{ fontSize: 52, fontWeight: 900, color: '#fff', lineHeight: 1 }}>
                           {searchesLeft}
                         </span>
-                        <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 600 }}>
+                        <span style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>
                           חיפושים נותרו
                         </span>
                       </>
                     ) : (
                       <>
                         <span style={{ fontSize: 52, lineHeight: 1 }}>🆓</span>
-                        <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 600 }}>
+                        <span style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>
                           גישה חינמית
                         </span>
                       </>
@@ -291,7 +291,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
               }}>
                 <span style={{
                   fontSize: 13, fontWeight: 400, padding: '4px 12px',
-                  background: freeAccent, color: '#000', borderRadius: 20, whiteSpace: 'nowrap',
+                  background: freeAccent, color: '#fff', borderRadius: 20, whiteSpace: 'nowrap',
                 }}>🆓 {freePackage?.label || 'מסלול FREE'}</span>
               </div>
             </div>
@@ -326,7 +326,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
                 const text = typeof f === 'string' ? f : f.text
                 const included = typeof f === 'string' ? true : f.included
                 return (
-                  <div key={i} style={{ color: included ? 'var(--hint)' : '#e53e3e', opacity: included ? 1 : 0.75 }}>
+                  <div key={i} style={{ color: included ? 'var(--hint)' : '#c53030' }}>
                     {included ? '✅' : '✗'} {text}
                   </div>
                 )
@@ -365,8 +365,8 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
         const totalPrice    = pkg.price * qty
         const totalSearches = isUnlimited ? '∞' : pkg.searches * qty
 
-        const grad   = 'linear-gradient(135deg,#1e40af,#0ea5e9)'
-        const accent = '#007aff'
+        const grad   = 'linear-gradient(135deg,#1e40af,#0b6fc2)'
+        const accent = '#0066d6'
 
         const isCurrentPlan = user?.is_subscriber && subLabel &&
           (subLabel === pkg.label || subLabel.startsWith(pkg.label + ' ×'))
@@ -375,14 +375,14 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
           <div key={pkg.id} style={{
             borderRadius: 20, overflow: 'hidden', marginBottom: 22,
             boxShadow: isCurrentPlan
-              ? '0 4px 18px rgba(20,60,120,0.08), 0 0 0 2px #4caf50'
+              ? '0 4px 18px rgba(20,60,120,0.08), 0 0 0 2px #2e7d32'
               : '0 4px 18px rgba(20,60,120,0.08), 0 0 0 1px rgba(0,100,200,0.18)',
             background: 'var(--bg2)',
           }}>
 
           {isCurrentPlan && (
             <div style={{
-              background: 'linear-gradient(90deg,#4caf50,#2e7d32)',
+              background: 'linear-gradient(90deg,#2e7d32,#2e7d32)',
               padding: '6px 14px', fontSize: 12, fontWeight: 700, color: '#fff',
               display: 'flex', alignItems: 'center', gap: 6,
             }}>✓ המנוי שלך כרגע</div>
@@ -397,7 +397,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
                     display: 'flex', flexDirection: 'column',
                     alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                     <span style={{ fontSize: 52, lineHeight: 1 }}>{isUnlimited ? '♾️' : '⭐'}</span>
-                    <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 600 }}>
+                    <span style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>
                       {isUnlimited ? 'גישה ללא הגבלת כמות' : `${pkg.searches} חיפושים`}
                     </span>
                   </div>
@@ -411,7 +411,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
               }}>
                 <span style={{
                   fontSize: 13, fontWeight: 400, padding: '4px 12px',
-                  background: accent, color: '#000',
+                  background: accent, color: '#fff',
                   borderRadius: 20, whiteSpace: 'nowrap',
                 }}>⭐ {pkg.label}</span>
               </div>
@@ -449,7 +449,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
                 const text = typeof f === 'string' ? f : f.text
                 const included = typeof f === 'string' ? true : f.included
                 return (
-                  <div key={i} style={{ color: included ? 'var(--hint)' : '#e53e3e', opacity: included ? 1 : 0.75 }}>
+                  <div key={i} style={{ color: included ? 'var(--hint)' : '#c53030' }}>
                     {included ? '✅' : '✗'} {text}
                   </div>
                 )
@@ -465,13 +465,13 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
                 <span style={{ fontSize: 13, color: 'var(--hint)' }}>כמות</span>
                 <div style={{ display: 'flex', alignItems: 'center',
                   background: 'var(--bg)', borderRadius: 12, overflow: 'hidden' }}>
-                  <button onClick={() => setQty(pkg.id, qty - 1)} disabled={qty <= 1} style={{
+                  <button onClick={() => setQty(pkg.id, qty - 1)} aria-label="הפחת כמות" disabled={qty <= 1} style={{
                     width: 44, height: 40, border: 'none', background: 'transparent',
                     fontSize: 22, cursor: qty <= 1 ? 'default' : 'pointer',
                     color: qty <= 1 ? 'var(--hint)' : accent, fontWeight: 700,
                   }}>−</button>
-                  <span style={{ width: 34, textAlign: 'center', fontWeight: 800, fontSize: 16 }}>{qty}</span>
-                  <button onClick={() => setQty(pkg.id, qty + 1)} disabled={qty >= 10} style={{
+                  <span style={{ width: 34, textAlign: 'center', fontWeight: 800, fontSize: 16 }} role="status" aria-label={`כמות ${qty}`}>{qty}</span>
+                  <button onClick={() => setQty(pkg.id, qty + 1)} aria-label="הוסף כמות" disabled={qty >= 10} style={{
                     width: 44, height: 40, border: 'none', background: 'transparent',
                     fontSize: 22, cursor: qty >= 10 ? 'default' : 'pointer',
                     color: qty >= 10 ? 'var(--hint)' : accent, fontWeight: 700,
@@ -522,8 +522,8 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
             const qty         = getQty(pkg.id)
             const maxQty      = 8
             const totalPrice  = pkg.price * qty
-            const alertAccent = '#007aff'
-            const alertGrad   = 'linear-gradient(135deg,#007aff,#00c6ff)'
+            const alertAccent = '#0066d6'
+            const alertGrad   = 'var(--grad-primary)'
             return (
               <div key={pkg.id} style={{
                 borderRadius: 20, overflow: 'hidden', marginBottom: 22,
@@ -537,7 +537,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
                   alignItems: 'center', justifyContent: 'center', gap: 6, position: 'relative',
                 }}>
                   <span style={{ fontSize: 52, lineHeight: 1 }}>🔔</span>
-                  <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 600 }}>
+                  <span style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>
                     התראות על מודעות חדשות ביד2
                   </span>
                   <div style={{
@@ -568,7 +568,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
                 <div style={{ padding: '12px 16px 8px', fontSize: 12, color: 'var(--hint)', lineHeight: 1.7 }}>
                   {pkg.features?.length > 0
                     ? pkg.features.map((f, i) => (
-                        <div key={i} style={{ color: f.included !== false ? 'var(--hint)' : '#e53e3e66' }}>
+                        <div key={i} style={{ color: f.included !== false ? 'var(--hint)' : '#c5303066' }}>
                           {f.included !== false ? '✅' : '✗'} {f.text}
                         </div>
                       ))
@@ -590,13 +590,13 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
                   <span style={{ fontSize: 13, color: 'var(--hint)' }}>כמות התראות</span>
                   <div style={{ display: 'flex', alignItems: 'center',
                     background: 'var(--bg)', borderRadius: 12, overflow: 'hidden' }}>
-                    <button onClick={() => setQty(pkg.id, qty - 1, maxQty)} disabled={qty <= 1} style={{
+                    <button onClick={() => setQty(pkg.id, qty - 1, maxQty)} aria-label="הפחת כמות" disabled={qty <= 1} style={{
                       width: 44, height: 40, border: 'none', background: 'transparent',
                       fontSize: 22, cursor: qty <= 1 ? 'default' : 'pointer',
                       color: qty <= 1 ? 'var(--hint)' : alertAccent, fontWeight: 700,
                     }}>−</button>
-                    <span style={{ width: 34, textAlign: 'center', fontWeight: 800, fontSize: 16 }}>{qty}</span>
-                    <button onClick={() => setQty(pkg.id, qty + 1, maxQty)} disabled={qty >= maxQty} style={{
+                    <span style={{ width: 34, textAlign: 'center', fontWeight: 800, fontSize: 16 }} role="status" aria-label={`כמות ${qty}`}>{qty}</span>
+                    <button onClick={() => setQty(pkg.id, qty + 1, maxQty)} aria-label="הוסף כמות" disabled={qty >= maxQty} style={{
                       width: 44, height: 40, border: 'none', background: 'transparent',
                       fontSize: 22, cursor: qty >= maxQty ? 'default' : 'pointer',
                       color: qty >= maxQty ? 'var(--hint)' : alertAccent, fontWeight: 700,

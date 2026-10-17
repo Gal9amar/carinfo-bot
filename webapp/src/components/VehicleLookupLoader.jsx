@@ -34,14 +34,15 @@ export default function VehicleLookupLoader({ plate }) {
   }, [])
 
   return (
-    <div style={{ padding: '28px 16px 16px', textAlign: 'center' }}>
+    <div role="status" style={{ padding: '28px 16px 16px', textAlign: 'center' }}>
+      <span className="sr-only">טוען נתוני רכב, אנא המתן…</span>
       {plate && (
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 22, opacity: 0.9 }}>
           <LicensePlate plate={plate} size="lg" />
         </div>
       )}
 
-      <div className="card" style={{
+      <div className="card" aria-hidden="true" style={{
         padding: '14px 18px', marginBottom: 0,
         maxWidth: 340, margin: '0 auto', textAlign: 'right',
       }}>
@@ -52,7 +53,7 @@ export default function VehicleLookupLoader({ plate }) {
             <div key={i} style={{
               display: 'flex', alignItems: 'center', gap: 10,
               padding: '7px 0',
-              opacity: done || active ? 1 : 0.35,
+              opacity: 1,
               transition: 'opacity 0.35s',
             }}>
               <span style={{ width: 20, textAlign: 'center', fontSize: 15 }}>
@@ -71,14 +72,14 @@ export default function VehicleLookupLoader({ plate }) {
         })}
       </div>
 
-      <div style={{ maxWidth: 340, margin: '16px auto 0', height: 6, borderRadius: 99, background: 'rgba(0,100,200,0.1)', overflow: 'hidden' }}>
+      <div aria-hidden="true" style={{ maxWidth: 340, margin: '16px auto 0', height: 6, borderRadius: 99, background: 'rgba(0,100,200,0.1)', overflow: 'hidden' }}>
         <div style={{
           width: `${Math.round(((stepIdx + 1) / STEPS.length) * 100)}%`, height: '100%', borderRadius: 99,
-          background: 'linear-gradient(90deg, #007aff, #00c6ff)', transition: 'width 0.5s ease',
+          background: 'linear-gradient(90deg, #0066d6, #00c6ff)', transition: 'width 0.5s ease',
         }} />
       </div>
 
-      <div style={{
+      <div aria-hidden="true" style={{
         marginTop: 20, background: 'rgba(0,122,255,0.06)', border: '1px solid var(--border)',
         borderRadius: 14, padding: '10px 14px', fontSize: 12.5, color: 'var(--text-muted)',
         maxWidth: 340, margin: '20px auto 0', minHeight: 36, display: 'flex', alignItems: 'center', justifyContent: 'center',

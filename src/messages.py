@@ -607,6 +607,14 @@ def referral_bonus(name: str, friend: str, bonus: int) -> str:
     )
 
 
+def referral_bonus_days(name: str, friend: str, days: int, expires: str) -> str:
+    return (
+        f"🎉 {_n(name)}, חבר חדש הצטרף דרך הלינק שלך!\n\n"
+        f"👤 {esc(friend)} הצטרף לבוט\n"
+        f"🎁 המסלול Premium שלך הוארך ב-{b(_count(days, 'יום אחד', 'ימים'))} — עד {b(fmt_date(expires))}"
+    )
+
+
 def referral_rejected(name: str, friend: str) -> str:
     return (
         f"ℹ️ {_n(name)}, הפעם לא נוכל לתת בונוס הפניה\n\n"

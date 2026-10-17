@@ -34,8 +34,8 @@ function confirmAction(message) {
 
 const chipBtnStyle = (danger) => ({
   flex: '1 1 0', minWidth: 62, padding: '9px 4px', borderRadius: 10,
-  border: `1px solid ${danger ? '#e53e3e77' : 'var(--hint)'}`,
-  background: 'var(--bg)', color: danger ? '#e53e3e' : 'var(--text)',
+  border: `1px solid ${danger ? '#c5303077' : 'var(--hint)'}`,
+  background: 'var(--bg)', color: danger ? '#c53030' : 'var(--text)',
   fontSize: 12, fontWeight: 600, cursor: 'pointer', textAlign: 'center',
 })
 
@@ -45,10 +45,10 @@ const fieldInputStyle = { background: 'var(--bg)', border: '1.5px solid var(--bo
 
 function Field({ label, children }) {
   return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 4, fontWeight: 600 }}>{label}</div>
+    <label style={{ display: 'block', marginBottom: 10 }}>
+      <span style={{ display: 'block', fontSize: 12, color: 'var(--hint)', marginBottom: 4, fontWeight: 600 }}>{label}</span>
       {children}
-    </div>
+    </label>
   )
 }
 
@@ -191,16 +191,21 @@ function GarageCard({ item, onSell, onUpdate, onDelete, onAddExpense, onDeleteEx
 
   return (
     <div className="card" style={{ marginBottom: 12 }}>
-      <div onClick={() => setExpanded(x => !x)} style={{ cursor: 'pointer' }}>
+      <div
+        role="button" tabIndex={0} aria-expanded={expanded}
+        onClick={() => setExpanded(x => !x)}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded(x => !x) } }}
+        style={{ cursor: 'pointer' }}
+      >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
           <LicensePlate plate={item.plate} size="sm" />
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{
               fontSize: 11, fontWeight: 700, borderRadius: 20, padding: '4px 10px', whiteSpace: 'nowrap',
-              background: isSold ? '#1b8a3a1f' : '#007aff1f',
-              color: isSold ? '#1b8a3a' : '#007aff',
+              background: isSold ? '#177a331f' : '#0066d61f',
+              color: isSold ? '#177a33' : '#0066d6',
             }}>{isSold ? '✅ נמכר' : '🚗 במלאי שלי'}</div>
-            <span style={{ fontSize: 12, color: 'var(--hint)' }}>{expanded ? '▲' : '▼'}</span>
+            <span style={{ fontSize: 12, color: 'var(--hint)' }} aria-hidden="true">{expanded ? '▲' : '▼'}</span>
           </div>
         </div>
 
@@ -228,8 +233,9 @@ function GarageCard({ item, onSell, onUpdate, onDelete, onAddExpense, onDeleteEx
               <span style={{ color: 'var(--hint)', fontWeight: 600 }}>+{fmtIls(e.amount)}</span>
               <button
                 onClick={() => handleDeleteExpense(e.id)}
-                style={{ border: 'none', background: 'transparent', color: '#e53e3e', cursor: 'pointer', fontSize: 12, padding: 0 }}
-              >✕</button>
+                aria-label={`מחק הוצאה: ${e.description || 'הוצאה'}`}
+                style={{ border: 'none', background: 'transparent', color: '#c53030', cursor: 'pointer', fontSize: 12, padding: '10px 12px' }}
+              ><span aria-hidden="true">✕</span></button>
             </div>
           </div>
         ))}
@@ -251,8 +257,8 @@ function GarageCard({ item, onSell, onUpdate, onDelete, onAddExpense, onDeleteEx
       {isSold && (
         <div style={{
           textAlign: 'center', padding: '8px 0', borderRadius: 10, marginBottom: 10,
-          background: profit >= 0 ? '#1b8a3a1f' : '#e53e3e22',
-          color: profit >= 0 ? '#1b8a3a' : '#e53e3e',
+          background: profit >= 0 ? '#177a331f' : '#c5303022',
+          color: profit >= 0 ? '#177a33' : '#c53030',
           fontWeight: 800, fontSize: 15,
         }}>
           {profit >= 0 ? '📈 רווח: ' : '📉 הפסד: '}{fmtIls(Math.abs(profit))}
@@ -465,10 +471,10 @@ export default function GaragePage({ onBack, onNavigate }) {
       </div>
 
       {items === null && (
-        <>
+        <div role="status" aria-label="טוען">
           <SkeletonGarageCard />
           <SkeletonGarageCard />
-        </>
+        </div>
       )}
 
       {items !== null && items.length === 0 && (
@@ -497,7 +503,7 @@ export default function GaragePage({ onBack, onNavigate }) {
               </div>
               <div className="stat-card">
                 <div className="stat-value" style={{
-                  fontSize: 16, color: summary.realized >= 0 ? '#1b8a3a' : '#e53e3e',
+                  fontSize: 16, color: summary.realized >= 0 ? '#177a33' : '#c53030',
                 }}>{summary.realized >= 0 ? '+' : ''}{fmtIls(summary.realized)}</div>
                 <div className="stat-label">רווח/הפסד ממומש</div>
               </div>
@@ -511,10 +517,10 @@ export default function GaragePage({ onBack, onNavigate }) {
               { id: 'owned', label: 'במלאי' },
               { id: 'sold', label: 'נמכרו' },
             ].map(f => (
-              <button key={f.id} onClick={() => setFilter(f.id)} style={{
+              <button key={f.id} onClick={() => setFilter(f.id)} aria-pressed={filter === f.id} style={{
                 flex: 1, padding: '8px 0', border: 'none', borderRadius: 11,
                 fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                background: filter === f.id ? 'linear-gradient(135deg,#1e40af,#0ea5e9)' : 'transparent',
+                background: filter === f.id ? 'linear-gradient(135deg,#1e40af,#0b6fc2)' : 'transparent',
                 color: filter === f.id ? '#fff' : 'var(--hint)',
               }}>{f.label}</button>
             ))}
@@ -524,12 +530,12 @@ export default function GaragePage({ onBack, onNavigate }) {
               { id: 'date', label: '🕒 החדש ביותר' },
               { id: 'profit', label: '💰 לפי רווח' },
             ].map(s => (
-              <button key={s.id} onClick={() => setSort(s.id)} style={{
+              <button key={s.id} onClick={() => setSort(s.id)} aria-pressed={sort === s.id} style={{
                 flex: 1, padding: '7px 0', borderRadius: 10,
                 fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                border: `1px solid ${sort === s.id ? '#007aff' : 'var(--bg2)'}`,
-                background: sort === s.id ? '#007aff1f' : 'var(--bg2)',
-                color: sort === s.id ? '#007aff' : 'var(--hint)',
+                border: `1px solid ${sort === s.id ? '#0066d6' : 'var(--bg2)'}`,
+                background: sort === s.id ? '#0066d61f' : 'var(--bg2)',
+                color: sort === s.id ? '#0066d6' : 'var(--hint)',
               }}>{s.label}</button>
             ))}
           </div>
