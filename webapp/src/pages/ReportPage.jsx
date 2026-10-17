@@ -561,7 +561,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
   if (record._personal_import) flags.push('📦 רכב יבוא אישי')
 
   let statusLabel = '🟢 תקין'
-  let statusColor = '#177a33'
+  let statusColor = '#14702d'
   if (scrapped || inactive || inactiveNd) { statusLabel = '🔴 דורש בדיקה'; statusColor = '#c53030' }
   else if (bodyChange || (testStr && (testStr.startsWith('🟡') || testStr.startsWith('🔴')))) {
     statusLabel = '🟡 שים לב'; statusColor = '#975a16'
@@ -664,7 +664,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
     const base = { factors }
     if (score >= 80) return { ...base, grade: 'A', label: 'מצוין', color: '#177a33', bg: '#177a331f' }
     if (score >= 60) return { ...base, grade: 'B', label: 'טוב', color: '#975a16', bg: '#975a1622' }
-    if (score >= 40) return { ...base, grade: 'C', label: 'בינוני', color: '#a8520a', bg: '#a8520a22' }
+    if (score >= 40) return { ...base, grade: 'C', label: 'בינוני', color: '#964a08', bg: '#964a0822' }
     return { ...base, grade: 'D', label: 'דורש בדיקה', color: '#c53030', bg: '#c5303022' }
   }
   const score = calcScore()
@@ -688,7 +688,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
         {color && <div style={{ fontSize: 13, color: 'var(--hint)', marginTop: 2 }}>{color}</div>}
         <div style={{
           display: 'inline-block', marginTop: 8, padding: '4px 14px', borderRadius: 20,
-          background: statusColor + '22', color: statusColor, fontSize: 13, fontWeight: 600,
+          background: statusColor + '14', color: statusColor, fontSize: 13, fontWeight: 600,
         }}>{statusLabel}</div>
       </div>
 
@@ -787,14 +787,14 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
               <label style={{ display: 'block', marginBottom: 10 }}>
                 <span style={{ display: 'block', fontSize: 12, color: 'var(--hint)', marginBottom: 4, fontWeight: 600 }}>מחיר רכישה (₪)</span>
                 <input
-                  type="number" className="input" style={{ background: 'var(--bg)', border: '1.5px solid var(--border)' }}
+                  type="number" className="input" style={{ background: 'var(--bg)', border: '1.5px solid var(--border-input)' }}
                   value={buyPrice} onChange={e => setBuyPrice(e.target.value)}
                 />
               </label>
               <label style={{ display: 'block', marginBottom: 10 }}>
                 <span style={{ display: 'block', fontSize: 12, color: 'var(--hint)', marginBottom: 4, fontWeight: 600 }}>ק"מ בזמן הרכישה</span>
                 <input
-                  type="number" className="input" style={{ background: 'var(--bg)', border: '1.5px solid var(--border)' }}
+                  type="number" className="input" style={{ background: 'var(--bg)', border: '1.5px solid var(--border-input)' }}
                   value={buyKm} onChange={e => setBuyKm(e.target.value)}
                 />
               </label>
@@ -804,7 +804,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
                   className="input" rows={3}
                   placeholder={'לדוגמה: יש לתקן כנף שמאל, יש להחליף מצבר'}
                   value={buyNotes} onChange={e => setBuyNotes(e.target.value)}
-                  style={{ background: 'var(--bg)', border: '1.5px solid var(--border)', resize: 'vertical', fontFamily: 'inherit' }}
+                  style={{ background: 'var(--bg)', border: '1.5px solid var(--border-input)', resize: 'vertical', fontFamily: 'inherit' }}
                 />
               </label>
               <div style={{ display: 'flex', gap: 8 }}>

@@ -648,7 +648,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
       <div style={{ textAlign: 'center', marginTop: 16 }}>
         <button
           onClick={onPrivacy}
-          style={{ background: 'none', border: 'none', color: 'var(--hint)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
+          style={{ background: 'none', border: 'none', color: 'var(--hint)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline', padding: '12px 8px', minHeight: 44 }}
         >
           מדיניות פרטיות ותנאי שימוש
         </button>

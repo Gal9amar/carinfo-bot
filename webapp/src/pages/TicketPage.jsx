@@ -5,7 +5,7 @@ import BackButton from '../components/BackButton.jsx'
 import PageBanners from '../components/PageBanners.jsx'
 
 const STATUS_LABEL = { open: 'פתוח', in_progress: 'בטיפול', closed: 'סגור' }
-const STATUS_COLOR = { open: '#a8520a', in_progress: '#0066d6', closed: '#177a33' }
+const STATUS_COLOR = { open: '#964a08', in_progress: '#0066d6', closed: '#177a33' }
 const STATUS_ICON  = { open: '🔴', in_progress: '🟡', closed: '🟢' }
 
 export default function TicketPage({ onBack, onNavigate }) {

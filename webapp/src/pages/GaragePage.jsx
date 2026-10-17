@@ -41,7 +41,7 @@ const chipBtnStyle = (danger) => ({
 
 // .input's default border/background match the card background exactly,
 // so it renders with no visible frame when nested inside a .card — override both.
-const fieldInputStyle = { background: 'var(--bg)', border: '1.5px solid var(--border)' }
+const fieldInputStyle = { background: 'var(--bg)', border: '1.5px solid var(--border-input)' }
 
 function Field({ label, children }) {
   return (
@@ -534,7 +534,7 @@ export default function GaragePage({ onBack, onNavigate }) {
                 flex: 1, padding: '7px 0', borderRadius: 10,
                 fontSize: 12, fontWeight: 600, cursor: 'pointer',
                 border: `1px solid ${sort === s.id ? '#0066d6' : 'var(--bg2)'}`,
-                background: sort === s.id ? '#0066d61f' : 'var(--bg2)',
+                background: sort === s.id ? '#0066d60d' : 'var(--bg2)',
                 color: sort === s.id ? '#0066d6' : 'var(--hint)',
               }}>{s.label}</button>
             ))}

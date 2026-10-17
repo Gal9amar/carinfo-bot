@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { fetchUserOrders, fetchGarage, fetchReferral, fetchSearchHistory, fetchUserWatches, fetchPackages, deleteMyAccount } from '../api.js'
 import { fmtDate, fmtDateLong } from '../utils/time.js'
 import BackButton from '../components/BackButton.jsx'
@@ -7,6 +7,14 @@ export default function ProfilePage({ user, onNavigate, onBack, onAccountDeleted
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState(false)
+  const delDialogRef = useRef(null)
+  const delTriggerRef = useRef(null)
+  const delWasOpen = useRef(false)
+  // Move focus into the confirmation when it opens; give it back to the trigger when it closes.
+  useEffect(() => {
+    if (confirmDelete) { delWasOpen.current = true; delDialogRef.current?.focus() }
+    else if (delWasOpen.current) { delWasOpen.current = false; delTriggerRef.current?.focus() }
+  }, [confirmDelete])
 
   const [orders, setOrders]     = useState(null)
   const [garage, setGarage]     = useState(null)
@@ -60,10 +68,10 @@ export default function ProfilePage({ user, onNavigate, onBack, onAccountDeleted
       {/* Identity */}
       <header style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{
+          <h1 style={{
             fontSize: 22, fontWeight: 900, letterSpacing: '-0.5px',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>{fullName}</div>
+          }}>{fullName}</h1>
           <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2, lineHeight: 1.5 }}>
             {user.username && <div dir="ltr" style={{ textAlign: 'right' }}>@{user.username}</div>}
             {user.first_seen && <div>הצטרף/ה ב-{fmtDateLong(user.first_seen)}</div>}
@@ -105,7 +113,7 @@ export default function ProfilePage({ user, onNavigate, onBack, onAccountDeleted
       </div>
 
       {/* Navigation tiles */}
-      <h3 className="section-label" style={{ marginTop: 8 }}>האזור שלי</h3>
+      <h2 className="section-label" style={{ marginTop: 8 }}>האזור שלי</h2>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         {mainTiles.map(t => (
           <button
@@ -138,7 +146,7 @@ export default function ProfilePage({ user, onNavigate, onBack, onAccountDeleted
             onClick={() => onNavigate(l.id)}
             style={{
               background: 'none', border: 'none', cursor: 'pointer', fontSize: 13,
-              color: 'var(--text-muted)', textDecoration: 'underline', padding: 4,
+              color: 'var(--text-muted)', textDecoration: 'underline', padding: '12px 8px', minHeight: 44,
             }}
           >{l.label}</button>
         ))}
@@ -148,11 +156,12 @@ export default function ProfilePage({ user, onNavigate, onBack, onAccountDeleted
         <div style={{ marginTop: 22, textAlign: 'center' }}>
           {!confirmDelete ? (
             <button
+              ref={delTriggerRef}
               onClick={() => setConfirmDelete(true)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#dc2626', textDecoration: 'underline', padding: 4 }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#c53030', textDecoration: 'underline', padding: '12px 8px', minHeight: 44 }}
             >מחיקת החשבון וכל הנתונים</button>
           ) : (
-            <div className="card" role="alertdialog" aria-labelledby="del-title" style={{ textAlign: 'right', border: '1.5px solid rgba(220,38,38,0.4)' }}>
+            <div className="card" role="alertdialog" aria-labelledby="del-title" tabIndex={-1} ref={delDialogRef} onKeyDown={e => { if (e.key === 'Escape' && !deleting) setConfirmDelete(false) }} style={{ textAlign: 'right', border: '1.5px solid rgba(220,38,38,0.4)' }}>
               <div id="del-title" style={{ fontWeight: 800, fontSize: 15, marginBottom: 6 }}>⚠️ למחוק את החשבון לצמיתות?</div>
               <div style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--text-main)' }}>
                 כל הנתונים שנאספו עליך יימחקו: היסטוריית חיפושים, רכבים במוסך, הערות, התראות, תזכורות, פניות תמיכה והזמנות.
@@ -160,7 +169,7 @@ export default function ProfilePage({ user, onNavigate, onBack, onAccountDeleted
                 <br />רישומי תשלום יישמרו ללא פרטים מזהים, כנדרש בדין.
                 <br />כדי להשתמש בבוט שוב תצטרך להפעיל אותו מחדש ולאשר את תנאי השימוש.
               </div>
-              {deleteError && <div style={{ color: '#dc2626', fontSize: 13, marginTop: 8 }}>המחיקה נכשלה. נסה שוב מאוחר יותר.</div>}
+              {deleteError && <div role="alert" style={{ color: '#c53030', fontSize: 13, marginTop: 8 }}>המחיקה נכשלה. נסה שוב מאוחר יותר.</div>}
               <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                 <button className="btn btn-danger" style={{ flex: 1, marginTop: 0 }} disabled={deleting}
                   onClick={async () => {

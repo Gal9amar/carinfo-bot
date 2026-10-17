@@ -20,9 +20,10 @@ export default function PageBanners({ page, onNavigate }) {
           onClick={() => handleClick(b)}
           style={{
             display: 'flex', alignItems: 'center', gap: 14, width: '100%',
+            // The dark scrim keeps the white text >= 4.5:1 whatever colours the admin picked.
             background: b.image_url
-              ? `linear-gradient(135deg, ${b.color_from}cc 0%, ${b.color_to}cc 100%), url(${b.image_url}) center/cover`
-              : `linear-gradient(135deg, ${b.color_from} 0%, ${b.color_to} 100%)`,
+              ? `linear-gradient(rgba(0,0,0,0.28), rgba(0,0,0,0.28)), linear-gradient(135deg, ${b.color_from}cc 0%, ${b.color_to}cc 100%), url(${b.image_url}) center/cover`
+              : `linear-gradient(rgba(0,0,0,0.28), rgba(0,0,0,0.28)), linear-gradient(135deg, ${b.color_from} 0%, ${b.color_to} 100%)`,
             border: '1px solid rgba(0, 100, 200, 0.18)', borderRadius: 16, padding: '14px 18px',
             marginBottom: 20, cursor: 'pointer', textAlign: 'right',
           }}

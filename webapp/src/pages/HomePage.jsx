@@ -217,7 +217,7 @@ export default function HomePage({ user, onNavigate, onSearchPlate }) {
             onClick={() => onNavigate(l.id)}
             style={{
               background: 'none', border: 'none', cursor: 'pointer', fontSize: 13,
-              color: 'var(--text-muted)', textDecoration: 'underline', padding: 4,
+              color: 'var(--text-muted)', textDecoration: 'underline', padding: '12px 8px', minHeight: 44,
             }}
           >
             {l.label}

@@ -190,7 +190,7 @@ function StatsTab() {
           label="פגים ב-7 ימים"
           accent={stats.expiring_soon > 0 ? '#975a16' : undefined}
         />
-        <StatCard value={stats.pending_payments} label="תשלומים ממתינים" accent={stats.pending_payments > 0 ? '#f59e0b' : undefined} />
+        <StatCard value={stats.pending_payments} label="תשלומים ממתינים" accent={stats.pending_payments > 0 ? '#b45309' : undefined} />
       </Section>
 
       <Section title="חיפושים">
@@ -202,7 +202,7 @@ function StatsTab() {
 
       <Section title="קודים וטיקטים">
         <StatCard value={stats.active_codes}  label="קודים פעילים"  sub={`${stats.used_codes}/${stats.total_codes} נוצלו`} />
-        <StatCard value={stats.tickets_open}  label="טיקטים פתוחים" accent={stats.tickets_open > 0 ? '#f59e0b' : undefined} />
+        <StatCard value={stats.tickets_open}  label="טיקטים פתוחים" accent={stats.tickets_open > 0 ? '#b45309' : undefined} />
       </Section>
 
       <Section title="🔔 התראות יד2">
@@ -263,13 +263,13 @@ function ActivityTab() {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', background: 'var(--bg-card)', padding: '8px 16px', borderRadius: 12, border: '1px solid var(--border)' }}>
-          <div style={{ width: 18, height: 18, borderRadius: 6, border: `2px solid ${autoRefresh ? '#10b981' : 'var(--border)'}`, background: autoRefresh ? '#10b981' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 18, height: 18, borderRadius: 6, border: `2px solid ${autoRefresh ? '#047857' : 'var(--border)'}`, background: autoRefresh ? '#047857' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {autoRefresh && <span style={{ color: '#fff', fontSize: 10 }}>✓</span>}
           </div>
           <input type="checkbox" checked={autoRefresh} onChange={e => setAutoRefresh(e.target.checked)} style={{ display: 'none' }} />
           <span style={{ fontSize: 13, fontWeight: 700, color: autoRefresh ? 'var(--text-main)' : 'var(--text-muted)' }}>רענון חיטוב אוטומטי (15 ש')</span>
           {autoRefresh && (
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', marginLeft: 4, animation: 'pulse 2s infinite' }}></div>
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#047857', marginLeft: 4, animation: 'pulse 2s infinite' }}></div>
           )}
         </label>
         
@@ -501,7 +501,7 @@ function PackagesTab() {
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
                     {!isActive && (
-                      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 12, background: '#fee2e2', color: '#ef4444', border: '1px solid #fca5a5' }}>מושבת</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 12, background: '#fee2e2', color: '#c53030', border: '1px solid #fca5a5' }}>מושבת</span>
                     )}
                     <span style={{ fontWeight: 800, fontSize: 18, color: 'var(--text-main)', letterSpacing: '-0.3px' }}>{pkg.label}</span>
                   </div>
@@ -615,7 +615,7 @@ function ProductsTab() {
                 <button className="btn btn-danger" style={{ width: 36, height: 36, padding: 0, margin: 0, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }} onClick={() => deleteProd(p.id)}>🗑️</button>
                 <button className="btn" style={{ width: 36, height: 36, padding: 0, margin: 0, borderRadius: 12, background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }} onClick={() => { setEditing(p); setForm({ name: p.name, description: p.description || '', image_url: p.image_url || '', price: String(p.price), delivery_type: p.delivery_type, delivery_time_note: p.delivery_time_note || '', quantity_stock: String(p.quantity_stock ?? 0), is_active: p.is_active !== false, availability_status: p.availability_status || 'available', features: p.features || [] }) }}>✏️</button>
                 {p.delivery_type === 'auto' && (
-                  <button className="btn" style={{ height: 36, padding: '0 12px', margin: 0, borderRadius: 12, background: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }} onClick={() => setStockTarget(p)}>📤 מלאי</button>
+                  <button className="btn" style={{ height: 36, padding: '0 12px', margin: 0, borderRadius: 12, background: '#047857', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }} onClick={() => setStockTarget(p)}>📤 מלאי</button>
                 )}
               </div>
 
@@ -626,7 +626,7 @@ function ProductsTab() {
                       <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 12, background: '#3182ce22', color: '#3182ce', border: '1px solid #90cdf4' }}>🔜 בקרוב</span>
                     )}
                     {!isActive && (
-                      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 12, background: '#fee2e2', color: '#ef4444', border: '1px solid #fca5a5' }}>מושבת</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 12, background: '#fee2e2', color: '#c53030', border: '1px solid #fca5a5' }}>מושבת</span>
                     )}
                     <span style={{ fontWeight: 800, fontSize: 18, color: 'var(--text-main)', letterSpacing: '-0.3px' }}>{p.name}</span>
                   </div>
@@ -799,7 +799,7 @@ function BannersTab() {
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                     {!isActive && (
-                      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 12, background: '#fee2e2', color: '#ef4444', border: '1px solid #fca5a5' }}>מושבת</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 12, background: '#fee2e2', color: '#c53030', border: '1px solid #fca5a5' }}>מושבת</span>
                     )}
                     <span style={{ fontWeight: 800, fontSize: 18, color: 'var(--text-main)', letterSpacing: '-0.3px' }}>{b.title}</span>
                   </div>
@@ -1789,7 +1789,7 @@ function AdminGrantsTab() {
         </div>
         <div style={{ fontSize: 12, color: 'var(--hint)', lineHeight: 1.6, background: 'var(--bg)', padding: '12px', borderRadius: 12, border: '1px dashed var(--border)' }}>
           <span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>הנחיות ערכים: </span>
-          <b style={{ color: '#0066d6' }}>0</b> = מנוי חינמי, <b style={{ color: '#0066d6' }}>-1</b> = מנוי חודשי פרימיום, <b style={{ color: '#f59e0b' }}>-2</b> = גישה חופשית (ללא הגבלה), <b style={{ color: '#10b981' }}>מספר חיובי</b> = הוספת X חיפושים.
+          <b style={{ color: '#0066d6' }}>0</b> = מנוי חינמי, <b style={{ color: '#0066d6' }}>-1</b> = מנוי חודשי פרימיום, <b style={{ color: '#b45309' }}>-2</b> = גישה חופשית (ללא הגבלה), <b style={{ color: '#047857' }}>מספר חיובי</b> = הוספת X חיפושים.
         </div>
       </div>
       
@@ -1901,19 +1901,19 @@ function AdminGrantModal({ title, form, setForm, saving, onSave, onClose }) {
 }
 
 const STATUS_META = {
-  intent:    { label: 'ממתין לתשלום', color: '#888' },
-  created:   { label: 'ממתין לתשלום', color: '#888' },
+  intent:    { label: 'ממתין לתשלום', color: '#636366' },
+  created:   { label: 'ממתין לתשלום', color: '#636366' },
   approved:  { label: 'אושר',    color: '#2196F3' },
   captured:  { label: 'נגבה',    color: '#00bcd4' },
-  completed: { label: 'הושלם',   color: '#4caf50' },
+  completed: { label: 'הושלם',   color: '#27692b' },
   failed:    { label: 'נכשל',    color: '#f44336' },
-  expired:   { label: 'פג תוקף', color: '#ff9800' },
+  expired:   { label: 'פג תוקף', color: '#b45309' },
   declined:  { label: 'נדחה',    color: '#f44336' },
-  cancelled:        { label: 'בוטל',               color: '#ff9800' },
-  user_cancelled:   { label: 'בוטל ע״י משתמש',    color: '#ff9800' },
-  admin_approved:   { label: 'אושר ע״י מנהל',  color: '#4caf50' },
-  admin_cancelled:  { label: 'בוטל ע״י מנהל',  color: '#ff9800' },
-  pending_delivery: { label: 'ממתין למשלוח',   color: '#ff9800' },
+  cancelled:        { label: 'בוטל',               color: '#b45309' },
+  user_cancelled:   { label: 'בוטל ע״י משתמש',    color: '#b45309' },
+  admin_approved:   { label: 'אושר ע״י מנהל',  color: '#27692b' },
+  admin_cancelled:  { label: 'בוטל ע״י מנהל',  color: '#b45309' },
+  pending_delivery: { label: 'ממתין למשלוח',   color: '#b45309' },
 }
 
 function PaypalTransactionRow({ tx, onRefresh }) {
@@ -1921,7 +1921,7 @@ function PaypalTransactionRow({ tx, onRefresh }) {
   const [working, setWorking] = useState(false)
   const [deliverText, setDeliverText] = useState('')
   const [delivering, setDelivering] = useState(false)
-  const meta = STATUS_META[tx.status] || { label: tx.status, color: '#888' }
+  const meta = STATUS_META[tx.status] || { label: tx.status, color: '#636366' }
   const canAct = ['intent', 'created', 'cancelled'].includes(tx.status)
   const needsDelivery = tx.package_type === 'product' && tx.status === 'pending_delivery'
 
@@ -1961,7 +1961,7 @@ function PaypalTransactionRow({ tx, onRefresh }) {
             <span style={{ fontFamily: 'monospace', fontSize: 14, fontWeight: 800, color: 'var(--text-main)', background: 'var(--bg)', padding: '4px 8px', borderRadius: 8, letterSpacing: '0.5px' }}>#{tx.ref}</span>
             <span style={{ background: `${meta.color}20`, color: meta.color, border: `1px solid ${meta.color}40`, borderRadius: 12, padding: '4px 10px', fontSize: 12, fontWeight: 800 }}>{meta.label}</span>
           </div>
-          <span style={{ color: '#10b981', fontWeight: 800, fontSize: 18 }}>₪{tx.amount}</span>
+          <span style={{ color: '#047857', fontWeight: 800, fontSize: 18 }}>₪{tx.amount}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-main)' }}>{tx.label}</span>
@@ -1991,7 +1991,7 @@ function PaypalTransactionRow({ tx, onRefresh }) {
           </div>
           
           {tx.error && (
-            <div style={{ marginTop: 12, padding: '12px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderRadius: 12, border: '1px dashed rgba(239, 68, 68, 0.3)', fontSize: 13, fontWeight: 600 }}>
+            <div style={{ marginTop: 12, padding: '12px', background: 'rgba(239, 68, 68, 0.1)', color: '#c53030', borderRadius: 12, border: '1px dashed rgba(239, 68, 68, 0.3)', fontSize: 13, fontWeight: 600 }}>
               ⚠️ {tx.error}
             </div>
           )}
@@ -2009,7 +2009,7 @@ function PaypalTransactionRow({ tx, onRefresh }) {
               <button
                 onClick={sendDelivery}
                 disabled={delivering || !deliverText.trim()}
-                style={{ width: '100%', padding: '12px 0', background: '#10b981', color: '#fff', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: delivering ? 'default' : 'pointer', opacity: delivering || !deliverText.trim() ? 0.5 : 1, transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)' }}
+                style={{ width: '100%', padding: '12px 0', background: '#047857', color: '#fff', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: delivering ? 'default' : 'pointer', opacity: delivering || !deliverText.trim() ? 0.5 : 1, transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)' }}
               >
                 {delivering ? '⏳ שולח...' : '✨ אשרו ושלחו ללקוח'}
               </button>
@@ -2021,12 +2021,12 @@ function PaypalTransactionRow({ tx, onRefresh }) {
               <button
                 onClick={approve}
                 disabled={working}
-                style={{ flex: 1, padding: '12px 0', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: working ? 'default' : 'pointer', opacity: working ? 0.5 : 1 }}
+                style={{ flex: 1, padding: '12px 0', background: 'rgba(16, 185, 129, 0.1)', color: '#047857', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: working ? 'default' : 'pointer', opacity: working ? 0.5 : 1 }}
               >✅ אישור מנהל ידני</button>
               <button
                 onClick={cancel}
                 disabled={working}
-                style={{ flex: 1, padding: '12px 0', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: working ? 'default' : 'pointer', opacity: working ? 0.5 : 1 }}
+                style={{ flex: 1, padding: '12px 0', background: 'rgba(239, 68, 68, 0.1)', color: '#c53030', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: working ? 'default' : 'pointer', opacity: working ? 0.5 : 1 }}
               >🚫 ביטול מנהל</button>
             </div>
           )}
@@ -2166,7 +2166,7 @@ function CodesSection({ standalone }) {
           const used = c.used_by != null
           const expired = c.expires && new Date(c.expires) < new Date()
           const status = used ? 'נוצל' : expired ? 'פג תוקף' : 'פעיל'
-          const statusColor = used ? '#0066d6' : expired ? '#ef4444' : '#10b981'
+          const statusColor = used ? '#0066d6' : expired ? '#c53030' : '#047857'
           const desc = c.unlimited ? (c.monthly ? 'מנוי חודשי פרימיום' : 'מנוי ללא הגבלה') : `${c.searches} חיפושים`
           
           return (
@@ -2287,7 +2287,7 @@ function GlobalUnlimitedSection() {
 
       <div style={{ marginBottom: 12 }}>
         <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 6 }}>תאריך התחלה (ריק = מיידי)</div>
-        <input className="input" type="date" value={start} onChange={e => setStart(e.target.value)} style={{ marginBottom: 0 }} />
+        <input className="input" type="date" aria-label="תאריך התחלה" value={start} onChange={e => setStart(e.target.value)} style={{ marginBottom: 0 }} />
       </div>
 
       <div style={{ marginBottom: 16 }}>
@@ -2297,7 +2297,7 @@ function GlobalUnlimitedSection() {
           ללא תאריך סיום (יישאר פעיל עד ביטול ידני)
         </label>
         {!noEnd && (
-          <input className="input" type="date" value={end} onChange={e => setEnd(e.target.value)} style={{ marginBottom: 0 }} />
+          <input className="input" type="date" aria-label="תאריך סיום" value={end} onChange={e => setEnd(e.target.value)} style={{ marginBottom: 0 }} />
         )}
       </div>
 
@@ -2528,7 +2528,7 @@ function UserCard({ u, expanded, onToggle, onEdit, onMessage, onHistory, onReloa
   return (
     <div className="card" style={{
       padding: 0, overflow: 'hidden', cursor: 'pointer',
-      border: u.blocked ? '1px solid #ef444455' : u.is_subscriber ? '1px solid #0066d655' : '1px solid var(--border)',
+      border: u.blocked ? '1px solid #c5303055' : u.is_subscriber ? '1px solid #0066d655' : '1px solid var(--border)',
     }} onClick={() => onToggle(u.user_id)}>
       {/* Collapsed header */}
       <div style={{ display: 'flex', gap: 12, padding: '16px', alignItems: 'center', userSelect: 'none' }}>
@@ -2608,9 +2608,9 @@ function UserCard({ u, expanded, onToggle, onEdit, onMessage, onHistory, onReloa
             {u.first_seen && <div>📅 הצטרף: <span style={{ color: 'var(--text-main)', fontWeight: 500 }}>{fmtDateIL(u.first_seen)}</span></div>}
             {u.last_seen  && <div>👁 נראה לאחרונה: <span style={{ color: 'var(--text-main)', fontWeight: 500 }}>{fmtDateTime(u.last_seen)}</span></div>}
             {u.quota_expires && <div>⏰ פג תוקף: <span style={{ color: '#975a16', fontWeight: 700 }}>{u.quota_expires.slice(0, 10)}</span></div>}
-            {u.referred_by && <div>🤝 הופנה ע"י: <span style={{ color: '#10b981', fontWeight: 700 }}>{u.referred_by}</span></div>}
+            {u.referred_by && <div>🤝 הופנה ע"י: <span style={{ color: '#047857', fontWeight: 700 }}>{u.referred_by}</span></div>}
             {u.channel && <div>📡 ערוץ: <span style={{ color: 'var(--text-main)', fontWeight: 500 }}>{u.channel}</span></div>}
-            <div>{u.broadcast_consent === 0 ? '🔕' : '🔔'} שידורים: <span style={{ color: u.broadcast_consent === 0 ? '#ef4444' : '#10b981', fontWeight: 700 }}>{u.broadcast_consent === 0 ? 'הסכמה בוטלה' : 'פעיל'}</span></div>
+            <div>{u.broadcast_consent === 0 ? '🔕' : '🔔'} שידורים: <span style={{ color: u.broadcast_consent === 0 ? '#c53030' : '#047857', fontWeight: 700 }}>{u.broadcast_consent === 0 ? 'הסכמה בוטלה' : 'פעיל'}</span></div>
           </div>
 
           {/* Action buttons */}
@@ -2644,7 +2644,7 @@ function UserCard({ u, expanded, onToggle, onEdit, onMessage, onHistory, onReloa
               style={{
                 padding: '12px 0', borderRadius: 12, border: 'none',
                 background: u.blocked ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                color: u.blocked ? '#10b981' : '#ef4444',
+                color: u.blocked ? '#047857' : '#c53030',
                 cursor: blocking ? 'default' : 'pointer', fontSize: 14, fontWeight: 700,
                 opacity: blocking ? 0.6 : 1,
               }}
@@ -2656,7 +2656,7 @@ function UserCard({ u, expanded, onToggle, onEdit, onMessage, onHistory, onReloa
                 style={{
                   gridColumn: '1 / -1',
                   padding: '12px 0', borderRadius: 12, border: 'none',
-                  background: 'rgba(16, 185, 129, 0.1)', color: '#10b981',
+                  background: 'rgba(16, 185, 129, 0.1)', color: '#047857',
                   cursor: togglingConsent ? 'default' : 'pointer', fontSize: 14, fontWeight: 700,
                   opacity: togglingConsent ? 0.6 : 1,
                 }}
@@ -2696,7 +2696,7 @@ function ReferralsTab() {
       {/* Summary */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
         <div className="card" style={{ padding: '20px', textAlign: 'center', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.05), transparent)' }}>
-          <div style={{ fontSize: 32, fontWeight: 800, color: '#10b981', letterSpacing: '-1px' }}>{data.count}</div>
+          <div style={{ fontSize: 32, fontWeight: 800, color: '#047857', letterSpacing: '-1px' }}>{data.count}</div>
           <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>סה"כ הפניות מוצלחות</div>
         </div>
         <div className="card" style={{ padding: '20px', textAlign: 'center', background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.05), transparent)' }}>
@@ -2730,7 +2730,7 @@ function ReferralsTab() {
             className="card"
             onClick={() => setSelected(ref)}
             style={{
-              padding: '16px 20px', cursor: 'pointer', borderRight: '4px solid #10b981',
+              padding: '16px 20px', cursor: 'pointer', borderRight: '4px solid #047857',
               display: 'flex', alignItems: 'center', gap: 12, transition: 'all 0.2s',
             }}
           >
@@ -2747,7 +2747,7 @@ function ReferralsTab() {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <span style={{
-                background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.2)',
+                background: 'rgba(16, 185, 129, 0.1)', color: '#047857', border: '1px solid rgba(16, 185, 129, 0.2)',
                 borderRadius: 20, padding: '4px 12px', fontSize: 13, fontWeight: 800, flexShrink: 0,
               }}>
                 +{ref.bonus}
@@ -2782,12 +2782,12 @@ function ReferralsTab() {
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             }}>
               <span style={{ fontSize: 14, color: 'var(--text-muted)', fontWeight: 600 }}>🎁 בונוס שהוענק</span>
-              <span style={{ fontSize: 20, fontWeight: 800, color: '#10b981' }}>+{selected.bonus} חיפושים</span>
+              <span style={{ fontSize: 20, fontWeight: 800, color: '#047857' }}>+{selected.bonus} חיפושים</span>
             </div>
 
             {/* Referee */}
             <div style={{ background: 'var(--bg)', borderRadius: 16, padding: '16px', marginBottom: 20, border: '1px solid var(--border)' }}>
-              <div style={{ fontSize: 12, color: '#f59e0b', fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>📥 המצטרף (הופנה)</div>
+              <div style={{ fontSize: 12, color: '#b45309', fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>📥 המצטרף (הופנה)</div>
               <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-main)', marginBottom: 6 }}>{selected.referee_name}</div>
               <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'var(--text-muted)' }}>
                 <span>מזהה: <b style={{ color: 'var(--text-main)', fontFamily: 'monospace' }}>{selected.referee_id}</b></span>
@@ -3247,16 +3247,16 @@ function GrantModal({ user, onClose, onDone }) {
                   const kindColors = {
                     grant:           { bg: '#0066d618', border: '#0066d655', icon: '🎁' },
                     referral_bonus:  { bg: '#177a3318', border: '#177a3355', icon: '🤝' },
-                    referral_info:   { bg: '#f59e0b18', border: '#f59e0b55', icon: 'ℹ️' },
+                    referral_info:   { bg: '#b4530918', border: '#b4530955', icon: 'ℹ️' },
                     payment:         { bg: '#16a34a18', border: '#16a34a55', icon: '💳' },
                     broadcast:       { bg: '#0066d618', border: '#0066d655', icon: '📢' },
-                    expiry_reminder: { bg: '#f59e0b18', border: '#f59e0b55', icon: '⏰' },
+                    expiry_reminder: { bg: '#b4530918', border: '#b4530955', icon: '⏰' },
                     block:           { bg: '#c5303018', border: '#c5303055', icon: '🚫' },
                     unblock:         { bg: '#177a3318', border: '#177a3355', icon: '✅' },
                     ticket_reply:    { bg: '#6366f118', border: '#6366f155', icon: '💬' },
                     admin_dm:        { bg: '#ec489918', border: '#ec489955', icon: '✉️' },
                     welcome:         { bg: '#0066d618', border: '#0066d655', icon: '👋' },
-                    promo_welcome:   { bg: '#f59e0b18', border: '#f59e0b55', icon: '🎉' },
+                    promo_welcome:   { bg: '#b4530918', border: '#b4530955', icon: '🎉' },
                     code_applied:    { bg: '#0066d618', border: '#0066d655', icon: '🔑' },
                     watch_alert:     { bg: '#6366f118', border: '#6366f155', icon: '🔔' },
                   }
@@ -3358,7 +3358,7 @@ function SentMessagesModal({ user, onClose }) {
     grant:           { icon: '🎁', label: 'הטבה', color: '#0066d6' },
     payment:         { icon: '💳', label: 'תשלום', color: '#177a33' },
     broadcast:       { icon: '📢', label: 'שידור', color: '#0066d6' },
-    expiry_reminder: { icon: '⏰', label: 'תזכורת מנוי', color: '#f59e0b' },
+    expiry_reminder: { icon: '⏰', label: 'תזכורת מנוי', color: '#b45309' },
     block:           { icon: '🚫', label: 'חסימה', color: '#c53030' },
     ticket_reply:    { icon: '💬', label: 'טיקט', color: '#6366f1' },
     admin_dm:        { icon: '✉️', label: 'הודעת מנהל', color: '#ec4899' },
@@ -3456,7 +3456,7 @@ function PaymentMethodsTab() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
         {methods.map(m => (
           <div key={m.id} className="card" style={{
-            padding: '20px', borderTop: `4px solid ${m.active ? '#10b981' : '#ef4444'}`,
+            padding: '20px', borderTop: `4px solid ${m.active ? '#047857' : '#c53030'}`,
             opacity: m.active ? 1 : 0.75, transition: 'all 0.2s',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
@@ -3470,7 +3470,7 @@ function PaymentMethodsTab() {
                   <span style={{
                     fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 12,
                     background: m.active ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                    color: m.active ? '#10b981' : '#ef4444',
+                    color: m.active ? '#047857' : '#c53030',
                     border: `1px solid ${m.active ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`
                   }}>{m.active ? 'פעיל' : 'מושבת'}</span>
                 </div>
@@ -3486,11 +3486,11 @@ function PaymentMethodsTab() {
               >✏️ ערוך</button>
               <button
                 onClick={() => toggleActive(m)}
-                style={{ padding: '10px 0', borderRadius: 10, border: 'none', background: m.active ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', color: m.active ? '#ef4444' : '#10b981', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' }}
+                style={{ padding: '10px 0', borderRadius: 10, border: 'none', background: m.active ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', color: m.active ? '#c53030' : '#047857', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' }}
               >{m.active ? '🔕 השבת' : '✅ הפעל'}</button>
               <button
                 onClick={() => deleteMethod(m.id, m.name)}
-                style={{ padding: '0 16px', borderRadius: 10, border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', fontSize: 16, cursor: 'pointer', transition: 'all 0.2s' }}
+                style={{ padding: '0 16px', borderRadius: 10, border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#c53030', fontSize: 16, cursor: 'pointer', transition: 'all 0.2s' }}
                 title="מחק אמצעי תשלום"
               >🗑️</button>
             </div>
@@ -3818,11 +3818,11 @@ function PromoTab() {
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', background: 'var(--bg)', padding: '16px', borderRadius: 12, border: '1px solid var(--border)' }}>
-              <div style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${promoIsSubscriber ? '#10b981' : 'var(--border)'}`, background: promoIsSubscriber ? '#10b981' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${promoIsSubscriber ? '#047857' : 'var(--border)'}`, background: promoIsSubscriber ? '#047857' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {promoIsSubscriber && <span style={{ color: '#fff', fontSize: 12 }}>✓</span>}
               </div>
               <input type="checkbox" checked={promoIsSubscriber} onChange={e => setPromoIsSubscriber(e.target.checked)} style={{ display: 'none' }} />
-              <span>הוסף את המשתמשים אוטומטית לקבוצת <b style={{ color: '#10b981' }}>מנויים פעילים</b></span>
+              <span>הוסף את המשתמשים אוטומטית לקבוצת <b style={{ color: '#047857' }}>מנויים פעילים</b></span>
             </label>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -3840,13 +3840,13 @@ function PromoTab() {
 
         <div className="card" style={{ padding: '20px' }}>
           <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-main)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ color: '#f59e0b' }}>3️⃣</span> תאריכי תוקף למבצע
+            <span style={{ color: '#b45309' }}>3️⃣</span> תאריכי תוקף למבצע
           </div>
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div>
               <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 6 }}>תאריך התחלת המבצע</div>
-              <input className="input" type="date" value={promoStart} onChange={e => setPromoStart(e.target.value)} style={{ margin: 0, borderRadius: 10 }} />
+              <input className="input" type="date" aria-label="תאריך התחלה" value={promoStart} onChange={e => setPromoStart(e.target.value)} style={{ margin: 0, borderRadius: 10 }} />
             </div>
             
             <div>
@@ -3858,7 +3858,7 @@ function PromoTab() {
                 </label>
               </div>
               {!promoNoEnd ? (
-                <input className="input" type="date" value={promoEnd} onChange={e => setPromoEnd(e.target.value)} style={{ margin: 0, borderRadius: 10 }} />
+                <input className="input" type="date" aria-label="תאריך סיום" value={promoEnd} onChange={e => setPromoEnd(e.target.value)} style={{ margin: 0, borderRadius: 10 }} />
               ) : (
                 <div style={{ height: 46, background: 'rgba(0, 122, 255, 0.05)', border: '1px dashed rgba(0, 122, 255, 0.3)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)', fontWeight: 700, fontSize: 14 }}>
                   מבצע קבוע (ללא הגבלת זמן)
@@ -3874,11 +3874,11 @@ function PromoTab() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: (settings.promo_searches ?? 0) !== 0 ? '1fr 1fr' : '1fr', gap: 16 }}>
-        <button className="btn" style={{ height: 50, borderRadius: 12, fontSize: 16, fontWeight: 800, background: '#10b981', color: '#fff', border: 'none', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)', cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }} disabled={saving} onClick={savePromo}>
+        <button className="btn" style={{ height: 50, borderRadius: 12, fontSize: 16, fontWeight: 800, background: '#047857', color: '#fff', border: 'none', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)', cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }} disabled={saving} onClick={savePromo}>
           {saving ? '⏳ שומר נתונים...' : '✨ שמור והפעל מבצע הצטרפות'}
         </button>
         {(settings.promo_searches ?? 0) !== 0 && (
-          <button className="btn" style={{ height: 50, borderRadius: 12, fontSize: 16, fontWeight: 800, background: '#ef4444', color: '#fff', border: 'none', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)', cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }} disabled={saving} onClick={clearPromo}>
+          <button className="btn" style={{ height: 50, borderRadius: 12, fontSize: 16, fontWeight: 800, background: '#c53030', color: '#fff', border: 'none', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)', cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }} disabled={saving} onClick={clearPromo}>
             🗑️ ביטול מבצע פעיל
           </button>
         )}
@@ -3977,7 +3977,7 @@ function FeaturesTab() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20 }}>
         {/* Yad2 market price */}
-        <div className="card" style={{ padding: '24px', borderTop: '4px solid #f59e0b' }}>
+        <div className="card" style={{ padding: '24px', borderTop: '4px solid #b45309' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 24, background: 'rgba(245, 158, 11, 0.1)', width: 44, height: 44, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>💰</span>
@@ -3987,7 +3987,7 @@ function FeaturesTab() {
               </div>
             </div>
             <label className="toggle-row" style={{ margin: 0, padding: 0 }}>
-              <button className={`toggle ${yad2Enabled ? 'on' : ''}`} onClick={() => setYad2Enabled(v => !v)} style={{ margin: 0 }} />
+              <button type="button" role="switch" aria-checked={!!yad2Enabled} aria-label="מחיר שוק Yad2 — הפעלה" className={`toggle ${yad2Enabled ? 'on' : ''}`} onClick={() => setYad2Enabled(v => !v)} style={{ margin: 0 }} />
             </label>
           </div>
 
@@ -4002,7 +4002,7 @@ function FeaturesTab() {
                       <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>הפעלת הפיצ'ר גם למשתמשים ללא מנוי</div>
                     </div>
                   </div>
-                  <button className={`toggle ${yad2Public ? 'on' : ''}`} onClick={() => setYad2Public(v => !v)} />
+                  <button type="button" role="switch" aria-checked={!!yad2Public} aria-label="מחיר שוק Yad2 — פתוח גם ללא מנוי" className={`toggle ${yad2Public ? 'on' : ''}`} onClick={() => setYad2Public(v => !v)} />
                 </div>
                 
                 {yad2Public && (
@@ -4016,12 +4016,12 @@ function FeaturesTab() {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                       <div>
                         <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>תאריך התחלה</div>
-                        <input type="date" className="input" style={{ margin: 0, borderRadius: 10 }}
+                        <input type="date" aria-label="תאריך התחלה" className="input" style={{ margin: 0, borderRadius: 10 }}
                           value={yad2PublicStart} onChange={e => setYad2PublicStart(e.target.value)} />
                       </div>
                       <div>
                         <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>תאריך סיום</div>
-                        <input type="date" className="input" style={{ margin: 0, borderRadius: 10 }}
+                        <input type="date" aria-label="תאריך סיום" className="input" style={{ margin: 0, borderRadius: 10 }}
                           value={yad2PublicEnd} onChange={e => setYad2PublicEnd(e.target.value)} />
                       </div>
                     </div>
@@ -4030,7 +4030,7 @@ function FeaturesTab() {
                       const inWindow = (!yad2PublicStart || today >= yad2PublicStart) &&
                                        (!yad2PublicEnd   || today <= yad2PublicEnd)
                       return (
-                        <div style={{ fontSize: 12, fontWeight: 700, color: inWindow ? '#10b981' : '#f59e0b', background: inWindow ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', padding: '8px 12px', borderRadius: 8, display: 'inline-block', marginTop: 4 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: inWindow ? '#047857' : '#b45309', background: inWindow ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', padding: '8px 12px', borderRadius: 8, display: 'inline-block', marginTop: 4 }}>
                           {inWindow ? '🟢 פעיל כעת לכולם' : '🟡 מחוץ לטווח התאריכים (מוסתר מחינמיים)'}
                         </div>
                       )
@@ -4047,7 +4047,7 @@ function FeaturesTab() {
         </div>
 
         {/* PDF report */}
-        <div className="card" style={{ padding: '24px', borderTop: '4px solid #ef4444' }}>
+        <div className="card" style={{ padding: '24px', borderTop: '4px solid #c53030' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 24, background: 'rgba(239, 68, 68, 0.1)', width: 44, height: 44, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>📄</span>
@@ -4057,7 +4057,7 @@ function FeaturesTab() {
               </div>
             </div>
             <label className="toggle-row" style={{ margin: 0, padding: 0 }}>
-              <button className={`toggle ${pdfEnabled ? 'on' : ''}`} onClick={() => setPdfEnabled(v => !v)} style={{ margin: 0 }} />
+              <button type="button" role="switch" aria-checked={!!pdfEnabled} aria-label="דוח PDF — הפעלה" className={`toggle ${pdfEnabled ? 'on' : ''}`} onClick={() => setPdfEnabled(v => !v)} style={{ margin: 0 }} />
             </label>
           </div>
 
@@ -4072,7 +4072,7 @@ function FeaturesTab() {
                       <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>הפעלת הפיצ'ר גם למשתמשים ללא מנוי</div>
                     </div>
                   </div>
-                  <button className={`toggle ${pdfPublic ? 'on' : ''}`} onClick={() => setPdfPublic(v => !v)} />
+                  <button type="button" role="switch" aria-checked={!!pdfPublic} aria-label="דוח PDF — פתוח גם ללא מנוי" className={`toggle ${pdfPublic ? 'on' : ''}`} onClick={() => setPdfPublic(v => !v)} />
                 </div>
                 
                 {pdfPublic && (
@@ -4086,12 +4086,12 @@ function FeaturesTab() {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                       <div>
                         <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>תאריך התחלה</div>
-                        <input type="date" className="input" style={{ margin: 0, borderRadius: 10 }}
+                        <input type="date" aria-label="תאריך התחלה" className="input" style={{ margin: 0, borderRadius: 10 }}
                           value={pdfPublicStart} onChange={e => setPdfPublicStart(e.target.value)} />
                       </div>
                       <div>
                         <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>תאריך סיום</div>
-                        <input type="date" className="input" style={{ margin: 0, borderRadius: 10 }}
+                        <input type="date" aria-label="תאריך סיום" className="input" style={{ margin: 0, borderRadius: 10 }}
                           value={pdfPublicEnd} onChange={e => setPdfPublicEnd(e.target.value)} />
                       </div>
                     </div>
@@ -4100,7 +4100,7 @@ function FeaturesTab() {
                       const inWindow = (!pdfPublicStart || today >= pdfPublicStart) &&
                                        (!pdfPublicEnd   || today <= pdfPublicEnd)
                       return (
-                        <div style={{ fontSize: 12, fontWeight: 700, color: inWindow ? '#10b981' : '#f59e0b', background: inWindow ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', padding: '8px 12px', borderRadius: 8, display: 'inline-block', marginTop: 4 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: inWindow ? '#047857' : '#b45309', background: inWindow ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', padding: '8px 12px', borderRadius: 8, display: 'inline-block', marginTop: 4 }}>
                           {inWindow ? '🟢 פעיל כעת לכולם' : '🟡 מחוץ לטווח התאריכים (מוסתר מחינמיים)'}
                         </div>
                       )
@@ -4127,7 +4127,7 @@ function FeaturesTab() {
               </div>
             </div>
             <label className="toggle-row" style={{ margin: 0, padding: 0 }}>
-              <button className={`toggle ${watchEnabled ? 'on' : ''}`} onClick={() => setWatchEnabled(v => !v)} style={{ margin: 0 }} />
+              <button type="button" role="switch" aria-checked={!!watchEnabled} aria-label="התראות יד2 — הפעלה" className={`toggle ${watchEnabled ? 'on' : ''}`} onClick={() => setWatchEnabled(v => !v)} style={{ margin: 0 }} />
             </label>
           </div>
 
@@ -4152,7 +4152,7 @@ function FeaturesTab() {
                       <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>הפעלת הפיצ'ר גם למשתמשים ללא מנוי</div>
                     </div>
                   </div>
-                  <button className={`toggle ${watchPublic ? 'on' : ''}`} onClick={() => setWatchPublic(v => !v)} />
+                  <button type="button" role="switch" aria-checked={!!watchPublic} aria-label="התראות יד2 — פתוח גם ללא מנוי" className={`toggle ${watchPublic ? 'on' : ''}`} onClick={() => setWatchPublic(v => !v)} />
                 </div>
                 
                 {watchPublic && (
@@ -4166,12 +4166,12 @@ function FeaturesTab() {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                       <div>
                         <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>תאריך התחלה</div>
-                        <input type="date" className="input" style={{ margin: 0, borderRadius: 10 }}
+                        <input type="date" aria-label="תאריך התחלה" className="input" style={{ margin: 0, borderRadius: 10 }}
                           value={watchPublicStart} onChange={e => setWatchPublicStart(e.target.value)} />
                       </div>
                       <div>
                         <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>תאריך סיום</div>
-                        <input type="date" className="input" style={{ margin: 0, borderRadius: 10 }}
+                        <input type="date" aria-label="תאריך סיום" className="input" style={{ margin: 0, borderRadius: 10 }}
                           value={watchPublicEnd} onChange={e => setWatchPublicEnd(e.target.value)} />
                       </div>
                     </div>
@@ -4180,7 +4180,7 @@ function FeaturesTab() {
                       const inWindow = (!watchPublicStart || today >= watchPublicStart) &&
                                        (!watchPublicEnd   || today <= watchPublicEnd)
                       return (
-                        <div style={{ fontSize: 12, fontWeight: 700, color: inWindow ? '#10b981' : '#f59e0b', background: inWindow ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', padding: '8px 12px', borderRadius: 8, display: 'inline-block', marginTop: 4 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: inWindow ? '#047857' : '#b45309', background: inWindow ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', padding: '8px 12px', borderRadius: 8, display: 'inline-block', marginTop: 4 }}>
                           {inWindow ? '🟢 פעיל כעת לכולם' : '🟡 מחוץ לטווח התאריכים (מוסתר מחינמיים)'}
                         </div>
                       )
@@ -4299,11 +4299,11 @@ function SettingsTab() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {/* Maintenance */}
-        <div className="card" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderLeft: settings.maintenance ? '4px solid #ef4444' : '4px solid #10b981' }}>
+        <div className="card" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderLeft: settings.maintenance ? '4px solid #c53030' : '4px solid #047857' }}>
           <div>
             <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
               🔧 מצב תחזוקה
-              <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: settings.maintenance ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', color: settings.maintenance ? '#ef4444' : '#10b981', fontWeight: 700 }}>
+              <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: settings.maintenance ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', color: settings.maintenance ? '#c53030' : '#047857', fontWeight: 700 }}>
                 {settings.maintenance ? 'פעיל' : 'כבוי'}
               </span>
             </div>
@@ -4329,11 +4329,11 @@ function SettingsTab() {
         ].map(f => {
           const on = !!settings[f.key]
           return (
-            <div key={f.key} className="card" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, borderLeft: on ? '4px solid #10b981' : '4px solid #9ca3af', opacity: savingKey === f.key ? 0.6 : 1 }}>
+            <div key={f.key} className="card" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, borderLeft: on ? '4px solid #047857' : '4px solid #9ca3af', opacity: savingKey === f.key ? 0.6 : 1 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 4 }}>
                   <span>{f.icon} {f.title}</span>
-                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: on ? 'rgba(4, 120, 87, 0.1)' : 'rgba(156, 163, 175, 0.15)', color: on ? '#047857' : '#6b7280', fontWeight: 700 }}>
+                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: on ? 'rgba(4, 120, 87, 0.1)' : 'rgba(156, 163, 175, 0.15)', color: on ? '#047857' : '#4b5563', fontWeight: 700 }}>
                     {on ? 'פעיל' : 'כבוי'}
                   </span>
                 </div>
@@ -4365,6 +4365,7 @@ function SettingsTab() {
                 className="input" 
                 type="number" 
                 min="0" 
+                aria-label="חיפושים חינם למשתמש חדש"
                 value={freeInput} 
                 onChange={e => setFreeInput(e.target.value)} 
                 style={{ margin: 0, paddingRight: 40, height: 48, borderRadius: 12, fontWeight: 700, fontSize: 16 }}
@@ -4613,7 +4614,7 @@ function BroadcastTab() {
           <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-main)', marginBottom: 12 }}>⏰ שידורים מתוזמנים</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {scheduled.map(s => (
-              <div key={s.id} className="card" style={{ padding: 14, borderRadius: 12, borderLeft: `4px solid ${s.status === 'pending' ? '#f59e0b' : s.status === 'sent' ? '#10b981' : '#9ca3af'}` }}>
+              <div key={s.id} className="card" style={{ padding: 14, borderRadius: 12, borderLeft: `4px solid ${s.status === 'pending' ? '#b45309' : s.status === 'sent' ? '#047857' : '#9ca3af'}` }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', marginBottom: 6 }}>
                   <span style={{ fontSize: 13, fontWeight: 800 }}>{SCHEDULE_STATUS[s.status] || s.status}</span>
                   <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{fmtDateTime(s.send_at)}</span>
@@ -4666,13 +4667,13 @@ function BroadcastTab() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 12, fontSize: 12, fontWeight: 600 }}>
-              <span style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }}></div>
+              <span style={{ color: '#047857', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#047857' }}></div>
                 {h.sent} נשלחו
               </span>
               {h.failed > 0 && (
-                <span style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444' }}></div>
+                <span style={{ color: '#c53030', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#c53030' }}></div>
                   {h.failed} נכשלו
                 </span>
               )}
@@ -4709,11 +4710,11 @@ function BroadcastTab() {
                 <div style={{ background: 'var(--bg)', padding: '6px 12px', borderRadius: 8, fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
                   📅 נשלח ב: {fmtDate(viewing.sent_at)}
                 </div>
-                <div style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700 }}>
+                <div style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#047857', padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700 }}>
                   ✅ {viewing.sent} נשלחו בהצלחה
                 </div>
                 {viewing.failed > 0 && (
-                  <div style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700 }}>
+                  <div style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#c53030', padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700 }}>
                     ❌ {viewing.failed} נכשלו
                   </div>
                 )}
@@ -4740,7 +4741,7 @@ function BroadcastTab() {
 }
 
 const STATUS_LABEL = { open: 'פתוח', in_progress: 'בטיפול', closed: 'סגור' }
-const STATUS_COLOR = { open: '#f59e0b', in_progress: '#0066d6', closed: '#10b981' }
+const STATUS_COLOR = { open: '#b45309', in_progress: '#0066d6', closed: '#047857' }
 const STATUS_BG = { open: 'rgba(245, 158, 11, 0.1)', in_progress: 'rgba(59, 130, 246, 0.1)', closed: 'rgba(16, 185, 129, 0.1)' }
 
 function TicketsTab() {
@@ -5115,7 +5116,7 @@ function GroupsTab() {
                       </div>
                       <button
                         onClick={() => removeMember(group.id, uid)}
-                        style={{ background: 'rgba(239, 68, 68, 0.1)', border: 'none', color: '#ef4444', cursor: 'pointer', width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, transition: 'all 0.2s' }}
+                        style={{ background: 'rgba(239, 68, 68, 0.1)', border: 'none', color: '#c53030', cursor: 'pointer', width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, transition: 'all 0.2s' }}
                       >
                         ✕
                       </button>
@@ -5129,6 +5130,7 @@ function GroupsTab() {
                 <span style={{ fontSize: 18 }}>👤</span>
                 <select
                   className="input"
+                  aria-label={`הוספת משתמש לקבוצה ${group.name || ''}`}
                   style={{ flex: 1, margin: 0, borderRadius: 10, height: 40, border: 'none', background: 'var(--bg-card)' }}
                   value={addingMember[group.id] || ''}
                   onChange={e => setAddingMember(m => ({ ...m, [group.id]: e.target.value }))}
@@ -5142,7 +5144,7 @@ function GroupsTab() {
                 </select>
                 <button
                   className="btn btn-success"
-                  style={{ width: 'auto', padding: '0 16px', margin: 0, height: 40, borderRadius: 10, fontWeight: 700, background: '#10b981' }}
+                  style={{ width: 'auto', padding: '0 16px', margin: 0, height: 40, borderRadius: 10, fontWeight: 700, background: '#047857' }}
                   disabled={!addingMember[group.id]}
                   onClick={() => addMember(group.id)}
                 >
@@ -5249,14 +5251,14 @@ function WatchesTab() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {watches.map(w => (
-          <div key={w.id} className="card" style={{ padding: 0, overflow: 'hidden', opacity: w.active ? 1 : 0.6, transition: 'all 0.2s', borderLeft: w.active ? '4px solid #10b981' : '4px solid #ef4444' }}>
+          <div key={w.id} className="card" style={{ padding: 0, overflow: 'hidden', opacity: w.active ? 1 : 0.6, transition: 'all 0.2s', borderLeft: w.active ? '4px solid #047857' : '4px solid #c53030' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px' }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-main)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
                   {w.make}{w.model ? ` ${w.model}` : ''}{w.year ? ` - ${w.year}` : ''}
                 </div>
                 <div style={{ fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ color: w.active ? '#10b981' : '#ef4444', fontWeight: 600 }}>{w.active ? '🟢 פעיל עכשיו' : '🔴 מושהה'}</span>
+                  <span style={{ color: w.active ? '#047857' : '#c53030', fontWeight: 600 }}>{w.active ? '🟢 פעיל עכשיו' : '🔴 מושהה'}</span>
                   <span>•</span>
                   <span>נוצר ב-{w.created_at?.slice(0, 10)}</span>
                 </div>
@@ -5286,7 +5288,7 @@ function WatchesTab() {
                   onClick={() => deleteWatch(w.id)}
                   style={{
                     width: 36, height: 36, borderRadius: 10, background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 16, color: '#ef4444'
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 16, color: '#c53030'
                   }}
                   title="מחק התראה"
                 >🗑</button>
@@ -5382,11 +5384,11 @@ function WatchesTab() {
                 <div style={{ display: 'flex', justifyContent: 'center', padding: '10px' }}><div className="loading"></div></div>
               )}
               {preview?.items && !previewWatch && preview.items.length === 0 && (
-                <div style={{ color: '#ef4444', fontSize: 13, textAlign: 'center', padding: '12px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: 12 }}>לא נמצאו מודעות תואמות, אולי כדאי להרחיב את החיפוש</div>
+                <div style={{ color: '#c53030', fontSize: 13, textAlign: 'center', padding: '12px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: 12 }}>לא נמצאו מודעות תואמות, אולי כדאי להרחיב את החיפוש</div>
               )}
               {preview?.items && !previewWatch && preview.items.length > 0 && (
                 <div style={{ background: 'var(--bg)', borderRadius: 12, padding: '16px', border: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#10b981', marginBottom: 12 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#047857', marginBottom: 12 }}>
                     נמצאו {preview.total} מודעות תואמות!
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -5413,7 +5415,7 @@ function WatchesTab() {
                 className="btn"
                 disabled={saving || !form.make}
                 onClick={createWatch}
-                style={{ height: 50, borderRadius: 12, fontSize: 16, fontWeight: 800, background: '#10b981', color: '#fff', border: 'none', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)', cursor: (saving || !form.make) ? 'default' : 'pointer', opacity: (saving || !form.make) ? 0.6 : 1, margin: 0, marginTop: 8 }}
+                style={{ height: 50, borderRadius: 12, fontSize: 16, fontWeight: 800, background: '#047857', color: '#fff', border: 'none', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)', cursor: (saving || !form.make) ? 'default' : 'pointer', opacity: (saving || !form.make) ? 0.6 : 1, margin: 0, marginTop: 8 }}
               >
                 {saving ? '⏳ שומר נתונים...' : '✨ הוסף מעקב חדש'}
               </button>

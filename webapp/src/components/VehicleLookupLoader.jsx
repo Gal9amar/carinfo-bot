@@ -35,7 +35,7 @@ export default function VehicleLookupLoader({ plate }) {
 
   return (
     <div role="status" style={{ padding: '28px 16px 16px', textAlign: 'center' }}>
-      <span className="sr-only">טוען נתוני רכב, אנא המתן…</span>
+      <h1 className="sr-only">טוען נתוני רכב, אנא המתן…</h1>
       {plate && (
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 22, opacity: 0.9 }}>
           <LicensePlate plate={plate} size="lg" />

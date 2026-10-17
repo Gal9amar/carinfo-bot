@@ -86,7 +86,7 @@ export default function WatchesPage({ onBack, onPackages, user, onNavigate }) {
 
   const selectStyle = {
     width: '100%', padding: '11px 13px', borderRadius: 13, fontSize: 14,
-    background: '#fff', border: '1.5px solid var(--border)',
+    background: '#fff', border: '1.5px solid var(--border-input)',
     color: 'var(--text-main)', marginBottom: 10, direction: 'rtl', fontFamily: 'inherit',
   }
 
@@ -96,7 +96,7 @@ export default function WatchesPage({ onBack, onPackages, user, onNavigate }) {
         {onBack && <BackButton onClick={() => onBack('home')} />}
         <div style={{ textAlign: 'center', padding: '32px 16px' }}>
           <div style={{ fontSize: 52, marginBottom: 16 }}>🔔</div>
-          <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 10 }}>התראות יד2</div>
+          <h1 style={{ fontWeight: 700, fontSize: 20, marginBottom: 10 }}>התראות יד2</h1>
           <div style={{ fontSize: 14, color: 'var(--hint)', lineHeight: 1.6, marginBottom: 24 }}>
             קבל התראה בטלגרם ברגע שתתווסף מודעה חדשה ב-Yad2 לסוג הרכב שבחרת.
             <br />

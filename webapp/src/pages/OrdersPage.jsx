@@ -8,15 +8,15 @@ const STATUS_META = {
   created:   { label: 'ממתין לתשלום', color: '#636366',    icon: '⏳' },
   approved:  { label: 'אושר',          color: '#0066d6', icon: '✅' },
   captured:  { label: 'נגבה',          color: '#006d77', icon: '💳' },
-  completed: { label: 'הושלם',         color: '#2e7d32', icon: '✅' },
+  completed: { label: 'הושלם',         color: '#27692b', icon: '✅' },
   failed:    { label: 'נכשל',          color: '#c53030', icon: '❌' },
-  expired:   { label: 'מבוטלת',        color: '#a8520a', icon: '🚫' },
+  expired:   { label: 'מבוטלת',        color: '#964a08', icon: '🚫' },
   declined:  { label: 'נדחה',          color: '#c53030', icon: '🚫' },
-  cancelled:        { label: 'בוטל',              color: '#a8520a', icon: '🚫' },
-  user_cancelled:   { label: 'בוטל ע״י משתמש',   color: '#a8520a', icon: '🚫' },
-  admin_approved:   { label: 'אושר ע״י מנהל',  color: '#2e7d32', icon: '✅' },
-  admin_cancelled:  { label: 'בוטל ע״י מנהל',  color: '#a8520a', icon: '🚫' },
-  pending_delivery: { label: 'ממתין למשלוח',   color: '#a8520a', icon: '📦' },
+  cancelled:        { label: 'בוטל',              color: '#964a08', icon: '🚫' },
+  user_cancelled:   { label: 'בוטל ע״י משתמש',   color: '#964a08', icon: '🚫' },
+  admin_approved:   { label: 'אושר ע״י מנהל',  color: '#27692b', icon: '✅' },
+  admin_cancelled:  { label: 'בוטל ע״י מנהל',  color: '#964a08', icon: '🚫' },
+  pending_delivery: { label: 'ממתין למשלוח',   color: '#964a08', icon: '📦' },
 }
 
 function OrderRow({ order }) {
@@ -43,7 +43,7 @@ function OrderRow({ order }) {
             #{order.ref}
           </span>
           <span style={{
-            fontSize: 11, fontWeight: 700, color: meta.color, background: `${meta.color}1f`,
+            fontSize: 11, fontWeight: 700, color: meta.color, background: `${meta.color}14`,
             borderRadius: 99, padding: '2px 10px',
           }}>
             {meta.icon} {meta.label}
@@ -51,7 +51,7 @@ function OrderRow({ order }) {
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 5, alignItems: 'center' }}>
           <span style={{ fontSize: 13, fontWeight: 600 }}>{order.label}</span>
-          <span style={{ fontSize: 14, fontWeight: 700, color: '#2e7d32' }}>₪{order.amount}</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#27692b' }}>₪{order.amount}</span>
         </div>
         <div style={{ fontSize: 11, color: 'var(--hint)', marginTop: 3 }}>{date}</div>
       </div>
@@ -65,7 +65,7 @@ function OrderRow({ order }) {
           {isExpired && (
             <div style={{
               background: 'rgba(255,152,0,0.1)', borderRadius: 8,
-              padding: '8px 12px', marginBottom: 8, color: '#a8520a', fontSize: 13,
+              padding: '8px 12px', marginBottom: 8, color: '#964a08', fontSize: 13,
             }}>
               ⚠️ הזמנה לא הושלמה — התשלום לא בוצע בזמן
             </div>
@@ -79,7 +79,7 @@ function OrderRow({ order }) {
               {order.status === 'pending_delivery' && (
                 <div style={{
                   background: 'rgba(255,152,0,0.1)', borderRadius: 8,
-                  padding: '8px 12px', margin: '8px 0', color: '#a8520a', fontSize: 13,
+                  padding: '8px 12px', margin: '8px 0', color: '#964a08', fontSize: 13,
                 }}>
                   ⏳ ההזמנה התקבלה ובתהליך עיבוד — תישלח הודעה עם פרטי ההזמנה כשתושלם
                 </div>

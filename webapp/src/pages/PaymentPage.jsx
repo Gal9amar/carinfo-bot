@@ -76,15 +76,15 @@ export default function PaymentPage({ pkg, onBack }) {
       </div>
 
       {preparing ? (
-        <div style={{ textAlign: 'center', padding: 24, color: 'var(--hint)', fontSize: 14 }}>
+        <div role="status" style={{ textAlign: 'center', padding: 24, color: 'var(--hint)', fontSize: 14 }}>
           ⏳ מכין קישור תשלום...
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {/* PayPal — always first, requires manual admin approval */}
-          <h3 className="section-label" style={{ margin: '14px 4px 2px' }}>
+          <h2 className="section-label" style={{ margin: '14px 4px 2px' }}>
             בחר אמצעי תשלום · אישור ידני, המנהל יאשר תוך זמן קצר
-          </h3>
+          </h2>
           <button
             onClick={openPaypal}
             disabled={!paymentUrl}

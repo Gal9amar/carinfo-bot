@@ -102,7 +102,7 @@ export default function HowItWorksPage({ onBack, freeSearches = 10, onPrivacy, o
       <div style={{ textAlign: 'center', marginTop: 8 }}>
         <button
           onClick={onPrivacy}
-          style={{ background: 'none', border: 'none', color: 'var(--hint)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
+          style={{ background: 'none', border: 'none', color: 'var(--hint)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline', padding: '12px 8px', minHeight: 44 }}
         >
           🔒 מדיניות פרטיות ותנאי שימוש
         </button>
