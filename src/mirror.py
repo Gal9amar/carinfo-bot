@@ -223,6 +223,7 @@ def _drop_pending(uid: int, message_id) -> None:
         for i, o in enumerate(keep):
             nxt = keep[i + 1] if i + 1 < len(keep) else None
             if o["op"] == "header" and o.get("push") and o.get("uid") == uid and (nxt is None or nxt["op"] == "header" or nxt.get("uid") != uid):
+                _hdr_enq.pop(uid, None)      # the replacement copy must get a fresh header
                 continue
             cleaned.append(o)
         _ops.clear()
