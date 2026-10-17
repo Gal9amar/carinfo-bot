@@ -4,7 +4,7 @@ export default function GarageHowItWorksPage({ onBack, onNavigate }) {
   return (
     <div className="page" style={{ paddingBottom: 32 }}>
       <BackButton onClick={onBack} />
-      <div className="page-title">❓ איך מנהלים רכבים שקניתי?</div>
+      <h1 className="page-title">❓ איך מנהלים רכבים שקניתי?</h1>
 
       {/* Hero */}
       <div style={{

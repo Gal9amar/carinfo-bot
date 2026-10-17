@@ -70,7 +70,7 @@ export default function AdminPage({ user, onBack }) {
   return (
     <div className="page">
       {onBack && <BackButton onClick={onBack} />}
-      <div className="page-title">🛠 פאנל ניהול</div>
+      <h1 className="page-title">🛠 פאנל ניהול</h1>
       <div style={{ position: 'relative', marginBottom: 24 }}>
         <button
           onClick={() => setMenuOpen(o => !o)}

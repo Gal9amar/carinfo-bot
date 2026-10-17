@@ -30,7 +30,7 @@ export default function HistoryPage({ onBack, onViewPlate, onNavigate }) {
   return (
     <div className="page">
       <BackButton onClick={onBack} />
-      <div className="page-title">📜 היסטוריית חיפושים</div>
+      <h1 className="page-title">📜 היסטוריית חיפושים</h1>
 
       <PageBanners page="history" onNavigate={onNavigate} />
 

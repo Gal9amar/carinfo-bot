@@ -5,7 +5,7 @@ export default function HowItWorksPage({ onBack, freeSearches = 10, onPrivacy, o
   return (
     <div className="page" style={{ paddingBottom: 32 }}>
       <BackButton onClick={onBack} />
-      <div className="page-title">ℹ️ איך CarInfo עובד?</div>
+      <h1 className="page-title">ℹ️ איך CarInfo עובד?</h1>
 
       <PageBanners page="howItWorks" onNavigate={onNavigate} />
 

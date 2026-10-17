@@ -10,7 +10,7 @@ export default function PrivacyPolicyPage({ onBack, onContact, onNavigate, onAcc
   return (
     <div className="page" style={{ paddingBottom: 40 }}>
       {onBack && <BackButton onClick={onBack} />}
-      <div className="page-title" style={{ fontSize: 17 }}>🔒 מדיניות פרטיות ותנאי שימוש</div>
+      <h1 className="page-title" style={{ fontSize: 17 }}>🔒 מדיניות פרטיות ותנאי שימוש</h1>
 
       <PageBanners page="privacy" onNavigate={onNavigate} />
       <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 6 }}>עודכן לאחרונה: {LAST_UPDATED}</div>

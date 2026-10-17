@@ -33,7 +33,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
   return (
     <div className="page" style={{ paddingBottom: 16 }}>
       {onBack && <BackButton onClick={onBack} />}
-      <div className="page-title">🛒 החנות</div>
+      <h1 className="page-title">🛒 החנות</h1>
 
       <PageBanners page="packages" onNavigate={onNavigate} />
 

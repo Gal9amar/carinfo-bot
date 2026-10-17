@@ -52,7 +52,7 @@ export default function TicketPage({ onBack, onNavigate }) {
   return (
     <div className="page">
       {onBack && <BackButton onClick={onBack} />}
-      <div className="page-title">🎫 הפניות שלי</div>
+      <h1 className="page-title">🎫 הפניות שלי</h1>
 
       <PageBanners page="ticket" onNavigate={onNavigate} />
 
@@ -119,7 +119,7 @@ function CreateView({ onBack, onCreated }) {
   return (
     <div className="page">
       <BackButton onClick={onBack} label="חזרה" />
-      <div className="page-title">✉️ פנייה חדשה</div>
+      <h1 className="page-title">✉️ פנייה חדשה</h1>
 
       <input
         className="input"
@@ -173,7 +173,7 @@ function ThreadView({ ticket, onBack, onRefresh }) {
   return (
     <div className="page" style={{ paddingBottom: 80 }}>
       <BackButton onClick={onBack} label="חזרה" />
-      <div className="page-title" style={{ fontSize: 18, marginBottom: 10 }}>{ticket.subject}</div>
+      <h1 className="page-title" style={{ fontSize: 18, marginBottom: 10 }}>{ticket.subject}</h1>
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         background: STATUS_COLOR[ticket.status] + '14',

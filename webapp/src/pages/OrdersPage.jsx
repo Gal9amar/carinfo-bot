@@ -112,7 +112,7 @@ export default function OrdersPage({ onBack, onNavigate }) {
     <div className="page" style={{ paddingBottom: 24 }}>
       <BackButton onClick={onBack} label="חזרה" />
 
-      <div className="page-title">📦 הזמנות שלי</div>
+      <h1 className="page-title">📦 הזמנות שלי</h1>
 
       <PageBanners page="orders" onNavigate={onNavigate} />
 

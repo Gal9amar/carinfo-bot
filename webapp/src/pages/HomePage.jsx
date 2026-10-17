@@ -72,9 +72,9 @@ export default function HomePage({ user, onNavigate, onSearchPlate }) {
           <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '-0.2px' }}>
             CarInfo<span style={{ color: 'var(--primary)' }}>.ai</span>
           </div>
-          <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.5px' }}>
+          <h1 style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.5px' }}>
             {user?.first_name ? `שלום, ${user.first_name}` : 'שלום'}
-          </div>
+          </h1>
         </div>
       </header>
 

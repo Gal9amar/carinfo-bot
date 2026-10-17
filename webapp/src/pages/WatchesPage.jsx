@@ -128,7 +128,7 @@ export default function WatchesPage({ onBack, onPackages, user, onNavigate }) {
   return (
     <div className="page">
       {onBack && <BackButton onClick={() => onBack('home')} />}
-      <div className="page-title" style={{ marginBottom: 4 }}>🔔 התראות יד2 שלי</div>
+      <h1 className="page-title" style={{ marginBottom: 4 }}>🔔 התראות יד2 שלי</h1>
       <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 14 }}>
         תקבל הודעה בטלגרם כשתתווסף מודעה חדשה לסוג הרכב שבחרת.
       </div>

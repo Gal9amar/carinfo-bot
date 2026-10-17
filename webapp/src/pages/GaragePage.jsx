@@ -446,7 +446,7 @@ export default function GaragePage({ onBack, onNavigate }) {
     <div className="page">
       <BackButton onClick={onBack} />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <div className="page-title" style={{ marginBottom: 0, fontSize: 26 }}>🚘 רכבים שקניתי</div>
+        <h1 className="page-title" style={{ marginBottom: 0, fontSize: 26 }}>🚘 רכבים שקניתי</h1>
         <button
           className="card"
           onClick={() => onNavigate('garageHowItWorks')}

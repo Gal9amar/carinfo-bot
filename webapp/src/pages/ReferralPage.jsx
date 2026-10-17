@@ -36,7 +36,7 @@ export default function ReferralPage({ onBack, onNavigate }) {
   return (
     <div className="page">
       {onBack && <BackButton onClick={onBack} />}
-      <div className="page-title">🤝 הפנה חבר</div>
+      <h1 className="page-title">🤝 הפנה חבר</h1>
 
       <PageBanners page="referral" onNavigate={onNavigate} />
 

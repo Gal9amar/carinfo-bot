@@ -65,7 +65,7 @@ export default function PaymentPage({ pkg, onBack }) {
     <div className="page">
       <BackButton onClick={onBack} label="חזרה" />
 
-      <div className="page-title">💳 תשלום</div>
+      <h1 className="page-title">💳 תשלום</h1>
 
       <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
