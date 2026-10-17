@@ -4319,6 +4319,7 @@ function SettingsTab() {
         {[
           { key: 'rich_messages_enabled', icon: '📊', title: 'תוצאת חיפוש כטבלה', desc: 'כרטיס התוצאה, ההשוואה וההיסטוריה בבוט נשלחים כטבלה. אם השליחה נכשלת, נשלח כרטיס רגיל.' },
           { key: 'test_reminders_enabled', icon: '🔔', title: 'תזכורות טסט', desc: 'הבוט מזכיר חודש, שבוע ויום לפני פקיעת הטסט, למי שביקש תזכורת.' },
+          { key: 'mirror_enabled', icon: '🪞', title: 'מראה פעולות לקבוצה', desc: 'כל פעולה של משתמש בבוט, והתשובה שקיבל, מועתקות לטופיק בקבוצה שלך. לקישור: שלח /mirror_here בתוך הטופיק. קודי הטבה ותוכן מוצרים דיגיטליים מוסתרים.', needsBind: !settings.mirror_bound },
           { key: 'test_reminders_garage_sync', icon: '🚗', title: 'תזכורת אוטומטית לרכבי המוסך', desc: 'מצרף לתזכורות גם כל רכב שמשתמש שמר ב"רכבים שקניתי", בלי שביקש. פועל רק כשתזכורות טסט פעילות.' },
         ].map(f => {
           const on = !!settings[f.key]
@@ -4332,6 +4333,7 @@ function SettingsTab() {
                   </span>
                 </div>
                 <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{f.desc}</div>
+                {f.needsBind && <div style={{ fontSize: 13, color: 'var(--danger)', fontWeight: 700, marginTop: 6 }}>⚠️ עדיין לא מקושר לטופיק: שלח <span dir="ltr">/mirror_here</span> בתוך הטופיק.</div>}
               </div>
               <button
                 type="button" role="switch" aria-checked={on} aria-label={f.title}

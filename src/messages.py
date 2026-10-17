@@ -722,7 +722,8 @@ def admin_stats_short(stats: dict) -> str:
 
 
 def admin_settings(free: int, maintenance_on: bool, rich_on: bool = False,
-                   reminders_on: bool = False, garage_sync_on: bool = False) -> str:
+                   reminders_on: bool = False, garage_sync_on: bool = False,
+                   mirror_on: bool = False, mirror_bound: bool = False) -> str:
     maint = "🔴 פעיל" if maintenance_on else "🟢 כבוי"
 
     def onoff(v: bool) -> str:
@@ -735,6 +736,8 @@ def admin_settings(free: int, maintenance_on: bool, rich_on: bool = False,
         f"• תוצאת חיפוש כטבלה: {b(onoff(rich_on))}\n"
         f"• תזכורות טסט: {b(onoff(reminders_on))}\n"
         f"• תזכורת אוטומטית לרכבי המוסך: {b(onoff(garage_sync_on))}\n"
+        f"• מראה פעולות לקבוצה: {b(onoff(mirror_on))}"
+        + ("" if mirror_bound else "\n  ↳ כדי לקשר: שלח /mirror_here בתוך הטופיק בקבוצה")
     )
 
 

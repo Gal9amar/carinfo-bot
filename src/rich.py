@@ -39,6 +39,11 @@ async def send_rich_message(chat_id: int, html: str, reply_markup=None, is_rtl: 
             resp = await client.post(f"https://api.telegram.org/bot{token}/sendRichMessage", json=payload)
         data = resp.json()
         if data.get("ok"):
+            from src import mirror
+            from src.messages import strip_html
+            for tag in ("</tr>", "</h3>", "</p>", "</blockquote>", "<br>"):
+                html = html.replace(tag, "\n")
+            await mirror.record_outgoing(chat_id, strip_html(html.replace("</td>", " | ").replace("</th>", " | ")), reply_markup)
             return True
         logger.warning("sendRichMessage rejected: %s", data.get("description"))
     except Exception as exc:

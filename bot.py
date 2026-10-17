@@ -19,7 +19,7 @@ from telegram.constants import ParseMode
 from telegram.error import Forbidden
 from telegram.ext import (
     Application, CommandHandler, MessageHandler,
-    CallbackQueryHandler, ConversationHandler,
+    CallbackQueryHandler, ConversationHandler, TypeHandler,
     PreCheckoutQueryHandler,
     ContextTypes, filters,
 )
@@ -40,6 +40,7 @@ from src.users import (
 )
 from src.rich import send_rich_message, rich_enabled
 from src import reminders as _rem
+from src import mirror
 from src.formatter import (
     quick_summary_rich,
     compare_rich,
@@ -489,7 +490,8 @@ def _admin_gen_keyboard() -> InlineKeyboardMarkup:
 
 
 def _admin_settings_keyboard(maintenance_on: bool = False, rich_on: bool = False,
-                             reminders_on: bool = False, garage_sync_on: bool = False) -> InlineKeyboardMarkup:
+                             reminders_on: bool = False, garage_sync_on: bool = False,
+                             mirror_on: bool = False) -> InlineKeyboardMarkup:
     maint_label = "🔴 בטל תחזוקה" if maintenance_on else "🔧 הפעל תחזוקה"
     maint_style = "danger" if maintenance_on else None
     return InlineKeyboardMarkup([
@@ -499,6 +501,7 @@ def _admin_settings_keyboard(maintenance_on: bool = False, rich_on: bool = False
         [InlineKeyboardButton("📊 כבה תוצאה כטבלה" if rich_on else "📊 הפעל תוצאה כטבלה", callback_data="adm|toggle_rich")],
         [InlineKeyboardButton("🔔 כבה תזכורות טסט" if reminders_on else "🔔 הפעל תזכורות טסט", callback_data="adm|toggle_reminders")],
         [InlineKeyboardButton("🚗 כבה תזכורת אוטומטית למוסך" if garage_sync_on else "🚗 הפעל תזכורת אוטומטית למוסך", callback_data="adm|toggle_garage_sync")],
+        [InlineKeyboardButton("🪞 כבה מראה פעולות" if mirror_on else "🪞 הפעל מראה פעולות", callback_data="adm|toggle_mirror")],
         [InlineKeyboardButton("🔙 חזרה",                     callback_data="adm|main")],
     ])
 
@@ -509,9 +512,11 @@ async def _settings_view() -> tuple[str, InlineKeyboardMarkup]:
     rich_on     = (await get_bot_setting("rich_messages_enabled")) == "1"
     reminders   = (await get_bot_setting("test_reminders_enabled")) == "1"
     garage_sync = (await get_bot_setting("test_reminders_garage_sync")) == "1"
+    mirror_on   = (await get_bot_setting("mirror_enabled")) == "1"
+    mirror_bound = bool(await get_bot_setting("mirror_chat_id"))
     return (
-        M.admin_settings(_u.FREE_SEARCHES, maintenance, rich_on, reminders, garage_sync),
-        _admin_settings_keyboard(maintenance, rich_on, reminders, garage_sync),
+        M.admin_settings(_u.FREE_SEARCHES, maintenance, rich_on, reminders, garage_sync, mirror_on, mirror_bound),
+        _admin_settings_keyboard(maintenance, rich_on, reminders, garage_sync, mirror_on),
     )
 
 
@@ -685,12 +690,14 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         "toggle_rich": "rich_messages_enabled",
         "toggle_reminders": "test_reminders_enabled",
         "toggle_garage_sync": "test_reminders_garage_sync",
+        "toggle_mirror": "mirror_enabled",
     }
     if action == "settings" or action in toggles:
         if action in toggles:
             key = toggles[action]
             cur = await get_bot_setting(key)
             await set_bot_setting(key, "0" if cur == "1" else "1")
+            mirror.invalidate()
         text, kb = await _settings_view()
         await query.edit_message_text(text, parse_mode=HTML, reply_markup=kb)
         return
@@ -1766,6 +1773,37 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await _lookup_flow(update.message, update.effective_user, update.effective_chat.id, context, plate)
 
 
+async def _mirror_incoming(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await mirror.record_incoming(update, context.user_data)
+
+
+async def cmd_mirror_here(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Admin, inside the target group topic: start mirroring every user interaction here."""
+    msg = update.effective_message
+    if update.effective_user.id != ADMIN_ID or update.effective_chat.type == "private":
+        if update.effective_user.id == ADMIN_ID:
+            await msg.reply_text("שלח את /mirror_here בתוך הקבוצה, בטופיק שבו תרצה לראות את הפעולות.")
+        return
+    thread = msg.message_thread_id if getattr(msg, "is_topic_message", False) else None
+    await set_bot_setting("mirror_chat_id", str(update.effective_chat.id))
+    await set_bot_setting("mirror_thread_id", str(thread) if thread else "")
+    await set_bot_setting("mirror_enabled", "1")
+    mirror.invalidate()
+    await msg.reply_text(
+        "🪞 מראה הפעולות פעילה בטופיק הזה.\nכל פעולה של משתמש בבוט, והתשובה שקיבל, יופיעו כאן. "
+        "לכיבוי: /mirror_off",
+        message_thread_id=thread,
+    )
+
+
+async def cmd_mirror_off(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_user.id != ADMIN_ID:
+        return
+    await set_bot_setting("mirror_enabled", "0")
+    mirror.invalidate()
+    await update.effective_message.reply_text("🪞 מראה הפעולות כבויה.")
+
+
 async def _maintenance_blocks(user_id: int) -> bool:
     return user_id != ADMIN_ID and (await get_bot_setting("maintenance")) == "1"
 
@@ -2286,7 +2324,7 @@ def main() -> None:
     Thread(target=lambda: asyncio.run(_cache_cleanup_job()), daemon=True).start()
     logger.info("API server starting on port %s", os.environ.get("PORT", 8080))
 
-    app = Application.builder().token(token).post_init(_post_init).build()
+    app = Application.builder().bot(mirror.MirrorBot(token)).post_init(_post_init).build()
     global _bot_instance
     _bot_instance = app.bot
     # Register the payment notifier so api.py can notify admin without importing bot
@@ -2449,7 +2487,8 @@ def main() -> None:
     async def _notify_user_product_delivered(user_id, label, ref, content):
         try:
             msg = M.product_delivered(await _name_of(user_id), label, ref, content)
-            await app.bot.send_message(user_id, msg, parse_mode=HTML)
+            with mirror.redacted():   # keys/credentials must not appear in the mirror group
+                await app.bot.send_message(user_id, msg, parse_mode=HTML)
             await log_sent_message(user_id, _log_text(msg), kind="product_delivery")
         except Exception:
             pass
@@ -2496,6 +2535,9 @@ def main() -> None:
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("code",   cmd_code))
     app.add_handler(CommandHandler("admin",  cmd_admin))
+    app.add_handler(TypeHandler(Update, _mirror_incoming), group=-1)   # blocking: the user action must be queued before the bot reacts
+    app.add_handler(CommandHandler("mirror_here", cmd_mirror_here))
+    app.add_handler(CommandHandler("mirror_off", cmd_mirror_off))
     app.add_handler(CommandHandler("compare", cmd_compare))
     app.add_handler(CommandHandler("optout", cmd_optout))
     app.add_handler(CommandHandler("optin",  cmd_optin))
@@ -2617,6 +2659,10 @@ def main() -> None:
                 name=f"expiry_notify_{_days}d",
             )
         # Run at startup and then every hour to downgrade expired subscriptions promptly
+        async def _mirror_flush_job(context):
+            await mirror.flush(context.bot)
+
+        app.job_queue.run_repeating(_mirror_flush_job, interval=4, first=6, name="mirror_flush")
         app.job_queue.run_daily(
             _test_reminders_job,
             time=_dt.time(hour=7, minute=0, tzinfo=_dt.timezone.utc),   # 10:00 Israel (summer)
