@@ -43,10 +43,12 @@ export default function PaymentPage({ pkg, onBack }) {
   }, [pkg.id])
 
   async function ensureOrder() {
-    if (orderRef.current) return orderRef.current
-    const data = await (pkg._isProduct ? initiateProductPayment(pkg.id, qty, false) : initiatePayment(pkg.id, qty, false))
-    orderRef.current = data
-    return data
+    // Cache the PROMISE (not the result) so two taps in the same tick still share one order.
+    if (!orderRef.current) {
+      orderRef.current = (pkg._isProduct ? initiateProductPayment(pkg.id, qty, false) : initiatePayment(pkg.id, qty, false))
+        .catch(err => { orderRef.current = null; throw err })
+    }
+    return orderRef.current
   }
 
   async function pay(urlOf) {
