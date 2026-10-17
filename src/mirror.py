@@ -130,6 +130,7 @@ _PLATE = r"(?P<p>[\w\-]{4,12})"
 # (method, path regex, {status: text}) — only meaningful user actions, not page views
 _MINIAPP_RULES: list[tuple[str, str, dict[int, str]]] = [
     ("GET", rf"^/api/vehicle/{_PLATE}$", {200: "🔍 חיפש לוחית {p}", 403: "🔒 חיפוש לוחית {p} נדחה (מכסה או חסימה)", 404: "❓ חיפש לוחית {p} — לא נמצא"}),
+    ("GET", r"^/api/vehicle/(?P<p>[\w\-]{4,12})/compare/[\w\-]{4,12}$", {200: "⚖️ השווה רכב ללוחית {p}", 403: "🔒 השוואה ללוחית {p} נדחתה"}),
     ("GET", rf"^/api/vehicle/{_PLATE}/pdf$", {200: "📄 הוריד דוח PDF ללוחית {p}"}),
     ("GET", rf"^/api/vehicle/{_PLATE}/market-price$", {200: "💰 בדק מחיר שוק ללוחית {p}"}),
     ("POST", r"^/api/notes/(?P<p>[\w\-]{4,12})$", {200: "📝 שמר הערה ללוחית {p}"}),

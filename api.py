@@ -207,6 +207,29 @@ async def list_products():
     return out
 
 
+async def _feature_open(user_id: int, key_prefix: str) -> bool:
+    """Same access rule as the `show_*` flags of /api/user (see CLAUDE.md "Feature access")."""
+    from src.users import get_user_by_id, is_subscriber, is_global_unlimited_active
+    from src.db import get_bot_setting
+    from datetime import date as _date
+    if user_id == ADMIN_ID:
+        return True
+    db_user, subscriber, global_unlimited = await asyncio.gather(
+        get_user_by_id(user_id), is_subscriber(user_id), is_global_unlimited_active())
+    quota = db_user.get("searches_quota", 0) if db_user else 0
+    left = -1 if global_unlimited else (db_user.get("searches_left", 0) if db_user else 0)
+    if quota == -1 or subscriber or left != 0:
+        return True
+    if (await get_bot_setting(f"{key_prefix}_enabled")) == "0":
+        return False
+    if (await get_bot_setting(f"{key_prefix}_public")) == "1":
+        today = str(_date.today())
+        ps = (await get_bot_setting(f"{key_prefix}_public_start")) or ""
+        pe = (await get_bot_setting(f"{key_prefix}_public_end")) or ""
+        return (not ps or today >= ps) and (not pe or today <= pe)
+    return False
+
+
 @api.get("/api/user")
 async def get_user_info(user: dict = Depends(_get_user)):
     from src.users import get_user_by_id, is_global_unlimited_active
@@ -230,7 +253,7 @@ async def get_user_info(user: dict = Depends(_get_user)):
                 # 'none' = never started the bot / deleted account → must /start; 'pending' = approve in-app
                 "consent_stage": stage, "maintenance": maintenance,
                 "is_admin": False, "searches_left": 0, "searches_quota": 0,
-                "show_market_price": False, "show_pdf_report": False, "show_watch": False,
+                "show_market_price": False, "show_pdf_report": False, "show_watch": False, "show_compare": False,
                 "bot_username": BOT_USERNAME,
             }
     left = db_user.get("searches_left", 0) if db_user else 0
@@ -272,6 +295,7 @@ async def get_user_info(user: dict = Depends(_get_user)):
     show_market = await _check_feature("yad2_market")
     show_pdf    = await _check_feature("pdf_report")
     show_watch  = await _check_feature("yad2_watch")
+    show_compare = await _check_feature("compare")
 
     async def _public_label(key_prefix: str) -> str:
         if (await get_bot_setting(f"{key_prefix}_public")) != "1":
@@ -280,6 +304,7 @@ async def get_user_info(user: dict = Depends(_get_user)):
 
     pdf_public_label   = await _public_label("pdf_report")
     watch_public_label = await _public_label("yad2_watch")
+    compare_public_label = await _public_label("compare")
 
     # Find matching package label by searches count
     subscription_label = None
@@ -311,6 +336,8 @@ async def get_user_info(user: dict = Depends(_get_user)):
         "show_market_price": show_market,
         "show_pdf_report": show_pdf,
         "show_watch": show_watch,
+        "show_compare": show_compare,
+        "compare_public_label": compare_public_label,
         "pdf_public_label": pdf_public_label,
         "watch_public_label": watch_public_label,
         "watch_max": watch_max,
@@ -690,6 +717,51 @@ async def get_vehicle(plate: str, user: dict = Depends(_get_user)):
     return JSONResponse(content=record, headers={"Cache-Control": "no-store"})
 
 
+@api.get("/api/vehicle/{plate}/compare/{other}")
+async def compare_vehicles(plate: str, other: str, user: dict = Depends(_get_user)):
+    """Premium feature: side-by-side table of two vehicles. `plate` is the report the user is
+    viewing (already paid for); comparing costs one search for `other` (none when unlimited)."""
+    from src.api.gov_api import fetch_vehicle_data, GovUnavailable
+    from src.cache import cache
+    from src.users import is_allowed, increment_search
+    from src.formatter import _compare_rows, _compare_title
+    await _ensure_not_maintenance(user)
+    plate = plate.replace("-", "").replace(" ", "")
+    other = other.replace("-", "").replace(" ", "")
+    if plate == other:
+        raise HTTPException(status_code=400, detail="same_plate")
+    uid = int(user["id"])
+    if not await _feature_open(uid, "compare"):
+        raise HTTPException(status_code=403, detail="feature_locked")
+    allowed, left = await is_allowed(uid, user.get("username") or "", (user.get("first_name", "") + " " + user.get("last_name", "")).strip())
+    if not allowed:
+        raise HTTPException(status_code=403, detail="quota_exceeded")
+
+    async def record_for(p: str):
+        rec = cache.get(p)
+        if rec is None:
+            rec = await fetch_vehicle_data(p)
+            if rec:
+                cache.set(p, rec)
+        return rec
+
+    try:
+        rec_a, rec_b = await asyncio.gather(record_for(plate), record_for(other))
+    except GovUnavailable:
+        raise HTTPException(status_code=502, detail="registry_unavailable")
+    if not rec_a or not rec_b:
+        raise HTTPException(status_code=404, detail="not_found")
+    await increment_search(uid, other)
+    return JSONResponse(
+        content={
+            "a": {"plate": plate, "title": _compare_title(rec_a)},
+            "b": {"plate": other, "title": _compare_title(rec_b)},
+            "rows": [{"label": k, "a": x, "b": y} for k, x, y in _compare_rows(rec_a, rec_b)],
+        },
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 @api.get("/api/vehicle/{plate}/pdf")
 async def get_vehicle_pdf(plate: str, user: dict = Depends(_get_user)):
     from src.db import get_bot_setting
@@ -944,6 +1016,11 @@ async def admin_get_settings(_: dict = Depends(_require_admin)):
         "yad2_market_public_start":  (await get_bot_setting("yad2_market_public_start")) or "",
         "yad2_market_public_end":    (await get_bot_setting("yad2_market_public_end"))   or "",
         "yad2_market_public_label":  (await get_bot_setting("yad2_market_public_label")) or "",
+        "compare_enabled":           (await get_bot_setting("compare_enabled")) == "1",
+        "compare_public":            (await get_bot_setting("compare_public")) == "1",
+        "compare_public_start":      (await get_bot_setting("compare_public_start")) or "",
+        "compare_public_end":        (await get_bot_setting("compare_public_end"))   or "",
+        "compare_public_label":      (await get_bot_setting("compare_public_label")) or "",
         "yad2_watch_enabled":        (await get_bot_setting("yad2_watch_enabled")) == "1",
         "yad2_watch_groups":         json.loads((await get_bot_setting("yad2_watch_groups")) or "[]"),
         "yad2_watch_public":         (await get_bot_setting("yad2_watch_public")) == "1",
@@ -993,6 +1070,11 @@ class SettingsUpdate(BaseModel):
     yad2_watch_public_start:   str          | None = None
     yad2_watch_public_end:     str          | None = None
     yad2_watch_public_label:   str          | None = None
+    compare_enabled:           bool         | None = None
+    compare_public:            bool         | None = None
+    compare_public_start:      str          | None = None
+    compare_public_end:        str          | None = None
+    compare_public_label:      str          | None = None
     pdf_report_enabled:        bool         | None = None
     pdf_report_groups:         Optional[list]      = None
     pdf_report_public:         bool         | None = None
@@ -1116,6 +1198,16 @@ async def admin_update_settings(body: SettingsUpdate, _: dict = Depends(_require
         await set_bot_setting("yad2_watch_public_end", body.yad2_watch_public_end.strip())
     if body.yad2_watch_public_label is not None:
         await set_bot_setting("yad2_watch_public_label", body.yad2_watch_public_label.strip())
+    if body.compare_enabled is not None:
+        await set_bot_setting("compare_enabled", "1" if body.compare_enabled else "0")
+    if body.compare_public is not None:
+        await set_bot_setting("compare_public", "1" if body.compare_public else "0")
+    if body.compare_public_start is not None:
+        await set_bot_setting("compare_public_start", body.compare_public_start.strip())
+    if body.compare_public_end is not None:
+        await set_bot_setting("compare_public_end", body.compare_public_end.strip())
+    if body.compare_public_label is not None:
+        await set_bot_setting("compare_public_label", body.compare_public_label.strip())
     if body.pdf_report_enabled is not None:
         await set_bot_setting("pdf_report_enabled", "1" if body.pdf_report_enabled else "0")
     if body.pdf_report_groups is not None:
