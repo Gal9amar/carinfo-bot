@@ -4,6 +4,27 @@ import PageBanners from '../components/PageBanners.jsx'
 import { fetchProducts } from '../api.js'
 import { safeDescriptionHtml } from '../utils/safeHtml.js'
 
+const FREE_FEATURES = [
+  { text: 'נתוני רכב בסיסיים — שנה, דגם, בעלות, טסט, ק״מ', included: true },
+  { text: 'היסטוריית חיפושים אישית', included: true },
+  { text: 'השוואת רכבים — חיפוש אחד לכל השוואה', included: true },
+  { text: 'תזכורת טסט וניהול ״רכבים שקניתי״', included: true },
+  { text: 'חיפושים ללא הגבלה', included: false },
+  { text: 'מחיר שוק Yad2', included: false },
+  { text: 'התראות על מודעות חדשות ב-Yad2', included: false },
+  { text: 'הורדת דוח PDF מפורט', included: false },
+]
+
+const PREMIUM_FEATURES = [
+  { text: 'חיפושים ללא הגבלה למשך חודש', included: true },
+  { text: 'מחיר שוק Yad2 — השוואת מחירים עדכנית', included: true },
+  { text: 'התראות על מודעות חדשות ב-Yad2', included: true },
+  { text: 'הורדת דוח PDF מפורט', included: true },
+  { text: 'השוואת רכבים ללא עלות חיפוש נוספת', included: true },
+  { text: 'נתוני רכב מלאים, היסטוריית חיפושים, תזכורת טסט ו״רכבים שקניתי״', included: true },
+  { text: 'גישה לכל פיצ׳רי הפרימיום הקיימים והעתידיים', included: true },
+]
+
 export default function PackagesPage({ packages, user, highlightProductId, onSelect, onPrivacy, onSupport, onReferral, onBack, onNavigate }) {
   const [quantities, setQuantities] = useState({})
   const [products, setProducts] = useState([])
@@ -315,14 +336,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
             <div style={{ padding: '12px 16px', fontSize: 13, lineHeight: 1.9 }}>
               {(freePackage?.features?.length
                 ? freePackage.features
-                : [
-                    { text: 'נתוני רכב בסיסיים — שנה, דגם, בעלות, טסט, ק״מ', included: true },
-                    { text: 'היסטוריית חיפושים אישית', included: true },
-                    { text: 'מחיר שוק Yad2', included: false },
-                    { text: 'הורדת דוח PDF מפורט', included: false },
-                    { text: 'העתקת דוח לשיתוף', included: false },
-                    { text: 'הערות אישיות לכל רכב', included: false },
-                  ]
+                : FREE_FEATURES
               ).map((f, i) => {
                 const text = typeof f === 'string' ? f : f.text
                 const included = typeof f === 'string' ? true : f.included
@@ -438,14 +452,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
             <div style={{ padding: '12px 16px', fontSize: 13, lineHeight: 1.9 }}>
               {(pkg.features?.length
                 ? pkg.features
-                : [
-                    { text: 'מחיר שוק Yad2 — השוואת מחירים עדכנית', included: true },
-                    { text: 'הורדת דוח PDF מפורט', included: true },
-                    { text: 'העתקת דוח לשיתוף', included: true },
-                    { text: 'הערות אישיות לכל רכב — נשמרות ומופיעות בדוח', included: true },
-                    { text: 'היסטוריית חיפושים אישית', included: true },
-                    { text: 'גישה לכל תכונות המנוי הקיימות והעתידיות', included: true },
-                  ]
+                : PREMIUM_FEATURES
               ).map((f, i) => {
                 const text = typeof f === 'string' ? f : f.text
                 const included = typeof f === 'string' ? true : f.included

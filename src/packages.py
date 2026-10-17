@@ -14,14 +14,41 @@ _DEFAULT_PACKAGES = [
     (4, "♾️ מנוי חודשי",   -1,  25, "", 4, 1),
 ]
 
+def _f(text: str, included: bool = True) -> dict:
+    return {"text": text, "included": included}
+
+
+# Feature lists shown on the plan cards. Keep in sync with the fallbacks in
+# webapp/src/pages/PackagesPage.jsx and DEFAULT_PKG_FEATURES in AdminPage.jsx.
 _DEFAULT_FREE_FEATURES = [
-    {"text": "נתוני רכב בסיסיים — שנה, דגם, בעלות, טסט, ק״מ", "included": True},
-    {"text": "היסטוריית חיפושים אישית", "included": True},
-    {"text": "מחיר שוק Yad2", "included": False},
-    {"text": "הורדת דוח PDF מפורט", "included": False},
-    {"text": "העתקת דוח לשיתוף", "included": False},
-    {"text": "הערות אישיות לכל רכב", "included": False},
+    _f("נתוני רכב בסיסיים — שנה, דגם, בעלות, טסט, ק״מ"),
+    _f("היסטוריית חיפושים אישית"),
+    _f("השוואת רכבים — חיפוש אחד לכל השוואה"),
+    _f("תזכורת טסט וניהול ״רכבים שקניתי״"),
+    _f("חיפושים ללא הגבלה", False),
+    _f("מחיר שוק Yad2", False),
+    _f("התראות על מודעות חדשות ב-Yad2", False),
+    _f("הורדת דוח PDF מפורט", False),
 ]
+
+_DEFAULT_PREMIUM_FEATURES = [
+    _f("חיפושים ללא הגבלה למשך חודש"),
+    _f("מחיר שוק Yad2 — השוואת מחירים עדכנית"),
+    _f("התראות על מודעות חדשות ב-Yad2"),
+    _f("הורדת דוח PDF מפורט"),
+    _f("השוואת רכבים ללא עלות חיפוש נוספת"),
+    _f("נתוני רכב מלאים, היסטוריית חיפושים, תזכורת טסט ו״רכבים שקניתי״"),
+    _f("גישה לכל פיצ׳רי הפרימיום הקיימים והעתידיים"),
+]
+
+# Wording of the previous defaults: a stored list made only of these lines was never customised
+# by the admin and is upgraded automatically (see _upgrade_default_features).
+_LEGACY_FEATURE_TEXTS = {
+    "נתוני רכב בסיסיים — שנה, דגם, בעלות, טסט, ק״מ", "היסטוריית חיפושים אישית", "מחיר שוק Yad2",
+    "הורדת דוח PDF מפורט", "העתקת דוח לשיתוף", "הערות אישיות לכל רכב",
+    "נתוני רכב מלאים — שנה, דגם, בעלות, טסט, ק״מ", "מחיר שוק Yad2 — השוואת מחירים עדכנית",
+    "הערות אישיות לכל רכב — נשמרות ומופיעות בדוח", "גישה לכל תכונות המנוי הקיימות והעתידיות",
+}
 
 _cache: list[tuple] | None = None  # (id, label, searches, price, image_url, display_order, duration_months, features, chips, package_type, is_active)
 
@@ -68,7 +95,23 @@ async def init_packages() -> None:
             "INSERT INTO packages (label, searches, price, image_url, display_order, duration_months, features, chips) VALUES (?,?,?,?,?,?,?,?)",
             ["🆓 מסלול FREE", 0, 0, "", 0, 1, json.dumps(_DEFAULT_FREE_FEATURES, ensure_ascii=False), default_free_chips],
         )
+    await _upgrade_default_features()
     await get_packages(force_reload=True)
+
+
+async def _upgrade_default_features() -> None:
+    """Replace never-customised (empty / old-default) feature lists of the FREE and the unlimited
+    (Premium) cards with the current ones, so new features such as compare and Yad2 alerts show up."""
+    for searches, new_list in ((0, _DEFAULT_FREE_FEATURES), (-1, _DEFAULT_PREMIUM_FEATURES)):
+        r = await execute(
+            "SELECT id, COALESCE(features,'[]') FROM packages WHERE searches=? AND COALESCE(package_type,'searches')='searches'",
+            [searches],
+        )
+        for pid, raw in r.rows:
+            texts = {f["text"] for f in _normalize_features(raw)}
+            if not texts or texts <= _LEGACY_FEATURE_TEXTS:
+                await execute("UPDATE packages SET features=? WHERE id=?",
+                              [json.dumps(new_list, ensure_ascii=False), pid])
 
 
 def _normalize_features(raw) -> list:
