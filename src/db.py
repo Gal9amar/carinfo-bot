@@ -436,13 +436,26 @@ async def set_bot_setting(key: str, value: str) -> None:
     _settings_at = 0.0
 
 
+_CONN_ERRORS = ("502", "bad gateway", "hrana", "connection", "timeout", "stream", "expired", "closed", "broken")
+
+
 def _run(sql: str, args: tuple) -> _Result:
-    conn = _get_conn()
-    cur  = conn.execute(sql, args)
-    rows    = cur.fetchall()   # before commit, so INSERT/UPDATE ... RETURNING works
-    conn.commit()
-    columns = [desc[0] for desc in (cur.description or [])]
-    return _Result(rows, columns)
+    # Each worker thread owns its own connection. A stale/expired Turso connection must be dropped by
+    # the SAME thread that hit the error (a reset done from another thread would not touch it), so the
+    # one retry on a fresh connection happens right here.
+    for attempt in range(2):
+        conn = _get_conn()
+        try:
+            cur  = conn.execute(sql, args)
+            rows    = cur.fetchall()   # before commit, so INSERT/UPDATE ... RETURNING works
+            conn.commit()
+            columns = [desc[0] for desc in (cur.description or [])]
+            return _Result(rows, columns)
+        except Exception as e:
+            if attempt == 0 and any(x in str(e).lower() for x in _CONN_ERRORS):
+                _reset_conn()
+                continue
+            raise
 
 
 _counter_lock = threading.Lock()
@@ -485,7 +498,7 @@ async def execute(sql: str, args: list | None = None) -> _Result:
             if "locked" in err and attempt < 4:   # local file DBs: concurrent writers
                 await asyncio.sleep(0.05 * (attempt + 1))
                 continue
-            if any(x in err for x in ("502", "bad gateway", "hrana", "connection", "timeout")):
+            if any(x in err for x in _CONN_ERRORS):
                 if attempt < 2:
                     await loop.run_in_executor(_executor, _reset_conn)
                     await asyncio.sleep(1.5 * (attempt + 1))
