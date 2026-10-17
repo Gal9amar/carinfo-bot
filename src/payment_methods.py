@@ -46,3 +46,17 @@ async def delete_payment_method(method_id: int) -> None:
 async def reorder_payment_methods(ordered_ids: list[int]) -> None:
     for i, mid in enumerate(ordered_ids):
         await execute("UPDATE payment_methods SET display_order=? WHERE id=?", [i + 1, mid])
+
+
+def is_paypal(m: dict) -> bool:
+    """The PayPal method is recognised by name; its link gets the order amount appended."""
+    n = (m.get("name") or "").lower()
+    return "paypal" in n or "פייפאל" in n
+
+
+def with_amount(m: dict, price: float) -> str:
+    """paypal.me style links take /{amount}ILS; every other method link is used as configured."""
+    url = (m.get("payment_url") or "").strip()
+    if url and is_paypal(m):
+        return f"{url.rstrip('/')}/{price:.0f}ILS"
+    return url

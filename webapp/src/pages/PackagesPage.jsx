@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getPlan, formatPlanExpiry, daysLeftLabel, planIcon } from '../utils/plan.js'
+import { getPlan, formatPlanExpiry, daysLeftLabel, planIcon, monthsLabel, extendedExpiry } from '../utils/plan.js'
 import BackButton from '../components/BackButton.jsx'
 import PageBanners from '../components/PageBanners.jsx'
 import { fetchProducts } from '../api.js'
@@ -19,6 +19,8 @@ const PLAN_FEATURES = [
 ]
 const FREE_FEATURES = PLAN_FEATURES.map(([text, premiumOnly]) => ({ text, included: !premiumOnly }))
 const PREMIUM_FEATURES = PLAN_FEATURES.map(([text]) => ({ text, included: true }))
+
+const isCurrentPlanPremium = plan => !!plan && plan.kind === 'premium'
 
 export default function PackagesPage({ packages, user, highlightProductId, onSelect, onPrivacy, onSupport, onReferral, onBack, onNavigate }) {
   const [quantities, setQuantities] = useState({})
@@ -396,6 +398,10 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
         const isUnlimited   = pkg.searches === -1
         const totalPrice    = pkg.price * qty
         const totalSearches = isUnlimited ? '∞' : pkg.searches * qty
+        const MAX_MONTHS    = 12
+        const unitMonths    = Math.max(1, pkg.duration_months ?? 1)
+        const months        = qty * unitMonths
+        const isExtend      = isUnlimited && isCurrentPlanPremium(plan)
 
         const grad   = 'linear-gradient(135deg,#1e40af,#0b6fc2)'
         const accent = '#0066d6'
@@ -519,6 +525,41 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
               </div>
             )}
 
+            {isUnlimited && !isFixedActive && (
+              <div role="group" aria-labelledby={`months-label-${pkg.id}`} style={{ padding: '12px 16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <span id={`months-label-${pkg.id}`} style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>מספר חודשים</span>
+                  <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg)', borderRadius: 12, overflow: 'hidden' }}>
+                    <button onClick={() => setQty(pkg.id, qty - 1, MAX_MONTHS)} aria-label="הפחת חודש" disabled={qty <= 1} style={{
+                      width: 48, height: 44, border: 'none', background: 'transparent',
+                      fontSize: 22, cursor: qty <= 1 ? 'default' : 'pointer',
+                      color: qty <= 1 ? 'var(--hint)' : accent, fontWeight: 700,
+                    }}>−</button>
+                    <span aria-live="polite" style={{ minWidth: 84, textAlign: 'center', fontWeight: 800, fontSize: 16 }}>{monthsLabel(months)}</span>
+                    <button onClick={() => setQty(pkg.id, qty + 1, MAX_MONTHS)} aria-label="הוסף חודש" disabled={qty >= MAX_MONTHS} style={{
+                      width: 48, height: 44, border: 'none', background: 'transparent',
+                      fontSize: 22, cursor: qty >= MAX_MONTHS ? 'default' : 'pointer',
+                      color: qty >= MAX_MONTHS ? 'var(--hint)' : accent, fontWeight: 700,
+                    }}>+</button>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                  {[1, 3, 6, 12].map(n => (
+                    <button key={n} onClick={() => setQty(pkg.id, n, MAX_MONTHS)} aria-pressed={qty === n} style={{
+                      flex: '1 1 60px', minHeight: 44, borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                      border: `1.5px solid ${qty === n ? accent : 'var(--border)'}`,
+                      background: qty === n ? accent : 'var(--bg)', color: qty === n ? '#fff' : 'var(--text)',
+                    }}>{monthsLabel(n * unitMonths)}</button>
+                  ))}
+                </div>
+                {isExtend && plan.expires && (
+                  <div style={{ marginTop: 10, fontSize: 13, color: 'var(--text)', lineHeight: 1.5 }}>
+                    התוקף יתארך מהתאריך הנוכחי: ייגמר ב-<span dir="ltr" style={{ unicodeBidi: 'isolate', fontWeight: 700 }}>{formatPlanExpiry(extendedExpiry(plan, months))}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* ── Price + CTA ── */}
             <div style={{ padding: '10px 14px 16px' }}>
               <div style={{
@@ -528,10 +569,17 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
                 <span style={{ fontSize: 40, fontWeight: 900, color: accent, lineHeight: 1 }}>
                   ₪{totalPrice}
                 </span>
-                {qty > 1 && (
+                {isUnlimited ? (
+                  <span style={{ fontSize: 13, color: 'var(--text)', fontWeight: 600 }}>· {monthsLabel(months)}</span>
+                ) : qty > 1 && (
                   <span style={{ fontSize: 12, color: 'var(--hint)' }}>({qty} × ₪{pkg.price})</span>
                 )}
               </div>
+              {isUnlimited && qty > 1 && (
+                <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', margin: '-6px 0 12px' }}>
+                  <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>₪{Math.round(pkg.price / unitMonths * 100) / 100}</span> לחודש
+                </div>
+              )}
               {isFixedActive ? (
                 <div style={{
                   width: '100%', padding: '14px 0', borderRadius: 14, textAlign: 'center',
@@ -539,16 +587,18 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
                 }}>✓ המסלול פעיל — אין צורך ברכישה</div>
               ) : (
               <button
-                onClick={() => handleSelect(pkg)}
+                onClick={() => handleSelect({ ...pkg, _qty: qty })}
                 style={{
-                  width: '100%', padding: '14px 0', border: 'none', borderRadius: 14,
+                  width: '100%', minHeight: 48, padding: '14px 0', border: 'none', borderRadius: 14,
                   background: grad,
                   color: '#fff', fontSize: 16, fontWeight: 700,
                   cursor: 'pointer',
                   boxShadow: `0 4px 14px rgba(20,60,120,0.2)`,
                   letterSpacing: 0.4,
                 }}
-              >{isCurrentPlan && plan.isPremium ? '🔄 הארכת המסלול' : '🛒 רכישת חבילה'}</button>
+              >{isUnlimited
+                ? (isExtend ? `🔄 הארכת המסלול · ${monthsLabel(months)}` : `🛒 רכישת Premium · ${monthsLabel(months)}`)
+                : (isCurrentPlan && plan.isPremium ? '🔄 הארכת המסלול' : '🛒 רכישת חבילה')}</button>
               )}
             </div>
           </div>

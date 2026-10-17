@@ -189,15 +189,19 @@ def build_result_keyboard(
 
 
 
-def _paypal_keyboard(searches: int, price: int) -> InlineKeyboardMarkup:
-    paypal_url = f"{PAYPAL_ME}/{price}"
+async def _paypal_keyboard(searches: int, price: int) -> InlineKeyboardMarkup:
+    """Pay buttons for every ACTIVE payment method configured by the admin (same list as the Mini App)."""
+    from src.payment_methods import get_payment_methods, is_paypal, with_amount
     webapp_url = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_URL", "https://carinfo-bot.onrender.com")
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton(f"💳 שלם ₪{price} ב-PayPal", url=paypal_url, style="primary")],
-        [InlineKeyboardButton(f"💚 שלם ₪{price} ב-PayBox", url=PAYBOX_URL, style="success")],
-        [InlineKeyboardButton("✅ שילמתי — שלח אישור", callback_data=f"paid|{searches}|{price}", style="success")],
-        [InlineKeyboardButton("📱 פתח תפריט", web_app=WebAppInfo(url=webapp_url))],
-    ])
+    rows = []
+    for m in await get_payment_methods(active_only=True):
+        url = with_amount(m, price)
+        if url:
+            rows.append([InlineKeyboardButton(f"{'💳' if is_paypal(m) else '💚'} שלם ₪{price} ב-{m['name']}", url=url, style="primary" if is_paypal(m) else "success")])
+    if rows:
+        rows.append([InlineKeyboardButton("✅ שילמתי — שלח אישור", callback_data=f"paid|{searches}|{price}", style="success")])
+    rows.append([InlineKeyboardButton("📱 פתח תפריט", web_app=WebAppInfo(url=webapp_url))])
+    return InlineKeyboardMarkup(rows)
 
 
 async def cmd_myid(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1254,7 +1258,7 @@ async def handle_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     await query.message.reply_text(
         M.package_details(_first_name(query.from_user), label, desc, price),
         parse_mode=HTML,
-        reply_markup=_paypal_keyboard(searches, price),
+        reply_markup=await _paypal_keyboard(searches, price),
     )
 
 

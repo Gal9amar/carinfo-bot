@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { monthsLabel } from '../utils/plan.js'
 import BackButton from '../components/BackButton.jsx'
 import { initiatePayment, initiateProductPayment, promotePayment, fetchPaymentMethods } from '../api.js'
 import paypalLogo     from '../assets/paypal-logo.webp'
@@ -7,13 +8,17 @@ import mastercardLogo from '../assets/mastercard.svg'
 import amexLogo       from '../assets/amex.svg'
 import isracardLogo   from '../assets/isracard.webp'
 
-const CARD_STYLE = { height: 24, width: 'auto', borderRadius: 4, display: 'block', objectFit: 'contain' }
+// Same rule as src/payment_methods.py::is_paypal
+const isPaypalMethod = m => /paypal|פייפאל/i.test(m?.name || '')
+
+const CARD_STYLE ={ height: 24, width: 'auto', borderRadius: 4, display: 'block', objectFit: 'contain' }
 
 export default function PaymentPage({ pkg, onBack }) {
   const [paymentUrl, setPaymentUrl] = useState(null)
   const [paymentRef, setPaymentRef] = useState(null)
   const [preparing, setPreparing]   = useState(true)
   const [extraMethods, setExtraMethods] = useState([])
+  const [hasPaypal, setHasPaypal]   = useState(false)
 
   const qty        = pkg._qty ?? 1
   const totalPrice = pkg.price * qty
@@ -22,7 +27,7 @@ export default function PaymentPage({ pkg, onBack }) {
     ? (qty > 1 ? `×${qty} — ${pkg.description || pkg.delivery_time_note || ''}` : (pkg.description || pkg.delivery_time_note || ''))
     : isAlerts
       ? `${qty} התראה${qty > 1 ? 'ות' : ''} נוספת ביד2`
-      : (pkg.searches === -1 ? 'ללא הגבלה' : `${(pkg.searches ?? 1) * qty} חיפושים`)
+      : (pkg.searches === -1 ? `ללא הגבלה · ${monthsLabel(qty * Math.max(1, pkg.duration_months ?? 1))}` : `${(pkg.searches ?? 1) * qty} חיפושים`)
 
   useEffect(() => {
     Promise.all([
@@ -35,8 +40,11 @@ export default function PaymentPage({ pkg, onBack }) {
       } else {
         window.Telegram?.WebApp?.showAlert('שגיאה ביצירת הזמנה, נסה שוב.')
       }
-      // Only show DB methods that require manual approval (admin-added)
-      setExtraMethods(dbMethods.filter(m => m.requires_manual_approval))
+      // The list comes from the admin panel and contains ACTIVE methods only: the PayPal
+      // button appears only when an active PayPal method exists, the rest are shown as-is.
+      const list = Array.isArray(dbMethods) ? dbMethods : []
+      setHasPaypal(list.some(isPaypalMethod))
+      setExtraMethods(list.filter(m => !isPaypalMethod(m)))
       setPreparing(false)
     })
   }, [pkg.id])
@@ -85,7 +93,12 @@ export default function PaymentPage({ pkg, onBack }) {
           <h2 className="section-label" style={{ margin: '14px 4px 2px' }}>
             בחר אמצעי תשלום · אישור ידני, המנהל יאשר תוך זמן קצר
           </h2>
-          <button
+          {!hasPaypal && extraMethods.length === 0 && (
+            <div role="status" className="card" style={{ textAlign: 'center', fontSize: 14 }}>
+              אין כרגע אמצעי תשלום זמינים. נסו שוב מאוחר יותר או פנו לתמיכה.
+            </div>
+          )}
+          {hasPaypal && <button
             onClick={openPaypal}
             disabled={!paymentUrl}
             style={{
@@ -105,9 +118,9 @@ export default function PaymentPage({ pkg, onBack }) {
               <img loading="lazy" decoding="async" src={amexLogo}       alt="Amex"       style={CARD_STYLE} />
               <img loading="lazy" decoding="async" src={isracardLogo}   alt="Isracard"   style={CARD_STYLE} />
             </div>
-          </button>
+          </button>}
 
-          {/* Manual methods added by admin */}
+          {/* Other active methods added by admin */}
           {extraMethods.length > 0 && (
             <>
               <div style={{ fontSize: 12, color: 'var(--hint)', paddingRight: 2, marginTop: 6 }}>

@@ -59,3 +59,18 @@ export function globalBenefit(user) {
   const exp = user.global_unlimited_expires ? formatPlanExpiry(user.global_unlimited_expires) : ''
   return { label, exp }
 }
+
+// Hebrew plural for months: חודש / חודשיים / N חודשים
+export function monthsLabel(n) {
+  if (n === 1) return 'חודש'
+  if (n === 2) return 'חודשיים'
+  return `${n} חודשים`
+}
+
+// New expiry (ISO) after buying `months` months: from the live expiry, otherwise from now (N x 30 days)
+export function extendedExpiry(plan, months) {
+  const raw = plan?.expires ? String(plan.expires).replace(' ', 'T') : ''
+  const live = raw ? new Date(/Z$|[+-]\d\d:\d\d$/.test(raw) ? raw : raw + 'Z') : null
+  const base = live && !isNaN(live) && live.getTime() > Date.now() ? live.getTime() : Date.now()
+  return new Date(base + months * 30 * 864e5).toISOString()
+}

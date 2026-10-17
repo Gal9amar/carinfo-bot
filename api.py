@@ -30,7 +30,7 @@ WEBAPP_URL   = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_U
 # Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
 # webapp can detect a new release and force-reload instead of running stale
 # cached JS. Falls back to process start time for non-Render environments.
-APP_VERSION = "1792252812"
+APP_VERSION = "1792253515"
 
 api = FastAPI()
 
@@ -432,7 +432,11 @@ async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_u
 
     # PayPal.me static link — every order requires manual admin approval
     # (no PayPal Orders API / webhook auto-capture).
-    approval_url = f"{PAYPAL_ME}/{total_price:.0f}ILS"
+    # Only an ACTIVE PayPal payment method (admin → אמצעי תשלום) offers a PayPal link; a disabled
+    # or missing one means no PayPal option at all.
+    from src.payment_methods import get_payment_methods, is_paypal, with_amount
+    paypal_m = next((m for m in await get_payment_methods(active_only=True) if is_paypal(m)), None)
+    approval_url = with_amount(paypal_m, total_price) if paypal_m else ""
     paypal_order_id = ""
 
     init_status = "intent" if body.intent_only else "created"

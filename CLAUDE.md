@@ -169,7 +169,7 @@ Screens: `loading`, `error`, `home`, `report`, `packages`, `payment`, `success`,
 Revoked: quota exhausted (`increment_search`), expiry, `admin_grant(0)`, `POST /api/admin/users/{id}/revoke-subscription`. Promo **codes** and referral bonuses add searches but do not add to "מנויים".
 
 ### Payment flow (manual approval — no PayPal API/webhook)
-1. `POST /api/payment/initiate` computes price/searches **server-side** (for the unlimited/Premium package `quantity` N = N months: price × N, `duration_months` × N, max 12) from the package/product row → `pending_payments` + `paypal_transactions` (`intent` or `created`), ref = `{member_id}-{seq:05d}`; returns PayPal.me link `PAYPAL_ME/{price}ILS` (also PayBox / configured methods).
+1. `POST /api/payment/initiate` computes price/searches **server-side** (for the unlimited/Premium package `quantity` N = N months: price × N, `duration_months` × N, max 12) from the package/product row → `pending_payments` + `paypal_transactions` (`intent` or `created`), ref = `{member_id}-{seq:05d}`; returns `approval_url` built from the ACTIVE PayPal payment method (admin → אמצעי תשלום, matched by name via `payment_methods.is_paypal`, link + `/{price}ILS`; empty when PayPal is disabled/missing). The payment screen and the bot's pay buttons (`_paypal_keyboard`) list active methods only — disabling a method removes it everywhere; `PAYPAL_ME`/`PAYBOX_URL` env vars are no longer used for buttons.
 2. User pays externally; UI calls `/api/payment/promote` → status `created`, admin notified through `notifier`.
 3. Admin approves (`/api/admin/payments/{ref}/approve`) → `_grant_payment` by `package_type`:
    - `searches` → `admin_grant` + subscriber
