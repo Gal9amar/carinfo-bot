@@ -1796,6 +1796,34 @@ async def cmd_mirror_here(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     )
 
 
+async def cmd_mirror_set(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Admin: /mirror_set <topic link>. Sends a test message first; enables the mirror only if it arrived."""
+    if update.effective_user.id != ADMIN_ID:
+        return
+    msg = update.effective_message
+    target = mirror.parse_topic_link(" ".join(context.args or []))
+    if not target:
+        await msg.reply_text("שלח: /mirror_set ואחריו קישור לטופיק, למשל:\nhttps://t.me/c/1234567890/2")
+        return
+    chat_id, thread = target
+    try:
+        await context.bot.send_message(
+            chat_id, "🪞 מראה הפעולות מחוברת לטופיק הזה. כל פעולה של משתמש בבוט, והתשובה שקיבל, יופיעו כאן.",
+            message_thread_id=thread,
+        )
+    except Exception as exc:
+        await msg.reply_text(
+            f"❌ לא הצלחתי לשלוח לטופיק: {type(exc).__name__}\n"
+            "ודא שהבוט חבר בקבוצה, שמותר לו לכתוב בטופיק, ושהקישור הוא של הטופיק עצמו."
+        )
+        return
+    await set_bot_setting("mirror_chat_id", str(chat_id))
+    await set_bot_setting("mirror_thread_id", str(thread) if thread else "")
+    await set_bot_setting("mirror_enabled", "1")
+    mirror.invalidate()
+    await msg.reply_text("✅ מראה הפעולות פעילה. שלחתי הודעת בדיקה לטופיק. לכיבוי: /mirror_off")
+
+
 async def cmd_mirror_off(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.effective_user.id != ADMIN_ID:
         return
@@ -2538,6 +2566,7 @@ def main() -> None:
     app.add_handler(TypeHandler(Update, _mirror_incoming), group=-1)   # blocking: the user action must be queued before the bot reacts
     app.add_handler(CommandHandler("mirror_here", cmd_mirror_here))
     app.add_handler(CommandHandler("mirror_off", cmd_mirror_off))
+    app.add_handler(CommandHandler("mirror_set", cmd_mirror_set))
     app.add_handler(CommandHandler("compare", cmd_compare))
     app.add_handler(CommandHandler("optout", cmd_optout))
     app.add_handler(CommandHandler("optin",  cmd_optin))

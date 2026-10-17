@@ -76,6 +76,17 @@ def redacted():
         _redact.reset(token)
 
 
+def parse_topic_link(text: str) -> tuple[int, int | None] | None:
+    """'https://t.me/c/4467084312/2[/15]' -> (-1004467084312, 2). Private-group links only."""
+    import re
+    m = re.search(r"t\.me/c/(\d+)(?:/(\d+))?", text or "")
+    if not m:
+        return None
+    chat = int(f"-100{m.group(1)}")
+    topic = int(m.group(2)) if m.group(2) else None
+    return chat, (topic if topic and topic > 1 else None)   # topic id 1 is the General topic
+
+
 # ── capturing events ───────────────────────────────────────────────────────
 
 def _clock() -> str:
