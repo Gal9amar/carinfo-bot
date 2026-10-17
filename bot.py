@@ -2010,11 +2010,14 @@ async def _yad2_watch_job(context) -> None:
                 # First run: seed seen_ids so we don't flood with old listings
                 if not seen:
                     await update_seen_ids(w["id"], list(current_ids)[-500:])
-                    await context.bot.send_message(
-                        ADMIN_ID,
-                        M.watch_started(await _name_of(ADMIN_ID), label, len(current_ids)),
-                        parse_mode=HTML,
-                    )
+                    try:
+                        await context.bot.send_message(
+                            w["user_id"],
+                            M.watch_started(await _name_of(w["user_id"]), label, len(current_ids)),
+                            parse_mode=HTML,
+                        )
+                    except Exception as e:
+                        logger.warning("Watch start notify failed user=%s: %s", w["user_id"], e)
                     continue
 
                 new_ids = current_ids - seen

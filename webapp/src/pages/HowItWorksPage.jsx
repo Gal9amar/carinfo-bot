@@ -37,7 +37,6 @@ export default function HowItWorksPage({ onBack, freeSearches = 10, onPrivacy, o
         <Row icon="📅" text="היסטוריה — רישום, טסט, ק״מ, שינויי מבנה" />
         <Row icon="👥" text="היסטוריית בעלויות — כמה בעלים, פרטי/סוחר" />
         <Row icon="💰" text="הערכת מחיר שוק על בסיס מודעות Yad2 — תכונת מנוי בלבד ⭐" />
-        <Row icon="🚨" text="בדיקת גנבה — מאגר המשטרה לרכבים גנובים" />
         <Row icon="⚠️" text="ריקולים — תקלות ידועות ופתוחות של הדגם" />
       </Section>
 
@@ -96,7 +95,6 @@ export default function HowItWorksPage({ onBack, freeSearches = 10, onPrivacy, o
       {/* Sources */}
       <Section title="🔗 מקורות המידע">
         <Row icon="🏛️" text="data.gov.il — פורטל הנתונים הפתוחים של ממשלת ישראל" />
-        <Row icon="👮" text="מאגר רכבים גנובים — מערכת המשטרה" />
         <Row icon="🏷️" text="Yad2 — מחירי שוק ומודעות מכירה" />
       </Section>
 
