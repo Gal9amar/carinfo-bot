@@ -176,14 +176,14 @@ function StatsTab() {
     <div>
       <Section title="משתמשים">
         <StatCard value={stats.total_users}   label="סה״כ משתמשים" />
-        <StatCard value={stats.active_week}   label="פעילים השבוע" accent="#38a169" />
-        <StatCard value={stats.new_today}     label="חדשים היום"   sub={`${stats.new_week} השבוע`} accent="#38bdf8" />
+        <StatCard value={stats.active_week}   label="פעילים השבוע" accent="#1b8a3a" />
+        <StatCard value={stats.new_today}     label="חדשים היום"   sub={`${stats.new_week} השבוע`} accent="#007aff" />
         <StatCard value={stats.blocked_users} label="חסומים"       accent={stats.blocked_users > 0 ? '#e53e3e' : undefined} />
       </Section>
 
       <Section title="מנויים">
-        <StatCard value={stats.subscribers}   label="מנויים פעילים" accent="#a855f7" />
-        <StatCard value={stats.unlimited}     label="ללא הגבלה"     accent="#38bdf8" />
+        <StatCard value={stats.subscribers}   label="מנויים פעילים" accent="#007aff" />
+        <StatCard value={stats.unlimited}     label="ללא הגבלה"     accent="#007aff" />
         <StatCard
           value={stats.expiring_soon}
           label="פגים ב-7 ימים"
@@ -193,7 +193,7 @@ function StatsTab() {
       </Section>
 
       <Section title="חיפושים">
-        <StatCard value={stats.searches_today} label="היום"    accent="#38a169" />
+        <StatCard value={stats.searches_today} label="היום"    accent="#1b8a3a" />
         <StatCard value={stats.searches_week}  label="השבוע" />
         <StatCard value={stats.total_searches} label="סה״כ כל הזמנים" />
         <StatCard value={stats.active_month}   label="פעילים החודש" />
@@ -205,9 +205,9 @@ function StatsTab() {
       </Section>
 
       <Section title="🔔 התראות יד2">
-        <StatCard value={stats.watches_users ?? 0} label="משתמשים עם מעקב" accent="#8b5cf6" />
-        <StatCard value={stats.watches_total ?? 0} label="מעקבים פעילים"   accent="#a78bfa" />
-        <StatCard value={stats.watches_week  ?? 0} label="נוספו השבוע"      accent="#38bdf8" />
+        <StatCard value={stats.watches_users ?? 0} label="משתמשים עם מעקב" accent="#007aff" />
+        <StatCard value={stats.watches_total ?? 0} label="מעקבים פעילים"   accent="#007aff" />
+        <StatCard value={stats.watches_week  ?? 0} label="נוספו השבוע"      accent="#007aff" />
       </Section>
 
       {stats.top_users?.length > 0 && (
@@ -293,7 +293,7 @@ function ActivityTab() {
             <div key={item.id} style={{
               display: 'flex', gap: 16, alignItems: 'center', padding: '16px',
               borderBottom: i < log.length - 1 ? '1px solid var(--border)' : 'none',
-              background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)',
+              background: i % 2 === 0 ? 'transparent' : 'rgba(0,100,200,0.03)',
               transition: 'background 0.2s'
             }}>
               <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0, border: '1px solid var(--border)' }}>
@@ -483,7 +483,7 @@ function PackagesTab() {
               opacity: isDragging ? 0.45 : isActive ? 1 : 0.5,
               cursor: reordering ? 'wait' : 'grab',
               transition: 'opacity 0.15s',
-              borderColor: isActive ? undefined : 'rgba(255,255,255,0.1)',
+              borderColor: isActive ? undefined : 'rgba(0,100,200,0.18)',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
@@ -694,7 +694,7 @@ function BannersTab() {
   useEffect(() => { load() }, [])
 
   function blankForm() {
-    return { title: '', subtitle: '', icon: '🎁', image_url: '', color_from: '#38a169', color_to: '#276749', link_type: 'page', link_value: 'packages', placements: ['home'], is_active: true }
+    return { title: '', subtitle: '', icon: '🎁', image_url: '', color_from: '#1b8a3a', color_to: '#276749', link_type: 'page', link_value: 'packages', placements: ['home'], is_active: true }
   }
 
   async function applyReorder(next) {
@@ -721,7 +721,7 @@ function BannersTab() {
   function toBody(f) {
     return {
       title: f.title, subtitle: f.subtitle || '', icon: f.icon || '🎁', image_url: f.image_url || '',
-      color_from: f.color_from || '#38a169', color_to: f.color_to || '#276749',
+      color_from: f.color_from || '#1b8a3a', color_to: f.color_to || '#276749',
       link_type: f.link_type || 'page', link_value: f.link_value || 'packages',
       placements: f.placements?.length ? f.placements : ['home'],
       is_active: f.is_active !== false,
@@ -928,7 +928,7 @@ function BannerModal({ title, form, setForm, saving, onSave, onClose }) {
             onClick={() => setForm(f => ({ ...f, is_active: f.is_active === false }))}
             style={{
               width: 44, height: 24, borderRadius: 12, flexShrink: 0,
-              background: form.is_active !== false ? '#38a169' : 'rgba(255,255,255,0.15)',
+              background: form.is_active !== false ? '#1b8a3a' : 'rgba(0,100,200,0.18)',
               position: 'relative', transition: 'background 0.2s', cursor: 'pointer',
             }}
           >
@@ -958,7 +958,7 @@ function BannerModal({ title, form, setForm, saving, onSave, onClose }) {
                 })}
                 style={{
                   fontSize: 12, fontWeight: 600, padding: '6px 12px', borderRadius: 20,
-                  border: `1.5px solid ${active ? 'var(--btn)' : 'rgba(255,255,255,0.15)'}`,
+                  border: `1.5px solid ${active ? 'var(--btn)' : 'rgba(0,100,200,0.18)'}`,
                   background: active ? 'var(--btn)22' : 'transparent',
                   color: active ? 'var(--text)' : 'var(--hint)', cursor: 'pointer',
                 }}
@@ -1050,7 +1050,7 @@ function ProductFeaturesEditor({ features, onChange }) {
   }
 
   const STATES = [
-    { state: 'included', icon: '✓', color: '#38a169', title: 'קיים' },
+    { state: 'included', icon: '✓', color: '#1b8a3a', title: 'קיים' },
     { state: 'excluded', icon: '✗', color: '#e53e3e', title: 'לא קיים' },
     { state: 'plain', icon: '•', color: 'var(--hint)', title: 'טקסט בלבד (ללא אייקון)' },
   ]
@@ -1066,16 +1066,16 @@ function ProductFeaturesEditor({ features, onChange }) {
         <div key={item.text} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 7 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 1, flexShrink: 0 }}>
             <button type="button" onClick={() => moveFeature(idx, -1)} disabled={idx === 0}
-              style={{ width: 20, height: 18, border: '1px solid rgba(255,255,255,0.15)', borderRadius: 4, background: 'transparent', color: idx === 0 ? 'rgba(255,255,255,0.15)' : 'var(--hint)', cursor: idx === 0 ? 'default' : 'pointer', fontSize: 10, lineHeight: 1, padding: 0 }}>▲</button>
+              style={{ width: 20, height: 18, border: '1px solid rgba(0,100,200,0.18)', borderRadius: 4, background: 'transparent', color: idx === 0 ? 'rgba(0,100,200,0.18)' : 'var(--hint)', cursor: idx === 0 ? 'default' : 'pointer', fontSize: 10, lineHeight: 1, padding: 0 }}>▲</button>
             <button type="button" onClick={() => moveFeature(idx, 1)} disabled={idx === features.length - 1}
-              style={{ width: 20, height: 18, border: '1px solid rgba(255,255,255,0.15)', borderRadius: 4, background: 'transparent', color: idx === features.length - 1 ? 'rgba(255,255,255,0.15)' : 'var(--hint)', cursor: idx === features.length - 1 ? 'default' : 'pointer', fontSize: 10, lineHeight: 1, padding: 0 }}>▼</button>
+              style={{ width: 20, height: 18, border: '1px solid rgba(0,100,200,0.18)', borderRadius: 4, background: 'transparent', color: idx === features.length - 1 ? 'rgba(0,100,200,0.18)' : 'var(--hint)', cursor: idx === features.length - 1 ? 'default' : 'pointer', fontSize: 10, lineHeight: 1, padding: 0 }}>▼</button>
           </div>
           <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
             {STATES.map(s => (
               <button key={s.state} type="button" onClick={() => setFeatureState(item.text, s.state)}
                 style={{
                   width: 28, height: 28, border: '1.5px solid', borderRadius: 7,
-                  borderColor: item.state === s.state ? s.color : 'rgba(255,255,255,0.2)',
+                  borderColor: item.state === s.state ? s.color : 'rgba(0,100,200,0.25)',
                   background: item.state === s.state ? `${s.color}22` : 'transparent',
                   color: item.state === s.state ? s.color : 'var(--hint)',
                   cursor: 'pointer', fontSize: 14, lineHeight: 1, fontWeight: 700,
@@ -1613,16 +1613,16 @@ function PackageModal({ title, form, setForm, saving, onSave, onClose, suggestio
                 {/* Reorder */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 1, flexShrink: 0 }}>
                   <button type="button" onClick={() => moveFeature(idx, -1)} disabled={idx === 0}
-                    style={{ width: 20, height: 18, border: '1px solid rgba(255,255,255,0.15)', borderRadius: 4, background: 'transparent', color: idx === 0 ? 'rgba(255,255,255,0.15)' : 'var(--hint)', cursor: idx === 0 ? 'default' : 'pointer', fontSize: 10, lineHeight: 1, padding: 0 }}>▲</button>
+                    style={{ width: 20, height: 18, border: '1px solid rgba(0,100,200,0.18)', borderRadius: 4, background: 'transparent', color: idx === 0 ? 'rgba(0,100,200,0.18)' : 'var(--hint)', cursor: idx === 0 ? 'default' : 'pointer', fontSize: 10, lineHeight: 1, padding: 0 }}>▲</button>
                   <button type="button" onClick={() => moveFeature(idx, 1)} disabled={idx === activeFeatures.length - 1}
-                    style={{ width: 20, height: 18, border: '1px solid rgba(255,255,255,0.15)', borderRadius: 4, background: 'transparent', color: idx === activeFeatures.length - 1 ? 'rgba(255,255,255,0.15)' : 'var(--hint)', cursor: idx === activeFeatures.length - 1 ? 'default' : 'pointer', fontSize: 10, lineHeight: 1, padding: 0 }}>▼</button>
+                    style={{ width: 20, height: 18, border: '1px solid rgba(0,100,200,0.18)', borderRadius: 4, background: 'transparent', color: idx === activeFeatures.length - 1 ? 'rgba(0,100,200,0.18)' : 'var(--hint)', cursor: idx === activeFeatures.length - 1 ? 'default' : 'pointer', fontSize: 10, lineHeight: 1, padding: 0 }}>▼</button>
                 </div>
                 {/* Toggle buttons */}
                 <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
                   <button type="button" onClick={() => setFeatureState(item.text, 'included')}
-                    style={{ width: 28, height: 28, border: '1.5px solid', borderColor: state === 'included' ? '#38a169' : 'rgba(255,255,255,0.2)', borderRadius: 7, background: state === 'included' ? '#38a16922' : 'transparent', color: state === 'included' ? '#38a169' : 'var(--hint)', cursor: 'pointer', fontSize: 14, lineHeight: 1, fontWeight: 700 }} title="קיים">✓</button>
+                    style={{ width: 28, height: 28, border: '1.5px solid', borderColor: state === 'included' ? '#1b8a3a' : 'rgba(0,100,200,0.25)', borderRadius: 7, background: state === 'included' ? '#1b8a3a22' : 'transparent', color: state === 'included' ? '#1b8a3a' : 'var(--hint)', cursor: 'pointer', fontSize: 14, lineHeight: 1, fontWeight: 700 }} title="קיים">✓</button>
                   <button type="button" onClick={() => setFeatureState(item.text, 'excluded')}
-                    style={{ width: 28, height: 28, border: '1.5px solid', borderColor: state === 'excluded' ? '#e53e3e' : 'rgba(255,255,255,0.2)', borderRadius: 7, background: state === 'excluded' ? '#e53e3e22' : 'transparent', color: state === 'excluded' ? '#e53e3e' : 'var(--hint)', cursor: 'pointer', fontSize: 14, lineHeight: 1, fontWeight: 700 }} title="לא קיים">✗</button>
+                    style={{ width: 28, height: 28, border: '1.5px solid', borderColor: state === 'excluded' ? '#e53e3e' : 'rgba(0,100,200,0.25)', borderRadius: 7, background: state === 'excluded' ? '#e53e3e22' : 'transparent', color: state === 'excluded' ? '#e53e3e' : 'var(--hint)', cursor: 'pointer', fontSize: 14, lineHeight: 1, fontWeight: 700 }} title="לא קיים">✗</button>
                 </div>
                 <span style={{ fontSize: 13, flex: 1, lineHeight: 1.4 }}>{item.text}</span>
                 <button type="button" onClick={() => removeFeature(item.text)}
@@ -1633,15 +1633,15 @@ function PackageModal({ title, form, setForm, saving, onSave, onClose, suggestio
 
           {/* Inactive defaults — click to add */}
           {inactiveDefaults.length > 0 && (
-            <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', marginTop: 8, paddingTop: 8 }}>
+            <div style={{ borderTop: '1px solid rgba(0,100,200,0.18)', marginTop: 8, paddingTop: 8 }}>
               <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 6 }}>לחץ להוספה לרשימה:</div>
               {inactiveDefaults.map(feat => (
                 <div key={feat} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                   <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
                     <button type="button" onClick={() => setFeatureState(feat, 'included')}
-                      style={{ width: 28, height: 28, border: '1.5px solid rgba(255,255,255,0.15)', borderRadius: 7, background: 'transparent', color: 'var(--hint)', cursor: 'pointer', fontSize: 14, lineHeight: 1, fontWeight: 700 }} title="הוסף כקיים">✓</button>
+                      style={{ width: 28, height: 28, border: '1.5px solid rgba(0,100,200,0.18)', borderRadius: 7, background: 'transparent', color: 'var(--hint)', cursor: 'pointer', fontSize: 14, lineHeight: 1, fontWeight: 700 }} title="הוסף כקיים">✓</button>
                     <button type="button" onClick={() => setFeatureState(feat, 'excluded')}
-                      style={{ width: 28, height: 28, border: '1.5px solid rgba(255,255,255,0.15)', borderRadius: 7, background: 'transparent', color: 'var(--hint)', cursor: 'pointer', fontSize: 14, lineHeight: 1, fontWeight: 700 }} title="הוסף כלא קיים">✗</button>
+                      style={{ width: 28, height: 28, border: '1.5px solid rgba(0,100,200,0.18)', borderRadius: 7, background: 'transparent', color: 'var(--hint)', cursor: 'pointer', fontSize: 14, lineHeight: 1, fontWeight: 700 }} title="הוסף כלא קיים">✗</button>
                   </div>
                   <span style={{ fontSize: 13, color: 'var(--hint)', opacity: 0.5, flex: 1, lineHeight: 1.4 }}>{feat}</span>
                 </div>
@@ -1686,7 +1686,7 @@ function PackageModal({ title, form, setForm, saving, onSave, onClose, suggestio
               onClick={() => setForm(f => ({ ...f, is_active: f.is_active === false }))}
               style={{
                 width: 44, height: 24, borderRadius: 12, flexShrink: 0,
-                background: form.is_active !== false ? '#38a169' : 'rgba(255,255,255,0.15)',
+                background: form.is_active !== false ? '#1b8a3a' : 'rgba(0,100,200,0.18)',
                 position: 'relative', transition: 'background 0.2s', cursor: 'pointer',
               }}
             >
@@ -1788,7 +1788,7 @@ function AdminGrantsTab() {
         </div>
         <div style={{ fontSize: 12, color: 'var(--hint)', lineHeight: 1.6, background: 'var(--bg)', padding: '12px', borderRadius: 12, border: '1px dashed var(--border)' }}>
           <span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>הנחיות ערכים: </span>
-          <b style={{ color: '#0ea5e9' }}>0</b> = מנוי חינמי, <b style={{ color: '#8b5cf6' }}>-1</b> = מנוי חודשי פרימיום, <b style={{ color: '#f59e0b' }}>-2</b> = גישה חופשית (ללא הגבלה), <b style={{ color: '#10b981' }}>מספר חיובי</b> = הוספת X חיפושים.
+          <b style={{ color: '#007aff' }}>0</b> = מנוי חינמי, <b style={{ color: '#007aff' }}>-1</b> = מנוי חודשי פרימיום, <b style={{ color: '#f59e0b' }}>-2</b> = גישה חופשית (ללא הגבלה), <b style={{ color: '#10b981' }}>מספר חיובי</b> = הוספת X חיפושים.
         </div>
       </div>
       
@@ -1837,7 +1837,7 @@ function AdminGrantsTab() {
       </button>
 
       {/* Gift all section */}
-      <div style={{ marginTop: 16, borderTop: '1px solid var(--border, rgba(255,255,255,0.1))', paddingTop: 16 }}>
+      <div style={{ marginTop: 16, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
         <button
           onClick={() => setGiftOpen(o => !o)}
           style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 0, color: 'var(--text)' }}
@@ -1849,7 +1849,7 @@ function AdminGrantsTab() {
       </div>
 
       {/* Global unlimited-for-everyone section */}
-      <div style={{ marginTop: 16, borderTop: '1px solid var(--border, rgba(255,255,255,0.1))', paddingTop: 16 }}>
+      <div style={{ marginTop: 16, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
         <button
           onClick={() => setUnlimitedOpen(o => !o)}
           style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 0, color: 'var(--text)' }}
@@ -1861,7 +1861,7 @@ function AdminGrantsTab() {
       </div>
 
       {/* Codes section */}
-      <div style={{ marginTop: 16, borderTop: '1px solid var(--border, rgba(255,255,255,0.1))', paddingTop: 16 }}>
+      <div style={{ marginTop: 16, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
         <button
           onClick={() => setCodesOpen(o => !o)}
           style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 0, color: 'var(--text)' }}
@@ -2165,7 +2165,7 @@ function CodesSection({ standalone }) {
           const used = c.used_by != null
           const expired = c.expires && new Date(c.expires) < new Date()
           const status = used ? 'נוצל' : expired ? 'פג תוקף' : 'פעיל'
-          const statusColor = used ? '#8b5cf6' : expired ? '#ef4444' : '#10b981'
+          const statusColor = used ? '#007aff' : expired ? '#ef4444' : '#10b981'
           const desc = c.unlimited ? (c.monthly ? 'מנוי חודשי פרימיום' : 'מנוי ללא הגבלה') : `${c.searches} חיפושים`
           
           return (
@@ -2262,7 +2262,7 @@ function GlobalUnlimitedSection() {
 
   if (!settings) return <div className="loading"></div>
 
-  const STATUS_COLORS = { active: '#38a169', upcoming: '#d69e2e', expired: '#e53e3e' }
+  const STATUS_COLORS = { active: '#1b8a3a', upcoming: '#d69e2e', expired: '#e53e3e' }
   const STATUS_LABELS = { active: '🟢 פעיל כעת לכל המשתמשים', upcoming: '🟡 טרם התחיל', expired: '🔴 הסתיים (התאריך חלף)' }
   const st = status()
 
@@ -2374,7 +2374,7 @@ function GiftAllSection({ onDone }) {
       onClick={() => setGiftType(type)}
       style={{
         flex: 1, padding: '8px 0', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600,
-        background: giftType === type ? 'var(--button-color, #2196F3)' : 'var(--secondary-bg, rgba(255,255,255,0.08))',
+        background: giftType === type ? 'var(--button-color, #2196F3)' : 'rgba(0,100,200,0.08)',
         color: giftType === type ? '#fff' : 'var(--hint)',
         transition: 'all 0.15s',
       }}
@@ -2461,8 +2461,8 @@ function GiftAllSection({ onDone }) {
 
 function userStatus(u) {
   if (u.blocked) return { label: 'חסום', color: '#e53e3e', bg: '#e53e3e18' }
-  if (u.is_subscriber || u.searches_left === -1) return { label: 'מנוי', color: '#38bdf8', bg: '#38bdf818' }
-  if (u.searches_left > 0) return { label: 'חינם', color: '#38a169', bg: '#38a16918' }
+  if (u.is_subscriber || u.searches_left === -1) return { label: 'מנוי', color: '#007aff', bg: '#007aff18' }
+  if (u.searches_left > 0) return { label: 'חינם', color: '#1b8a3a', bg: '#1b8a3a18' }
   return { label: 'אזל', color: '#d69e2e', bg: '#d69e2e18' }
 }
 
@@ -2527,7 +2527,7 @@ function UserCard({ u, expanded, onToggle, onEdit, onMessage, onHistory, onReloa
   return (
     <div className="card" style={{
       padding: 0, overflow: 'hidden', cursor: 'pointer',
-      border: u.blocked ? '1px solid #ef444455' : u.is_subscriber ? '1px solid #0ea5e955' : '1px solid var(--border)',
+      border: u.blocked ? '1px solid #ef444455' : u.is_subscriber ? '1px solid #007aff55' : '1px solid var(--border)',
     }} onClick={() => onToggle(u.user_id)}>
       {/* Collapsed header */}
       <div style={{ display: 'flex', gap: 12, padding: '16px', alignItems: 'center', userSelect: 'none' }}>
@@ -2573,9 +2573,9 @@ function UserCard({ u, expanded, onToggle, onEdit, onMessage, onHistory, onReloa
           {/* Stats mini-grid */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 16 }}>
             {[
-              { label: 'נעשו', value: u.searches_done, color: '#0ea5e9' },
+              { label: 'נעשו', value: u.searches_done, color: '#007aff' },
               { label: 'נותרו', value: left, color: st.color },
-              { label: 'קוטה', value: u.searches_quota === -1 ? '∞' : u.searches_quota, color: '#8b5cf6' },
+              { label: 'קוטה', value: u.searches_quota === -1 ? '∞' : u.searches_quota, color: '#007aff' },
               { label: 'מזהה', value: u.user_id, mono: true },
             ].map(({ label, value, color, mono }) => (
               <div key={label} style={{
@@ -2699,7 +2699,7 @@ function ReferralsTab() {
           <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>סה"כ הפניות מוצלחות</div>
         </div>
         <div className="card" style={{ padding: '20px', textAlign: 'center', background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.05), transparent)' }}>
-          <div style={{ fontSize: 32, fontWeight: 800, color: '#8b5cf6', letterSpacing: '-1px' }}>+{data.total_bonus}</div>
+          <div style={{ fontSize: 32, fontWeight: 800, color: '#007aff', letterSpacing: '-1px' }}>+{data.total_bonus}</div>
           <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>חיפושי בונוס חולקו</div>
         </div>
       </div>
@@ -2736,7 +2736,7 @@ function ReferralsTab() {
             <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(16, 185, 129, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🤝</div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-main)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                <span style={{ color: '#0ea5e9' }}>{ref.referrer_name}</span>
+                <span style={{ color: '#007aff' }}>{ref.referrer_name}</span>
                 <span style={{ color: 'var(--hint)', fontSize: 13, fontWeight: 500 }}>הפנה את</span>
                 <span>{ref.referee_name}</span>
               </div>
@@ -2766,11 +2766,11 @@ function ReferralsTab() {
 
             {/* Referrer */}
             <div style={{ background: 'var(--bg)', borderRadius: 16, padding: '16px', marginBottom: 12, border: '1px solid var(--border)' }}>
-              <div style={{ fontSize: 12, color: '#0ea5e9', fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>📤 המפנה (קיבל בונוס)</div>
+              <div style={{ fontSize: 12, color: '#007aff', fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>📤 המפנה (קיבל בונוס)</div>
               <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-main)', marginBottom: 6 }}>{selected.referrer_name}</div>
               <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'var(--text-muted)' }}>
                 <span>מזהה: <b style={{ color: 'var(--text-main)', fontFamily: 'monospace' }}>{selected.referrer_id}</b></span>
-                <span>חיפושים: <b style={{ color: '#8b5cf6' }}>{selected.referrer_searches_left === -1 ? '∞' : selected.referrer_searches_left}</b></span>
+                <span>חיפושים: <b style={{ color: '#007aff' }}>{selected.referrer_searches_left === -1 ? '∞' : selected.referrer_searches_left}</b></span>
               </div>
             </div>
 
@@ -2790,7 +2790,7 @@ function ReferralsTab() {
               <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-main)', marginBottom: 6 }}>{selected.referee_name}</div>
               <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'var(--text-muted)' }}>
                 <span>מזהה: <b style={{ color: 'var(--text-main)', fontFamily: 'monospace' }}>{selected.referee_id}</b></span>
-                <span>חיפושים: <b style={{ color: '#8b5cf6' }}>{selected.referee_searches_left === -1 ? '∞' : selected.referee_searches_left}</b></span>
+                <span>חיפושים: <b style={{ color: '#007aff' }}>{selected.referee_searches_left === -1 ? '∞' : selected.referee_searches_left}</b></span>
               </div>
             </div>
 
@@ -3041,20 +3041,20 @@ function GrantModal({ user, onClose, onDone }) {
                   style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     padding: '10px 14px', borderRadius: 10,
-                    border: selected ? '1px solid #7c3aed' : g.searches === 0 ? '1px solid #38a16944' : '1px solid rgba(255,255,255,0.08)',
-                    background: selected ? '#7c3aed22' : g.searches === 0 ? '#38a16911' : 'var(--bg)',
+                    border: selected ? '1px solid #007aff' : g.searches === 0 ? '1px solid #1b8a3a44' : '1px solid rgba(0,100,200,0.18)',
+                    background: selected ? '#007aff22' : g.searches === 0 ? '#1b8a3a11' : 'var(--bg)',
                     cursor: 'pointer', opacity: saving ? 0.5 : 1,
                   }}
                 >
-                  <span style={{ fontSize: 13, fontWeight: 600, color: selected ? '#a78bfa' : g.searches === 0 ? '#38a169' : 'var(--text)' }}>{g.label}</span>
-                  <span style={{ fontSize: 12, color: selected ? '#a78bfa' : 'var(--hint)' }}>{grantTypeLabel(g.searches)}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: selected ? '#007aff' : g.searches === 0 ? '#1b8a3a' : 'var(--text)' }}>{g.label}</span>
+                  <span style={{ fontSize: 12, color: selected ? '#007aff' : 'var(--hint)' }}>{grantTypeLabel(g.searches)}</span>
                 </button>
               )
             })}
 
             {user.is_subscriber && (
               <>
-                <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '4px 0' }} />
+                <div style={{ height: 1, background: 'rgba(0,100,200,0.18)', margin: '4px 0' }} />
                 <button
                   disabled={saving}
                   onClick={() => {
@@ -3213,14 +3213,14 @@ function GrantModal({ user, onClose, onDone }) {
                   <div key={ref.id} style={{
                     display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px',
                     background: 'var(--bg)', borderRadius: 8, marginBottom: 6,
-                    borderRight: '3px solid #38a169',
+                    borderRight: '3px solid #1b8a3a',
                   }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 600 }}>{ref.name}</div>
                       <div style={{ fontSize: 11, color: 'var(--hint)' }}>{ref.joined_at?.slice(0, 10)}</div>
                     </div>
                     <span style={{
-                      background: '#38a16920', color: '#38a169',
+                      background: '#1b8a3a20', color: '#1b8a3a',
                       borderRadius: 20, padding: '3px 9px', fontSize: 11, fontWeight: 700, flexShrink: 0,
                     }}>
                       ✅ +{ref.bonus}
@@ -3244,22 +3244,22 @@ function GrantModal({ user, onClose, onDone }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {sentMessages.map(msg => {
                   const kindColors = {
-                    grant:           { bg: '#7c3aed18', border: '#7c3aed55', icon: '🎁' },
-                    referral_bonus:  { bg: '#38a16918', border: '#38a16955', icon: '🤝' },
+                    grant:           { bg: '#007aff18', border: '#007aff55', icon: '🎁' },
+                    referral_bonus:  { bg: '#1b8a3a18', border: '#1b8a3a55', icon: '🤝' },
                     referral_info:   { bg: '#f59e0b18', border: '#f59e0b55', icon: 'ℹ️' },
                     payment:         { bg: '#16a34a18', border: '#16a34a55', icon: '💳' },
-                    broadcast:       { bg: '#0ea5e918', border: '#0ea5e955', icon: '📢' },
+                    broadcast:       { bg: '#007aff18', border: '#007aff55', icon: '📢' },
                     expiry_reminder: { bg: '#f59e0b18', border: '#f59e0b55', icon: '⏰' },
                     block:           { bg: '#e53e3e18', border: '#e53e3e55', icon: '🚫' },
-                    unblock:         { bg: '#38a16918', border: '#38a16955', icon: '✅' },
+                    unblock:         { bg: '#1b8a3a18', border: '#1b8a3a55', icon: '✅' },
                     ticket_reply:    { bg: '#6366f118', border: '#6366f155', icon: '💬' },
                     admin_dm:        { bg: '#ec489918', border: '#ec489955', icon: '✉️' },
-                    welcome:         { bg: '#0ea5e918', border: '#0ea5e955', icon: '👋' },
+                    welcome:         { bg: '#007aff18', border: '#007aff55', icon: '👋' },
                     promo_welcome:   { bg: '#f59e0b18', border: '#f59e0b55', icon: '🎉' },
-                    code_applied:    { bg: '#7c3aed18', border: '#7c3aed55', icon: '🔑' },
+                    code_applied:    { bg: '#007aff18', border: '#007aff55', icon: '🔑' },
                     watch_alert:     { bg: '#6366f118', border: '#6366f155', icon: '🔔' },
                   }
-                  const style = kindColors[msg.kind] || { bg: 'var(--bg)', border: 'rgba(255,255,255,0.1)', icon: '📩' }
+                  const style = kindColors[msg.kind] || { bg: 'var(--bg)', border: 'rgba(0,100,200,0.18)', icon: '📩' }
                   return (
                     <div key={msg.id} style={{
                       background: style.bg, border: `1px solid ${style.border}`,
@@ -3354,9 +3354,9 @@ function SentMessagesModal({ user, onClose }) {
   }, [user.user_id])
 
   const kindMeta = {
-    grant:           { icon: '🎁', label: 'הטבה', color: '#a78bfa' },
-    payment:         { icon: '💳', label: 'תשלום', color: '#38a169' },
-    broadcast:       { icon: '📢', label: 'שידור', color: '#0ea5e9' },
+    grant:           { icon: '🎁', label: 'הטבה', color: '#007aff' },
+    payment:         { icon: '💳', label: 'תשלום', color: '#1b8a3a' },
+    broadcast:       { icon: '📢', label: 'שידור', color: '#007aff' },
     expiry_reminder: { icon: '⏰', label: 'תזכורת מנוי', color: '#f59e0b' },
     block:           { icon: '🚫', label: 'חסימה', color: '#e53e3e' },
     ticket_reply:    { icon: '💬', label: 'טיקט', color: '#6366f1' },
@@ -3567,7 +3567,7 @@ function PaymentMethodModal({ method, onClose, onSaved }) {
                 <button
                   onClick={() => fileRef.current?.click()}
                   disabled={uploading}
-                  style={{ width: '100%', padding: '9px 0', borderRadius: 9, border: '1px dashed rgba(255,255,255,0.2)', background: 'var(--bg)', color: 'var(--hint)', fontSize: 12, cursor: uploading ? 'default' : 'pointer' }}
+                  style={{ width: '100%', padding: '9px 0', borderRadius: 9, border: '1px dashed rgba(0,100,200,0.3)', background: 'var(--bg)', color: 'var(--hint)', fontSize: 12, cursor: uploading ? 'default' : 'pointer' }}
                 >{uploading ? '⏳ מעלה...' : '📁 בחר תמונה'}</button>
                 {logoUrl && (
                   <button onClick={() => setLogoUrl('')} style={{ width: '100%', marginTop: 5, padding: '5px 0', borderRadius: 7, border: 'none', background: '#e53e3e18', color: '#e53e3e', fontSize: 11, cursor: 'pointer' }}>הסר לוגו</button>
@@ -3594,7 +3594,7 @@ function PaymentMethodModal({ method, onClose, onSaved }) {
             </div>
             <div style={{
               width: 40, height: 22, borderRadius: 11, transition: 'background 0.2s',
-              background: manual ? '#e53e3e' : '#38a169',
+              background: manual ? '#e53e3e' : '#1b8a3a',
               position: 'relative', flexShrink: 0,
             }}>
               <div style={{
@@ -3706,7 +3706,7 @@ function PromoTab() {
 
   if (!settings) return <div className="loading"></div>
 
-  const STATUS_COLORS = { active: '#38a169', upcoming: '#d69e2e', expired: '#e53e3e' }
+  const STATUS_COLORS = { active: '#1b8a3a', upcoming: '#d69e2e', expired: '#e53e3e' }
   const STATUS_LABELS = { active: '🟢 פעיל כעת', upcoming: '🟡 טרם התחיל', expired: '🔴 הסתיים' }
   const pStatus = promoStatus()
 
@@ -3812,7 +3812,7 @@ function PromoTab() {
 
         <div className="card" style={{ padding: '20px' }}>
           <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-main)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ color: '#8b5cf6' }}>2️⃣</span> פרטי הקמפיין להצגה
+            <span style={{ color: '#007aff' }}>2️⃣</span> פרטי הקמפיין להצגה
           </div>
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
@@ -4116,7 +4116,7 @@ function FeaturesTab() {
         </div>
 
         {/* Yad2 Watch alerts */}
-        <div className="card" style={{ padding: '24px', borderTop: '4px solid #3b82f6' }}>
+        <div className="card" style={{ padding: '24px', borderTop: '4px solid #007aff' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 24, background: 'rgba(59, 130, 246, 0.1)', width: 44, height: 44, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🔔</span>
@@ -4292,7 +4292,7 @@ function SettingsTab() {
         </div>
 
         {/* Free searches */}
-        <div className="card" style={{ padding: '20px', borderLeft: '4px solid #3b82f6' }}>
+        <div className="card" style={{ padding: '20px', borderLeft: '4px solid #007aff' }}>
           <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-main)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
             🆓 חיפושים חינמיים ללקוח חדש
           </div>
@@ -4322,7 +4322,7 @@ function SettingsTab() {
         </div>
 
         {/* Referral bonus */}
-        <div className="card" style={{ padding: '20px', borderLeft: '4px solid #8b5cf6' }}>
+        <div className="card" style={{ padding: '20px', borderLeft: '4px solid #007aff' }}>
           <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-main)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
             🤝 בונוס הפניית חברים
           </div>
@@ -4563,7 +4563,7 @@ function BroadcastTab() {
                   </div>
                 )}
                 {viewing.has_image && (
-                  <div style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700 }}>
+                  <div style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#007aff', padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700 }}>
                     🖼️ כולל תמונה
                   </div>
                 )}
@@ -4585,7 +4585,7 @@ function BroadcastTab() {
 }
 
 const STATUS_LABEL = { open: 'פתוח', in_progress: 'בטיפול', closed: 'סגור' }
-const STATUS_COLOR = { open: '#f59e0b', in_progress: '#3b82f6', closed: '#10b981' }
+const STATUS_COLOR = { open: '#f59e0b', in_progress: '#007aff', closed: '#10b981' }
 const STATUS_BG = { open: 'rgba(245, 158, 11, 0.1)', in_progress: 'rgba(59, 130, 246, 0.1)', closed: 'rgba(16, 185, 129, 0.1)' }
 
 function TicketsTab() {
@@ -5156,7 +5156,7 @@ function WatchesTab() {
                       {preview.items.map((item, i) => (
                         <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border)' }}>
                           <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 800, fontSize: 14, color: '#3b82f6', marginBottom: 4 }}>
+                            <div style={{ fontWeight: 800, fontSize: 14, color: '#007aff', marginBottom: 4 }}>
                               {item.price ? `₪${Number(item.price).toLocaleString()}` : 'ללא מחיר'}
                             </div>
                             <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', gap: 12 }}>
@@ -5169,7 +5169,7 @@ function WatchesTab() {
                       ))}
                     </div>
                     {preview.search_url && (
-                      <a href={preview.search_url} target="_blank" rel="noreferrer" style={{ display: 'block', textAlign: 'center', padding: '12px', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', borderRadius: 12, fontSize: 14, fontWeight: 700, textDecoration: 'none', marginTop: 12, border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                      <a href={preview.search_url} target="_blank" rel="noreferrer" style={{ display: 'block', textAlign: 'center', padding: '12px', background: 'rgba(59, 130, 246, 0.1)', color: '#007aff', borderRadius: 12, fontSize: 14, fontWeight: 700, textDecoration: 'none', marginTop: 12, border: '1px solid rgba(59, 130, 246, 0.2)' }}>
                         פתח את כל התוצאות ביד2 ↗
                       </a>
                     )}
@@ -5238,7 +5238,7 @@ function WatchesTab() {
                     {preview.items.slice(0,3).map((item, i) => (
                       <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px', background: 'var(--bg-card)', borderRadius: 8, border: '1px solid var(--border)' }}>
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 800, fontSize: 13, color: '#3b82f6', marginBottom: 2 }}>{item.price ? `₪${Number(item.price).toLocaleString()}` : 'ללא מחיר'}</div>
+                          <div style={{ fontWeight: 800, fontSize: 13, color: '#007aff', marginBottom: 2 }}>{item.price ? `₪${Number(item.price).toLocaleString()}` : 'ללא מחיר'}</div>
                           <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                             {[item.km ? `${Number(item.km).toLocaleString()} ק"מ` : null, item.city].filter(Boolean).join(' • ')}
                           </div>
@@ -5247,7 +5247,7 @@ function WatchesTab() {
                     ))}
                   </div>
                   {preview.search_url && (
-                    <a href={preview.search_url} target="_blank" rel="noreferrer" style={{ display: 'block', textAlign: 'center', padding: '10px', color: '#3b82f6', fontSize: 13, fontWeight: 700, textDecoration: 'none', marginTop: 8 }}>
+                    <a href={preview.search_url} target="_blank" rel="noreferrer" style={{ display: 'block', textAlign: 'center', padding: '10px', color: '#007aff', fontSize: 13, fontWeight: 700, textDecoration: 'none', marginTop: 8 }}>
                       פתח את כל התוצאות ביד2 ↗
                     </a>
                   )}
