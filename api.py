@@ -30,7 +30,7 @@ WEBAPP_URL   = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_U
 # Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
 # webapp can detect a new release and force-reload instead of running stale
 # cached JS. Falls back to process start time for non-Render environments.
-APP_VERSION = "1792250621"
+APP_VERSION = "1792251062"
 
 api = FastAPI()
 
@@ -2220,6 +2220,62 @@ async def admin_toggle_block(user_id: int, _: dict = Depends(_require_admin)):
     except Exception:
         pass
     return {"ok": True, "blocked": bool(new_val)}
+
+
+class ConfirmBody(BaseModel):
+    confirm: str = ""
+
+
+@api.post("/api/admin/maintenance/reset-purchases")
+async def admin_reset_purchases(body: ConfirmBody, _: dict = Depends(_require_admin)):
+    """Wipe the purchase / payment history (orders ledger + pending payments) and restart the order
+    counter. Test-data cleanup: irreversible, requires {"confirm": "RESET"}. Sends nothing to users."""
+    if body.confirm != "RESET":
+        raise HTTPException(status_code=400, detail="Confirmation required")
+    from src.db import execute, set_bot_setting
+    counts = {}
+    for table in ("paypal_transactions", "pending_payments"):
+        r = await execute(f"SELECT COUNT(*) FROM {table}")
+        counts[table] = r.rows[0][0] if r.rows else 0
+        await execute(f"DELETE FROM {table}")
+    await set_bot_setting("order_sequence", "0")
+    try:
+        from src.activity import log as _log
+        await _log("admin", f"איפוס היסטוריית רכישות ותשלומים ({counts['paypal_transactions']} הזמנות)", int(_["id"]), "")
+    except Exception:
+        pass
+    return {"ok": True, "deleted": counts}
+
+
+@api.post("/api/admin/maintenance/grant-premium-all")
+async def admin_grant_premium_all(body: ConfirmBody, admin: dict = Depends(_require_admin)):
+    """Put every non-blocked user except the admin on the Premium plan (unlimited, all features)
+    for 30 days from now, like a join promo, and add them to the subscribers group.
+    SILENT: no message is sent to anyone. Requires {"confirm": "GRANT"}."""
+    if body.confirm != "GRANT":
+        raise HTTPException(status_code=400, detail="Confirmation required")
+    import datetime
+    from src.db import execute
+    expires = (datetime.datetime.now() + datetime.timedelta(days=30)).isoformat()
+    admin_id = int(admin["id"])
+    before = await execute("SELECT COUNT(*) FROM users WHERE blocked = 0 AND user_id != ?", [admin_id])
+    await execute(
+        "UPDATE users SET searches_quota = -1, searches_done = 0, quota_expires = ? WHERE blocked = 0 AND user_id != ?",
+        [expires, admin_id],
+    )
+    grp = await execute("SELECT id FROM user_groups WHERE name='מנויים' LIMIT 1")
+    if grp.rows:
+        await execute(
+            "INSERT OR IGNORE INTO user_group_members (group_id, user_id) "
+            "SELECT ?, user_id FROM users WHERE blocked = 0 AND user_id != ?",
+            [grp.rows[0][0], admin_id],
+        )
+    try:
+        from src.activity import log as _log
+        await _log("admin", f"מסלול Premium ל-30 יום לכל המשתמשים (ללא הודעות) עד {expires[:10]}", admin_id, "")
+    except Exception:
+        pass
+    return {"ok": True, "users": before.rows[0][0] if before.rows else 0, "expires": expires}
 
 
 class GiftAllBody(BaseModel):

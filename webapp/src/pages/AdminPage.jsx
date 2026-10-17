@@ -27,6 +27,7 @@ import {
   adminUploadLogo,
   adminFetchActivity,
   adminGiftAll,
+  adminMaintenance,
   adminFetchGroups,
   adminCreateGroup,
   adminDeleteGroup,
@@ -4298,8 +4299,70 @@ function SettingsTab() {
             </button>
           </div>
         </div>
+
+        <MaintenanceTools />
       </div>
     </div>
+  )
+}
+
+// One-off, irreversible admin operations (test-data cleanup). Each needs an explicit second tap.
+function MaintenanceTools() {
+  const [pending, setPending] = useState(null)   // 'purchases' | 'premium' | null
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState('')
+
+  const ACTIONS = {
+    purchases: {
+      title: 'איפוס היסטוריית רכישות ותשלומים',
+      warn: 'כל ההזמנות, התשלומים הממתינים והיסטוריית הרכישות יימחקו לצמיתות ומונה ההזמנות יתאפס. לא יישלחו הודעות למשתמשים.',
+      button: 'כן, אפס רכישות ותשלומים',
+      run: () => adminMaintenance('reset-purchases', 'RESET'),
+      done: r => `נמחקו ${r.deleted?.paypal_transactions ?? 0} הזמנות ו-${r.deleted?.pending_payments ?? 0} תשלומים ממתינים.`,
+    },
+    premium: {
+      title: 'מסלול Premium לכל המשתמשים',
+      warn: 'כל המשתמשים (חוץ ממך ומשתמשים חסומים) יועברו למסלול Premium ל-30 יום מהיום, וייכנסו לקבוצת המנויים. לא יישלחו הודעות למשתמשים.',
+      button: 'כן, העבר את כולם ל-Premium',
+      run: () => adminMaintenance('grant-premium-all', 'GRANT'),
+      done: r => `${r.users ?? 0} משתמשים עברו ל-Premium עד ${(r.expires || '').slice(0, 10)}.`,
+    },
+  }
+
+  async function run() {
+    const a = ACTIONS[pending]
+    setBusy(true); setResult('')
+    try {
+      setResult(a.done(await a.run()))
+      setPending(null)
+    } catch { setResult('הפעולה נכשלה. לא בוצע שינוי מלא — נסה שוב או בדוק את הנתונים.') }
+    setBusy(false)
+  }
+
+  return (
+    <section className="card" style={{ padding: 20, borderLeft: '4px solid #d32f2f' }} aria-labelledby="maint-title">
+      <h2 id="maint-title" style={{ fontSize: 15, fontWeight: 800, margin: '0 0 4px' }}>🧹 כלי תחזוקה (בלתי הפיכים)</h2>
+      <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 14 }}>
+        פעולות חד-פעמיות לניקוי נתוני בדיקה. כל פעולה דורשת אישור נוסף ולא שולחת הודעות למשתמשים.
+      </div>
+      {!pending ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {Object.entries(ACTIONS).map(([k, a]) => (
+            <button key={k} className="btn btn-outline" style={{ margin: 0, minHeight: 48 }} onClick={() => { setResult(''); setPending(k) }}>{a.title}</button>
+          ))}
+        </div>
+      ) : (
+        <div role="alertdialog" aria-labelledby="maint-confirm-title" style={{ border: '1.5px solid rgba(211,47,47,0.45)', borderRadius: 14, padding: 14 }}>
+          <div id="maint-confirm-title" style={{ fontWeight: 800, marginBottom: 6 }}>⚠️ {ACTIONS[pending].title}</div>
+          <div style={{ fontSize: 13, lineHeight: 1.7 }}>{ACTIONS[pending].warn}</div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <button className="btn btn-danger" style={{ flex: 1, margin: 0, minHeight: 48 }} disabled={busy} onClick={run}>{busy ? 'מבצע…' : ACTIONS[pending].button}</button>
+            <button className="btn btn-outline" style={{ flex: 1, margin: 0, minHeight: 48 }} disabled={busy} onClick={() => setPending(null)}>ביטול</button>
+          </div>
+        </div>
+      )}
+      {result && <div role="status" style={{ marginTop: 10, fontSize: 13, fontWeight: 700 }}>{result}</div>}
+    </section>
   )
 }
 

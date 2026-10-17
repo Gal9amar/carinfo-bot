@@ -653,6 +653,15 @@ export async function fetchReferrals() {
   return r.json()
 }
 
+// Irreversible admin maintenance (test-data cleanup); `confirm` is the server-side safety word.
+export async function adminMaintenance(action, confirm) {
+  const r = await fetch(`${BASE}/api/admin/maintenance/${action}`, {
+    method: 'POST', headers: headers(), body: JSON.stringify({ confirm }),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
 // Gift searches to all users
 export async function adminGiftAll(searches, message, image_b64 = '', gift_type = 'searches') {
   const r = await fetch(`${BASE}/api/admin/gift-all`, {
