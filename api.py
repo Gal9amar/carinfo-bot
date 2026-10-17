@@ -30,7 +30,7 @@ WEBAPP_URL   = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_U
 # Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
 # webapp can detect a new release and force-reload instead of running stale
 # cached JS. Falls back to process start time for non-Render environments.
-APP_VERSION = "1792256871"
+APP_VERSION = "1792256893"
 
 api = FastAPI()
 
@@ -348,6 +348,7 @@ async def get_user_info(user: dict = Depends(_get_user)):
         "global_unlimited_active": global_unlimited,
         "global_unlimited_label": global_label,
         "global_unlimited_expires": global_unlimited_expires,
+        "blocked": bool(db_user.get("blocked")) if db_user else False,
         "plan_kind": plan_kind,
         "plan_name": plan_name,
         "plan_expires": own_expires if plan_kind == "premium" else None,
@@ -407,6 +408,9 @@ async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_u
 
     if (body.package_id is None) == (body.product_id is None):
         raise HTTPException(status_code=400, detail="Exactly one of package_id or product_id is required")
+    from src.users import is_blocked
+    if await is_blocked(int(user["id"])):
+        raise HTTPException(status_code=403, detail="blocked")
 
     product_id = None
     delivery_type = None
@@ -439,6 +443,8 @@ async def initiate_payment(body: PaymentInitRequest, user: dict = Depends(_get_u
         if not pkg:
             raise HTTPException(status_code=404, detail="Package not found")
         pid, label, searches, price, _img, _order = pkg[:6]
+        if not price or price <= 0:
+            raise HTTPException(status_code=400, detail="Package is not purchasable")
         duration_months = pkg[6] if len(pkg) > 6 else 1
         package_type = pkg[9] if len(pkg) > 9 else "searches"
         # Alert packs: qty = number of extra alerts (max 8)
@@ -518,16 +524,9 @@ async def promote_payment(body: dict, user: dict = Depends(_get_user)):
 
 @api.get("/api/payment/cancel/{ref}")
 async def payment_cancel(ref: str):
-    """User pressed Cancel. Mark order user_cancelled and send back to Telegram."""
-    from src.db import execute as _dbexec
+    """Legacy return link. It must NOT change anything: it is unauthenticated and order refs are
+    predictable, so anyone could otherwise cancel another user's order. Just send the user back to Telegram."""
     from fastapi.responses import RedirectResponse
-    await _dbexec(
-        "UPDATE paypal_transactions SET status='user_cancelled', updated_at=datetime('now') "
-        "WHERE ref=? AND status IN ('intent','created')",
-        [ref],
-    )
-    await _dbexec("DELETE FROM pending_payments WHERE ref=?", [ref])
-    await _order_notify(ref, "user_cancelled")
     return RedirectResponse(url=f"https://t.me/{BOT_USERNAME}", status_code=302)
 
 
