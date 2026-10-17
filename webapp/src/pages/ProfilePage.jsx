@@ -81,7 +81,7 @@ export default function ProfilePage({ user, onNavigate, onBack, onAccountDeleted
             display: 'inline-block', maxWidth: '100%', marginTop: 6, borderRadius: 14, padding: '3px 10px', fontSize: 12, fontWeight: 700, lineHeight: 1.4,
             border: '1px solid var(--border)',
             background: isSubscriber ? 'rgba(0, 122, 255, 0.1)' : 'rgba(255,255,255,0.85)',
-            color: isSubscriber ? 'var(--primary)' : 'var(--text-muted)', overflowWrap: 'anywhere',
+            color: isSubscriber ? '#0058b0' : 'var(--text-muted)', overflowWrap: 'anywhere',
           }}><span aria-hidden="true">{planIcon(plan)} </span>{plan.name}</span>
         </div>
       </header>

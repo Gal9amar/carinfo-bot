@@ -615,3 +615,40 @@ button:focus-visible, a:focus-visible, [role="button"]:focus-visible, [tabindex]
 .admin-help li { display: flex; align-items: baseline; gap: 10px; line-height: 1.45; }
 .admin-help .val { flex: 0 0 auto; min-width: 44px; text-align: center; font-weight: 800; font-size: 12px; padding: 1px 8px; border-radius: 999px; background: rgba(0, 122, 255, 0.12); color: #0a4aa6; unicode-bidi: isolate; direction: ltr; }
 .admin-help .note { margin: 0; padding: 0 12px 12px; color: #566070; line-height: 1.45; }
+
+/* Admin: join promo tab (class-based layout; inline flex/grid rows get squeezed by the mobile override above) */
+.promo-tab { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.promo-tab > * { min-width: 0; }
+.promo-card, .promo-preview, .promo-state { padding: 16px; margin: 0; }
+.promo-state { text-align: center; display: flex; flex-direction: column; gap: 12px; align-items: stretch; }
+.promo-state p { margin: 0; color: var(--text-main); }
+.promo-h { font-size: 15px; font-weight: 800; color: var(--text-main); margin-bottom: 12px; }
+.promo-preview { background: rgba(0, 122, 255, 0.07); border-color: rgba(0, 122, 255, 0.25); }
+.promo-preview .promo-h { margin-bottom: 6px; color: #0a4aa6; }
+.promo-preview p { margin: 0; font-size: 15px; line-height: 1.55; color: var(--text-main); overflow-wrap: anywhere; }
+.promo-modes { display: flex; flex-direction: column; gap: 8px; }
+.promo-mode { display: flex; flex-wrap: nowrap !important; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 10px 14px; border-radius: 14px; border: 1.5px solid var(--border); background: rgba(255,255,255,.9); font-family: inherit; text-align: start; cursor: pointer; color: var(--text-main); }
+.promo-mode.on { border-color: var(--primary); background: rgba(0, 122, 255, 0.08); }
+.promo-mode:focus-visible, .promo-chip:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.promo-radio { flex: 0 0 20px; width: 20px; height: 20px; border-radius: 50%; border: 2px solid #6b7280; background: #fff; }
+.promo-mode.on .promo-radio { border-color: var(--primary); background: radial-gradient(circle, var(--primary) 0 45%, #fff 50%); }
+.promo-mode-t, .promo-switch-t { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.promo-mode-t b, .promo-switch-t b { font-size: 15px; font-weight: 800; line-height: 1.3; }
+.promo-mode-t small, .promo-switch-t small { font-size: 13px; line-height: 1.4; color: #566070; overflow-wrap: anywhere; }
+.promo-field { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; min-width: 0; }
+.promo-field label { font-size: 14px; font-weight: 700; color: var(--text-main); }
+.promo-field .input { margin: 0; min-height: 48px; border-radius: 12px; min-width: 0; }
+.promo-hint { margin: 0; font-size: 13px; line-height: 1.4; color: #566070; }
+.promo-err { margin: 0; font-size: 13px; font-weight: 700; color: #b42318; }
+.promo-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.promo-chip { min-height: 44px; padding: 8px 14px; border-radius: 12px; border: 1px solid var(--border); background: #fff; font-family: inherit; font-size: 14px; font-weight: 700; color: var(--text-main); cursor: pointer; }
+.promo-chip.on { border-color: var(--primary); background: rgba(0,122,255,.1); color: #0a4aa6; }
+.promo-switch, .promo-check { display: flex; flex-wrap: nowrap !important; align-items: flex-start; gap: 12px; margin-top: 14px; min-height: 48px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--border); background: rgba(255,255,255,.7); cursor: pointer; }
+.promo-check { align-items: center; margin-top: 12px; padding: 8px 14px; font-size: 15px; font-weight: 700; }
+.promo-switch input, .promo-check input { flex: 0 0 22px; width: 22px; height: 22px; margin: 2px 0 0; accent-color: var(--primary); }
+.promo-check input { margin: 0; }
+.promo-msg { padding: 12px 14px; border-radius: 14px; font-size: 14px; font-weight: 700; line-height: 1.4; overflow-wrap: anywhere; }
+.promo-msg.ok { background: #dcfce7; color: #166534; }
+.promo-msg.bad { background: #fef2f2; color: #991b1b; }
+.promo-actions { display: flex; flex-direction: column; gap: 10px; }
+.promo-actions .btn { margin: 0; min-height: 52px; }

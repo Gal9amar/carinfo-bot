@@ -3689,267 +3689,256 @@ function PaymentMethodModal({ method, onClose, onSaved }) {
 }
 
 function PromoTab() {
-  const [settings, setSettings]               = useState(null)
-  const [saving, setSaving]                   = useState(false)
-  const [promoSearches, setPromoSearches]     = useState('0')
-  const [promoUnlimited, setPromoUnlimited]   = useState(false)
-  const [promoNoEnd, setPromoNoEnd]           = useState(false)
-  const [promoStart, setPromoStart]           = useState('')
-  const [promoEnd, setPromoEnd]               = useState('')
-  const [promoDurationDays, setPromoDurationDays] = useState('30')
-  const [promoIsSubscriber, setPromoIsSubscriber] = useState(false)
-  const [promoLabel, setPromoLabel]           = useState('')
-  const [promoPackages, setPromoPackages]     = useState(null)
+  const [settings, setSettings]   = useState(null)
+  const [loadErr, setLoadErr]     = useState(false)
+  const [saving, setSaving]       = useState(false)
+  const [msg, setMsg]             = useState(null) // { ok, text }
+  const [confirmClear, setConfirmClear] = useState(false)
+  // mode: 'off' | 'premium' | 'count'
+  const [mode, setMode]           = useState('off')
+  const [count, setCount]         = useState('10')
+  const [days, setDays]           = useState('30')
+  const [isSub, setIsSub]         = useState(false)
+  const [label, setLabel]         = useState('')
+  const [start, setStart]         = useState('')
+  const [end, setEnd]             = useState('')
+  const [noEnd, setNoEnd]         = useState(true)
+  const [packages, setPackages]   = useState([])
 
-  useEffect(() => {
-    adminFetchPackages().then(setPromoPackages).catch(() => setPromoPackages([]))
-    adminFetchSettings().then(s => {
-      setSettings(s)
-      const ps = s.promo_searches ?? 0
-      setPromoUnlimited(ps === -1)
-      setPromoSearches(ps === -1 ? '' : String(ps))
-      setPromoStart(s.promo_start || '')
-      setPromoEnd(s.promo_end || '')
-      setPromoNoEnd(!s.promo_end)
-      setPromoDurationDays(String(s.promo_duration_days ?? 30))
-      setPromoIsSubscriber(!!s.promo_is_subscriber)
-      setPromoLabel(s.promo_label || '')
-    }).catch(() => {})
-  }, [])
+  function applySettings(s) {
+    const ps = Number(s.promo_searches ?? 0)
+    setMode(ps === 0 ? 'off' : ps < 0 ? 'premium' : 'count')
+    setCount(ps > 0 ? String(ps) : '10')
+    setDays(String(s.promo_duration_days ?? 30))
+    setIsSub(!!s.promo_is_subscriber)
+    setLabel(s.promo_label || '')
+    setStart(s.promo_start || '')
+    setEnd(s.promo_end || '')
+    setNoEnd(!s.promo_end)
+  }
 
-  async function savePromo() {
-    setSaving(true)
+  function load() {
+    setLoadErr(false); setSettings(null)
+    adminFetchPackages().then(p => setPackages(Array.isArray(p) ? p : [])).catch(() => setPackages([]))
+    adminFetchSettings().then(s => { const v = s || {}; setSettings(v); applySettings(v) }).catch(() => setLoadErr(true))
+  }
+  useEffect(load, [])
+
+  const daysN  = Math.max(0, parseInt(days) || 0)
+  const countN = Math.max(0, parseInt(count) || 0)
+  const rangeBad = mode !== 'off' && !noEnd && end && start && end < start
+  const countBad = mode === 'count' && countN < 1
+
+  async function persist(payload, local, okText) {
+    setSaving(true); setMsg(null)
     try {
-      const ps  = promoUnlimited ? -1 : (parseInt(promoSearches) || 0)
-      const dur = parseInt(promoDurationDays) || 0
-      await adminUpdateSettings({
-        promo_searches:      ps,
-        promo_start:         promoStart,
-        promo_end:           promoNoEnd ? '' : promoEnd,
-        promo_duration_days: dur,
-        promo_is_subscriber: promoIsSubscriber,
-        promo_label:         promoLabel,
-      })
-      setSettings(s => ({
-        ...s,
-        promo_searches: ps, promo_start: promoStart,
-        promo_end: promoNoEnd ? '' : promoEnd,
-        promo_duration_days: dur,
-        promo_is_subscriber: promoIsSubscriber,
-        promo_label: promoLabel,
-      }))
-      window.Telegram?.WebApp?.showAlert('✅ מבצע עודכן')
-    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+      await adminUpdateSettings(payload)
+      setSettings(s => ({ ...(s || {}), ...payload }))
+      if (local) applySettings({ ...(settings || {}), ...payload })
+      setMsg({ ok: true, text: okText })
+    } catch {
+      setMsg({ ok: false, text: 'השמירה נכשלה. נסו שוב.' })
+    }
     setSaving(false)
+  }
+
+  function save() {
+    if (mode === 'off') { setConfirmClear(true); return }
+    if (rangeBad || countBad) return
+    persist({
+      promo_searches: mode === 'premium' ? -1 : countN,
+      promo_start: start,
+      promo_end: noEnd ? '' : end,
+      promo_duration_days: mode === 'premium' ? daysN : (settings?.promo_duration_days ?? 30),
+      promo_is_subscriber: mode === 'premium' ? true : isSub,   // Premium always opens the premium features
+      promo_label: label.trim(),
+    }, false, 'המבצע נשמר ופעיל לפי התאריכים שהוגדרו')
   }
 
   async function clearPromo() {
-    setSaving(true)
-    try {
-      await adminUpdateSettings({
-        promo_searches: 0, promo_start: '', promo_end: '',
-        promo_duration_days: 30, promo_is_subscriber: false, promo_label: '',
-      })
-      setSettings(s => ({ ...s, promo_searches: 0, promo_start: '', promo_end: '', promo_duration_days: 30, promo_is_subscriber: false, promo_label: '' }))
-      setPromoSearches('0'); setPromoUnlimited(false); setPromoStart(''); setPromoEnd('')
-      setPromoNoEnd(false); setPromoDurationDays('30'); setPromoIsSubscriber(false); setPromoLabel('')
-      window.Telegram?.WebApp?.showAlert('✅ המבצע בוטל')
-    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
-    setSaving(false)
+    setConfirmClear(false)
+    await persist({
+      promo_searches: 0, promo_start: '', promo_end: '',
+      promo_duration_days: 30, promo_is_subscriber: false, promo_label: '',
+    }, true, 'המבצע בוטל. משתמשים חדשים יקבלו רק את החיפושים החינמיים')
   }
 
-  function promoStatus() {
-    if (!settings) return null
-    const ps = settings.promo_searches ?? 0
-    if (ps === 0) return null
-    const today = new Date().toISOString().slice(0, 10)
-    const start = settings.promo_start || ''
-    const end   = settings.promo_end   || ''
-    const startOk = !start || today >= start
-    const endOk   = !end   || today <= end
-    if (startOk && endOk) return 'active'
-    if (start && today < start) return 'upcoming'
-    return 'expired'
+  function fmt(d) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d || '')
+    return m ? `${m[3]}/${m[2]}/${m[1]}` : ''
+  }
+  const L = s => <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>{s}</span>
+
+  if (loadErr) return (
+    <div className="card promo-state" role="alert">
+      <div style={{ fontSize: 28 }} aria-hidden="true">⚠️</div>
+      <p>לא הצלחנו לטעון את הגדרות המבצע.</p>
+      <button type="button" className="btn" onClick={load}>נסו שוב</button>
+    </div>
+  )
+  if (!settings) return <div className="loading" aria-busy="true"></div>
+
+  // Status of the SAVED promo
+  const ps = Number(settings.promo_searches ?? 0)
+  const today = new Date().toISOString().slice(0, 10)
+  let status = 'off'
+  if (ps !== 0) {
+    if (settings.promo_start && today < settings.promo_start) status = 'upcoming'
+    else if (settings.promo_end && today > settings.promo_end) status = 'expired'
+    else status = 'active'
+  }
+  const BADGE = {
+    active:   ['פעיל כעת', 'good'],
+    upcoming: ['טרם התחיל', 'warn'],
+    expired:  ['הסתיים', 'mute'],
+    off:      ['כבוי', 'mute'],
+  }[status]
+
+  // Live preview of the form values
+  let preview
+  if (mode === 'off') {
+    preview = 'אין מבצע: משתמש חדש יקבל רק את החיפושים החינמיים הרגילים.'
+  } else {
+    const gift = mode === 'premium'
+      ? (daysN > 0 ? <>מסלול Premium ל-{daysN} ימים</> : <>מסלול Premium ללא הגבלת זמן</>)
+      : <>{countN} חיפושים חינם</>
+    const when = noEnd
+      ? (start ? <>, מ-{L(fmt(start))} ואילך</> : <>, ללא תאריך סיום</>)
+      : <>{start ? <>, בין {L(fmt(start))} ל-{L(fmt(end) || '...')}</> : <>, עד {L(fmt(end) || '...')}</>}</>
+    preview = <>משתמש חדש שיצטרף יקבל {gift}{when}.{mode === 'premium' ? ' כל פיצ׳רי הפרימיום פתוחים לו.' : ''}{mode === 'count' && isSub ? ' הוא גם יצורף לקבוצת המנויים, כך שהפיצ׳רים יהיו פתוחים לו.' : ''}</>
   }
 
-  if (!settings) return <div className="loading"></div>
-
-  const STATUS_COLORS = { active: '#177a33', upcoming: '#975a16', expired: '#c53030' }
-  const STATUS_LABELS = { active: '🟢 פעיל כעת', upcoming: '🟡 טרם התחיל', expired: '🔴 הסתיים' }
-  const pStatus = promoStatus()
+  const MODES = [
+    { id: 'off',     title: 'ללא מבצע',            sub: 'משתמש חדש מקבל רק חיפושים חינמיים' },
+    { id: 'premium', title: 'מסלול Premium',        sub: 'חיפושים ללא הגבלה לתקופה מוגדרת' },
+    { id: 'count',   title: 'כמות חיפושים חינם',    sub: 'מספר חיפושים קבוע במתנה' },
+  ]
+  const countPkgs = packages.filter(p => p && Number(p.searches) > 0)
 
   return (
-    <div className="tab-fade-in">
-      <div className="card" style={{ padding: '20px', marginBottom: 24, background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.05), transparent)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 24 }}>🎉</span>
-            <div>
-              <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--text-main)', letterSpacing: '-0.3px' }}>מבצע הצטרפות משתמשים</div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>ניהול קמפיין הטבות ללקוחות חדשים</div>
-            </div>
-          </div>
-          {pStatus && (
-            <span style={{
-              fontSize: 13, fontWeight: 800, padding: '4px 12px', borderRadius: 12,
-              background: `${STATUS_COLORS[pStatus]}20`, color: STATUS_COLORS[pStatus], border: `1px solid ${STATUS_COLORS[pStatus]}40`
-            }}>
-              {STATUS_LABELS[pStatus]}
-            </span>
-          )}
-        </div>
+    <div className="tab-fade-in promo-tab">
+      <AdminItemCard
+        leading="🎉"
+        title="מבצעי הצטרפות"
+        badge={BADGE[0]}
+        badgeTone={BADGE[1]}
+        subtitle="מה משתמש חדש מקבל ברגע שהוא נרשם לבוט, ובאילו תאריכים."
+      />
+
+      <div className="card promo-preview" aria-live="polite">
+        <div className="promo-h">תצוגה מקדימה</div>
+        <p>{preview}</p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
-        <div className="card" style={{ padding: '20px' }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-main)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ color: 'var(--primary)' }}>1️⃣</span> הגדרת ההטבה ללקוח
-          </div>
-          
-          {promoPackages && promoPackages.length > 0 && (
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 10 }}>בחר חבילה מוגדרת במערכת:</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {promoPackages.map(pkg => {
-                  const isMatch = pkg.searches === -1
-                    ? promoUnlimited
-                    : (!promoUnlimited && String(pkg.searches) === promoSearches)
-                  return (
-                    <button
-                      key={pkg.id}
-                      onClick={() => {
-                        if (pkg.searches === -1) { setPromoUnlimited(true); setPromoSearches('') }
-                        else { setPromoUnlimited(false); setPromoSearches(String(pkg.searches)) }
-                        setPromoLabel(pkg.label || '')
-                      }}
-                      style={{
-                        padding: '8px 16px', borderRadius: 12, fontSize: 13, fontWeight: 700,
-                        border: isMatch ? '2px solid var(--primary)' : '1px solid var(--border)',
-                        background: isMatch ? 'var(--primary)' : 'var(--bg-card)',
-                        color: isMatch ? '#fff' : 'var(--text-main)',
-                        cursor: 'pointer', transition: 'all 0.2s',
-                        boxShadow: isMatch ? '0 4px 12px rgba(0, 122, 255, 0.2)' : 'none'
-                      }}
-                    >
-                      {pkg.label}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
+      <div className="card promo-card">
+        <div className="promo-h">1. מה מקבלים</div>
+        <div role="radiogroup" aria-label="סוג ההטבה" className="promo-modes">
+          {MODES.map(m => (
+            <button key={m.id} type="button" role="radio" aria-checked={mode === m.id}
+              className={'promo-mode' + (mode === m.id ? ' on' : '')}
+              onClick={() => { setMode(m.id); setConfirmClear(false); setMsg(null) }}>
+              <span className="promo-radio" aria-hidden="true" />
+              <span className="promo-mode-t">
+                <b>{m.title}</b>
+                <small>{m.sub}</small>
+              </span>
+            </button>
+          ))}
+        </div>
 
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 10 }}>או הגדר תוכנית כללית:</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-            {[
-              { label: '♾️ ללא הגבלה לצמיתות', searches: -2 },
-              { label: '📅 מנוי חודשי (30 יום)', searches: -1 },
-            ].map(opt => (
-              <button
-                key={opt.searches}
-                onClick={() => { setPromoUnlimited(true); setPromoSearches(''); setPromoLabel(opt.label) }}
-                style={{
-                  padding: '8px 16px', borderRadius: 12, fontSize: 13, fontWeight: 700,
-                  border: (promoUnlimited && promoLabel === opt.label) ? '2px solid var(--primary)' : '1px solid var(--border)',
-                  background: (promoUnlimited && promoLabel === opt.label) ? 'var(--primary)' : 'var(--bg-card)',
-                  color: (promoUnlimited && promoLabel === opt.label) ? '#fff' : 'var(--text-main)',
-                  cursor: 'pointer', transition: 'all 0.2s',
-                  boxShadow: (promoUnlimited && promoLabel === opt.label) ? '0 4px 12px rgba(0, 122, 255, 0.2)' : 'none'
-                }}
-              >
-                {opt.label}
-              </button>
-            ))}
+        {mode === 'premium' && (
+          <div className="promo-field">
+            <label htmlFor="promo-days">תוקף ההטבה (בימים)</label>
+            <input id="promo-days" className="input" type="number" inputMode="numeric" min="0" dir="ltr"
+              value={days} onChange={e => setDays(e.target.value)} />
+            <p className="promo-hint">נספר מיום ההצטרפות של כל משתמש. 0 = ללא הגבלת זמן.</p>
           </div>
+        )}
 
-          <div style={{ display: 'flex', gap: 16, alignItems: 'center', background: 'var(--bg)', padding: '12px 16px', borderRadius: 12, border: '1px solid var(--border)' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer', color: promoUnlimited ? 'var(--text-main)' : 'var(--text-muted)' }}>
-              <div style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${promoUnlimited ? 'var(--primary)' : 'var(--border)'}`, background: promoUnlimited ? 'var(--primary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {promoUnlimited && <span style={{ color: '#fff', fontSize: 12 }}>✓</span>}
-              </div>
-              <input type="checkbox" checked={promoUnlimited} onChange={e => setPromoUnlimited(e.target.checked)} style={{ display: 'none' }} />
-              ללא הגבלת חיפושים במערכת
-            </label>
-            {!promoUnlimited && (
-              <div style={{ flex: 1 }}>
-                <input className="input" type="number" min="0" placeholder="או הגדר כמות (0 לביטול)..." value={promoSearches} onChange={e => setPromoSearches(e.target.value)} style={{ margin: 0, height: 40, borderRadius: 10 }} />
+        {mode === 'count' && (
+          <div className="promo-field">
+            <label htmlFor="promo-count">מספר חיפושים</label>
+            <input id="promo-count" className="input" type="number" inputMode="numeric" min="1" dir="ltr"
+              value={count} onChange={e => setCount(e.target.value)} aria-invalid={countBad} />
+            {countBad && <p className="promo-err">יש להזין לפחות חיפוש אחד.</p>}
+            {countPkgs.length > 0 && (
+              <div className="promo-chips" aria-label="מילוי מהיר לפי חבילה">
+                {countPkgs.map(p => (
+                  <button key={p.id} type="button" className={'promo-chip' + (String(p.searches) === count ? ' on' : '')}
+                    onClick={() => { setCount(String(p.searches)); if (!label) setLabel(p.label || '') }}>
+                    {p.label}
+                  </button>
+                ))}
               </div>
             )}
           </div>
-        </div>
+        )}
 
-        <div className="card" style={{ padding: '20px' }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-main)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ color: '#0066d6' }}>2️⃣</span> פרטי הקמפיין להצגה
-          </div>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', background: 'var(--bg)', padding: '16px', borderRadius: 12, border: '1px solid var(--border)' }}>
-              <div style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${promoIsSubscriber ? '#047857' : 'var(--border)'}`, background: promoIsSubscriber ? '#047857' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {promoIsSubscriber && <span style={{ color: '#fff', fontSize: 12 }}>✓</span>}
-              </div>
-              <input type="checkbox" checked={promoIsSubscriber} onChange={e => setPromoIsSubscriber(e.target.checked)} style={{ display: 'none' }} />
-              <span>הוסף את המשתמשים אוטומטית לקבוצת <b style={{ color: '#047857' }}>מנויים פעילים</b></span>
-            </label>
+        {mode !== 'off' && (
+          <>
+            {mode === 'premium' ? (
+              <p className="promo-hint" style={{ margin: '0 0 12px' }}>
+                ✓ מסלול Premium כולל תמיד חיפושים ללא הגבלה וכל פיצ׳רי הפרימיום (דוח PDF, מחיר שוק, התראות) — אין צורך להגדיר אותם בנפרד.
+              </p>
+            ) : (
+              <label className="promo-switch">
+                <input type="checkbox" checked={isSub} onChange={e => setIsSub(e.target.checked)} />
+                <span className="promo-switch-t">
+                  <b>פתח גם את פיצ׳רי Premium</b>
+                  <small>המשתמש יצורף לקבוצת המנויים וייהנה מדוח PDF, מחיר שוק והתראות לצד החיפושים החינמיים.</small>
+                </span>
+              </label>
+            )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              <div>
-                <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 6 }}>תוקף ההטבה מיום ההצטרפות (בימים, 0=לצמיתות)</div>
-                <input className="input" type="number" min="0" placeholder="לדוגמה: 30" value={promoDurationDays} onChange={e => setPromoDurationDays(e.target.value)} style={{ margin: 0, borderRadius: 10 }} />
-              </div>
-              <div>
-                <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 6 }}>תיאור ההטבה המוצג בהודעת המערכת</div>
-                <input className="input" type="text" placeholder='לדוגמה: ♾️ גישה חופשית' value={promoLabel} onChange={e => setPromoLabel(e.target.value)} style={{ margin: 0, borderRadius: 10 }} />
-              </div>
+            <div className="promo-field">
+              <label htmlFor="promo-label">תיאור ההטבה בהודעת הברוכים הבאים</label>
+              <input id="promo-label" className="input" type="text" maxLength={60}
+                placeholder="לדוגמה: חודש Premium במתנה" value={label} onChange={e => setLabel(e.target.value)} />
+              <p className="promo-hint">אופציונלי. מוצג למשתמש בהודעה אחרי ההרשמה.</p>
             </div>
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '20px' }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-main)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ color: '#9a4a07' }}>3️⃣</span> תאריכי תוקף למבצע
-          </div>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            <div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 6 }}>תאריך התחלת המבצע</div>
-              <input className="input" type="date" aria-label="תאריך התחלה" value={promoStart} onChange={e => setPromoStart(e.target.value)} style={{ margin: 0, borderRadius: 10 }} />
-            </div>
-            
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>תאריך סיום המבצע</div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', color: promoNoEnd ? 'var(--primary)' : 'var(--text-muted)' }}>
-                  <input type="checkbox" checked={promoNoEnd} onChange={e => setPromoNoEnd(e.target.checked)} style={{ margin: 0 }} />
-                  ללא תאריך תפוגה
-                </label>
-              </div>
-              {!promoNoEnd ? (
-                <input className="input" type="date" aria-label="תאריך סיום" value={promoEnd} onChange={e => setPromoEnd(e.target.value)} style={{ margin: 0, borderRadius: 10 }} />
-              ) : (
-                <div style={{ height: 46, background: 'rgba(0, 122, 255, 0.05)', border: '1px dashed rgba(0, 122, 255, 0.3)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)', fontWeight: 700, fontSize: 14 }}>
-                  מבצע קבוע (ללא הגבלת זמן)
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ background: 'rgba(0,0,0,0.02)', border: '1px dashed var(--border)', borderRadius: 16, padding: '16px', fontSize: 13, color: 'var(--text-muted)', margin: '24px 0', lineHeight: 1.6, textAlign: 'center' }}>
-        <b style={{ color: 'var(--text-main)' }}>שים לב:</b> כל משתמש שיצטרף בטווח התאריכים שהוגדר יקבל את ההטבה בצורה אוטומטית בעת רישומו. תוקף ההטבה של המשתמש נספר מיום ההצטרפות <b>שלו</b>. ביום האחרון של חבילת ההטבה שלו, המערכת תשלח לו התראה אוטומטית.
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: (settings.promo_searches ?? 0) !== 0 ? '1fr 1fr' : '1fr', gap: 16 }}>
-        <button className="btn" style={{ height: 50, borderRadius: 12, fontSize: 16, fontWeight: 800, background: '#047857', color: '#fff', border: 'none', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)', cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }} disabled={saving} onClick={savePromo}>
-          {saving ? '⏳ שומר נתונים...' : '✨ שמור והפעל מבצע הצטרפות'}
-        </button>
-        {(settings.promo_searches ?? 0) !== 0 && (
-          <button className="btn" style={{ height: 50, borderRadius: 12, fontSize: 16, fontWeight: 800, background: '#c53030', color: '#fff', border: 'none', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)', cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }} disabled={saving} onClick={clearPromo}>
-            🗑️ ביטול מבצע פעיל
-          </button>
+          </>
         )}
       </div>
+
+      {mode !== 'off' && (
+        <div className="card promo-card">
+          <div className="promo-h">2. תאריכי המבצע</div>
+          <div className="promo-field">
+            <label htmlFor="promo-start">מתאריך</label>
+            <input id="promo-start" className="input" type="date" dir="ltr" value={start} onChange={e => setStart(e.target.value)} />
+            <p className="promo-hint">ריק = מתחיל מיד.</p>
+          </div>
+          <label className="promo-check">
+            <input type="checkbox" checked={noEnd} onChange={e => setNoEnd(e.target.checked)} />
+            <span>ללא תאריך סיום</span>
+          </label>
+          {!noEnd && (
+            <div className="promo-field">
+              <label htmlFor="promo-end">עד תאריך (כולל)</label>
+              <input id="promo-end" className="input" type="date" dir="ltr" value={end} min={start || undefined}
+                onChange={e => setEnd(e.target.value)} aria-invalid={!!rangeBad} />
+              {rangeBad && <p className="promo-err">תאריך הסיום חייב להיות אחרי תאריך ההתחלה.</p>}
+            </div>
+          )}
+        </div>
+      )}
+
+      {msg && <div role={msg.ok ? 'status' : 'alert'} className={'promo-msg ' + (msg.ok ? 'ok' : 'bad')}>{msg.ok ? '✓ ' : '✕ '}{msg.text}</div>}
+
+      <div className="promo-actions">
+        <button type="button" className="btn" disabled={saving || rangeBad || countBad} onClick={save}>
+          {saving ? 'שומר...' : mode === 'off' ? 'שמור (ללא מבצע)' : 'שמור והפעל מבצע'}
+        </button>
+        {ps !== 0 && !confirmClear && (
+          <button type="button" className="btn btn-outline" disabled={saving} onClick={() => setConfirmClear(true)}>בטל מבצע</button>
+        )}
+      </div>
+      {confirmClear && (
+        <AdminItemConfirm
+          text="לבטל את המבצע? משתמשים חדשים יקבלו רק את החיפושים החינמיים. משתמשים שכבר קיבלו הטבה לא יושפעו."
+          yesLabel="כן, בטל מבצע" noLabel="חזרה" busy={saving}
+          onYes={clearPromo} onNo={() => setConfirmClear(false)} />
+      )}
     </div>
   )
 }
