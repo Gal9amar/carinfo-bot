@@ -4216,16 +4216,22 @@ function FeaturesTab() {
 function SettingsTab() {
   const [settings, setSettings]     = useState(null)
   const [saving, setSaving]         = useState(false)
+  const [savingKey, setSavingKey]   = useState(null)   // which toggle card is being saved
+  const [loadError, setLoadError]   = useState(false)
+  const [toggleError, setToggleError] = useState('')
   const [freeInput, setFreeInput]   = useState('')
   const [referralInput, setReferralInput] = useState('')
 
-  useEffect(() => {
+  function loadSettings() {
+    setLoadError(false)
     adminFetchSettings().then(s => {
       setSettings(s)
       setFreeInput(String(s.free_searches ?? 10))
       setReferralInput(String(s.referral_bonus ?? 10))
-    }).catch(() => {})
-  }, [])
+    }).catch(() => setLoadError(true))
+  }
+
+  useEffect(() => { loadSettings() }, [])
 
   async function toggleMaintenance() {
     setSaving(true)
@@ -4237,12 +4243,13 @@ function SettingsTab() {
   }
 
   async function toggleSetting(key) {
-    setSaving(true)
+    setSavingKey(key)
+    setToggleError('')
     try {
       await adminUpdateSettings({ [key]: !settings[key] })
       setSettings(s => ({ ...s, [key]: !s[key] }))
-    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
-    setSaving(false)
+    } catch { setToggleError('השמירה נכשלה, נסה שוב') }
+    setSavingKey(null)
   }
 
   async function saveFree() {
@@ -4266,6 +4273,12 @@ function SettingsTab() {
     setSaving(false)
   }
 
+  if (loadError) return (
+    <div className="card" style={{ padding: 20, textAlign: 'center' }}>
+      <div style={{ marginBottom: 12 }}>טעינת ההגדרות נכשלה</div>
+      <button className="btn btn-primary" onClick={loadSettings}>נסה שוב</button>
+    </div>
+  )
   if (!settings) return <div className="loading"></div>
 
   return (
@@ -4293,6 +4306,7 @@ function SettingsTab() {
             <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>משבית זמנית את הגישה לבוט עבור משתמשים רגילים</div>
           </div>
           <button
+            type="button" role="switch" aria-checked={!!settings.maintenance} aria-label="מצב תחזוקה"
             className={`toggle ${settings.maintenance ? 'on' : ''}`}
             onClick={toggleMaintenance}
             disabled={saving}
@@ -4301,29 +4315,36 @@ function SettingsTab() {
         </div>
 
         {/* Bot feature toggles */}
+        {toggleError && <div role="alert" style={{ color: 'var(--danger)', fontSize: 13, fontWeight: 700 }}>{toggleError}</div>}
         {[
-          { key: 'rich_messages_enabled', icon: '📊', title: 'תוצאת חיפוש כטבלה', desc: 'שולח את כרטיס התוצאה בבוט כטבלה (Rich Message), וגם את ההשוואה וההיסטוריה. אם השליחה נכשלת, נשלח הכרטיס הרגיל.' },
-          { key: 'test_reminders_enabled', icon: '🔔', title: 'תזכורות טסט', desc: 'תזכורת בבוט חודש, שבוע ויום לפני פקיעת הטסט, למי שביקש אותה וגם לרכבים במוסך.' },
-          { key: 'photo_plate_enabled', icon: '📷', title: 'זיהוי מספר רכב מתמונה', desc: settings.photo_plate_key_configured ? 'המשתמש שולח צילום של הלוחית ומקבל אישור לפני החיפוש. התמונה נשלחת ל-Claude לזיהוי, והשימוש מוגבל לכמה תמונות לשעה למשתמש.' : '⚠️ חסר ANTHROPIC_API_KEY בשרת, ולכן הזיהוי לא יעבוד עד שיוגדר.' },
-        ].map(f => (
-          <div key={f.key} className="card" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, borderLeft: settings[f.key] ? '4px solid #10b981' : '4px solid #9ca3af' }}>
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                {f.icon} {f.title}
-                <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: settings[f.key] ? 'rgba(16, 185, 129, 0.1)' : 'rgba(156, 163, 175, 0.15)', color: settings[f.key] ? '#10b981' : '#6b7280', fontWeight: 700 }}>
-                  {settings[f.key] ? 'פעיל' : 'כבוי'}
-                </span>
+          { key: 'rich_messages_enabled', icon: '📊', title: 'תוצאת חיפוש כטבלה', desc: 'כרטיס התוצאה, ההשוואה וההיסטוריה בבוט נשלחים כטבלה. אם השליחה נכשלת, נשלח כרטיס רגיל.' },
+          { key: 'test_reminders_enabled', icon: '🔔', title: 'תזכורות טסט', desc: 'הבוט מזכיר חודש, שבוע ויום לפני פקיעת הטסט, למי שביקש תזכורת.' },
+          { key: 'test_reminders_garage_sync', icon: '🚗', title: 'תזכורת אוטומטית לרכבי המוסך', desc: 'מצרף לתזכורות גם כל רכב שמשתמש שמר ב"רכבים שקניתי", בלי שביקש. פועל רק כשתזכורות טסט פעילות.' },
+          { key: 'photo_plate_enabled', icon: '📷', title: 'זיהוי מספר מתמונה', desc: 'המשתמש שולח צילום של הלוחית ומאשר את המספר לפני החיפוש. התמונה נשלחת ל-Claude לזיהוי.', keyMissing: !settings.photo_plate_key_configured },
+        ].map(f => {
+          const on = !!settings[f.key]
+          return (
+            <div key={f.key} className="card" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, borderLeft: on ? '4px solid #10b981' : '4px solid #9ca3af', opacity: savingKey === f.key ? 0.6 : 1 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 4 }}>
+                  <span>{f.icon} {f.title}</span>
+                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: on ? 'rgba(4, 120, 87, 0.1)' : 'rgba(156, 163, 175, 0.15)', color: on ? '#047857' : '#6b7280', fontWeight: 700 }}>
+                    {on ? 'פעיל' : 'כבוי'}
+                  </span>
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{f.desc}</div>
+                {f.keyMissing && <div style={{ fontSize: 13, color: 'var(--danger)', fontWeight: 700, marginTop: 6 }}>⚠️ <span dir="ltr">ANTHROPIC_API_KEY</span> חסר בשרת, הזיהוי לא יעבוד עד שיוגדר.</div>}
               </div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{f.desc}</div>
+              <button
+                type="button" role="switch" aria-checked={on} aria-label={f.title}
+                className={`toggle ${on ? 'on' : ''}`}
+                onClick={() => toggleSetting(f.key)}
+                disabled={savingKey !== null}
+                style={{ margin: 0 }}
+              />
             </div>
-            <button
-              className={`toggle ${settings[f.key] ? 'on' : ''}`}
-              onClick={() => toggleSetting(f.key)}
-              disabled={saving}
-              style={{ margin: 0, opacity: saving ? 0.6 : 1 }}
-            />
-          </div>
-        ))}
+          )
+        })}
 
         {/* Free searches */}
         <div className="card" style={{ padding: '20px', borderLeft: '4px solid #007aff' }}>

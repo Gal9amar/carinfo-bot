@@ -76,7 +76,7 @@ def _count(n: int, one: str, many: str) -> str:
     return one if n == 1 else f"{n} {many}"
 
 
-def _fmt_date(raw: str) -> str:
+def fmt_date(raw: str) -> str:
     try:
         return datetime.fromisoformat(str(raw)[:10]).strftime("%d/%m/%Y")
     except Exception:
@@ -91,7 +91,7 @@ def quota_line(left: int, expires: Optional[str] = None) -> str:
     """One-line account status. left: -1 unlimited, >0 remaining, 0 = full access."""
     if left == -1:
         if expires:
-            return f"♾️ המנוי החודשי שלך פעיל עד {b(_fmt_date(expires))}"
+            return f"♾️ המנוי החודשי שלך פעיל עד {b(fmt_date(expires))}"
         return "♾️ יש לך גישה בלתי מוגבלת"
     if left > 0:
         return f"🆓 נותרו לך {b(_count(left, 'בדיקה אחת', 'בדיקות'))}"
@@ -294,7 +294,7 @@ def result_quota_text(left: int, expires: Optional[str]) -> str:
     """Plain-text quota note under a result card. left = remaining AFTER this search (or -1)."""
     if left == -1:
         if expires:
-            return '♾️ מנוי חודשי פעיל — תוקף עד ' + _fmt_date(expires)
+            return '♾️ מנוי חודשי פעיל — תוקף עד ' + fmt_date(expires)
         return '✅ גישה בלתי מוגבלת'
     emoji = "🟢" if left > 5 else ("🟡" if left > 1 else "🔴")
     return f'{emoji} נותרו לך ' + _count(left, 'בדיקה אחת', 'בדיקות')
@@ -317,23 +317,40 @@ def _car(label: str, plate: str) -> str:
     return f"{b(label)} ({code(plate)})" if label else f"הרכב {code(plate)}"
 
 
+def _when_phrase(days_left: int) -> str:
+    """'היום' / 'מחר' / 'בעוד N ימים' / 'אתמול' / 'לפני N ימים'."""
+    if days_left == 0:
+        return "היום"
+    if days_left == 1:
+        return "מחר"
+    if days_left > 1:
+        return f"בעוד {days_left} ימים"
+    if days_left == -1:
+        return "אתמול"
+    return f"לפני {abs(days_left)} ימים"
+
+
 def reminder_set(name: str, plate: str, label: str, tokef: str, days_left: int) -> str:
-    when = _fmt_date(tokef)
+    when = fmt_date(tokef)
     if days_left < 0:
-        timing = f"הטסט פג {b(when)} — כדאי לחדש בהקדם. אזכיר לך שוב אם הוא לא יתחדש."
+        timing = f"הטסט פג {b(when)} — כדאי לחדש בהקדם. כשתחדש, אעדכן את התאריך לבד."
+    elif days_left <= 1:
+        timing = f"הטסט פג {_when_phrase(days_left)} ({b(when)}). כדאי לחדש בהקדם."
+    elif days_left <= 7:
+        timing = f"הטסט פג ב-{b(when)} ({_when_phrase(days_left)}). אזכיר לך שוב יום לפני."
     elif days_left <= 30:
-        timing = f"הטסט פג ב-{b(when)} (בעוד {days_left} ימים). אזכיר לך גם כשיישארו שבוע ויום אחד."
+        timing = f"הטסט פג ב-{b(when)} ({_when_phrase(days_left)}). אזכיר לך שוב שבוע ויום לפני."
     else:
         timing = f"הטסט בתוקף עד {b(when)}. אשלח לך תזכורת חודש, שבוע ויום לפני."
     return f"🔔 {_n(name)}, סגור! הגדרתי תזכורת טסט ל-{_car(label, plate)}\n\n{timing}"
 
 
 def reminder_no_date(name: str) -> str:
-    return f"🤷 {_n(name)}, אין לי תאריך תוקף טסט לרכב הזה, אז אין לי מה לתזכר. אפשר לנסות שוב בחיפוש הבא."
+    return f"🤷 {_n(name)}, אין לי תאריך תוקף טסט לרכב הזה, אז אין לי מה להזכיר לך. תוכל לבדוק את התאריך ברישיון הרכב."
 
 
 def reminders_disabled(name: str) -> str:
-    return f"⏸ {esc(name)}, תזכורות הטסט כבויות כרגע. נסה שוב מאוחר יותר."
+    return f"⏸ {_n(name)}, תזכורות הטסט כבויות כרגע. נסה שוב מאוחר יותר."
 
 
 def reminder_stopped(name: str, plate: str) -> str:
@@ -342,17 +359,17 @@ def reminder_stopped(name: str, plate: str) -> str:
 
 def test_reminder(name: str, plate: str, label: str, tokef: str, days_left: int) -> str:
     car = _car(label, plate)
-    when = b(_fmt_date(tokef))
+    when = b(fmt_date(tokef))
     if days_left > 7:
-        head, body = f"📅 {_n(name)}, תזכורת: עוד חודש מסתיים הטסט של {car}", f"תוקף הטסט עד {when}. כדאי לקבוע תור מראש."
+        head, body = f"📅 {_n(name)}, מתקרב מועד הטסט של {car}", f"תוקף הטסט עד {when} ({_when_phrase(days_left)}). כדאי לקבוע תור מראש."
     elif days_left > 1:
-        head, body = f"⚠️ {_n(name)}, נשאר בערך שבוע לטסט של {car}", f"תוקף הטסט עד {when} (בעוד {days_left} ימים)."
+        head, body = f"⚠️ {_n(name)}, נשארו {days_left} ימים לטסט של {car}", f"תוקף הטסט עד {when}."
     elif days_left == 1:
         head, body = f"🔴 {_n(name)}, הטסט של {car} מסתיים מחר!", f"היום האחרון הוא {when}."
     elif days_left == 0:
         head, body = f"⏰ {_n(name)}, היום פג תוקף הטסט של {car}", "כדאי לחדש היום, כדי לא לנסוע בלי טסט בתוקף."
     else:
-        head, body = f"🚫 {_n(name)}, הטסט של {car} פג לפני {abs(days_left)} ימים", f"התוקף הסתיים ב-{when}. אזכיר לך שוב אם הוא לא יתחדש."
+        head, body = f"🚫 {_n(name)}, הטסט של {car} פג {_when_phrase(days_left)}", f"התוקף הסתיים ב-{when}. כשתחדש את הטסט, אעדכן את התאריך לבד."
     return f"{head}\n\n{body}\n\n" + quote(i("אם כבר חידשת — אין צורך לעשות כלום, אעדכן את התאריך לבד."))
 
 
@@ -368,11 +385,11 @@ def compare_need_two(name: str) -> str:
 
 
 def compare_not_enough(name: str) -> str:
-    return f"🔒 {_n(name)}, השוואה בודקת שני רכבים ולכן צורכת שתי בדיקות, ואין לך מספיק כרגע."
+    return f"🔒 {_n(name)}, השוואה בודקת שני רכבים ולכן צורכת שתי בדיקות, ואין לך מספיק כרגע.\nאפשר לרכוש חבילה עם /buy."
 
 
 def compare_same(name: str) -> str:
-    return f"🤔 {esc(name)}, זה אותו מספר רכב. שלח מספר אחר להשוואה."
+    return f"🤔 {_n(name)}, זה אותו מספר רכב. שלח מספר אחר להשוואה."
 
 
 def compare_failed(name: str, plate: str) -> str:
@@ -384,7 +401,10 @@ def history_table_intro(name: str) -> str:
 
 
 def photo_ask_confirm(name: str, plate: str) -> str:
-    return f"📷 {_n(name)}, זיהיתי את המספר {code(plate)}.\nלחפש אותו?"
+    return (
+        f"📷 {_n(name)}, זיהיתי את המספר {code(plate)}.\nלחפש אותו?\n\n"
+        + quote(i("התמונה נשלחת לזיהוי אוטומטי באמצעות Claude של Anthropic, ואינה נשמרת אצלנו."))
+    )
 
 
 def photo_not_found(name: str) -> str:
@@ -395,11 +415,11 @@ def photo_not_found(name: str) -> str:
 
 
 def photo_busy(name: str) -> str:
-    return f"⏳ {esc(name)}, קיבלתי יותר מדי תמונות בזמן קצר. נסה שוב עוד רגע, או הקלד את המספר."
+    return f"⏳ {_n(name)}, קיבלתי יותר מדי תמונות בזמן קצר. נסה שוב עוד רגע, או הקלד את המספר."
 
 
 def photo_disabled(name: str) -> str:
-    return f"📷 {esc(name)}, זיהוי מספר מתמונה לא פעיל כרגע. אפשר להקליד את המספר."
+    return f"📷 {_n(name)}, זיהוי מספר מתמונה לא פעיל כרגע. אפשר להקליד את המספר."
 
 
 def pdf_preparing(name: str) -> str:
@@ -525,7 +545,7 @@ def grant_update(name: str, searches: int, expires: str = "") -> str:
             f"⏰ בתוקף: {b('ללא הגבלת זמן')}{footer}"
         )
     if searches == -1:
-        end = f"\n⏰ בתוקף עד: {b(_fmt_date(expires))}" if expires else ""
+        end = f"\n⏰ בתוקף עד: {b(fmt_date(expires))}" if expires else ""
         return f"{head}📦 מסוג: {b('מנוי חודשי')}\n📅 החל מ: {today}{end}{footer}"
     return f"{head}📦 נוספו: {b(_count(searches, 'חיפוש אחד', 'חיפושים'))} 🔍\n📅 החל מ: {today}{footer}"
 
@@ -724,7 +744,7 @@ def admin_stats_short(stats: dict) -> str:
 
 
 def admin_settings(free: int, maintenance_on: bool, rich_on: bool = False,
-                   reminders_on: bool = True, photo_on: bool = False) -> str:
+                   reminders_on: bool = False, photo_on: bool = False, garage_sync_on: bool = False) -> str:
     maint = "🔴 פעיל" if maintenance_on else "🟢 כבוי"
 
     def onoff(v: bool) -> str:
@@ -736,6 +756,7 @@ def admin_settings(free: int, maintenance_on: bool, rich_on: bool = False,
         f"• מצב תחזוקה: {b(maint)}\n"
         f"• תוצאת חיפוש כטבלה: {b(onoff(rich_on))}\n"
         f"• תזכורות טסט: {b(onoff(reminders_on))}\n"
+        f"• תזכורת אוטומטית לרכבי המוסך: {b(onoff(garage_sync_on))}\n"
         f"• זיהוי מספר מתמונה: {b(onoff(photo_on))}"
     )
 

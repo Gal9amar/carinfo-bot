@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from typing import Awaitable, Callable, Optional
 
 from src.db import execute
@@ -18,6 +18,15 @@ logger = logging.getLogger(__name__)
 MILESTONES = (30, 7, 1, 0)   # days before expiry at which we notify
 STALE_AFTER_DAYS = 365       # stop tracking a plate whose test lapsed a year ago
 _COLS = "id, user_id, plate, label, tokef_dt, notified, last_refresh, active, source"
+
+
+def today() -> date:
+    """Today in Israel (reminders are written for Israeli users)."""
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.now(ZoneInfo("Asia/Jerusalem")).date()
+    except Exception:
+        return (datetime.now(timezone.utc) + timedelta(hours=3)).date()
 
 
 def parse_date(raw) -> Optional[date]:
@@ -58,7 +67,8 @@ async def add_reminder(user_id: int, plate: str, tokef_dt: str, label: str = "",
     await execute(
         "INSERT INTO test_reminders (user_id, plate, label, tokef_dt, source) VALUES (?, ?, ?, ?, ?) "
         "ON CONFLICT(user_id, plate) DO UPDATE SET tokef_dt=excluded.tokef_dt, label=excluded.label, "
-        "notified=NULL, active=1",
+        "source=excluded.source, active=1, "
+        "notified=CASE WHEN test_reminders.tokef_dt<>excluded.tokef_dt THEN NULL ELSE test_reminders.notified END",
         [user_id, plate, label, tokef, source],
     )
     r = await execute(f"SELECT {_COLS} FROM test_reminders WHERE user_id=? AND plate=?", [user_id, plate])
@@ -78,8 +88,18 @@ async def stop_reminder(reminder_id: int, user_id: int) -> bool:
     return True
 
 
+async def deactivate_orphans() -> None:
+    """Stop garage-sourced reminders whose car was sold or removed from the garage."""
+    await execute(
+        "UPDATE test_reminders SET active=0 WHERE active=1 AND source='garage' AND NOT EXISTS ("
+        "SELECT 1 FROM owned_vehicles o WHERE o.user_id=test_reminders.user_id "
+        "AND o.plate=test_reminders.plate AND o.status='owned')"
+    )
+
+
 async def sync_garage() -> int:
     """Create reminders for cars currently in users' garages (never re-arms stopped ones)."""
+    await deactivate_orphans()
     r = await execute(
         "SELECT user_id, plate, vehicle_data FROM owned_vehicles WHERE status='owned'"
     )
@@ -101,56 +121,79 @@ async def sync_garage() -> int:
 async def _update_tokef(rid: int, tokef: str) -> None:
     await execute(
         "UPDATE test_reminders SET tokef_dt=?, notified=NULL, last_refresh=? WHERE id=?",
-        [tokef, date.today().isoformat(), rid],
+        [tokef, today().isoformat(), rid],
     )
 
 
+async def count_for_user(user_id: int) -> int:
+    r = await execute("SELECT COUNT(*) FROM test_reminders WHERE user_id=? AND active=1", [user_id])
+    return int(r.rows[0][0])
+
+
+async def _process(rem: dict, send, fetch_tokef, today_d: date) -> bool:
+    """Handle one reminder. Returns True if a message was delivered."""
+    tokef = parse_date(rem["tokef_dt"])
+    if not tokef:
+        return False
+    days = (tokef - today_d).days
+    if days < -STALE_AFTER_DAYS:
+        await execute("UPDATE test_reminders SET active=0 WHERE id=?", [rem["id"]])
+        return False
+    milestone = pick_milestone(days, rem["notified"]) if days <= 30 else None
+    last_refresh = parse_date(rem["last_refresh"])
+    overdue_recheck = (
+        days < 0 and rem["notified"] == 0
+        and (last_refresh is None or (today_d - last_refresh).days >= 7)
+    )
+    if milestone is None and not overdue_recheck:
+        return False
+    # Never notify on unverified data: the owner may have renewed the test since we stored the date.
+    try:
+        fresh_d = parse_date(await fetch_tokef(rem["plate"]))
+    except Exception as exc:
+        logger.warning("reminder refresh failed id=%s: %s", rem["id"], type(exc).__name__)
+        fresh_d = None
+    if fresh_d is None:
+        return False   # registry unavailable or no date: try again tomorrow
+    if fresh_d != tokef:
+        await _update_tokef(rem["id"], fresh_d.isoformat())
+        tokef, rem["notified"] = fresh_d, None
+        days = (tokef - today_d).days
+        milestone = pick_milestone(days, None) if days <= 30 else None
+    elif overdue_recheck:
+        await execute("UPDATE test_reminders SET last_refresh=? WHERE id=?", [today_d.isoformat(), rem["id"]])
+    if milestone is None:
+        return False
+    # Claim the milestone before sending so a crash or a second instance cannot double-send.
+    await execute("UPDATE test_reminders SET notified=? WHERE id=?", [milestone, rem["id"]])
+    try:
+        ok = await send({**rem, "tokef_dt": tokef.isoformat()}, days, milestone)
+    except Exception as exc:
+        logger.warning("reminder send failed id=%s: %s", rem["id"], type(exc).__name__)
+        ok = False
+    if ok:
+        return True
+    if ok is None:
+        await execute("UPDATE test_reminders SET active=0 WHERE id=?", [rem["id"]])
+    else:   # temporary failure: release the claim so tomorrow's run retries
+        await execute("UPDATE test_reminders SET notified=? WHERE id=?", [rem["notified"], rem["id"]])
+    return False
+
+
 async def run_due(
-    send: Callable[[dict, int, int], Awaitable[bool]],
+    send: Callable[[dict, int, int], Awaitable[Optional[bool]]],
     fetch_tokef: Callable[[str], Awaitable[Optional[str]]],
 ) -> int:
-    """Notify due reminders. `send(reminder, days_left, milestone)` -> delivered?
+    """Notify due reminders. `send(reminder, days_left, milestone)` -> True delivered,
+    False temporary failure (retry tomorrow), None permanent failure (user blocked the bot -> stop).
     `fetch_tokef(plate)` -> current registry expiry or None. Returns messages sent."""
-    today = date.today()
+    today_d = today()
     r = await execute(f"SELECT {_COLS} FROM test_reminders WHERE active=1")
     sent = 0
     for rem in (_row(x) for x in r.rows):
-        tokef = parse_date(rem["tokef_dt"])
-        if not tokef:
-            continue
-        days = (tokef - today).days
-        if days < -STALE_AFTER_DAYS:
-            await execute("UPDATE test_reminders SET active=0 WHERE id=?", [rem["id"]])
-            continue
-        milestone = pick_milestone(days, rem["notified"]) if days <= 30 else None
-        overdue_recheck = (
-            days < 0 and rem["notified"] == 0
-            and (parse_date(rem["last_refresh"]) is None or (today - parse_date(rem["last_refresh"])).days >= 7)
-        )
-        if milestone is None and not overdue_recheck:
-            continue
-        # Re-check the registry: the owner may already have renewed the test.
-        fresh = None
         try:
-            fresh = await fetch_tokef(rem["plate"])
-        except Exception as exc:
-            logger.warning("reminder refresh failed plate=%s: %s", rem["plate"], type(exc).__name__)
-        fresh_d = parse_date(fresh)
-        if fresh_d and fresh_d != tokef:
-            await _update_tokef(rem["id"], fresh_d.isoformat())
-            tokef, rem["notified"] = fresh_d, None
-            days = (tokef - today).days
-            milestone = pick_milestone(days, None) if days <= 30 else None
-        elif overdue_recheck:
-            await execute("UPDATE test_reminders SET last_refresh=? WHERE id=?", [today.isoformat(), rem["id"]])
-        if milestone is None:
-            continue
-        try:
-            ok = await send({**rem, "tokef_dt": tokef.isoformat()}, days, milestone)
-        except Exception as exc:
-            logger.warning("reminder send failed user=%s: %s", rem["user_id"], type(exc).__name__)
-            ok = False
-        if ok:
-            await execute("UPDATE test_reminders SET notified=? WHERE id=?", [milestone, rem["id"]])
-            sent += 1
+            if await _process(rem, send, fetch_tokef, today_d):
+                sent += 1
+        except Exception as exc:   # one bad row must not abort the whole job
+            logger.warning("reminder row failed id=%s: %s", rem["id"], type(exc).__name__)
     return sent

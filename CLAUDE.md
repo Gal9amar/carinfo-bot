@@ -117,8 +117,9 @@ Created idempotently at startup (`init_db()` in `src/db.py` plus per-module `ini
 | `yad2_watch_enabled` / `_public*` / `_groups` / `yad2_watch_max` | 0 … / 2 | New-listing alerts feature + default per-user limit |
 | `pdf_report_enabled` / `pdf_report_public*` / `pdf_report_groups` | — | PDF report feature gate |
 | `order_sequence` | 0 | Counter for order refs (`{member_id}-{seq:05d}`) |
-| `test_reminders_enabled` | 1 | Daily 07:00 UTC job notifies 30/7/1/0 days before the test expires (`src/reminders.py`); also auto-tracks cars in the garage. Re-checks the registry before notifying |
-| `photo_plate_enabled` | 0 | Photo → plate via Claude (`src/plate_ocr.py`); needs `ANTHROPIC_API_KEY`; 5 photos/h/user + 300/day global |
+| `test_reminders_enabled` | 0 | Daily 07:00 UTC job notifies 30/7/1/0 days before the test expires (`src/reminders.py`) for users who pressed the 🔔 button. Re-checks the registry before notifying and never notifies on unverified data; blocked-bot users are deactivated |
+| `test_reminders_garage_sync` | 0 | Also auto-enrol every car in users' garages (no explicit consent, so off by default); reminders for sold/deleted cars are deactivated |
+| `photo_plate_enabled` | 0 | Photo → plate via Claude (`src/plate_ocr.py`); needs `ANTHROPIC_API_KEY`; 3 photos/h/user + 300/day global, persisted in table `photo_ocr_log`; requires an allowed (non-blocked, has quota) user |
 | `rich_messages_enabled` | 0 | Send the lookup result card as a table via `sendRichMessage` (Bot API 10.1+, `src/rich.py`). Toggle: admin panel → Settings, or bot `/admin` → settings. Any API failure falls back to the classic HTML card |
 
 ---

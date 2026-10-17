@@ -10,20 +10,16 @@ import json
 import logging
 import os
 import re
-import time
-from collections import defaultdict, deque
 
 logger = logging.getLogger(__name__)
 
 MODEL = "claude-haiku-5-5"
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
-PER_USER_LIMIT = 5            # photos per user per window
-PER_USER_WINDOW = 3600        # seconds
-GLOBAL_DAILY_LIMIT = 300      # hard cost cap across all users
+PER_USER_LIMIT = 3            # photos per user per hour
+GLOBAL_DAILY_LIMIT = 300      # hard cost cap across all users (per UTC day)
 
 _PLATE_RE = re.compile(r"^\d{5,8}$")
-_user_hits: dict[int, deque] = defaultdict(deque)
-_day = {"date": "", "count": 0}
+_client = None
 
 _PROMPT = (
     "This photo may contain an Israeli vehicle licence plate. Israeli plates are 5-8 digits "
@@ -37,21 +33,20 @@ def key_configured() -> bool:
     return bool(os.environ.get("ANTHROPIC_API_KEY"))
 
 
-def allow(user_id: int) -> bool:
-    """Per-user + global daily rate limit. Records the hit when allowed."""
-    now = time.time()
-    today = time.strftime("%Y-%m-%d")
-    if _day["date"] != today:
-        _day.update(date=today, count=0)
-    if _day["count"] >= GLOBAL_DAILY_LIMIT:
+async def allow(user_id: int) -> bool:
+    """Per-user hourly + global daily cap, persisted in the DB so restarts and extra
+    instances share the same counters. Records the attempt when allowed."""
+    from src.db import execute
+    await execute("DELETE FROM photo_ocr_log WHERE at < datetime('now', '-2 days')")
+    r = await execute("SELECT COUNT(*) FROM photo_ocr_log WHERE at >= date('now')")
+    if int(r.rows[0][0]) >= GLOBAL_DAILY_LIMIT:
         return False
-    hits = _user_hits[user_id]
-    while hits and now - hits[0] > PER_USER_WINDOW:
-        hits.popleft()
-    if len(hits) >= PER_USER_LIMIT:
+    r = await execute(
+        "SELECT COUNT(*) FROM photo_ocr_log WHERE user_id=? AND at >= datetime('now', '-1 hour')", [user_id]
+    )
+    if int(r.rows[0][0]) >= PER_USER_LIMIT:
         return False
-    hits.append(now)
-    _day["count"] += 1
+    await execute("INSERT INTO photo_ocr_log (user_id) VALUES (?)", [user_id])
     return True
 
 
@@ -75,7 +70,10 @@ async def read_plate(image_bytes: bytes, media_type: str = "image/jpeg") -> str 
     if len(image_bytes) > MAX_IMAGE_BYTES or not key_configured():
         return None
     import anthropic
-    client = anthropic.AsyncAnthropic(timeout=30.0, max_retries=1)
+    global _client
+    if _client is None:
+        _client = anthropic.AsyncAnthropic(timeout=30.0, max_retries=1)
+    client = _client
     try:
         response = await client.messages.create(
             model=MODEL,
@@ -93,7 +91,7 @@ async def read_plate(image_bytes: bytes, media_type: str = "image/jpeg") -> str 
             }],
         )
     except anthropic.APIError as exc:
-        logger.warning("plate OCR failed: %s", type(exc).__name__)
+        logger.warning("plate OCR failed: %s status=%s", type(exc).__name__, getattr(exc, "status_code", None))
         return None
     text = "".join(b.text for b in response.content if b.type == "text")
     return parse_plate(text)

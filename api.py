@@ -828,8 +828,9 @@ async def admin_get_settings(_: dict = Depends(_require_admin)):
     return {
         "maintenance":         (await get_bot_setting("maintenance")) == "1",
         "rich_messages_enabled": (await get_bot_setting("rich_messages_enabled")) == "1",
-        "test_reminders_enabled": (await get_bot_setting("test_reminders_enabled")) != "0",
+        "test_reminders_enabled": (await get_bot_setting("test_reminders_enabled")) == "1",
         "photo_plate_enabled": (await get_bot_setting("photo_plate_enabled")) == "1",
+        "test_reminders_garage_sync": (await get_bot_setting("test_reminders_garage_sync")) == "1",
         "photo_plate_key_configured": bool(os.environ.get("ANTHROPIC_API_KEY")),
         "free_searches":       _u.FREE_SEARCHES,
         "referral_bonus":      int((await get_bot_setting("referral_bonus")) or "10"),
@@ -870,6 +871,7 @@ class SettingsUpdate(BaseModel):
     rich_messages_enabled: bool       | None = None
     test_reminders_enabled: bool      | None = None
     photo_plate_enabled: bool         | None = None
+    test_reminders_garage_sync: bool  | None = None
     free_searches:       int          | None = None
     referral_bonus:      int          | None = None
     promo_searches:      int          | None = None
@@ -913,6 +915,8 @@ async def admin_update_settings(body: SettingsUpdate, _: dict = Depends(_require
         await set_bot_setting("rich_messages_enabled", "1" if body.rich_messages_enabled else "0")
     if body.test_reminders_enabled is not None:
         await set_bot_setting("test_reminders_enabled", "1" if body.test_reminders_enabled else "0")
+    if body.test_reminders_garage_sync is not None:
+        await set_bot_setting("test_reminders_garage_sync", "1" if body.test_reminders_garage_sync else "0")
     if body.photo_plate_enabled is not None:
         await set_bot_setting("photo_plate_enabled", "1" if body.photo_plate_enabled else "0")
     if body.free_searches is not None:

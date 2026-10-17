@@ -47,6 +47,7 @@ export default function App() {
     if (page === 'watches') {
       setScreen('watches')
       fetchUser().catch(() => null).then(usr => setUser(usr))
+      fetchPackages().then(setPackages).catch(() => {})
       return
     }
     if (page === 'garageHowItWorks') { setScreen('garageHowItWorks'); return }

@@ -727,7 +727,7 @@ def compare_rich(a: dict, b: dict) -> str:
 def compare_classic(a: dict, b: dict) -> str:
     """Fallback without tables: one two-line block per attribute (HTML parse mode)."""
     lines = [
-        f"⚖️ <b>השוואה בין שני רכבים</b>\n",
+        "⚖️ <b>השוואה בין שני רכבים</b>\n",
         f"🅰️ <b>{_escape(_compare_title(a))}</b> ({_escape(_val(a, 'mispar_rechev'))})\n",
         f"🅱️ <b>{_escape(_compare_title(b))}</b> ({_escape(_val(b, 'mispar_rechev'))})\n",
     ]

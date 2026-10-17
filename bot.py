@@ -8,6 +8,7 @@ import logging
 import os
 import re
 import sys
+import time
 from threading import Thread
 
 
@@ -15,6 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton, LabeledPrice, WebAppInfo
 from telegram.constants import ParseMode
+from telegram.error import Forbidden
 from telegram.ext import (
     Application, CommandHandler, MessageHandler,
     CallbackQueryHandler, ConversationHandler,
@@ -61,6 +63,8 @@ logger = logging.getLogger(__name__)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 PLATE_RE  = re.compile(r"^[\d\-]{5,10}$")
+COMPARE_TTL = 600  # seconds the "second plate" prompt stays armed
+MAX_REMINDERS_PER_USER = 20
 ADMIN_ID  = int(os.environ.get("ADMIN_TELEGRAM_ID", "594206475"))
 BOT_USERNAME = "israelcarinfobot"
 PAYMENT_PROVIDER_TOKEN = os.environ.get("PAYMENT_PROVIDER_TOKEN", "6073714100:TEST:TG_2ZwhGNC5yAq7J6bMbZfUti0A")
@@ -186,10 +190,9 @@ def build_result_keyboard(
             InlineKeyboardButton("⚖️ השוואה", callback_data=f"cmp|start|{plate}"),
         ])
         rows.append([
-            InlineKeyboardButton("🚗 שמור במוסך", web_app=WebAppInfo(url=f"{webapp_url}/?plate={plate}")),
             InlineKeyboardButton("👀 מעקב מודעות", web_app=WebAppInfo(url=f"{webapp_url}/?page=watches")),
+            InlineKeyboardButton("📤 שתף", callback_data="share_report"),
         ])
-        rows.append([InlineKeyboardButton("📤 שתף", callback_data="share_report")])
     rows.extend(_persistent_rows(is_admin))
     return InlineKeyboardMarkup(rows)
 
@@ -487,7 +490,7 @@ def _admin_gen_keyboard() -> InlineKeyboardMarkup:
 
 
 def _admin_settings_keyboard(maintenance_on: bool = False, rich_on: bool = False,
-                             reminders_on: bool = True, photo_on: bool = False) -> InlineKeyboardMarkup:
+                             reminders_on: bool = False, photo_on: bool = False, garage_sync_on: bool = False) -> InlineKeyboardMarkup:
     maint_label = "🔴 בטל תחזוקה" if maintenance_on else "🔧 הפעל תחזוקה"
     maint_style = "danger" if maintenance_on else None
     return InlineKeyboardMarkup([
@@ -496,6 +499,7 @@ def _admin_settings_keyboard(maintenance_on: bool = False, rich_on: bool = False
         [InlineKeyboardButton(maint_label,                   callback_data="adm|toggle_maintenance", style=maint_style)],
         [InlineKeyboardButton("📊 כבה תוצאה כטבלה" if rich_on else "📊 הפעל תוצאה כטבלה", callback_data="adm|toggle_rich")],
         [InlineKeyboardButton("🔔 כבה תזכורות טסט" if reminders_on else "🔔 הפעל תזכורות טסט", callback_data="adm|toggle_reminders")],
+        [InlineKeyboardButton("🚗 כבה תזכורת אוטומטית למוסך" if garage_sync_on else "🚗 הפעל תזכורת אוטומטית למוסך", callback_data="adm|toggle_garage_sync")],
         [InlineKeyboardButton("📷 כבה זיהוי מתמונה" if photo_on else "📷 הפעל זיהוי מתמונה", callback_data="adm|toggle_photo")],
         [InlineKeyboardButton("🔙 חזרה",                     callback_data="adm|main")],
     ])
@@ -505,11 +509,12 @@ async def _settings_view() -> tuple[str, InlineKeyboardMarkup]:
     import src.users as _u
     maintenance = (await get_bot_setting("maintenance")) == "1"
     rich_on     = (await get_bot_setting("rich_messages_enabled")) == "1"
-    reminders   = (await get_bot_setting("test_reminders_enabled")) != "0"
+    reminders   = (await get_bot_setting("test_reminders_enabled")) == "1"
     photo_on    = (await get_bot_setting("photo_plate_enabled")) == "1"
+    garage_sync = (await get_bot_setting("test_reminders_garage_sync")) == "1"
     return (
-        M.admin_settings(_u.FREE_SEARCHES, maintenance, rich_on, reminders, photo_on),
-        _admin_settings_keyboard(maintenance, rich_on, reminders, photo_on),
+        M.admin_settings(_u.FREE_SEARCHES, maintenance, rich_on, reminders, photo_on, garage_sync),
+        _admin_settings_keyboard(maintenance, rich_on, reminders, photo_on, garage_sync),
     )
 
 
@@ -683,13 +688,13 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         "toggle_rich": "rich_messages_enabled",
         "toggle_reminders": "test_reminders_enabled",
         "toggle_photo": "photo_plate_enabled",
+        "toggle_garage_sync": "test_reminders_garage_sync",
     }
     if action == "settings" or action in toggles:
         if action in toggles:
             key = toggles[action]
             cur = await get_bot_setting(key)
-            on = (cur != "0") if key == "test_reminders_enabled" else (cur == "1")
-            await set_bot_setting(key, "0" if on else "1")
+            await set_bot_setting(key, "0" if cur == "1" else "1")
         text, kb = await _settings_view()
         await query.edit_message_text(text, parse_mode=HTML, reply_markup=kb)
         return
@@ -848,7 +853,7 @@ async def handle_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         from src.users import get_search_history_rows
         rows = await get_search_history_rows(user_id, limit=10)
         body = "".join(
-            f"<tr><td>{M.esc(plate)}</td><td>{M.esc(M._fmt_date(when))}</td></tr>" for plate, when in rows
+            f"<tr><td>{M.esc(plate)}</td><td>{M.esc(M.fmt_date(when))}</td></tr>" for plate, when in rows
         )
         html = (
             f"<p>{M.history_table_intro(_first_name(query.from_user))}</p>"
@@ -856,6 +861,10 @@ async def handle_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             f"<p><i>לחץ על מספר רכב כדי לצפות שוב — בלי לנכות בדיקה</i></p>"
         )
         if await send_rich_message(query.message.chat_id, html, reply_markup=InlineKeyboardMarkup(buttons)):
+            try:
+                await query.message.delete()   # the table message replaces the menu
+            except Exception:
+                pass
             return
 
     await query.edit_message_text(
@@ -1575,6 +1584,7 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     # Cancel search
     if raw == "❌ ביטול":
         context.user_data.pop("compare_first", None)
+        context.user_data.pop("compare_ts", None)
         await update.message.reply_text(M.search_cancelled(), reply_markup=ReplyKeyboardRemove())
         await update.message.reply_text("👇", reply_markup=_persistent_keyboard(is_admin=(user_id == ADMIN_ID)))
         return
@@ -1751,11 +1761,17 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         return
 
     first = context.user_data.pop("compare_first", None)
+    if first and time.time() - context.user_data.pop("compare_ts", 0) > COMPARE_TTL:
+        first = None   # stale: the user wandered off, treat this as a normal lookup
     if first:
         await _compare_flow(update.message, update.effective_user, update.effective_chat.id, context, first, plate)
         return
 
     await _lookup_flow(update.message, update.effective_user, update.effective_chat.id, context, plate)
+
+
+async def _maintenance_blocks(user_id: int) -> bool:
+    return user_id != ADMIN_ID and (await get_bot_setting("maintenance")) == "1"
 
 
 async def _get_record(plate: str):
@@ -1772,6 +1788,9 @@ async def _compare_flow(message, tg_user, chat_id: int, context, plate_a: str, p
     name = _first_name(tg_user)
     user_id = tg_user.id
     is_admin = user_id == ADMIN_ID
+    if await _maintenance_blocks(user_id):
+        await message.reply_text(M.maintenance(name), parse_mode=HTML)
+        return
     if plate_a == plate_b:
         await message.reply_text(M.compare_same(name), parse_mode=HTML)
         return
@@ -1784,25 +1803,34 @@ async def _compare_flow(message, tg_user, chat_id: int, context, plate_a: str, p
                 M.payment_required(name, PAYMENT_MSG), parse_mode=HTML, reply_markup=_payment_keyboard(is_admin),
             )
         return
-    if left != -1 and left < 2:
+    last_plate = await get_last_plate(user_id)
+    to_charge = [p for p in (plate_a, plate_b) if p != last_plate]   # a plate paid for just now is free, as in a normal lookup
+    if left != -1 and left < len(to_charge):
         await message.reply_text(M.compare_not_enough(name), parse_mode=HTML, reply_markup=_payment_keyboard(is_admin))
         return
     try:
         rec_a, rec_b = await asyncio.gather(_get_record(plate_a), _get_record(plate_b))
     except Exception as exc:
-        logger.error("compare fetch failed %s/%s: %s", plate_a, plate_b, exc)
+        logger.error("compare fetch failed: %s", type(exc).__name__)
         await message.reply_text(M.lookup_error(name), parse_mode=HTML, reply_markup=_persistent_keyboard(is_admin))
         return
     for plate, rec in ((plate_a, rec_a), (plate_b, rec_b)):
         if rec is None:
             await message.reply_text(M.compare_failed(name, plate), parse_mode=HTML, reply_markup=_persistent_keyboard(is_admin))
             return
-    for plate in (plate_a, plate_b):
-        await increment_search(user_id, plate)
-    kb = _persistent_keyboard(is_admin)
-    if await send_rich_message(chat_id, compare_rich(rec_a, rec_b), reply_markup=kb):
+    try:
+        rich_html, classic = compare_rich(rec_a, rec_b), compare_classic(rec_a, rec_b)
+    except Exception as exc:
+        logger.error("compare render failed: %s", type(exc).__name__)
+        await message.reply_text(M.lookup_error(name), parse_mode=HTML, reply_markup=_persistent_keyboard(is_admin))
         return
-    await message.reply_text(compare_classic(rec_a, rec_b), parse_mode=HTML, reply_markup=kb)
+    kb = _persistent_keyboard(is_admin)
+    delivered = await send_rich_message(chat_id, rich_html, reply_markup=kb)
+    if not delivered:
+        await message.reply_text(classic, parse_mode=HTML, reply_markup=kb)
+    for plate in to_charge:   # charge only once the user actually got the comparison
+        await increment_search(user_id, plate)
+    await set_last_plate(user_id, plate_b)
 
 
 async def cmd_compare(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1827,9 +1855,15 @@ async def handle_reminder_callback(update: Update, context: ContextTypes.DEFAULT
             await query.edit_message_reply_markup(reply_markup=None)
         return
     plate = parts[2]
-    if (await get_bot_setting("test_reminders_enabled")) == "0":
+    if (await get_bot_setting("test_reminders_enabled")) != "1":
         await query.answer()
         await query.message.reply_text(M.reminders_disabled(name), parse_mode=HTML)
+        return
+    if await is_blocked(user.id) or await _maintenance_blocks(user.id):
+        await query.answer()
+        return
+    if not await _rem.get_reminder(user.id, plate) and await _rem.count_for_user(user.id) >= MAX_REMINDERS_PER_USER:
+        await query.answer("הגעת למספר התזכורות המקסימלי", show_alert=True)
         return
     record = context.user_data.get("last_record")
     if not record or str(record.get("mispar_rechev")) != plate:
@@ -1858,6 +1892,7 @@ async def handle_compare_callback(update: Update, context: ContextTypes.DEFAULT_
     await query.answer()
     plate = query.data.split("|")[2]
     context.user_data["compare_first"] = plate
+    context.user_data["compare_ts"] = time.time()
     await query.message.reply_text(
         M.compare_ask_second(_first_name(query.from_user), plate),
         parse_mode=HTML,
@@ -1872,7 +1907,22 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if (await get_bot_setting("photo_plate_enabled")) != "1" or not plate_ocr.key_configured():
         await msg.reply_text(M.photo_disabled(name), parse_mode=HTML)
         return
-    if user.id != ADMIN_ID and not plate_ocr.allow(user.id):
+    if await _maintenance_blocks(user.id):
+        await msg.reply_text(M.maintenance(name), parse_mode=HTML)
+        return
+    group = getattr(msg, "media_group_id", None)
+    if group:   # an album is one request: answer only for its first photo
+        if context.user_data.get("photo_group") == group:
+            return
+        context.user_data["photo_group"] = group
+    allowed, left = await is_allowed(user.id, user.username or "", user.full_name or "")
+    if not allowed:
+        if await is_blocked(user.id):
+            await msg.reply_text(M.blocked(name), parse_mode=HTML, reply_markup=_blocked_keyboard())
+        else:
+            await msg.reply_text(M.payment_required(name, PAYMENT_MSG), parse_mode=HTML, reply_markup=_payment_keyboard(user.id == ADMIN_ID))
+        return
+    if user.id != ADMIN_ID and not await plate_ocr.allow(user.id):
         await msg.reply_text(M.photo_busy(name), parse_mode=HTML)
         return
     photo = msg.photo[-1]
@@ -1921,6 +1971,9 @@ async def _lookup_flow(message, tg_user, chat_id: int, context: ContextTypes.DEF
     user_id = tg_user.id
     name    = _first_name(tg_user)
     is_admin = user_id == ADMIN_ID
+    if await _maintenance_blocks(user_id):
+        await message.reply_text(M.maintenance(name), parse_mode=HTML)
+        return
     allowed, left = await is_allowed(user_id, tg_user.username or "", tg_user.full_name or "")
     if not allowed:
         if await is_blocked(user_id):
@@ -2581,15 +2634,20 @@ def main() -> None:
         except Exception as e:
             logger.warning("Expiry reminder job (days=%d) error: %s", days, e)
 
-    async def _send_test_reminder(rem: dict, days_left: int, milestone: int) -> bool:
+    async def _send_test_reminder(rem: dict, days_left: int, milestone: int):
+        if await is_blocked(rem["user_id"]):
+            return None
         text = M.test_reminder(await _name_of(rem["user_id"]), rem["plate"], rem["label"], rem["tokef_dt"], days_left)
-        await app.bot.send_message(
-            rem["user_id"], text, parse_mode=HTML,
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("🔍 בדוק את הרכב", callback_data=f"hist_plate|{rem['plate']}"),
-                InlineKeyboardButton("🔕 הפסק תזכורות", callback_data=f"rem|stop|{rem['id']}"),
-            ]]),
-        )
+        try:
+            await app.bot.send_message(
+                rem["user_id"], text, parse_mode=HTML,
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🔍 בדוק את הרכב", callback_data=f"hist_plate|{rem['plate']}"),
+                    InlineKeyboardButton("🔕 הפסק תזכורות", callback_data=f"rem|stop|{rem['id']}"),
+                ]]),
+            )
+        except Forbidden:
+            return None   # the user blocked the bot: stop reminding them
         await log_sent_message(rem["user_id"], _log_text(text), kind="test_reminder")
         return True
 
@@ -2598,10 +2656,14 @@ def main() -> None:
         return (record or {}).get("tokef_dt")
 
     async def _test_reminders_job(context):
-        if (await get_bot_setting("test_reminders_enabled")) == "0":
+        if (await get_bot_setting("test_reminders_enabled")) != "1":
             return
         try:
-            added = await _rem.sync_garage()
+            added = 0
+            if (await get_bot_setting("test_reminders_garage_sync")) == "1":
+                added = await _rem.sync_garage()
+            else:
+                await _rem.deactivate_orphans()
             sent = await _rem.run_due(_send_test_reminder, _fetch_tokef)
             logger.info("test reminders: garage_added=%s sent=%s", added, sent)
         except Exception as e:
