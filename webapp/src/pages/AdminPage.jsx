@@ -117,7 +117,7 @@ export default function AdminPage({ user, onBack }) {
           </div>
         )}
       </div>
-      {tab === 'stats'    && <StatsTab />}
+      {tab === 'stats'    && <StatsTab onNavigate={setTab} />}
       {tab === 'activity' && <ActivityTab />}
       {tab === 'payments' && <PaymentsTab />}
       {tab === 'packages' && <PackagesTab />}
@@ -139,100 +139,241 @@ export default function AdminPage({ user, onBack }) {
   )
 }
 
-function StatCard({ value, label, sub, accent }) {
+// ── Statistics tab ───────────────────────────────────────────────
+const fmtNum = (n) => (Number(n) || 0).toLocaleString('he-IL')
+const fmtDec = (n) => (Number(n) || 0).toLocaleString('he-IL', { maximumFractionDigits: 1 })
+// Guarded ratio: null when the denominator is 0/invalid (shown as "—").
+const ratio = (a, b) => (Number(b) > 0 ? (Number(a) || 0) / Number(b) : null)
+const pctText = (r) => (r == null ? '—' : `${fmtDec(r * 100)}%`)
+
+function StatsMetric({ value, label, hint, unit }) {
   return (
-    <div className="card" style={{
-      padding: '16px', margin: 0,
-      borderTop: accent ? `3px solid ${accent}` : '3px solid transparent',
-      display: 'flex', flexDirection: 'column',
-    }}>
-      <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 4, fontWeight: 600 }}>
-        {label}
+    <div style={{ minWidth: 0, padding: '12px', borderRadius: 14, background: 'rgba(0,122,255,0.04)', border: '1px solid var(--border)' }}>
+      <dt style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-main)', marginBottom: 4 }}>{label}</dt>
+      <dd style={{ margin: 0, fontSize: 26, fontWeight: 900, lineHeight: 1.1, color: 'var(--text-main)', letterSpacing: '-0.5px' }}>
+        <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>{value}</span>
+        {unit && <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', marginInlineStart: 4 }}>{unit}</span>}
+      </dd>
+      {hint && <dd style={{ margin: '6px 0 0', fontSize: 12, lineHeight: 1.4, color: 'var(--text-muted)' }}>{hint}</dd>}
+    </div>
+  )
+}
+
+function StatsSection({ id, icon, title, desc, children }) {
+  return (
+    <section aria-labelledby={id} className="card" style={{ padding: 16, margin: '0 0 16px' }}>
+      <h2 id={id} style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+        <span aria-hidden="true">{icon} </span>{title}
+      </h2>
+      <p style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--text-muted)', margin: '4px 0 12px' }}>{desc}</p>
+      {children}
+    </section>
+  )
+}
+
+const statsGrid = { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, margin: 0 }
+
+function StatsBar({ value, color = 'var(--primary)' }) {
+  const pct = Math.max(0, Math.min(100, Math.round((value || 0) * 100)))
+  return (
+    <div aria-hidden="true" style={{ height: 8, borderRadius: 4, background: 'rgba(0,0,0,0.07)', overflow: 'hidden' }}>
+      <div style={{ width: `${pct}%`, height: '100%', borderRadius: 4, background: color }} />
+    </div>
+  )
+}
+
+function StatsActionRow({ icon, label, count, onClick, doneText }) {
+  const rowStyle = {
+    display: 'flex', alignItems: 'center', gap: 10, width: '100%', minHeight: 48, boxSizing: 'border-box',
+    padding: '10px 12px', borderRadius: 14, textAlign: 'start', fontSize: 15, fontFamily: 'inherit',
+    color: 'var(--text-main)',
+  }
+  if (!count) {
+    return (
+      <div style={{ ...rowStyle, background: 'rgba(52,199,89,0.08)', border: '1px solid var(--border)' }}>
+        <span aria-hidden="true">✅</span>
+        <span style={{ flex: 1, minWidth: 0 }}>{doneText}</span>
       </div>
-      <div style={{ fontSize: 26, fontWeight: 900, color: 'var(--text-main)', letterSpacing: '-0.5px', lineHeight: 1 }}>
-        {value}
-      </div>
-      {sub && (
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8, fontWeight: 500, background: 'rgba(0,0,0,0.03)', padding: '4px 8px', borderRadius: 6, display: 'inline-block', alignSelf: 'flex-start' }}>
-          {sub}
-        </div>
+    )
+  }
+  const inner = (
+    <>
+      <span aria-hidden="true">{icon}</span>
+      <span style={{ flex: 1, minWidth: 0, fontWeight: 700 }}>{label}</span>
+      <span style={{ minWidth: 28, textAlign: 'center', padding: '2px 10px', borderRadius: 999, background: '#9a4a07', color: '#fff', fontWeight: 800, fontSize: 14 }}>
+        <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>{fmtNum(count)}</span>
+      </span>
+      {onClick && (
+        <>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)' }}>לטיפול</span>
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 3 5 8l5 5" /></svg>
+        </>
       )}
-    </div>
+    </>
   )
+  const style = { ...rowStyle, background: 'rgba(245,158,11,0.12)', border: '1px solid #b45309' }
+  return onClick
+    ? <button type="button" onClick={onClick} style={{ ...style, cursor: 'pointer' }}>{inner}</button>
+    : <div style={style}>{inner}</div>
 }
 
-function Section({ title, children }) {
+function StatsSkeleton() {
   return (
-    <div style={{ marginBottom: 24 }}>
-      <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-main)', marginBottom: 12 }}>{title}</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>{children}</div>
+    <div role="status" aria-label="טוען סטטיסטיקות" aria-busy="true">
+      {[0, 1, 2].map(i => (
+        <div key={i} className="card" style={{ padding: 16, margin: '0 0 16px' }}>
+          <div className="skeleton" style={{ height: 20, width: '45%', marginBottom: 8 }} />
+          <div className="skeleton" style={{ height: 14, width: '80%', marginBottom: 14 }} />
+          <div style={statsGrid}>
+            {[0, 1, 2, 3].map(j => <div key={j} className="skeleton" style={{ height: 84, borderRadius: 14 }} />)}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
 
-function StatsTab() {
+function StatsTab({ onNavigate }) {
   const [stats, setStats] = useState(null)
-  useEffect(() => { adminFetchStats().then(setStats).catch(() => {}) }, [])
-  if (!stats) return <div className="loading"></div>
+  const [error, setError] = useState(false)
+  const [busy, setBusy] = useState(true)
+  const [updatedAt, setUpdatedAt] = useState(null)
+
+  function load() {
+    setBusy(true); setError(false)
+    adminFetchStats()
+      .then(s => { setStats(s && typeof s === 'object' ? s : {}); setUpdatedAt(new Date()) })
+      .catch(() => setError(true))
+      .finally(() => setBusy(false))
+  }
+  useEffect(() => { load() }, [])
+
+  if (!stats && busy) return <StatsSkeleton />
+  if (!stats) {
+    return (
+      <div className="card" role="alert" style={{ padding: 24, textAlign: 'center' }}>
+        <div style={{ fontSize: 32 }} aria-hidden="true">⚠️</div>
+        <p style={{ fontSize: 15, fontWeight: 700, margin: '8px 0 4px' }}>לא הצלחנו לטעון את הסטטיסטיקות</p>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 16px' }}>בדקו את החיבור ונסו שוב.</p>
+        <button type="button" className="btn" onClick={load}>נסו שוב</button>
+      </div>
+    )
+  }
+
+  const s = stats
+  const n = (k) => Number(s[k]) || 0
+  const time = updatedAt ? updatedAt.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', hour12: false }) : ''
+  const conv = ratio(n('subscribers'), n('total_users'))
+  const perDay = n('searches_week') / 7
+  const perActive = ratio(n('searches_week'), n('active_week'))
+  const codesUsed = ratio(n('used_codes'), n('total_codes'))
+  const top = Array.isArray(s.top_users) ? s.top_users : []
+  const topMax = Math.max(1, ...top.map(u => Number(u?.searches) || 0))
+  const needsAttention = n('tickets_open') + n('pending_payments') > 0
 
   return (
-    <div>
-      <Section title="משתמשים">
-        <StatCard value={stats.total_users}   label="סה״כ משתמשים" />
-        <StatCard value={stats.active_week}   label="פעילים השבוע" accent="#177a33" />
-        <StatCard value={stats.new_today}     label="חדשים היום"   sub={`${stats.new_week} השבוע`} accent="#0066d6" />
-        <StatCard value={stats.blocked_users} label="חסומים"       accent={stats.blocked_users > 0 ? '#c53030' : undefined} />
-      </Section>
+    <div className="tab-fade-in">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
+        <p role="status" style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>
+          {error ? 'הרענון נכשל, מוצגים נתונים קודמים' : <>עודכן ב-<span dir="ltr" style={{ unicodeBidi: 'isolate' }}>{time}</span></>}
+        </p>
+        <button type="button" className="btn-secondary" onClick={load} disabled={busy}
+          style={{ minHeight: 44, padding: '0 16px', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: busy ? 'default' : 'pointer', flexShrink: 0 }}>
+          <span aria-hidden="true">🔄 </span>{busy ? 'מרענן…' : 'רענון'}
+        </button>
+      </div>
 
-      <Section title="מנויים">
-        <StatCard value={stats.subscribers}   label="מנויים פעילים" accent="#0066d6" />
-        <StatCard value={stats.unlimited}     label="ללא הגבלה"     accent="#0066d6" />
-        <StatCard
-          value={stats.expiring_soon}
-          label="פגים ב-7 ימים"
-          accent={stats.expiring_soon > 0 ? '#975a16' : undefined}
-        />
-        <StatCard value={stats.pending_payments} label="תשלומים ממתינים" accent={stats.pending_payments > 0 ? '#9a4a07' : undefined} />
-      </Section>
+      <StatsSection id="st-attn" icon="🛎️" title="דורש טיפול" desc="דברים שממתינים לך עכשיו. לחיצה תעביר ללשונית הרלוונטית.">
+        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <li><StatsActionRow icon="🎫" label="פניות פתוחות" count={n('tickets_open')} doneText="אין פניות פתוחות" onClick={onNavigate ? () => onNavigate('tickets') : undefined} /></li>
+          <li><StatsActionRow icon="💳" label="תשלומים ממתינים לאישור" count={n('pending_payments')} doneText="אין תשלומים ממתינים" onClick={onNavigate ? () => onNavigate('payments') : undefined} /></li>
+        </ul>
+        {!needsAttention && <p style={{ margin: '10px 0 0', fontSize: 13, color: 'var(--text-muted)' }}>הכול מטופל, אין משימות פתוחות.</p>}
+      </StatsSection>
 
-      <Section title="חיפושים">
-        <StatCard value={stats.searches_today} label="היום"    accent="#177a33" />
-        <StatCard value={stats.searches_week}  label="השבוע" />
-        <StatCard value={stats.total_searches} label="סה״כ כל הזמנים" />
-        <StatCard value={stats.active_month}   label="פעילים החודש" />
-      </Section>
+      <StatsSection id="st-users" icon="👥" title="משתמשים" desc="כמה אנשים משתמשים בבוט, וכמה מהם פעילים לאחרונה.">
+        <dl style={statsGrid}>
+          <StatsMetric label="סה״כ משתמשים" value={fmtNum(n('total_users'))} hint="כל מי שהצטרף אי פעם" />
+          <StatsMetric label="חדשים היום" value={fmtNum(n('new_today'))} hint={`${fmtNum(n('new_week'))} ב-7 הימים האחרונים`} />
+          <StatsMetric label="פעילים (7 ימים)" value={fmtNum(n('active_week'))} hint="פעילים = נכנסו ב-7 הימים האחרונים" />
+          <StatsMetric label="פעילים (30 יום)" value={fmtNum(n('active_month'))} hint="נכנסו ב-30 הימים האחרונים" />
+          <StatsMetric label="חסומים" value={fmtNum(n('blocked_users'))} hint="משתמשים שנחסמו ולא יכולים לחפש" />
+        </dl>
+      </StatsSection>
 
-      <Section title="קודים וטיקטים">
-        <StatCard value={stats.active_codes}  label="קודים פעילים"  sub={`${stats.used_codes}/${stats.total_codes} נוצלו`} />
-        <StatCard value={stats.tickets_open}  label="טיקטים פתוחים" accent={stats.tickets_open > 0 ? '#9a4a07' : undefined} />
-      </Section>
-
-      <Section title="🔔 התראות יד2">
-        <StatCard value={stats.watches_users ?? 0} label="משתמשים עם מעקב" accent="#0066d6" />
-        <StatCard value={stats.watches_total ?? 0} label="מעקבים פעילים"   accent="#0066d6" />
-        <StatCard value={stats.watches_week  ?? 0} label="נוספו השבוע"      accent="#0066d6" />
-      </Section>
-
-      {stats.top_users?.length > 0 && (
-        <div style={{ marginBottom: 18 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--hint)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
-            🏆 מחפשים מובילים
+      <StatsSection id="st-prem" icon="⭐" title="מנויי Premium" desc="מי משלם או נהנה ממנוי, ומה צפוי להסתיים בקרוב.">
+        {n('expiring_soon') > 0 && (
+          <div role="note" style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 12px', marginBottom: 12, borderRadius: 14, background: 'rgba(245,158,11,0.12)', border: '1px solid #b45309', fontSize: 14, lineHeight: 1.5 }}>
+            <span aria-hidden="true">⚠️</span>
+            <span><strong>שימו לב:</strong> {n('expiring_soon') === 1 ? 'מסלול אחד מסתיים' : `${fmtNum(n('expiring_soon'))} מסלולים מסתיימים`} ב-7 הימים הקרובים.</span>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {stats.top_users.map((u, i) => (
-              <div key={i} style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                background: 'var(--bg2)', borderRadius: 10, padding: '8px 14px',
-              }}>
-                <span style={{ fontSize: 13 }}>
-                  <span style={{ color: 'var(--hint)', marginLeft: 6 }}>#{i + 1}</span> {u.name}
-                </span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{u.searches} 🔍</span>
-              </div>
-            ))}
+        )}
+        <dl style={statsGrid}>
+          <StatsMetric label="מנויים פעילים" value={fmtNum(n('subscribers'))} hint="חברים בקבוצת ״מנויים״" />
+          <StatsMetric label="ללא הגבלה" value={fmtNum(n('unlimited'))} hint="מסלול ללא הגבלה שעדיין בתוקף" />
+          <StatsMetric label="פגים בקרוב" value={fmtNum(n('expiring_soon'))} hint="מסלולים שמסתיימים תוך 7 ימים" />
+          <StatsMetric label="אחוז המרה" value={pctText(conv)} hint="מנויים מתוך כלל המשתמשים" />
+        </dl>
+      </StatsSection>
+
+      <StatsSection id="st-search" icon="🔍" title="חיפושים" desc="כמה חיפושי רכב בוצעו, ובאיזה קצב.">
+        <dl style={statsGrid}>
+          <StatsMetric label="סה״כ חיפושים" value={fmtNum(n('total_searches'))} hint="מאז תחילת הפעילות" />
+          <StatsMetric label="היום" value={fmtNum(n('searches_today'))} hint="מתחילת היום" />
+          <StatsMetric label="7 ימים" value={fmtNum(n('searches_week'))} hint="בשבוע האחרון" />
+          <StatsMetric label="ממוצע ליום" value={fmtDec(perDay)} hint="חיפושים ב-7 ימים חלקי 7" />
+          <StatsMetric label="למשתמש פעיל" value={perActive == null ? '—' : fmtDec(perActive)} hint="חיפושי 7 ימים חלקי פעילים" />
+        </dl>
+      </StatsSection>
+
+      <StatsSection id="st-watch" icon="🔔" title="התראות יד2" desc="מעקב אחרי מודעות חדשות לפי יצרן, דגם ושנה.">
+        <dl style={statsGrid}>
+          <StatsMetric label="התראות פעילות" value={fmtNum(n('watches_total'))} hint="מעקבים שפעילים כרגע" />
+          <StatsMetric label="משתמשים עם התראה" value={fmtNum(n('watches_users'))} hint="משתמשים ייחודיים" />
+          <StatsMetric label="נוספו השבוע" value={fmtNum(n('watches_week'))} hint="התראות חדשות ב-7 ימים" />
+        </dl>
+      </StatsSection>
+
+      <StatsSection id="st-codes" icon="🎟️" title="קודי הטבה" desc="קודים שנוצרו, כמה מהם מומשו וכמה עדיין פנויים.">
+        <dl style={statsGrid}>
+          <StatsMetric label="סה״כ קודים" value={fmtNum(n('total_codes'))} hint="כל הקודים שנוצרו" />
+          <StatsMetric label="נוצלו" value={fmtNum(n('used_codes'))} hint="קודים שמישהו מימש" />
+          <StatsMetric label="פעילים" value={fmtNum(n('active_codes'))} hint="לא נוצלו ולא פגו" />
+        </dl>
+        <div style={{ marginTop: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6, color: 'var(--text-main)' }}>
+            <span>ניצול קודים</span>
+            <span dir="ltr" style={{ unicodeBidi: 'isolate', fontWeight: 700 }}>{fmtNum(n('used_codes'))} / {fmtNum(n('total_codes'))} ({pctText(codesUsed)})</span>
           </div>
+          <StatsBar value={codesUsed} />
         </div>
-      )}
+      </StatsSection>
+
+      <StatsSection id="st-top" icon="🏆" title="משתמשים מובילים" desc="חמשת המשתמשים עם הכי הרבה חיפושים מאז ההצטרפות.">
+        {top.length === 0 ? (
+          <p style={{ margin: 0, fontSize: 14, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>עדיין אין חיפושים להצגה.</p>
+        ) : (
+          <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {top.map((u, i) => {
+              const cnt = Number(u?.searches) || 0
+              return (
+                <li key={i} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  <span aria-hidden="true" style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, background: i === 0 ? '#92400e' : 'rgba(0,122,255,0.1)', color: i === 0 ? '#fff' : 'var(--primary)' }}>{i + 1}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 14, marginBottom: 4 }}>
+                      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', unicodeBidi: 'plaintext', fontWeight: 600 }}>
+                        <span className="sr-only">מקום {i + 1}: </span>{u?.name || 'ללא שם'}
+                      </span>
+                      <span style={{ flexShrink: 0, fontWeight: 800 }}><span dir="ltr" style={{ unicodeBidi: 'isolate' }}>{fmtNum(cnt)}</span> <span style={{ fontWeight: 500, color: 'var(--text-muted)', fontSize: 12 }}>חיפושים</span></span>
+                    </div>
+                    <StatsBar value={cnt / topMax} />
+                  </div>
+                </li>
+              )
+            })}
+          </ol>
+        )}
+      </StatsSection>
     </div>
   )
 }
