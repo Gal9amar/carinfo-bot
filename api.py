@@ -29,7 +29,7 @@ WEBAPP_URL   = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_U
 # Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
 # webapp can detect a new release and force-reload instead of running stale
 # cached JS. Falls back to process start time for non-Render environments.
-APP_VERSION = "1792236244"
+APP_VERSION = "1792236583"
 
 api = FastAPI()
 
@@ -93,6 +93,9 @@ def _validate_init_data(init_data: str) -> dict | None:
     return json.loads(user_str) if user_str else {}
 
 
+_CONSENT_EXEMPT = {"/api/user", "/api/user/consent", "/api/user/account"}
+
+
 async def _get_user(request: Request) -> dict:
     init_data = request.headers.get("X-Init-Data", "")
     user = _validate_init_data(init_data)
@@ -102,9 +105,9 @@ async def _get_user(request: Request) -> dict:
     # A user who deleted their account must /start again; /api/user stays open
     # so the app can tell them so.
     uid = int(user["id"])
-    if uid != ADMIN_ID and request.url.path != "/api/user":
-        from src.users import user_exists
-        if not await user_exists(uid):
+    if uid != ADMIN_ID and request.url.path not in _CONSENT_EXEMPT:
+        from src.users import consent_state
+        if await consent_state(uid) != "ok":
             raise HTTPException(status_code=403, detail="consent_required")
     return user
 
@@ -217,14 +220,19 @@ async def get_user_info(user: dict = Depends(_get_user)):
         get_quota_expires(user_id), _get_max_for_user(user_id),
     )
     maintenance = (await get_bot_setting("maintenance")) == "1"
-    if db_user is None and user_id != ADMIN_ID:
-        return {
-            "id": user["id"], "first_name": user.get("first_name", ""), "last_name": user.get("last_name", ""),
-            "username": user.get("username", ""), "consent_required": True, "maintenance": maintenance,
-            "is_admin": False, "searches_left": 0, "searches_quota": 0,
-            "show_market_price": False, "show_pdf_report": False, "show_watch": False,
-            "bot_username": BOT_USERNAME,
-        }
+    if user_id != ADMIN_ID:
+        from src.users import consent_state
+        stage = await consent_state(user_id)
+        if stage != "ok":
+            return {
+                "id": user["id"], "first_name": user.get("first_name", ""), "last_name": user.get("last_name", ""),
+                "username": user.get("username", ""), "consent_required": True,
+                # 'none' = never started the bot / deleted account → must /start; 'pending' = approve in-app
+                "consent_stage": stage, "maintenance": maintenance,
+                "is_admin": False, "searches_left": 0, "searches_quota": 0,
+                "show_market_price": False, "show_pdf_report": False, "show_watch": False,
+                "bot_username": BOT_USERNAME,
+            }
     left = db_user.get("searches_left", 0) if db_user else 0
     quota = db_user.get("searches_quota", 0) if db_user else 0
 
@@ -310,6 +318,22 @@ async def get_user_info(user: dict = Depends(_get_user)):
         "subscription_label": subscription_label,
         "global_unlimited_active": global_unlimited,
     }
+
+
+@api.post("/api/user/consent")
+async def approve_consent(user: dict = Depends(_get_user)):
+    """In-app approval of the terms (all four items are ticked client-side and mandatory)."""
+    from src.users import consent_state, record_consent
+    user_id = int(user["id"])
+    if await consent_state(user_id) == "none":
+        raise HTTPException(status_code=403, detail="start_required")
+    await record_consent(user_id)
+    try:
+        from src.activity import log as _log
+        await _log("consent", "אישר תנאי שימוש ומדיניות פרטיות (מיניאפ)", user_id, user.get("username") or "")
+    except Exception:
+        pass
+    return {"ok": True}
 
 
 class DeleteAccountBody(BaseModel):

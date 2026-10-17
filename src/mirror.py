@@ -135,6 +135,7 @@ _MINIAPP_RULES: list[tuple[str, str, dict[int, str]]] = [
     ("POST", r"^/api/notes/(?P<p>[\w\-]{4,12})$", {200: "📝 שמר הערה ללוחית {p}"}),
     ("POST", r"^/api/payment/initiate$", {200: "🛒 התחיל תהליך רכישה"}),
     ("POST", r"^/api/payment/promote$", {200: "💳 דיווח שביצע תשלום — ממתין לאישור"}),
+    ("POST", r"^/api/user/consent$", {200: "✅ אישר תנאי שימוש ומדיניות פרטיות"}),
     ("DELETE", r"^/api/user/account$", {200: "🗑️ מחק את חשבונו וכל נתוניו"}),
     ("POST", r"^/api/user/garage$", {200: "🚗 הוסיף רכב למוסך"}),
     ("PATCH", r"^/api/user/garage/\d+$", {200: "✏️ עדכן פרטי רכב במוסך"}),

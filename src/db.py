@@ -137,6 +137,8 @@ async def init_db() -> None:
     created_at  TEXT    DEFAULT (datetime('now'))
 )""",
         "ALTER TABLE users ADD COLUMN referred_by INTEGER DEFAULT NULL",
+        "ALTER TABLE users ADD COLUMN consent_version INTEGER DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN consent_at TEXT DEFAULT NULL",
         """CREATE TABLE IF NOT EXISTS referrals (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     referrer_id INTEGER NOT NULL,

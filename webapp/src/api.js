@@ -895,3 +895,10 @@ export async function deleteMyAccount() {
   clearUserCache()
   return r.json()
 }
+
+export async function approveConsent() {
+  const r = await fetch(`${BASE}/api/user/consent`, { method: 'POST', headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  clearUserCache()
+  return r.json()
+}

@@ -332,6 +332,12 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     is_admin = (user_id == ADMIN_ID)
 
+    if not is_admin:
+        from src.users import consent_state
+        if await consent_state(user_id) != "ok":
+            await _send_consent_screen(update.message, user, reapprove=not is_new)
+            return
+
     if not allowed:
         if await is_blocked(user_id):
             await update.message.reply_text(
@@ -1714,9 +1720,76 @@ async def handle_mirror_noop(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await update.callback_query.answer("זה רק העתק של מה שהמשתמש ראה — הכפתור לא פעיל", show_alert=True)
 
 
+def _consent_keyboard(bits: str) -> InlineKeyboardMarkup:
+    rows = [
+        [InlineKeyboardButton(f"{'✅' if bits[k] == '1' else '⬜'} {M.CONSENT_ITEMS[k]}",
+                              callback_data=f"consent|t|{k}|{bits}")]
+        for k in range(len(M.CONSENT_ITEMS))
+    ]
+    webapp_url = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_URL", "https://carinfo-bot.onrender.com")
+    rows.append([InlineKeyboardButton("📄 קריאת תנאי השימוש והמדיניות", web_app=WebAppInfo(url=f"{webapp_url}?page=privacy"))])
+    rows.append([InlineKeyboardButton("▶️ אני מאשר/ת — המשך", callback_data=f"consent|ok|0|{bits}")])
+    return InlineKeyboardMarkup(rows)
+
+
+async def _send_consent_screen(target, user, reapprove: bool) -> None:
+    await target.reply_text(
+        M.consent_screen(_first_name(user), "0000", reapprove),
+        parse_mode=HTML, reply_markup=_consent_keyboard("0000"),
+    )
+
+
+async def handle_consent_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """consent|t|<idx>|<bits> toggles one item · consent|ok|0|<bits> continues (only when all approved)."""
+    query = update.callback_query
+    user = query.from_user
+    try:
+        _, action, idx, bits = query.data.split("|")
+        assert len(bits) == len(M.CONSENT_ITEMS) and set(bits) <= {"0", "1"}
+    except Exception:
+        await query.answer()
+        return
+    if action == "t":
+        k = int(idx)
+        bits = bits[:k] + ("0" if bits[k] == "1" else "1") + bits[k + 1:]
+        try:
+            await query.edit_message_text(
+                M.consent_screen(_first_name(user), bits), parse_mode=HTML,
+                reply_markup=_consent_keyboard(bits),
+            )
+        except Exception:
+            pass
+        await query.answer()
+        return
+    if bits != "1" * len(M.CONSENT_ITEMS):
+        await query.answer("כדי להמשיך יש לאשר את כל הסעיפים", show_alert=True)
+        return
+    from src.users import record_consent
+    await record_consent(user.id)
+    try:
+        from src.activity import log as _log
+        await _log("consent", "אישר תנאי שימוש ומדיניות פרטיות", user.id, user.username or "")
+    except Exception:
+        pass
+    await query.answer("תודה! אפשר להתחיל 🎉")
+    allowed, left = await is_allowed(user.id, user.username or "", user.full_name or "")
+    expires = None
+    if left == -1:
+        from src.users import get_quota_expires
+        expires = await get_quota_expires(user.id)
+    text = M.welcome(_first_name(user), M.quota_line(left, expires), is_new=True)
+    try:
+        await query.edit_message_text("✅ אישרת את תנאי השימוש ומדיניות הפרטיות — תודה!")
+    except Exception:
+        pass
+    await context.bot.send_message(user.id, text, parse_mode=HTML, reply_markup=_welcome_keyboard(user.id == ADMIN_ID))
+    await log_sent_message(user.id, _log_text(text), kind="welcome")
+
+
 async def _consent_gate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Only users who started the bot (= accepted the terms) may use it. After deleting an
-    account the user must /start again; nothing else creates an account."""
+    """Nobody uses the bot before approving the current terms. No account → /start;
+    account without (re)approval → the consent screen. Existing users are re-asked on
+    their first action whenever users.CONSENT_VERSION is bumped."""
     user, chat = update.effective_user, update.effective_chat
     if not user or user.is_bot or user.id == ADMIN_ID or not chat or chat.type != "private":
         return
@@ -1724,15 +1797,19 @@ async def _consent_gate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         return
     if update.message and (update.message.text or "").startswith("/start"):
         return
-    from src.users import user_exists
-    if await user_exists(user.id):
+    if update.callback_query and (update.callback_query.data or "").startswith("consent|"):
         return
-    text = M.consent_required(_first_name(user))
+    from src.users import consent_state
+    state = await consent_state(user.id)
+    if state == "ok":
+        return
     try:
         if update.callback_query:
-            await update.callback_query.answer("שלח /start כדי להפעיל את הבוט מחדש", show_alert=True)
+            await update.callback_query.answer("יש לאשר את תנאי השימוש — שלח /start", show_alert=True)
+        elif state == "none":
+            await update.message.reply_text(M.consent_required(_first_name(user)), parse_mode=HTML)
         else:
-            await update.message.reply_text(text, parse_mode=HTML)
+            await _send_consent_screen(update.message, user, reapprove=True)
     except Exception as e:
         logger.warning("consent gate reply failed: %s", e)
     raise ApplicationHandlerStop
@@ -2541,6 +2618,7 @@ def main() -> None:
     app.add_handler(CommandHandler("admin",  cmd_admin))
     app.add_handler(TypeHandler(Update, _consent_gate), group=-2)
     app.add_handler(TypeHandler(Update, _mirror_incoming), group=-1)   # blocking: the user action must be queued before the bot reacts
+    app.add_handler(CallbackQueryHandler(handle_consent_callback, pattern=r"^consent\|"))
     app.add_handler(CallbackQueryHandler(handle_mirror_noop, pattern=r"^mirror\|noop$"))
     app.add_handler(CommandHandler("mirror_here", cmd_mirror_here))
     app.add_handler(CommandHandler("mirror_off", cmd_mirror_off))

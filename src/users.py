@@ -765,19 +765,32 @@ async def expire_subscriptions() -> list[int]:
 
 
 # ── Consent gate & account deletion ────────────────────────────────────────
-_known_users: set[int] = set()
+# Bump CONSENT_VERSION whenever the terms change: every user (existing ones
+# included) is asked to approve again on their next action.
+CONSENT_VERSION = 1
+_consented: set[int] = set()
 
 
-async def user_exists(user_id: int) -> bool:
-    """True once the user has started the bot (= agreed to the terms). Positive
-    answers are cached; deleting an account removes the id from the cache."""
-    if user_id in _known_users:
-        return True
-    r = await execute("SELECT 1 FROM users WHERE user_id = ?", [user_id])
-    if r.rows:
-        _known_users.add(user_id)
-        return True
-    return False
+async def consent_state(user_id: int) -> str:
+    """'none' = no account (must /start) · 'pending' = account but terms not (re)approved ·
+    'ok'. Positive answers are cached; deleting an account clears the cache entry."""
+    if user_id in _consented:
+        return "ok"
+    r = await execute("SELECT COALESCE(consent_version, 0) FROM users WHERE user_id = ?", [user_id])
+    if not r.rows:
+        return "none"
+    if r.rows[0][0] >= CONSENT_VERSION:
+        _consented.add(user_id)
+        return "ok"
+    return "pending"
+
+
+async def record_consent(user_id: int) -> None:
+    await execute(
+        "UPDATE users SET consent_version = ?, consent_at = datetime('now') WHERE user_id = ?",
+        [CONSENT_VERSION, user_id],
+    )
+    _consented.add(user_id)
 
 
 async def delete_user_data(user_id: int) -> None:
@@ -809,4 +822,4 @@ async def delete_user_data(user_id: int) -> None:
     await execute("UPDATE users SET referred_by=NULL WHERE referred_by=?", [user_id])
     await execute("UPDATE paypal_transactions SET user_id=0 WHERE user_id=?", [user_id])
     await execute("DELETE FROM users WHERE user_id=?", [user_id])
-    _known_users.discard(user_id)
+    _consented.discard(user_id)
