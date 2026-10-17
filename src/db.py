@@ -228,6 +228,8 @@ async def init_db() -> None:
     migrations.append("ALTER TABLE paypal_transactions ADD COLUMN package_type TEXT DEFAULT 'searches'")
     migrations.append("ALTER TABLE pending_payments ADD COLUMN product_quantity INTEGER DEFAULT 1")
     migrations.append("ALTER TABLE paypal_transactions ADD COLUMN product_quantity INTEGER DEFAULT 1")
+    # (the first duration_months ALTER above runs before the table exists on a fresh DB — repeat it here)
+    migrations.append("ALTER TABLE paypal_transactions ADD COLUMN duration_months INTEGER DEFAULT 1")
     migrations.append("""CREATE TABLE IF NOT EXISTS owned_vehicles (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id        INTEGER NOT NULL,

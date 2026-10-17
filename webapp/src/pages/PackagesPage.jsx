@@ -543,13 +543,13 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
                     }}>+</button>
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginTop: 10 }}>
                   {[1, 3, 6, 12].map(n => (
-                    <button key={n} onClick={() => setQty(pkg.id, n, MAX_MONTHS)} aria-pressed={qty === n} style={{
-                      flex: '1 1 60px', minHeight: 44, borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                    <button key={n} onClick={() => setQty(pkg.id, n, MAX_MONTHS)} aria-pressed={qty === n} aria-label={monthsLabel(n * unitMonths)} style={{
+                      minHeight: 48, padding: '4px 2px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', lineHeight: 1.15, borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: 'pointer',
                       border: `1.5px solid ${qty === n ? accent : 'var(--border)'}`,
                       background: qty === n ? accent : 'var(--bg)', color: qty === n ? '#fff' : 'var(--text)',
-                    }}>{monthsLabel(n * unitMonths)}</button>
+                    }}>{n * unitMonths === 1 ? <span>חודש</span> : <><span style={{ fontSize: 16 }}>{n * unitMonths}</span><span style={{ fontSize: 11, fontWeight: 600 }}>חודשים</span></>}</button>
                   ))}
                 </div>
                 {isExtend && plan.expires && (
