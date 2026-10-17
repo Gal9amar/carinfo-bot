@@ -126,6 +126,30 @@ export async function fetchVehicle(plate) {
   return r.json()
 }
 
+// Vehicle comparison (premium). NOT cached: every successful call consumes a search.
+export async function fetchCompare(plate, other) {
+  let r
+  try {
+    r = await fetch(
+      `${BASE}/api/vehicle/${encodeURIComponent(plate)}/compare/${encodeURIComponent(other)}`,
+      { headers: headers(), cache: 'no-store' },
+    )
+  } catch {
+    throw new Error('NETWORK_ERROR')
+  }
+  if (!r.ok) {
+    let detail = ''
+    try { const j = await r.json(); detail = typeof j?.detail === 'string' ? j.detail : '' } catch { /* not JSON */ }
+    if (r.status === 403) throw new Error(detail === 'feature_locked' ? 'FEATURE_LOCKED' : 'QUOTA_EXCEEDED')
+    if (r.status === 404) throw new Error('NOT_FOUND')
+    if (r.status === 400) throw new Error(detail === 'same_plate' ? 'SAME_PLATE' : 'BAD_REQUEST')
+    if (r.status === 503) throw new Error('MAINTENANCE')
+    if (r.status === 502) throw new Error('REGISTRY_UNAVAILABLE')
+    throw new Error('SERVER_ERROR')
+  }
+  return r.json()
+}
+
 // Admin
 export async function adminFetchStats() {
   const r = await fetch(`${BASE}/api/admin/stats`, { headers: headers() })

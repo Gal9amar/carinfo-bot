@@ -185,8 +185,9 @@ Explicit consent: `users.consent_version` / `consent_at`; `users.CONSENT_VERSION
 ### Referral
 Link `https://t.me/{BOT_USERNAME}?start=ref_{referrer_id}` → `/start ref_X` → for a **new** user, if the referrer has a live Premium plan (`users.get_premium_expiry`) their `quota_expires` is extended by `referral_bonus_premium_days` (`extend_premium_days`); otherwise `referral_bonus` searches are added. Admin: Settings → referral card (both values). No subscriber status.
 
-### Feature access (market price / PDF / alerts)
-`/api/user` computes `show_*` via `_check_feature(prefix)`: admin ✔ · quota −1 ✔ · subscriber (incl. VIP) ✔ · quota left > 0 ✔ · else if `{prefix}_enabled != 0` and public mode active within its date window ✔. `public_label` fields are shown only while public mode is active.
+### Feature access (compare / PDF / alerts / market price)
+**One rule for bot AND Mini App:** `src/features.py::feature_open(user_id, prefix)` (`compare`, `pdf_report`, `yad2_watch`). Used by `/api/user` (`show_*`), the compare / PDF / watches endpoints, the bot's result-card buttons (locked buttons are hidden), `/compare`, the PDF callback and the Yad2 watch job. Never re-implement the gate. Premium components in the Mini App live on the report's **Summary** tab (market price, alerts, PDF, compare); the Full tab only holds vehicle details. `GET /api/vehicle/{a}/compare/{b}` costs 1 search (for b; none when unlimited).
+`/api/user` computes `show_*` via `feature_open`: admin ✔ · quota −1 ✔ · subscriber (incl. VIP) ✔ · member of `{prefix}_groups` ✔ · quota left > 0 ✔ · else if `{prefix}_enabled != 0` and public mode active within its date window ✔. `public_label` fields are shown only while public mode is active.
 `GET /api/vehicle/{plate}/market-price` uses its **own** gate: requires `yad2_market_enabled=1` (403 `disabled`), `authorized` = public-mode window **or** membership in `yad2_market_groups`; data is always returned and the UI blurs it when `authorized=false`. (These two gates differ — check both when changing access rules.)
 
 ### Alerts ("watches", Yad2)

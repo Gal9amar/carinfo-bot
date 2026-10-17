@@ -161,7 +161,10 @@ def build_result_keyboard(
     is_admin: bool = False,
     record: dict | None = None,
     yad2_link: str = "",
+    features: frozenset = frozenset({"compare", "yad2_watch"}),
 ) -> InlineKeyboardMarkup:
+    """`features`: premium features this user is entitled to (src.features) — locked buttons are hidden
+    exactly where the Mini App shows its locked state, so both surfaces agree."""
     from telegram import WebAppInfo
     webapp_url = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_URL", "https://carinfo-bot.onrender.com")
     plate = record.get("mispar_rechev", "") if record else ""
@@ -173,14 +176,15 @@ def build_result_keyboard(
         ))
     rows = [first_row] if first_row else []
     if plate:
-        rows.append([
-            InlineKeyboardButton("🔔 תזכורת טסט", callback_data=f"rem|add|{plate}"),
-            InlineKeyboardButton("⚖️ השוואה", callback_data=f"cmp|start|{plate}"),
-        ])
-        rows.append([
-            InlineKeyboardButton("👀 מעקב מודעות", web_app=WebAppInfo(url=f"{webapp_url}/?page=watches")),
-            InlineKeyboardButton("📤 שתף", callback_data="share_report"),
-        ])
+        row2 = [InlineKeyboardButton("🔔 תזכורת טסט", callback_data=f"rem|add|{plate}")]
+        if "compare" in features:
+            row2.append(InlineKeyboardButton("⚖️ השוואה", callback_data=f"cmp|start|{plate}"))
+        rows.append(row2)
+        row3 = []
+        if "yad2_watch" in features:
+            row3.append(InlineKeyboardButton("👀 מעקב מודעות", web_app=WebAppInfo(url=f"{webapp_url}/?page=watches")))
+        row3.append(InlineKeyboardButton("📤 שתף", callback_data="share_report"))
+        rows.append(row3)
     rows.extend(_persistent_rows(is_admin))
     return InlineKeyboardMarkup(rows)
 
@@ -1911,6 +1915,10 @@ async def _compare_flow(message, tg_user, chat_id: int, context, plate_a: str, p
     if plate_a == plate_b:
         await message.reply_text(M.compare_same(name), parse_mode=HTML)
         return
+    from src.features import feature_open
+    if not await feature_open(user_id, "compare"):
+        await message.reply_text(M.feature_locked(name, "השוואת רכבים"), parse_mode=HTML, reply_markup=_payment_keyboard(is_admin))
+        return
     allowed, left = await is_allowed(user_id, tg_user.username or "", tg_user.full_name or "")
     if not allowed:
         if await is_blocked(user_id):
@@ -2124,8 +2132,14 @@ async def _lookup_flow(message, tg_user, chat_id: int, context: ContextTypes.DEF
             pass
 
     yad2_link = _yad2.build_url(record)
+    from src.features import feature_open
+    open_features = frozenset(
+        f for f, ok in zip(("compare", "yad2_watch"),
+                           await asyncio.gather(feature_open(user_id, "compare"), feature_open(user_id, "yad2_watch")))
+        if ok
+    )
     result_kb = build_result_keyboard(
-        is_admin=(user_id == ADMIN_ID), record=record, yad2_link=yad2_link,
+        is_admin=(user_id == ADMIN_ID), record=record, yad2_link=yad2_link, features=open_features,
     )
     # Table layout via sendRichMessage (admin setting rich_messages_enabled); any failure falls through to classic HTML.
     if await send_rich_message(
@@ -2142,6 +2156,7 @@ async def _lookup_flow(message, tg_user, chat_id: int, context: ContextTypes.DEF
                 is_admin=(user_id == ADMIN_ID),
                 record=record,
                 yad2_link=yad2_link,
+                features=open_features,
             ),
         )
     except Exception as exc:
@@ -2154,6 +2169,7 @@ async def _lookup_flow(message, tg_user, chat_id: int, context: ContextTypes.DEF
                     is_admin=(user_id == ADMIN_ID),
                     record=record,
                     yad2_link=yad2_link,
+                    features=open_features,
                 ),
             )
         except Exception as exc2:
@@ -2209,6 +2225,13 @@ async def handle_result_callback(update: Update, context: ContextTypes.DEFAULT_T
 async def handle_pdf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
+    from src.features import feature_open
+    if not await feature_open(query.from_user.id, "pdf_report"):
+        await query.message.reply_text(
+            M.feature_locked(_first_name(query.from_user), "דוח PDF"), parse_mode=HTML,
+            reply_markup=_payment_keyboard(query.from_user.id == ADMIN_ID),
+        )
+        return
     record = context.user_data.get("last_record")
     if not record:
         await query.message.reply_text(M.no_report_for_pdf(_first_name(query.from_user)), parse_mode=HTML)
@@ -2299,10 +2322,10 @@ async def _yad2_watch_job(context) -> None:
     from src.yad2_watcher import get_all_active_watches, update_seen_ids
     from src.db import get_bot_setting
 
-    if (await get_bot_setting("yad2_watch_enabled")) != "1":
-        return
+    from src.features import feature_open
 
     _alerts_sent = 0
+    _entitled: dict[int, bool] = {}   # same access rule as the Mini App (src.features)
     try:
         watches = await get_all_active_watches()
         if not watches:
@@ -2310,6 +2333,11 @@ async def _yad2_watch_job(context) -> None:
 
         for w in watches:
             try:
+                uid_w = w["user_id"]
+                if uid_w not in _entitled:
+                    _entitled[uid_w] = await feature_open(uid_w, "yad2_watch")
+                if not _entitled[uid_w]:
+                    continue   # no longer entitled to alerts: blocked here exactly as in the Mini App
                 listings = _yad2.fetch_listings(w["make"], w.get("model", ""), w.get("year"))
 
                 label = w["make"]

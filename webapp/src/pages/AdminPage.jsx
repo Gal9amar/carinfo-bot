@@ -3901,6 +3901,12 @@ function FeaturesTab() {
   const [pdfPublicEnd, setPdfPublicEnd]         = useState('')
   const [pdfPublicLabel, setPdfPublicLabel]     = useState('')
   const [pdfSaving, setPdfSaving]               = useState(false)
+  const [compareEnabled, setCompareEnabled]       = useState(false)
+  const [comparePublic, setComparePublic]           = useState(false)
+  const [comparePublicStart, setComparePublicStart] = useState('')
+  const [comparePublicEnd, setComparePublicEnd]     = useState('')
+  const [comparePublicLabel, setComparePublicLabel] = useState('')
+  const [compareSaving, setCompareSaving]           = useState(false)
   const [watchEnabled, setWatchEnabled]         = useState(false)
   const [watchMax, setWatchMax]                 = useState('2')
   const [watchPublic, setWatchPublic]           = useState(false)
@@ -3922,6 +3928,11 @@ function FeaturesTab() {
       setPdfPublicStart(s.pdf_report_public_start || '')
       setPdfPublicEnd(s.pdf_report_public_end || '')
       setPdfPublicLabel(s.pdf_report_public_label || '')
+      setCompareEnabled(!!s.compare_enabled)
+      setComparePublic(!!s.compare_public)
+      setComparePublicStart(s.compare_public_start || '')
+      setComparePublicEnd(s.compare_public_end || '')
+      setComparePublicLabel(s.compare_public_label || '')
       setWatchEnabled(!!s.yad2_watch_enabled)
       setWatchMax(String(s.yad2_watch_max ?? 2))
       setWatchPublic(!!s.yad2_watch_public)
@@ -3959,6 +3970,21 @@ function FeaturesTab() {
       window.Telegram?.WebApp?.showAlert('✅ הגדרות עודכנו')
     } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
     setPdfSaving(false)
+  }
+
+  async function saveCompare() {
+    setCompareSaving(true)
+    try {
+      await adminUpdateSettings({
+        compare_enabled:      compareEnabled,
+        compare_public:       comparePublic,
+        compare_public_start: comparePublicStart,
+        compare_public_end:   comparePublicEnd,
+        compare_public_label: comparePublicLabel,
+      })
+      window.Telegram?.WebApp?.showAlert('✅ הגדרות עודכנו')
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    setCompareSaving(false)
   }
 
   if (!settings) return <div className="loading"></div>
@@ -4113,6 +4139,76 @@ function FeaturesTab() {
 
           <button className="btn" style={{ marginTop: 20, width: '100%', height: 44, borderRadius: 12, fontWeight: 700, background: 'var(--bg)', border: '1px solid var(--primary)', color: 'var(--primary)' }} disabled={pdfSaving} onClick={savePdf}>
             {pdfSaving ? '⏳ שומר...' : '💾 שמור הגדרות דוח PDF'}
+          </button>
+        </div>
+
+        {/* Vehicle compare */}
+        <div className="card" style={{ padding: '24px', borderTop: '4px solid #6d28d9' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 24, background: 'rgba(139, 92, 246, 0.1)', width: 44, height: 44, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>⚖️</span>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-main)' }}>השוואת רכבים</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>השוואה בין שני רכבים (צורכת חיפוש)</div>
+              </div>
+            </div>
+            <label className="toggle-row" style={{ margin: 0, padding: 0 }}>
+              <button type="button" role="switch" aria-checked={!!compareEnabled} aria-label="השוואת רכבים — הפעלה" className={`toggle ${compareEnabled ? 'on' : ''}`} onClick={() => setCompareEnabled(v => !v)} style={{ margin: 0 }} />
+            </label>
+          </div>
+
+          {compareEnabled && (
+            <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 16, animation: 'fadeIn 0.3s' }}>
+              <div style={{ background: 'var(--bg)', borderRadius: 16, padding: '20px', border: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: comparePublic ? 16 : 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 18 }}>🌐</span>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-main)' }}>פתוח לכולם (חינמי)</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>הפעלת הפיצ'ר גם למשתמשים ללא מנוי</div>
+                    </div>
+                  </div>
+                  <button type="button" role="switch" aria-checked={!!comparePublic} aria-label="השוואת רכבים — פתוח גם ללא מנוי" className={`toggle ${comparePublic ? 'on' : ''}`} onClick={() => setComparePublic(v => !v)} />
+                </div>
+                
+                {comparePublic && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>טקסט תצוגה למשתמש</div>
+                      <input type="text" className="input" style={{ margin: 0, borderRadius: 10 }}
+                        placeholder='לדוגמה: פתוח לכולם עד 01/07/2026'
+                        value={comparePublicLabel} onChange={e => setComparePublicLabel(e.target.value)} />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>תאריך התחלה</div>
+                        <input type="date" aria-label="תאריך התחלה" className="input" style={{ margin: 0, borderRadius: 10 }}
+                          value={comparePublicStart} onChange={e => setComparePublicStart(e.target.value)} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>תאריך סיום</div>
+                        <input type="date" aria-label="תאריך סיום" className="input" style={{ margin: 0, borderRadius: 10 }}
+                          value={comparePublicEnd} onChange={e => setComparePublicEnd(e.target.value)} />
+                      </div>
+                    </div>
+                    {(() => {
+                      const today = new Date().toISOString().slice(0, 10)
+                      const inWindow = (!comparePublicStart || today >= comparePublicStart) &&
+                                       (!comparePublicEnd   || today <= comparePublicEnd)
+                      return (
+                        <div style={{ fontSize: 12, fontWeight: 700, color: inWindow ? '#047857' : '#9a4a07', background: inWindow ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', padding: '8px 12px', borderRadius: 8, display: 'inline-block', marginTop: 4 }}>
+                          {inWindow ? '🟢 פעיל כעת לכולם' : '🟡 מחוץ לטווח התאריכים (מוסתר מחינמיים)'}
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <button className="btn" style={{ marginTop: 20, width: '100%', height: 44, borderRadius: 12, fontWeight: 700, background: 'var(--bg)', border: '1px solid var(--primary)', color: 'var(--primary)' }} disabled={compareSaving} onClick={saveCompare}>
+            {compareSaving ? '⏳ שומר...' : '💾 שמור הגדרות השוואת רכבים'}
           </button>
         </div>
 

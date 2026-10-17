@@ -5,6 +5,7 @@ import LicensePlate from '../components/LicensePlate.jsx'
 import BackButton from '../components/BackButton.jsx'
 import PageBanners from '../components/PageBanners.jsx'
 import VehicleLookupLoader from '../components/VehicleLookupLoader.jsx'
+import CompareCard from '../components/CompareCard.jsx'
 import { getMarketStats } from '../utils/marketPrice.js'
 import { fmtDate, testStatus } from '../utils/time.js'
 
@@ -173,7 +174,7 @@ function buildFullText(record, ownership) {
 // ── SummaryTab ────────────────────────────────────────────────────────────────
 
 function SummaryTab({ record, ownership, recalls, make, model, year, color, km, testStr,
-  plateNum, score, flags, marketData, w, statusColor }) {
+  plateNum, score, flags, premium, w, statusColor }) {
 
   const kmNum = km ? Number(km) : null
   const age = year ? new Date().getFullYear() - parseInt(year) : null
@@ -260,40 +261,8 @@ function SummaryTab({ record, ownership, recalls, make, model, year, color, km, 
         </div>
       )}
 
-      {/* ── Market price ── */}
-      {marketData?.market && (() => {
-        const authorized = marketData.authorized !== false
-        const stats = getMarketStats(marketData, marketData.year)
-        if (!stats) return null
-        const { median } = stats
-        return (
-          <div style={{
-            borderRadius: 14, padding: '14px 16px', marginBottom: 14,
-            background: 'var(--bg2)',
-          }}>
-            {/* שורה 1 — תגית + public_label */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <div style={{
-                fontSize: 11, fontWeight: 700, background: '#0066d6', color: '#fff',
-                borderRadius: 20, padding: '3px 10px', whiteSpace: 'nowrap',
-              }}>למנויים בלבד</div>
-              {marketData.public_label && (
-                <div style={{ fontSize: 11, color: 'var(--hint)', textAlign: 'left' }}>{marketData.public_label}</div>
-              )}
-            </div>
-            {/* שורה 2 — אייקון + כותרת */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <span style={{ fontSize: 18 }}>💰</span>
-              <span style={{ fontSize: 13, color: 'var(--hint)', fontWeight: 500 }}>ממוצע שוק – Yad2</span>
-            </div>
-            {/* שורה 3 — מחיר מרוכז */}
-            <div aria-hidden={authorized ? undefined : 'true'} style={{
-              textAlign: 'center', fontSize: 26, fontWeight: 900, color: '#0066d6',
-              ...(authorized ? {} : { filter: 'blur(6px)', userSelect: 'none' }),
-            }}>₪{median.toLocaleString()}</div>
-          </div>
-        )
-      })()}
+      {/* ── Premium features (market price, alerts, PDF, compare) ── */}
+      {premium}
 
       {/* ── Ownership timeline ── */}
       {ownership.length > 0 && (
@@ -669,6 +638,255 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
   }
   const score = calcScore()
 
+  const marketCard = (() => {
+    const authorized = marketData?.authorized !== false
+    const stats = getMarketStats(marketData, marketData?.year)
+    if (!stats) return null
+    const { median, min, max, avgKm } = stats
+    return (
+      <div className="card" style={{ marginBottom: 12 }} aria-label="מחיר שוק" role="group">
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+          <div>
+            <div style={{
+              display: 'inline-block', fontSize: 11, fontWeight: 700,
+              background: '#0066d6', color: '#fff',
+              borderRadius: 20, padding: '4px 10px', marginBottom: 6,
+            }}>למנויים בלבד</div>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>💰 מחיר שוק – Yad2</div>
+          </div>
+          {marketData.public_label && (
+            <div style={{ fontSize: 11, color: 'var(--hint)', textAlign: 'left', whiteSpace: 'nowrap' }}>
+              {marketData.public_label}
+            </div>
+          )}
+        </div>
+        {/* Stats — only values blurred for unauthorized users */}
+        {[
+          ['ממוצע שוק',  `₪${median.toLocaleString()}`],
+          ['מינימום',    `₪${min.toLocaleString()}`],
+          ['מקסימום',    `₪${max.toLocaleString()}`],
+          ...(avgKm ? [['ק״מ ממוצע', `${avgKm.toLocaleString()} ק״מ`]] : []),
+        ].map(([label, val]) => (
+          <div key={label} style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+            padding: '6px 0', borderBottom: '1px solid rgba(0,100,200,0.1)', fontSize: 14, gap: 8,
+          }}>
+            <span style={{ color: 'var(--hint)', flexShrink: 0, minWidth: 120 }}>{label}</span>
+            <span aria-hidden={authorized ? undefined : 'true'} style={{
+              fontWeight: 500, textAlign: 'end',
+              ...(authorized ? {} : { filter: 'blur(5px)', userSelect: 'none' }),
+            }}>{val}</span>
+          </div>
+        ))}
+        {/* Yad2 button — active for authorized, disabled for others */}
+        {authorized && marketData.yad2_url ? (
+          <a href={marketData.yad2_url} target="_blank" rel="noopener noreferrer" style={{
+            display: 'block', marginTop: 10, padding: '8px 0',
+            background: '#c23400', color: '#fff',
+            borderRadius: 10, textAlign: 'center', fontSize: 13,
+            fontWeight: 700, textDecoration: 'none',
+          }}>חפש ב-Yad2</a>
+        ) : (
+          <div aria-disabled="true" style={{
+            display: 'block', marginTop: 10, padding: '8px 0',
+            background: 'rgba(0,0,0,0.12)', color: 'var(--hint)',
+            borderRadius: 10, textAlign: 'center', fontSize: 13,
+            fontWeight: 700, cursor: 'not-allowed',
+          }}>חפש ב-Yad2</div>
+        )}
+        {!authorized && onNavigate && (
+          <button type="button" className="btn" style={{ width: '100%', marginTop: 10, minHeight: 44 }}
+            onClick={() => onNavigate('packages')}>🔒 פתח את המחיר המלא — לחבילות</button>
+        )}
+        {/* Facebook Marketplace button — always active, search in English */}
+        {(() => {
+          const makeEn  = MAKE_EN[make]  || make
+          const modelEn = MODEL_EN[model] || model
+          const query = [makeEn, modelEn, year].filter(Boolean).join(' ')
+          if (!query) return null
+          const fbUrl = `https://www.facebook.com/marketplace/search/?query=${encodeURIComponent(query)}&category_id=vehicles`
+          return (
+            <a href={fbUrl} target="_blank" rel="noopener noreferrer" style={{
+              display: 'block', marginTop: 8, padding: '8px 0',
+              background: '#1663c7', color: '#fff',
+              borderRadius: 10, textAlign: 'center', fontSize: 13,
+              fontWeight: 700, textDecoration: 'none',
+            }}>חפש ב-Facebook Marketplace</a>
+          )
+        })()}
+      </div>
+    )
+  })()
+
+  const watchCard = user?.show_watch && make && (
+    <div className="card" style={{ marginBottom: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+        <div>
+          <div style={{
+            display: 'inline-block', fontSize: 11, fontWeight: 700,
+            background: '#0066d6', color: '#fff',
+            borderRadius: 20, padding: '4px 10px', marginBottom: 6,
+          }}>למנויים בלבד</div>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>🔔 התראות יד2</div>
+        </div>
+        {user?.watch_public_label && (
+          <div style={{ fontSize: 11, color: 'var(--hint)', textAlign: 'left', whiteSpace: 'nowrap' }}>
+            {user.watch_public_label}
+          </div>
+        )}
+      </div>
+      <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 12 }}>
+        קבל התראה בטלגרם כשתתווסף מודעה חדשה ל-Yad2 עבור <strong>{[make, model, year].filter(Boolean).join(' ')}</strong>
+      </div>
+      {(watchState === 'exists') ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ textAlign: 'center', color: '#0066d6', fontWeight: 700, fontSize: 14, padding: '4px 0' }}>
+            🔔 מעקב פעיל לרכב זה
+          </div>
+          <button
+            onClick={() => onBack('watches')}
+            style={{
+              display: 'block', width: '100%', padding: '9px 0',
+              background: '#0066d61f', color: '#0066d6',
+              borderRadius: 10, fontSize: 13, fontWeight: 600,
+              border: '1px solid #0066d64d', cursor: 'pointer',
+            }}
+          >📋 עבור לרשימת המעקבים שלי</button>
+        </div>
+      ) : watchState === 'done' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div role="status" style={{ textAlign: 'center', color: '#177a33', fontWeight: 700, fontSize: 14, padding: '4px 0' }}>
+            ✅ המעקב נוסף בהצלחה!
+          </div>
+          <button
+            onClick={() => onBack('watches')}
+            style={{
+              display: 'block', width: '100%', padding: '9px 0',
+              background: '#0066d61f', color: '#0066d6',
+              borderRadius: 10, fontSize: 13, fontWeight: 600,
+              border: '1px solid #0066d64d', cursor: 'pointer',
+            }}
+          >📋 עבור לרשימת המעקבים שלי</button>
+        </div>
+      ) : watchState === 'error' ? (
+        <div role="alert" style={{ textAlign: 'center', color: '#c53030', fontSize: 13, padding: '8px 0' }}>
+          ❌ שגיאה בהוספת המעקב. ייתכן שהגעת למגבלת המעקבים.
+        </div>
+      ) : (
+        <button
+          onClick={async () => {
+            setWatchState('loading')
+            try {
+              await createUserWatch({ make, model, year: year ? parseInt(year) : null })
+              setWatchState('done')
+            } catch {
+              setWatchState('error')
+            }
+          }}
+          disabled={watchState === 'loading'}
+          style={{
+            display: 'block', width: '100%', padding: '9px 0',
+            background: watchState === 'loading' ? 'rgba(0,0,0,0.12)' : '#0066d6',
+            color: watchState === 'loading' ? 'var(--hint)' : '#fff',
+            borderRadius: 10, fontSize: 13, fontWeight: 700,
+            border: 'none', cursor: watchState === 'loading' ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {watchState === 'loading' ? '⏳ מוסיף מעקב...' : '🔔 הוסף מעקב ביד2'}
+        </button>
+      )}
+    </div>
+  )
+
+  // ── PDF send (premium) — notes live in the full tab ──
+  const pdfAuthorized = !!user?.show_pdf_report
+  async function handleDownload() {
+    setPdfLoading(true)
+    try {
+      if (note.trim()) await saveNote(plateNum, note)
+      await requestPdfReport(plateNum)
+      setPdfSent(true)
+    } catch {
+      window.Telegram?.WebApp?.showAlert('שגיאה ביצירת הדוח. נסה שוב.')
+    } finally {
+      setPdfLoading(false)
+    }
+  }
+  async function handleNoteSave() {
+    setNoteSaving(true)
+    try {
+      await saveNote(plateNum, note)
+      setNoteSaved(true)
+      setNoteDirty(false)
+      setTimeout(() => setNoteSaved(false), 2000)
+    } catch { /* silent */ }
+    setNoteSaving(false)
+  }
+  const pdfCard = (
+    <div className="card" style={{ marginBottom: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+        <div>
+          <div style={{
+            display: 'inline-block', fontSize: 11, fontWeight: 700,
+            background: '#0066d6', color: '#fff',
+            borderRadius: 20, padding: '4px 10px', marginBottom: 6,
+          }}>למנויים בלבד</div>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>📄 דוח PDF</div>
+        </div>
+        {user?.pdf_public_label && (
+          <div style={{ fontSize: 11, color: 'var(--hint)', textAlign: 'left', whiteSpace: 'nowrap' }}>
+            {user.pdf_public_label}
+          </div>
+        )}
+      </div>
+      <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8, lineHeight: 1.5 }}>
+        דוח PDF מלא כולל הערות אישיות — יישלח לצ'אט שלך לשמירה ולשיתוף.
+      </div>
+      {pdfAuthorized ? (
+        pdfSent ? (
+          <div role="status" style={{
+            width: '100%', padding: '10px 0', borderRadius: 10,
+            background: 'rgba(23,122,51,0.12)', color: '#177a33',
+            textAlign: 'center', fontSize: 14, fontWeight: 700,
+          }}>✅ הדוח נשלח לצ'אט שלך!</div>
+        ) : (
+          <button
+            onClick={handleDownload}
+            disabled={pdfLoading}
+            style={{
+              width: '100%', padding: '10px 0', minHeight: 44, border: 'none', borderRadius: 10,
+              background: pdfLoading ? '#9aa4b2' : 'var(--grad-primary)',
+              color: '#fff', fontSize: 14, fontWeight: 700, cursor: pdfLoading ? 'default' : 'pointer',
+            }}
+          >
+            {pdfLoading ? '⏳ מכין דוח...' : '📤 שלח דוח PDF לצ\'אט'}
+          </button>
+        )
+      ) : (
+        <>
+          <div aria-disabled="true" style={{
+            width: '100%', padding: '10px 0', borderRadius: 10,
+            background: 'rgba(0,0,0,0.12)', color: 'var(--hint)',
+            textAlign: 'center', fontSize: 14, fontWeight: 700, cursor: 'not-allowed',
+          }}>📥 הורד דוח PDF</div>
+          {onNavigate && (
+            <button type="button" className="btn" style={{ width: '100%', marginTop: 10, minHeight: 44 }}
+              onClick={() => onNavigate('packages')}>🔒 זמין למנויים — לחבילות</button>
+          )}
+        </>
+      )}
+    </div>
+  )
+
+  const premium = (
+    <>
+      {marketCard}
+      {watchCard}
+      {pdfCard}
+      <CompareCard plate={plateNum} user={user} onNavigate={onNavigate} />
+    </>
+  )
 
   return (
     <div className="page">
@@ -729,7 +947,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
           record={record} ownership={ownership} recalls={recalls}
           make={make} model={model} year={year} color={color}
           km={km} testStr={testStr} plateNum={plateNum}
-          score={score} flags={flags} marketData={marketData}
+          score={score} flags={flags} premium={premium}
           w={w} statusColor={statusColor}
         />
       )}
@@ -816,165 +1034,6 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
           ) : (
             <button className="btn" style={{ width: '100%' }} onClick={() => setBuying(true)}>
               🚗 קניתי את הרכב הזה
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* ── Market Price ── */}
-      {(() => {
-        const authorized = marketData?.authorized !== false
-        const stats = getMarketStats(marketData, marketData?.year)
-        if (!stats) return null
-        const { median, min, max, avgKm } = stats
-        return (
-          <div className="card" style={{ marginBottom: 12 }}>
-            {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-              <div>
-                <div style={{
-                  display: 'inline-block', fontSize: 11, fontWeight: 700,
-                  background: '#0066d6', color: '#fff',
-                  borderRadius: 20, padding: '4px 10px', marginBottom: 6,
-                }}>למנויים בלבד</div>
-                <div style={{ fontWeight: 700, fontSize: 15 }}>💰 מחיר שוק – Yad2</div>
-              </div>
-              {marketData.public_label && (
-                <div style={{ fontSize: 11, color: 'var(--hint)', textAlign: 'left', whiteSpace: 'nowrap' }}>
-                  {marketData.public_label}
-                </div>
-              )}
-            </div>
-            {/* Stats — only values blurred for unauthorized users */}
-            {[
-              ['ממוצע שוק',  `₪${median.toLocaleString()}`],
-              ['מינימום',    `₪${min.toLocaleString()}`],
-              ['מקסימום',    `₪${max.toLocaleString()}`],
-              ...(avgKm ? [['ק״מ ממוצע', `${avgKm.toLocaleString()} ק״מ`]] : []),
-            ].map(([label, val]) => (
-              <div key={label} style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-                padding: '6px 0', borderBottom: '1px solid rgba(0,100,200,0.1)', fontSize: 14, gap: 8,
-              }}>
-                <span style={{ color: 'var(--hint)', flexShrink: 0, minWidth: 120 }}>{label}</span>
-                <span aria-hidden={authorized ? undefined : 'true'} style={{
-                  fontWeight: 500, textAlign: 'end',
-                  ...(authorized ? {} : { filter: 'blur(5px)', userSelect: 'none' }),
-                }}>{val}</span>
-              </div>
-            ))}
-            {/* Yad2 button — active for authorized, disabled for others */}
-            {authorized && marketData.yad2_url ? (
-              <a href={marketData.yad2_url} target="_blank" rel="noopener noreferrer" style={{
-                display: 'block', marginTop: 10, padding: '8px 0',
-                background: '#c23400', color: '#fff',
-                borderRadius: 10, textAlign: 'center', fontSize: 13,
-                fontWeight: 700, textDecoration: 'none',
-              }}>חפש ב-Yad2</a>
-            ) : (
-              <div style={{
-                display: 'block', marginTop: 10, padding: '8px 0',
-                background: 'rgba(0,0,0,0.12)', color: 'var(--hint)',
-                borderRadius: 10, textAlign: 'center', fontSize: 13,
-                fontWeight: 700, cursor: 'not-allowed',
-              }}>חפש ב-Yad2</div>
-            )}
-            {/* Facebook Marketplace button — always active, search in English */}
-            {(() => {
-              const makeEn  = MAKE_EN[make]  || make
-              const modelEn = MODEL_EN[model] || model
-              const query = [makeEn, modelEn, year].filter(Boolean).join(' ')
-              if (!query) return null
-              const fbUrl = `https://www.facebook.com/marketplace/search/?query=${encodeURIComponent(query)}&category_id=vehicles`
-              return (
-                <a href={fbUrl} target="_blank" rel="noopener noreferrer" style={{
-                  display: 'block', marginTop: 8, padding: '8px 0',
-                  background: '#1877F2', color: '#fff',
-                  borderRadius: 10, textAlign: 'center', fontSize: 13,
-                  fontWeight: 700, textDecoration: 'none',
-                }}>חפש ב-Facebook Marketplace</a>
-              )
-            })()}
-          </div>
-        )
-      })()}
-
-      {/* ── Yad2 Watch ── */}
-      {user?.show_watch && make && (
-        <div className="card" style={{ marginBottom: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-            <div>
-              <div style={{
-                display: 'inline-block', fontSize: 11, fontWeight: 700,
-                background: '#0066d6', color: '#fff',
-                borderRadius: 20, padding: '4px 10px', marginBottom: 6,
-              }}>למנויים בלבד</div>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>🔔 התראות יד2</div>
-            </div>
-            {user?.watch_public_label && (
-              <div style={{ fontSize: 11, color: 'var(--hint)', textAlign: 'left', whiteSpace: 'nowrap' }}>
-                {user.watch_public_label}
-              </div>
-            )}
-          </div>
-          <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 12 }}>
-            קבל התראה בטלגרם כשתתווסף מודעה חדשה ל-Yad2 עבור <strong>{[make, model, year].filter(Boolean).join(' ')}</strong>
-          </div>
-          {(watchState === 'exists') ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ textAlign: 'center', color: '#0066d6', fontWeight: 700, fontSize: 14, padding: '4px 0' }}>
-                🔔 מעקב פעיל לרכב זה
-              </div>
-              <button
-                onClick={() => onBack('watches')}
-                style={{
-                  display: 'block', width: '100%', padding: '9px 0',
-                  background: '#0066d61f', color: '#0066d6',
-                  borderRadius: 10, fontSize: 13, fontWeight: 600,
-                  border: '1px solid #0066d64d', cursor: 'pointer',
-                }}
-              >📋 עבור לרשימת המעקבים שלי</button>
-            </div>
-          ) : watchState === 'done' ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div role="status" style={{ textAlign: 'center', color: '#177a33', fontWeight: 700, fontSize: 14, padding: '4px 0' }}>
-                ✅ המעקב נוסף בהצלחה!
-              </div>
-              <button
-                onClick={() => onBack('watches')}
-                style={{
-                  display: 'block', width: '100%', padding: '9px 0',
-                  background: '#0066d61f', color: '#0066d6',
-                  borderRadius: 10, fontSize: 13, fontWeight: 600,
-                  border: '1px solid #0066d64d', cursor: 'pointer',
-                }}
-              >📋 עבור לרשימת המעקבים שלי</button>
-            </div>
-          ) : watchState === 'error' ? (
-            <div role="alert" style={{ textAlign: 'center', color: '#c53030', fontSize: 13, padding: '8px 0' }}>
-              ❌ שגיאה בהוספת המעקב. ייתכן שהגעת למגבלת המעקבים.
-            </div>
-          ) : (
-            <button
-              onClick={async () => {
-                setWatchState('loading')
-                try {
-                  await createUserWatch({ make, model, year: year ? parseInt(year) : null })
-                  setWatchState('done')
-                } catch {
-                  setWatchState('error')
-                }
-              }}
-              disabled={watchState === 'loading'}
-              style={{
-                display: 'block', width: '100%', padding: '9px 0',
-                background: watchState === 'loading' ? 'rgba(0,0,0,0.12)' : '#0066d6',
-                color: watchState === 'loading' ? 'var(--hint)' : '#fff',
-                borderRadius: 10, fontSize: 13, fontWeight: 700,
-                border: 'none', cursor: watchState === 'loading' ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {watchState === 'loading' ? '⏳ מוסיף מעקב...' : '🔔 הוסף מעקב ביד2'}
             </button>
           )}
         </div>
@@ -1169,146 +1228,62 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
         ))}
       </div>
 
-      {/* ── PDF Report + Notes ── */}
-      {(() => {
-        const authorized = !!user?.show_pdf_report
-        async function handleDownload() {
-          setPdfLoading(true)
-          try {
-            if (note.trim()) await saveNote(plateNum, note)
-            await requestPdfReport(plateNum)
-            setPdfSent(true)
-          } catch {
-            window.Telegram?.WebApp?.showAlert('שגיאה ביצירת הדוח. נסה שוב.')
-          } finally {
-            setPdfLoading(false)
-          }
-        }
-        async function handleNoteSave() {
-          setNoteSaving(true)
-          try {
-            await saveNote(plateNum, note)
-            setNoteSaved(true)
-            setNoteDirty(false)
-            setTimeout(() => setNoteSaved(false), 2000)
-          } catch { /* silent */ }
-          setNoteSaving(false)
-        }
-        return (
-          <div className="card" style={{ marginBottom: 12 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-              <div>
-                <div style={{
-                  display: 'inline-block', fontSize: 11, fontWeight: 700,
-                  background: '#0066d6', color: '#fff',
-                  borderRadius: 20, padding: '4px 10px', marginBottom: 6,
-                }}>למנויים בלבד</div>
-                <div style={{ fontWeight: 700, fontSize: 15 }}>📄 דוח PDF + הערות אישיות</div>
-              </div>
-              {user?.pdf_public_label && (
-                <div style={{ fontSize: 11, color: 'var(--hint)', textAlign: 'left', whiteSpace: 'nowrap' }}>
-                  {user.pdf_public_label}
-                </div>
-              )}
-            </div>
-
-            {/* Notes */}
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 6, fontWeight: 600 }}>
-                📝 הערות אישיות לרכב זה
-              </div>
-              {authorized ? (
-                <>
-                  <textarea
-                    aria-label="הערות אישיות לרכב"
-                    value={note}
-                    onChange={e => { setNote(e.target.value); setNoteDirty(true) }}
-                    rows={4}
-                    style={{
-                      width: '100%', boxSizing: 'border-box',
-                      background: 'var(--bg)', border: `1px solid ${noteDirty ? '#0066d6' : 'rgba(0,100,200,0.18)'}`,
-                      borderRadius: 10, padding: '10px 12px', color: 'var(--text)',
-                      fontSize: 14, lineHeight: 1.6, resize: 'vertical',
-                      fontFamily: 'inherit', direction: 'rtl',
-                    }}
-                    placeholder={'מחיר סגירה 70,000\nטלפון 052-12345678\nמול אמיר.'}
-                  />
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-                    {noteDirty && (
-                      <button
-                        onClick={handleNoteSave}
-                        disabled={noteSaving}
-                        style={{
-                          padding: '7px 18px', borderRadius: 8, border: 'none',
-                          background: '#0066d6', color: '#fff', fontSize: 13,
-                          fontWeight: 600, cursor: 'pointer', opacity: noteSaving ? 0.6 : 1,
-                        }}
-                      >{noteSaving ? '...' : '💾 שמור הערה'}</button>
-                    )}
-                    {noteSaved && (
-                      <span role="status" style={{ fontSize: 11, color: '#177a33' }}>✅ נשמר</span>
-                    )}
-                  </div>
-                </>
-              ) : note ? (
-                <div style={{
-                  background: 'var(--bg)', borderRadius: 10, padding: '10px 12px',
-                  fontSize: 14, color: 'var(--hint)', lineHeight: 1.6, direction: 'rtl',
-                  whiteSpace: 'pre-wrap',
-                }}>{note}</div>
-              ) : (
-                <div style={{
-                  fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic',
-                  padding: '8px 0',
-                }}>🔒 הערות אישיות — זמין למנויים</div>
-              )}
-            </div>
-
-            <div style={{ height: 1, background: 'rgba(0,100,200,0.18)', margin: '0 0 12px' }} />
-
-            {/* Download */}
-            <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8, lineHeight: 1.5 }}>
-              דוח PDF מלא כולל הערות אישיות — יישלח לצ'אט שלך לשמירה ולשיתוף.
-            </div>
-            {authorized ? (
-              pdfSent ? (
-                <div style={{
-                  width: '100%', padding: '10px 0', borderRadius: 10,
-                  background: 'rgba(23,122,51,0.12)', color: '#177a33',
-                  textAlign: 'center', fontSize: 14, fontWeight: 700, marginBottom: 8,
-                }}>✅ הדוח נשלח לצ'אט שלך!</div>
-              ) : (
+      {/* ── Personal notes + copy (non-premium utilities; notes editing keeps its existing gate) ── */}
+      <div className="card" style={{ marginBottom: 12 }}>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>📝 הערות אישיות לרכב זה</div>
+        {pdfAuthorized ? (
+          <>
+            <textarea
+              aria-label="הערות אישיות לרכב"
+              value={note}
+              onChange={e => { setNote(e.target.value); setNoteDirty(true) }}
+              rows={4}
+              style={{
+                width: '100%', boxSizing: 'border-box',
+                background: 'var(--bg)', border: `1px solid ${noteDirty ? '#0066d6' : 'rgba(0,100,200,0.18)'}`,
+                borderRadius: 10, padding: '10px 12px', color: 'var(--text)',
+                fontSize: 14, lineHeight: 1.6, resize: 'vertical',
+                fontFamily: 'inherit', direction: 'rtl',
+              }}
+              placeholder={'מחיר סגירה 70,000\nטלפון 052-12345678\nמול אמיר.'}
+            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+              {noteDirty && (
                 <button
-                  onClick={handleDownload}
-                  disabled={pdfLoading}
+                  onClick={handleNoteSave}
+                  disabled={noteSaving}
                   style={{
-                    width: '100%', padding: '10px 0', border: 'none', borderRadius: 10,
-                    background: pdfLoading ? '#9aa4b2' : 'var(--grad-primary)',
-                    color: '#fff', fontSize: 14, fontWeight: 700, cursor: pdfLoading ? 'default' : 'pointer',
-                    marginBottom: 8,
+                    padding: '7px 18px', minHeight: 44, borderRadius: 8, border: 'none',
+                    background: '#0066d6', color: '#fff', fontSize: 13,
+                    fontWeight: 600, cursor: 'pointer', opacity: noteSaving ? 0.6 : 1,
                   }}
-                >
-                  {pdfLoading ? '⏳ מכין דוח...' : '📤 שלח דוח PDF לצ\'אט'}
-                </button>
-              )
-            ) : (
-              <div style={{
-                width: '100%', padding: '10px 0', borderRadius: 10,
-                background: 'rgba(0,0,0,0.12)', color: 'var(--hint)',
-                textAlign: 'center', fontSize: 14, fontWeight: 700, cursor: 'not-allowed',
-                marginBottom: 8,
-              }}>📥 הורד דוח PDF</div>
-            )}
-            <button
-              className="btn btn-secondary"
-              style={{ width: '100%', marginTop: 0 }}
-              onClick={handleCopy}
-            >
-              {copied ? <span role="status">✅ הועתק!</span> : '📋 העתק דוח'}
-            </button>
-          </div>
-        )
-      })()}
+                >{noteSaving ? '...' : '💾 שמור הערה'}</button>
+              )}
+              {noteSaved && (
+                <span role="status" style={{ fontSize: 11, color: '#177a33' }}>✅ נשמר</span>
+              )}
+            </div>
+          </>
+        ) : note ? (
+          <div style={{
+            background: 'var(--bg)', borderRadius: 10, padding: '10px 12px',
+            fontSize: 14, color: 'var(--hint)', lineHeight: 1.6, direction: 'rtl',
+            whiteSpace: 'pre-wrap',
+          }}>{note}</div>
+        ) : (
+          <div style={{
+            fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic',
+            padding: '8px 0',
+          }}>🔒 הערות אישיות — זמין למנויים</div>
+        )}
+        <button
+          className="btn btn-secondary"
+          style={{ width: '100%', marginTop: 12 }}
+          onClick={handleCopy}
+        >
+          {copied ? <span role="status">✅ הועתק!</span> : '📋 העתק דוח'}
+        </button>
+      </div>
 
       {/* ── Actions ── */}
       <button className="btn btn-secondary" style={{ marginBottom: 20 }}

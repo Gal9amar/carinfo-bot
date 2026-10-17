@@ -15,6 +15,7 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from src.features import feature_open
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import BaseModel
@@ -29,7 +30,7 @@ WEBAPP_URL   = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_U
 # Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
 # webapp can detect a new release and force-reload instead of running stale
 # cached JS. Falls back to process start time for non-Render environments.
-APP_VERSION = "1792237631"
+APP_VERSION = "1792247625"
 
 api = FastAPI()
 
@@ -207,29 +208,6 @@ async def list_products():
     return out
 
 
-async def _feature_open(user_id: int, key_prefix: str) -> bool:
-    """Same access rule as the `show_*` flags of /api/user (see CLAUDE.md "Feature access")."""
-    from src.users import get_user_by_id, is_subscriber, is_global_unlimited_active
-    from src.db import get_bot_setting
-    from datetime import date as _date
-    if user_id == ADMIN_ID:
-        return True
-    db_user, subscriber, global_unlimited = await asyncio.gather(
-        get_user_by_id(user_id), is_subscriber(user_id), is_global_unlimited_active())
-    quota = db_user.get("searches_quota", 0) if db_user else 0
-    left = -1 if global_unlimited else (db_user.get("searches_left", 0) if db_user else 0)
-    if quota == -1 or subscriber or left != 0:
-        return True
-    if (await get_bot_setting(f"{key_prefix}_enabled")) == "0":
-        return False
-    if (await get_bot_setting(f"{key_prefix}_public")) == "1":
-        today = str(_date.today())
-        ps = (await get_bot_setting(f"{key_prefix}_public_start")) or ""
-        pe = (await get_bot_setting(f"{key_prefix}_public_end")) or ""
-        return (not ps or today >= ps) and (not pe or today <= pe)
-    return False
-
-
 @api.get("/api/user")
 async def get_user_info(user: dict = Depends(_get_user)):
     from src.users import get_user_by_id, is_global_unlimited_active
@@ -270,27 +248,7 @@ async def get_user_info(user: dict = Depends(_get_user)):
     _today = str(_date.today())
 
     async def _check_feature(key_prefix: str) -> bool:
-        # Admin always has full access
-        if user_id == ADMIN_ID:
-            return True
-        # Unlimited quota (monthly sub or admin grant -1) always qualifies
-        if quota == -1:
-            return True
-        # Paying subscribers ("מנויים" group) always have access
-        if is_subscriber:
-            return True
-        # Non-subscribers with active quota also get access
-        if left > 0:
-            return True
-        # Zero-quota users: respect the admin toggle
-        if (await get_bot_setting(f"{key_prefix}_enabled")) == "0":
-            return False
-        if (await get_bot_setting(f"{key_prefix}_public")) == "1":
-            ps = (await get_bot_setting(f"{key_prefix}_public_start")) or ""
-            pe = (await get_bot_setting(f"{key_prefix}_public_end"))   or ""
-            if (not ps or _today >= ps) and (not pe or _today <= pe):
-                return True
-        return False
+        return await feature_open(user_id, key_prefix, quota=quota, left=left, subscriber=is_subscriber)
 
     show_market = await _check_feature("yad2_market")
     show_pdf    = await _check_feature("pdf_report")
@@ -731,7 +689,7 @@ async def compare_vehicles(plate: str, other: str, user: dict = Depends(_get_use
     if plate == other:
         raise HTTPException(status_code=400, detail="same_plate")
     uid = int(user["id"])
-    if not await _feature_open(uid, "compare"):
+    if not await feature_open(uid, "compare"):
         raise HTTPException(status_code=403, detail="feature_locked")
     allowed, left = await is_allowed(uid, user.get("username") or "", (user.get("first_name", "") + " " + user.get("last_name", "")).strip())
     if not allowed:
@@ -770,27 +728,7 @@ async def get_vehicle_pdf(plate: str, user: dict = Depends(_get_user)):
     plate = plate.replace("-", "").replace(" ", "")
     user_id = int(user["id"])
 
-    # Check pdf_report feature gate — "0" = explicitly disabled, "" or "1" = enabled
-    authorized = False
-    if (await get_bot_setting("pdf_report_enabled")) != "0":
-        if (await get_bot_setting("pdf_report_public")) == "1":
-            from datetime import date as _d
-            _t = str(_d.today())
-            ps = (await get_bot_setting("pdf_report_public_start")) or ""
-            pe = (await get_bot_setting("pdf_report_public_end")) or ""
-            if (not ps or _t >= ps) and (not pe or _t <= pe):
-                authorized = True
-        if not authorized:
-            # Unlimited quota (admin grants) qualifies
-            from src.users import get_user_by_id
-            db_u = await get_user_by_id(user_id)
-            if db_u and db_u.get("searches_quota") == -1:
-                authorized = True
-        if not authorized:
-            from src.users import is_subscriber as _is_subscriber
-            authorized = await _is_subscriber(user_id)
-
-    if not authorized:
+    if not await feature_open(user_id, "pdf_report"):
         raise HTTPException(status_code=403, detail="PDF report requires subscription")
 
     from src.api.gov_api import fetch_vehicle_data
@@ -2588,33 +2526,7 @@ async def user_watch_models(make: str = "", _: dict = Depends(_get_user)):
 # ── Yad2 Watches (User) ─────────────────────────────────────────────────────
 
 async def _check_watch_access(user: dict) -> bool:
-    """Return True if user is authorized to use the watch feature."""
-    from src.db import get_bot_setting, execute as _execute
-    user_id = int(user["id"])
-    if user_id == ADMIN_ID:
-        return True
-    if (await get_bot_setting("yad2_watch_enabled")) != "1":
-        return False
-    public_on = (await get_bot_setting("yad2_watch_public")) == "1"
-    if public_on:
-        from datetime import date as _date
-        today = str(_date.today())
-        ps = (await get_bot_setting("yad2_watch_public_start")) or ""
-        pe = (await get_bot_setting("yad2_watch_public_end")) or ""
-        if (not ps or today >= ps) and (not pe or today <= pe):
-            return True
-    groups_json = (await get_bot_setting("yad2_watch_groups")) or "[]"
-    allowed_groups = json.loads(groups_json)
-    if allowed_groups:
-        r = await _execute(
-            f"SELECT 1 FROM user_group_members WHERE user_id=? AND group_id IN ({','.join('?' * len(allowed_groups))})",
-            [user_id, *allowed_groups]
-        )
-        if len(r.rows) > 0:
-            return True
-    # subscribers always have access
-    from src.users import is_subscriber as _is_subscriber
-    return await _is_subscriber(user_id)
+    return await feature_open(int(user["id"]), "yad2_watch")
 
 
 @api.get("/api/user/watches")

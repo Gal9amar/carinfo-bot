@@ -426,6 +426,13 @@ def compare_not_enough(name: str) -> str:
     return f"🔒 {_n(name)}, השוואה בודקת שני רכבים ולכן צורכת שתי בדיקות, ואין לך מספיק כרגע.\nאפשר לרכוש חבילה עם /buy."
 
 
+def feature_locked(name: str, feature: str) -> str:
+    return (
+        f"🔒 {_n(name)}, {b(feature)} זמין למנויי Premium ולמשתמשים עם חיפושים פעילים.\n\n"
+        f"שלח {code('/buy')} כדי לראות את החבילות 🛒"
+    )
+
+
 def compare_same(name: str) -> str:
     return f"🤔 {_n(name)}, זה אותו מספר רכב. שלח מספר אחר להשוואה."
 
