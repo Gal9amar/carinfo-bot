@@ -695,6 +695,8 @@ function BannersTab() {
   const [saving, setSaving] = useState(false)
   const [dragIdx, setDragIdx] = useState(null)
   const [reordering, setReordering] = useState(false)
+  const [confirmDelId, setConfirmDelId] = useState(null)
+  const [busyId, setBusyId] = useState(null)
 
   function load() { adminFetchBanners().then(setBanners).catch(() => setBanners([])) }
   useEffect(() => { load() }, [])
@@ -754,30 +756,44 @@ function BannersTab() {
     setSaving(false)
   }
 
+  // Confirmation is inline in the card (confirmDelId) before this runs.
   async function deleteBanner(id) {
-    window.Telegram?.WebApp?.showConfirm('למחוק באנר?', async (ok) => {
-      if (!ok) return
+    setBusyId(id)
+    try {
       await adminDeleteBanner(id)
+      setConfirmDelId(null)
       load()
-    })
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה במחיקה') }
+    setBusyId(null)
+  }
+
+  async function toggleBanner(b) {
+    setBusyId(b.id)
+    try {
+      await adminUpdateBanner(b.id, toBody({ ...b, is_active: b.is_active === false }))
+      load()
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה בעדכון') }
+    setBusyId(null)
   }
 
   if (!banners) return <div className="loading"></div>
 
   return (
     <div>
-      <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 10 }}>
-        באנרים אלו מוצגים בעמוד הבית של המיני-אפ · גרור ⠿ לשינוי סדר תצוגה
-      </div>
+      <p style={{ fontSize: 13, lineHeight: 1.45, color: '#566070', margin: '0 0 12px' }}>
+        באנרים אלו מוצגים בעמוד הבית של המיני-אפ. לשינוי סדר התצוגה גררו את ⠿ או השתמשו בכפתורי למעלה / למטה.
+      </p>
       {banners.length === 0 && (
-        <div style={{ color: 'var(--hint)', textAlign: 'center', padding: 24 }}>אין באנרים עדיין</div>
+        <div style={{ color: '#566070', textAlign: 'center', padding: 24 }}>אין באנרים עדיין. אפשר להוסיף את הראשון למטה.</div>
       )}
       {banners.map((b, idx) => {
         const isActive = b.is_active !== false
         const isDragging = dragIdx === idx
+        const busy = busyId === b.id
         const linkLabel = b.link_type === 'product'
           ? `מוצר #${b.link_value}`
           : (BANNER_PAGE_OPTIONS.find(o => o.value === b.link_value)?.label || b.link_value)
+        const placements = Array.isArray(b.placements) && b.placements.length ? b.placements : ['home']
         return (
           <div
             key={b.id}
@@ -786,49 +802,47 @@ function BannersTab() {
             onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
             onDrop={() => { if (dragIdx !== null) moveBanner(dragIdx, idx); setDragIdx(null) }}
             onDragEnd={() => setDragIdx(null)}
-            className="card"
-            style={{ opacity: isDragging ? 0.45 : isActive ? 1 : 0.5, cursor: reordering ? 'wait' : 'grab' }}
+            className={`card bn-card${isActive ? '' : ' bn-off'}`}
+            style={{ opacity: isDragging ? 0.45 : 1, cursor: reordering ? 'wait' : undefined }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                <button className="btn btn-danger" style={{ width: 36, height: 36, padding: 0, margin: 0, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }} onClick={() => deleteBanner(b.id)}>🗑️</button>
-                <button className="btn" style={{ width: 36, height: 36, padding: 0, margin: 0, borderRadius: 12, background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }} onClick={() => { setEditing(b); setForm({ title: b.title, subtitle: b.subtitle || '', icon: b.icon, image_url: b.image_url || '', color_from: b.color_from, color_to: b.color_to, link_type: b.link_type, link_value: b.link_value, placements: b.placements || ['home'], is_active: b.is_active !== false }) }}>✏️</button>
-                <button className="btn btn-secondary" style={{ width: 36, height: 36, padding: 0, margin: 0, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }} onClick={() => { window.Telegram?.WebApp?.showAlert(`תצוגה מקדימה: ${b.title}`) }}>👁️</button>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <button className="btn btn-secondary" style={{ width: 36, height: 17, padding: 0, margin: 0, borderRadius: 6, fontSize: 10, lineHeight: 1 }} disabled={idx === 0 || reordering} onClick={() => moveBanner(idx, idx - 1)}>▲</button>
-                  <button className="btn btn-secondary" style={{ width: 36, height: 17, padding: 0, margin: 0, borderRadius: 6, fontSize: 10, lineHeight: 1 }} disabled={idx === banners.length - 1 || reordering} onClick={() => moveBanner(idx, idx + 1)}>▼</button>
-                </div>
+            <div className="bn-head">
+              <span className="bn-handle" aria-hidden="true" title="גרור לשינוי סדר">⠿</span>
+              <div className="bn-tile" style={{ background: `linear-gradient(135deg, ${b.color_from}, ${b.color_to})` }} aria-hidden="true">
+                {b.image_url ? <img src={b.image_url} alt="" width="52" height="52" /> : b.icon}
               </div>
-              
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, justifyContent: 'flex-end', textAlign: 'right' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                    {!isActive && (
-                      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 12, background: '#fee2e2', color: '#c53030', border: '1px solid #fca5a5' }}>מושבת</span>
-                    )}
-                    <span style={{ fontWeight: 800, fontSize: 18, color: 'var(--text-main)', letterSpacing: '-0.3px' }}>{b.title}</span>
-                  </div>
-                  <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
-                    🔗 {linkLabel}
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4, justifyContent: 'flex-end' }}>
-                    {(b.placements?.length ? b.placements : ['home']).map(p => (
-                      <span key={p} style={{
-                        fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 10,
-                        background: 'rgba(0,0,0,0.03)', color: 'var(--text-muted)',
-                      }}>{PLACEMENT_OPTIONS.find(o => o.value === p)?.label || p}</span>
-                    ))}
-                  </div>
-                </div>
-                <div style={{
-                  width: 44, height: 44, borderRadius: 10, flexShrink: 0,
-                  background: `linear-gradient(135deg, ${b.color_from}, ${b.color_to})`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
-                  boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
-                }}>{b.icon}</div>
-                <span style={{ fontSize: 24, color: 'var(--hint)', cursor: 'grab', userSelect: 'none' }} title="גרור לשינוי סדר">⠿</span>
+              <div className="bn-text">
+                <span className={`bn-badge ${isActive ? 'on' : 'off'}`}>{isActive ? '✓ פעיל' : '⏸ מושבת'}</span>
+                <h3 className="bn-title">{b.title}</h3>
+                {b.subtitle ? <p className="bn-sub">{b.subtitle}</p> : null}
               </div>
             </div>
+
+            <div className="bn-meta">
+              <span className="bn-chip link">🔗 {linkLabel}</span>
+              {placements.map(p => (
+                <span key={p} className="bn-chip">{PLACEMENT_OPTIONS.find(o => o.value === p)?.label || p}</span>
+              ))}
+            </div>
+
+            {confirmDelId === b.id ? (
+              <div className="bn-confirm" role="alertdialog" aria-label="אישור מחיקה">
+                <p>למחוק את הבאנר «{b.title}»? אי אפשר לשחזר.</p>
+                <div className="row">
+                  <button type="button" className="bn-btn" disabled={busy} onClick={() => setConfirmDelId(null)}>ביטול</button>
+                  <button type="button" className="bn-btn yes" disabled={busy} onClick={() => deleteBanner(b.id)}>{busy ? 'מוחק…' : 'כן, מחק'}</button>
+                </div>
+              </div>
+            ) : (
+              <div className="bn-actions">
+                <div className="bn-move">
+                  <button type="button" className="bn-btn" aria-label="הזז למעלה" disabled={idx === 0 || reordering} onClick={() => moveBanner(idx, idx - 1)}><span className="ico" aria-hidden="true">▲</span>למעלה</button>
+                  <button type="button" className="bn-btn" aria-label="הזז למטה" disabled={idx === banners.length - 1 || reordering} onClick={() => moveBanner(idx, idx + 1)}><span className="ico" aria-hidden="true">▼</span>למטה</button>
+                </div>
+                <button type="button" className="bn-btn" disabled={busy} aria-label={isActive ? 'הסתר באנר' : 'הצג באנר'} onClick={() => toggleBanner(b)}><span className="ico" aria-hidden="true">{isActive ? '🙈' : '👁️'}</span>{isActive ? 'הסתר' : 'הצג'}</button>
+                <button type="button" className="bn-btn" aria-label="ערוך באנר" onClick={() => { setEditing(b); setForm({ title: b.title, subtitle: b.subtitle || '', icon: b.icon, image_url: b.image_url || '', color_from: b.color_from, color_to: b.color_to, link_type: b.link_type, link_value: b.link_value, placements: b.placements || ['home'], is_active: b.is_active !== false }) }}><span className="ico" aria-hidden="true">✏️</span>ערוך</button>
+                <button type="button" className="bn-btn del" aria-label="מחק באנר" onClick={() => setConfirmDelId(b.id)}><span className="ico" aria-hidden="true">🗑️</span>מחק</button>
+              </div>
+            )}
           </div>
         )
       })}
@@ -3300,98 +3314,141 @@ function PaymentMethodsTab() {
   const [methods, setMethods] = useState(null)
   const [editingMethod, setEditingMethod] = useState(null)
   const [showAdd, setShowAdd] = useState(false)
-  const [saving, setSaving] = useState(false)
+  const [confirmId, setConfirmId] = useState(null)
+  const [busyId, setBusyId] = useState(null)
+  const [error, setError] = useState('')
+  const [loadFailed, setLoadFailed] = useState(false)
 
-  function load() { adminFetchPaymentMethods().then(setMethods).catch(() => setMethods([])) }
+  function load() {
+    setLoadFailed(false)
+    adminFetchPaymentMethods()
+      .then(r => setMethods(Array.isArray(r) ? r : []))
+      .catch(() => { setMethods([]); setLoadFailed(true) })
+  }
   useEffect(() => { load() }, [])
 
-  async function deleteMethod(id, name) {
-    window.Telegram?.WebApp?.showConfirm(`למחוק את "${name}"?`, async ok => {
-      if (!ok) return
-      try { await adminDeletePaymentMethod(id); load() }
-      catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
-    })
+  function fail(msg) {
+    setError(msg)
+    window.Telegram?.WebApp?.showAlert?.(msg)
+  }
+
+  async function deleteMethod(id) {
+    setBusyId(id); setError('')
+    try { await adminDeletePaymentMethod(id); setConfirmId(null); load() }
+    catch { fail('המחיקה נכשלה, נסו שוב') }
+    setBusyId(null)
   }
 
   async function toggleActive(m) {
+    setBusyId(m.id); setError('')
     try {
-      await adminUpdatePaymentMethod(m.id, { name: m.name, logo_url: m.logo_url, payment_url: m.payment_url, active: !m.active })
+      await adminUpdatePaymentMethod(m.id, { name: m.name, logo_url: m.logo_url, payment_url: m.payment_url, active: !m.active, requires_manual_approval: m.requires_manual_approval })
       load()
-    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    } catch { fail('העדכון נכשל, נסו שוב') }
+    setBusyId(null)
   }
 
   if (!methods) return <div className="loading"></div>
 
+  const actionBtn = { margin: 0, width: '100%', minHeight: 44, padding: '0 10px', borderRadius: 12, fontSize: 14, fontWeight: 700 }
+  const list = methods.filter(Boolean)
+
   return (
     <div className="tab-fade-in">
-      <div className="card" style={{ padding: '20px', marginBottom: 24, background: 'linear-gradient(to right, rgba(0, 122, 255, 0.05), transparent)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 28 }}>💳</span>
-            <div>
-              <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--text-main)', letterSpacing: '-0.3px' }}>אמצעי תשלום</div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>ניהול שיטות תשלום ללקוחות</div>
-            </div>
+      <div className="card" style={{ padding: 16, marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span aria-hidden="true" style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(0, 122, 255, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>💳</span>
+          <div style={{ minWidth: 0 }}>
+            <h2 style={{ margin: 0, fontWeight: 800, fontSize: 18, color: 'var(--text-main)' }}>אמצעי תשלום</h2>
+            <div style={{ fontSize: 13, color: 'var(--text-main)', opacity: 0.8, marginTop: 2 }}>ניהול שיטות התשלום ללקוחות</div>
           </div>
-          <button
-            onClick={() => setShowAdd(true)}
-            className="btn"
-            style={{ padding: '0 20px', height: 44, margin: 0, borderRadius: 12, background: 'var(--primary)', fontWeight: 700, fontSize: 14 }}
-          >
-            ➕ הוסף אמצעי תשלום
-          </button>
         </div>
+        <button type="button" className="btn" onClick={() => setShowAdd(true)} style={{ margin: '14px 0 0', minHeight: 48, padding: '0 16px', borderRadius: 14, fontSize: 15 }}>
+          <span aria-hidden="true">➕ </span>הוסף אמצעי תשלום
+        </button>
       </div>
 
-      {methods.length === 0 && (
-        <div style={{ color: 'var(--hint)', fontSize: 14, textAlign: 'center', padding: 40, background: 'var(--bg-card)', borderRadius: 16, border: '1px dashed var(--border)' }}>
-          אין אמצעי תשלום מוגדרים במערכת
+      {error && (
+        <div role="alert" style={{ marginBottom: 12, padding: '10px 14px', borderRadius: 12, background: '#fee2e2', color: '#991b1b', fontSize: 14, fontWeight: 600 }}>{error}</div>
+      )}
+
+      {loadFailed && (
+        <div role="alert" className="card" style={{ padding: 16, marginBottom: 16, textAlign: 'center' }}>
+          <div style={{ fontSize: 14, color: 'var(--text-main)', marginBottom: 10 }}>לא הצלחנו לטעון את אמצעי התשלום</div>
+          <button type="button" className="btn btn-secondary" style={{ ...actionBtn, width: 'auto', padding: '0 24px' }} onClick={load}>נסו שוב</button>
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
-        {methods.map(m => (
-          <div key={m.id} className="card" style={{
-            padding: '20px', borderTop: `4px solid ${m.active ? '#047857' : '#c53030'}`,
-            opacity: m.active ? 1 : 0.75, transition: 'all 0.2s',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
-              {m.logo_url
-                ? <img src={m.logo_url} alt={m.name} style={{ width: 48, height: 48, objectFit: 'contain', borderRadius: 12, background: '#fff', padding: 6, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }} onError={e => { e.target.style.display='none' }} />
-                : <div style={{ width: 48, height: 48, borderRadius: 12, background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>💳</div>
-              }
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-main)' }}>{m.name}</div>
-                  <span style={{
-                    fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 12,
-                    background: m.active ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                    color: m.active ? '#047857' : '#c53030',
-                    border: `1px solid ${m.active ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`
-                  }}>{m.active ? 'פעיל' : 'מושבת'}</span>
-                </div>
-                <div style={{ fontSize: 13, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', direction: 'ltr', textAlign: 'right' }}>
-                  {m.payment_url || 'ללא קישור (ידני)'}
+      {!loadFailed && list.length === 0 && (
+        <div style={{ color: 'var(--text-main)', fontSize: 14, textAlign: 'center', padding: 32, background: 'var(--bg-card)', borderRadius: 16, border: '1px dashed var(--border)' }}>
+          עדיין אין אמצעי תשלום. הוסיפו את הראשון כדי שלקוחות יוכלו לשלם.
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))', gap: 12 }}>
+        {list.map(m => {
+          const busy = busyId === m.id
+          const confirming = confirmId === m.id
+          return (
+            <div key={m.id} className="card" style={{ padding: 16, margin: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                {m.logo_url
+                  ? <img src={m.logo_url} alt="" width={48} height={48} style={{ width: 48, height: 48, objectFit: 'contain', borderRadius: 12, background: '#fff', padding: 6, border: '1px solid var(--border)', flexShrink: 0, filter: m.active ? 'none' : 'grayscale(1)' }} onError={e => { e.currentTarget.style.visibility = 'hidden' }} />
+                  : <div aria-hidden="true" style={{ width: 48, height: 48, borderRadius: 12, background: 'var(--bg)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>💳</div>
+                }
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-main)', overflowWrap: 'anywhere', lineHeight: 1.25 }}>{m.name}</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                    <span style={{
+                      fontSize: 12, fontWeight: 700, padding: '2px 10px', borderRadius: 12,
+                      background: m.active ? '#dcfce7' : '#fee2e2', color: m.active ? '#166534' : '#991b1b',
+                    }}>{m.active ? '✓ פעיל' : '⏸ מושבת'}</span>
+                    {m.requires_manual_approval && (
+                      <span style={{ fontSize: 12, fontWeight: 700, padding: '2px 10px', borderRadius: 12, background: 'var(--bg)', color: 'var(--text-main)', border: '1px solid var(--border)' }}>✋ דורש אישור ידני</span>
+                    )}
+                  </div>
                 </div>
               </div>
+
+              {m.payment_url
+                ? <div dir="ltr" title={m.payment_url} style={{ marginTop: 12, padding: '8px 12px', borderRadius: 10, background: 'var(--bg)', color: 'var(--text-main)', fontSize: 13, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', userSelect: 'text', WebkitUserSelect: 'text', unicodeBidi: 'isolate' }}>{m.payment_url}</div>
+                : <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 10, background: 'var(--bg)', color: 'var(--text-main)', fontSize: 13 }}>ללא קישור (תשלום ידני)</div>
+              }
+
+              {confirming ? (
+                <div role="group" aria-label={`אישור מחיקת ${m.name}`} style={{ marginTop: 12 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-main)', marginBottom: 8, overflowWrap: 'anywhere' }}>למחוק את "{m.name}"? אי אפשר לבטל.</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <button type="button" className="btn" disabled={busy} onClick={() => deleteMethod(m.id)} style={{ ...actionBtn, background: '#c53030', boxShadow: 'none' }}>{busy ? '⏳...' : 'כן, מחק'}</button>
+                    <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => setConfirmId(null)} style={actionBtn}>ביטול</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button" role="switch" aria-checked={!!m.active} disabled={busy} onClick={() => toggleActive(m)}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, width: '100%', marginTop: 12, minHeight: 48, padding: '0 14px', textAlign: 'start', fontFamily: 'inherit', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, color: 'var(--text-main)', cursor: 'pointer', opacity: busy ? 0.6 : 1 }}
+                  >
+                    <span style={{ minWidth: 0 }}>
+                      <span style={{ display: 'block', fontSize: 14, fontWeight: 700 }}>{m.active ? 'מוצג ללקוחות' : 'מוסתר מלקוחות'}</span>
+                    </span>
+                    <span aria-hidden="true" style={{ width: 44, height: 24, borderRadius: 12, flexShrink: 0, position: 'relative', background: m.active ? '#177a33' : '#6e6e73', transition: 'background 0.2s' }}>
+                      <span style={{ position: 'absolute', top: 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'inset-inline-start 0.2s', insetInlineStart: m.active ? 23 : 3 }} />
+                    </span>
+                  </button>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+                    <button type="button" className="btn btn-secondary" onClick={() => setEditingMethod(m)} aria-label={`עריכה: ${m.name}`} style={{ ...actionBtn, border: '1px solid var(--border)' }}>
+                      <span aria-hidden="true">✏️ </span>עריכה
+                    </button>
+                    <button type="button" className="btn btn-secondary" onClick={() => { setError(''); setConfirmId(m.id) }} aria-label={`מחיקה: ${m.name}`} style={{ ...actionBtn, color: '#c53030', border: '1px solid #c53030' }}>
+                      <span aria-hidden="true">🗑️ </span>מחיקה
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8 }}>
-              <button
-                onClick={() => setEditingMethod(m)}
-                style={{ padding: '10px 0', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-main)', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' }}
-              >✏️ ערוך</button>
-              <button
-                onClick={() => toggleActive(m)}
-                style={{ padding: '10px 0', borderRadius: 10, border: 'none', background: m.active ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', color: m.active ? '#c53030' : '#047857', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' }}
-              >{m.active ? '🔕 השבת' : '✅ הפעל'}</button>
-              <button
-                onClick={() => deleteMethod(m.id, m.name)}
-                style={{ padding: '0 16px', borderRadius: 10, border: 'none', background: 'rgba(239, 68, 68, 0.1)', color: '#c53030', fontSize: 16, cursor: 'pointer', transition: 'all 0.2s' }}
-                title="מחק אמצעי תשלום"
-              >🗑️</button>
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {(showAdd || editingMethod) && (
