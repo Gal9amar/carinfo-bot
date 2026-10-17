@@ -175,7 +175,8 @@ function buildFullText(record, ownership) {
 // ── SummaryTab ────────────────────────────────────────────────────────────────
 
 function SummaryTab({ record, ownership, recalls, make, model, year, color, km, testStr,
-  plateNum, score, flags, premium, w, statusColor }) {
+  plateNum, score, flags, premium, w, statusColor,
+  modelCountCard, notesCard, garageCard }) {
 
   const kmNum = km ? Number(km) : null
   const age = year ? new Date().getFullYear() - parseInt(year) : null
@@ -262,8 +263,8 @@ function SummaryTab({ record, ownership, recalls, make, model, year, color, km, 
         </div>
       )}
 
-      {/* ── Premium features (market price, alerts, PDF, compare) ── */}
-      {premium}
+      {/* ── Same-model count on the road ── */}
+      {modelCountCard}
 
       {/* ── Ownership timeline ── */}
       {ownership.length > 0 && (
@@ -366,6 +367,15 @@ function SummaryTab({ record, ownership, recalls, make, model, year, color, km, 
           </div>
         </div>
       </div>
+
+      {/* ── Personal notes ── */}
+      {notesCard}
+
+      {/* ── "I bought it" (garage) ── */}
+      {garageCard}
+
+      {/* ── Premium features (market price, alerts, PDF, compare) ── */}
+      {premium}
 
     </div>
   )
@@ -794,7 +804,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
     </PremiumLock>
   )
 
-  // ── PDF send (premium) — notes live in the full tab ──
+  // ── PDF send (premium) — notes live in the summary tab ──
   const pdfAuthorized = !!user?.show_pdf_report
   async function handleDownload() {
     setPdfLoading(true)
@@ -854,6 +864,125 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
       )}
     </div>
     </PremiumLock>
+  )
+
+  const modelCountCard = (
+    <div className="stat-card" style={{ marginBottom: 14 }}>
+      <div style={{ fontSize: 22, fontWeight: 600, color: 'var(--text)' }}>
+        {record._same_model_count != null
+          ? Number(record._same_model_count).toLocaleString('he-IL')
+          : '—'}
+      </div>
+      <div className="stat-label">🇮🇱 מספר הרכבים לדגם זה על כבישי ישראל</div>
+    </div>
+  )
+
+  // ── Garage ("רכבים שקניתי") — shown in the summary ──
+  const garageCard = garageEntry !== undefined && (
+        <div className="card" style={{ marginBottom: 12 }}>
+          {garageEntry ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <span style={{
+                  fontSize: 11, fontWeight: 700, background: '#0066d61f', color: '#0066d6',
+                  borderRadius: 20, padding: '4px 10px',
+                }}>🚗 במלאי שלי</span>
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 10 }}>
+                הרכב הזה כבר נמצא ב"רכבים שקניתי" שלך.
+              </div>
+              <button className="btn btn-secondary" style={{ width: '100%', border: '1.5px solid var(--border)' }}
+                onClick={() => onNavigate('garage')}>📂 עבור לרכבים שקניתי</button>
+            </>
+          ) : buying ? (
+            <>
+              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>💰 הוספה ל"רכבים שקניתי"</div>
+              <label style={{ display: 'block', marginBottom: 10 }}>
+                <span style={{ display: 'block', fontSize: 12, color: 'var(--hint)', marginBottom: 4, fontWeight: 600 }}>מחיר רכישה (₪)</span>
+                <input
+                  type="number" className="input" style={{ background: 'var(--bg)', border: '1.5px solid var(--border-input)' }}
+                  value={buyPrice} onChange={e => setBuyPrice(e.target.value)}
+                />
+              </label>
+              <label style={{ display: 'block', marginBottom: 10 }}>
+                <span style={{ display: 'block', fontSize: 12, color: 'var(--hint)', marginBottom: 4, fontWeight: 600 }}>ק"מ בזמן הרכישה</span>
+                <input
+                  type="number" className="input" style={{ background: 'var(--bg)', border: '1.5px solid var(--border-input)' }}
+                  value={buyKm} onChange={e => setBuyKm(e.target.value)}
+                />
+              </label>
+              <label style={{ display: 'block', marginBottom: 10 }}>
+                <span style={{ display: 'block', fontSize: 12, color: 'var(--hint)', marginBottom: 4, fontWeight: 600 }}>הערות / הוצאות נוספות (לא חובה)</span>
+                <textarea
+                  className="input" rows={3}
+                  placeholder={'לדוגמה: יש לתקן כנף שמאל, יש להחליף מצבר'}
+                  value={buyNotes} onChange={e => setBuyNotes(e.target.value)}
+                  style={{ background: 'var(--bg)', border: '1.5px solid var(--border-input)', resize: 'vertical', fontFamily: 'inherit' }}
+                />
+              </label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn" style={{ flex: 1 }} disabled={buySubmitting || !buyPrice}
+                  onClick={handleConfirmBuy}>{buySubmitting ? '...' : 'שמור'}</button>
+                <button className="btn btn-secondary" style={{ flex: 1, border: '1.5px solid var(--border)' }} onClick={() => setBuying(false)}>ביטול</button>
+              </div>
+            </>
+          ) : (
+            <button className="btn" style={{ width: '100%' }} onClick={() => setBuying(true)}>
+              🚗 קניתי את הרכב הזה
+            </button>
+          )}
+        </div>
+  )
+
+  const notesCard = (
+      <div className="card" style={{ marginBottom: 12 }}>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>📝 הערות אישיות לרכב זה</div>
+        {pdfAuthorized ? (
+          <>
+            <textarea
+              aria-label="הערות אישיות לרכב"
+              value={note}
+              onChange={e => { setNote(e.target.value); setNoteDirty(true) }}
+              rows={4}
+              style={{
+                width: '100%', boxSizing: 'border-box',
+                background: 'var(--bg)', border: `1px solid ${noteDirty ? '#0066d6' : 'rgba(0,100,200,0.18)'}`,
+                borderRadius: 10, padding: '10px 12px', color: 'var(--text)',
+                fontSize: 14, lineHeight: 1.6, resize: 'vertical',
+                fontFamily: 'inherit', direction: 'rtl',
+              }}
+              placeholder={'מחיר סגירה 70,000\nטלפון 052-12345678\nמול אמיר.'}
+            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+              {noteDirty && (
+                <button
+                  onClick={handleNoteSave}
+                  disabled={noteSaving}
+                  style={{
+                    padding: '7px 18px', minHeight: 44, borderRadius: 8, border: 'none',
+                    background: '#0066d6', color: '#fff', fontSize: 13,
+                    fontWeight: 600, cursor: 'pointer', opacity: noteSaving ? 0.6 : 1,
+                  }}
+                >{noteSaving ? '...' : '💾 שמור הערה'}</button>
+              )}
+              {noteSaved && (
+                <span role="status" style={{ fontSize: 11, color: '#177a33' }}>✅ נשמר</span>
+              )}
+            </div>
+          </>
+        ) : note ? (
+          <div style={{
+            background: 'var(--bg)', borderRadius: 10, padding: '10px 12px',
+            fontSize: 14, color: 'var(--hint)', lineHeight: 1.6, direction: 'rtl',
+            whiteSpace: 'pre-wrap',
+          }}>{note}</div>
+        ) : (
+          <div style={{
+            fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic',
+            padding: '8px 0',
+          }}>🔒 הערות אישיות — זמין למנויים</div>
+        )}
+      </div>
   )
 
   const premium = (
@@ -925,96 +1054,12 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
           make={make} model={model} year={year} color={color}
           km={km} testStr={testStr} plateNum={plateNum}
           score={score} flags={flags} premium={premium}
+          modelCountCard={modelCountCard} notesCard={notesCard} garageCard={garageCard}
           w={w} statusColor={statusColor}
         />
       )}
 
       {activeTab === 'full' && <>
-
-      {/* ── Quick stats ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
-        <div className="stat-card">
-          <div className="stat-value">{ownership.length}</div>
-          <div className="stat-label">בעלויות</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value" style={{ fontSize: km ? 18 : 22 }}>
-            {km ? Number(km).toLocaleString('he-IL') : '—'}
-          </div>
-          <div className="stat-label">ק"מ</div>
-        </div>
-        <div className="stat-card" style={{ gridColumn: 'span 2' }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: statusColor }}>
-            {testStr || '—'}
-          </div>
-          <div className="stat-label">תוקף טסט</div>
-        </div>
-        <div className="stat-card" style={{ gridColumn: 'span 2' }}>
-          <div style={{ fontSize: 22, fontWeight: 600, color: 'var(--text)' }}>
-            {record._same_model_count != null
-              ? Number(record._same_model_count).toLocaleString('he-IL')
-              : '—'}
-          </div>
-          <div className="stat-label">🇮🇱 מספר הרכבים לדגם זה על כבישי ישראל</div>
-        </div>
-      </div>
-
-      {/* ── Garage ("רכבים שקניתי") ── */}
-      {garageEntry !== undefined && (
-        <div className="card" style={{ marginBottom: 12 }}>
-          {garageEntry ? (
-            <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <span style={{
-                  fontSize: 11, fontWeight: 700, background: '#0066d61f', color: '#0066d6',
-                  borderRadius: 20, padding: '4px 10px',
-                }}>🚗 במלאי שלי</span>
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 10 }}>
-                הרכב הזה כבר נמצא ב"רכבים שקניתי" שלך.
-              </div>
-              <button className="btn btn-secondary" style={{ width: '100%', border: '1.5px solid var(--border)' }}
-                onClick={() => onNavigate('garage')}>📂 עבור לרכבים שקניתי</button>
-            </>
-          ) : buying ? (
-            <>
-              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>💰 הוספה ל"רכבים שקניתי"</div>
-              <label style={{ display: 'block', marginBottom: 10 }}>
-                <span style={{ display: 'block', fontSize: 12, color: 'var(--hint)', marginBottom: 4, fontWeight: 600 }}>מחיר רכישה (₪)</span>
-                <input
-                  type="number" className="input" style={{ background: 'var(--bg)', border: '1.5px solid var(--border-input)' }}
-                  value={buyPrice} onChange={e => setBuyPrice(e.target.value)}
-                />
-              </label>
-              <label style={{ display: 'block', marginBottom: 10 }}>
-                <span style={{ display: 'block', fontSize: 12, color: 'var(--hint)', marginBottom: 4, fontWeight: 600 }}>ק"מ בזמן הרכישה</span>
-                <input
-                  type="number" className="input" style={{ background: 'var(--bg)', border: '1.5px solid var(--border-input)' }}
-                  value={buyKm} onChange={e => setBuyKm(e.target.value)}
-                />
-              </label>
-              <label style={{ display: 'block', marginBottom: 10 }}>
-                <span style={{ display: 'block', fontSize: 12, color: 'var(--hint)', marginBottom: 4, fontWeight: 600 }}>הערות / הוצאות נוספות (לא חובה)</span>
-                <textarea
-                  className="input" rows={3}
-                  placeholder={'לדוגמה: יש לתקן כנף שמאל, יש להחליף מצבר'}
-                  value={buyNotes} onChange={e => setBuyNotes(e.target.value)}
-                  style={{ background: 'var(--bg)', border: '1.5px solid var(--border-input)', resize: 'vertical', fontFamily: 'inherit' }}
-                />
-              </label>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn" style={{ flex: 1 }} disabled={buySubmitting || !buyPrice}
-                  onClick={handleConfirmBuy}>{buySubmitting ? '...' : 'שמור'}</button>
-                <button className="btn btn-secondary" style={{ flex: 1, border: '1.5px solid var(--border)' }} onClick={() => setBuying(false)}>ביטול</button>
-              </div>
-            </>
-          ) : (
-            <button className="btn" style={{ width: '100%' }} onClick={() => setBuying(true)}>
-              🚗 קניתי את הרכב הזה
-            </button>
-          )}
-        </div>
-      )}
 
       {/* ── General ── */}
       <Sec title="📋 פרטים כלליים">
@@ -1136,37 +1181,6 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
         {scrapped && <Row label="תאריך גרוטאה" value={fmtDate(scrapped)} />}
       </Sec>
 
-      {/* ── Ownership history ── */}
-      {ownership.length > 0 && (
-        <div className="card" style={{ marginBottom: 12 }}>
-          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>👥 היסטוריית בעלויות</div>
-          <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
-            {[
-              { label: 'סה"כ', val: ownership.length },
-              { label: 'פרטיות', val: ownership.filter(o => o.baalut === 'פרטי').length },
-              { label: 'דרך סוחר', val: ownership.filter(o => o.baalut === 'סוחר').length },
-            ].map(({ label, val }) => (
-              <div key={label} className="stat-card" style={{ flex: 1, padding: 10 }}>
-                <div className="stat-value" style={{ fontSize: 20 }}>{val}</div>
-                <div className="stat-label">{label}</div>
-              </div>
-            ))}
-          </div>
-          {ownership.map((o, i) => {
-            const emoji = o.baalut === 'פרטי' ? '👤' : o.baalut === 'סוחר' ? '🏢' : '❓'
-            return (
-              <div key={i} style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: '6px 0', borderBottom: '1px solid rgba(0,100,200,0.1)', fontSize: 14,
-              }}>
-                <span style={{ color: 'var(--hint)' }}>{i + 1}. {emoji} {o.baalut || '?'}</span>
-                <span style={{ fontWeight: 500 }}>{fmtBaalutDt(o.baalut_dt)}</span>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
       {/* ── Recalls ── */}
       <div className="card" style={{ marginBottom: 12 }}>
         <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>
@@ -1205,62 +1219,10 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
         ))}
       </div>
 
-      {/* ── Personal notes + copy (non-premium utilities; notes editing keeps its existing gate) ── */}
-      <div className="card" style={{ marginBottom: 12 }}>
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>📝 הערות אישיות לרכב זה</div>
-        {pdfAuthorized ? (
-          <>
-            <textarea
-              aria-label="הערות אישיות לרכב"
-              value={note}
-              onChange={e => { setNote(e.target.value); setNoteDirty(true) }}
-              rows={4}
-              style={{
-                width: '100%', boxSizing: 'border-box',
-                background: 'var(--bg)', border: `1px solid ${noteDirty ? '#0066d6' : 'rgba(0,100,200,0.18)'}`,
-                borderRadius: 10, padding: '10px 12px', color: 'var(--text)',
-                fontSize: 14, lineHeight: 1.6, resize: 'vertical',
-                fontFamily: 'inherit', direction: 'rtl',
-              }}
-              placeholder={'מחיר סגירה 70,000\nטלפון 052-12345678\nמול אמיר.'}
-            />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-              {noteDirty && (
-                <button
-                  onClick={handleNoteSave}
-                  disabled={noteSaving}
-                  style={{
-                    padding: '7px 18px', minHeight: 44, borderRadius: 8, border: 'none',
-                    background: '#0066d6', color: '#fff', fontSize: 13,
-                    fontWeight: 600, cursor: 'pointer', opacity: noteSaving ? 0.6 : 1,
-                  }}
-                >{noteSaving ? '...' : '💾 שמור הערה'}</button>
-              )}
-              {noteSaved && (
-                <span role="status" style={{ fontSize: 11, color: '#177a33' }}>✅ נשמר</span>
-              )}
-            </div>
-          </>
-        ) : note ? (
-          <div style={{
-            background: 'var(--bg)', borderRadius: 10, padding: '10px 12px',
-            fontSize: 14, color: 'var(--hint)', lineHeight: 1.6, direction: 'rtl',
-            whiteSpace: 'pre-wrap',
-          }}>{note}</div>
-        ) : (
-          <div style={{
-            fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic',
-            padding: '8px 0',
-          }}>🔒 הערות אישיות — זמין למנויים</div>
-        )}
-        <button
-          className="btn btn-secondary"
-          style={{ width: '100%', marginTop: 12 }}
-          onClick={handleCopy}
-        >
-          {copied ? <span role="status">✅ הועתק!</span> : '📋 העתק דוח'}
-        </button>
-      </div>
+      {/* ── Copy report ── */}
+      <button className="btn btn-secondary" style={{ width: '100%', marginBottom: 12 }} onClick={handleCopy}>
+        {copied ? <span role="status">✅ הועתק!</span> : '📋 העתק דוח'}
+      </button>
 
       {/* ── Actions ── */}
       <button className="btn btn-secondary" style={{ marginBottom: 20 }}
