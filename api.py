@@ -28,7 +28,7 @@ WEBAPP_URL   = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_U
 # Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
 # webapp can detect a new release and force-reload instead of running stale
 # cached JS. Falls back to process start time for non-Render environments.
-APP_VERSION = "1792196747"
+APP_VERSION = "1792196970"
 
 api = FastAPI()
 
@@ -563,7 +563,7 @@ async def get_user_history(user: dict = Depends(_get_user)):
 # ── Vehicle report ───────────────────────────────────────────────────────────
 @api.get("/api/vehicle/{plate}")
 async def get_vehicle(plate: str, user: dict = Depends(_get_user)):
-    from src.api.gov_api import fetch_vehicle_data
+    from src.api.gov_api import fetch_vehicle_data, GovUnavailable
     from src.cache import cache
     from src.users import is_allowed, increment_search
     await _ensure_not_maintenance(user)
@@ -579,7 +579,11 @@ async def get_vehicle(plate: str, user: dict = Depends(_get_user)):
 
     record = cache.get(plate)
     if record is None:
-        record = await fetch_vehicle_data(plate)
+        try:
+            record = await fetch_vehicle_data(plate)
+        except GovUnavailable:
+            # Registry unreachable: report it as a server problem, not "not found".
+            raise HTTPException(status_code=502, detail="registry_unavailable")
         if record:
             cache.set(plate, record)
     if not record:

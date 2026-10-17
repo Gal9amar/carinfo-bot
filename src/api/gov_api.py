@@ -70,17 +70,29 @@ async def _search_q(client: httpx.AsyncClient, resource_id: str, q: str, limit: 
         return []
 
 
+class GovUnavailable(Exception):
+    """data.gov.il could not be reached (as opposed to 'no such vehicle')."""
+
+
 async def _search_filter(
     client: httpx.AsyncClient, resource_id: str, filters: dict, limit: int = 1,
+    strict: bool = False,
 ) -> list:
     params = {"resource_id": resource_id, "filters": json.dumps(filters, ensure_ascii=False), "limit": limit}
-    try:
-        resp = await client.get(BASE_URL, params=params)
-        resp.raise_for_status()
-        return resp.json().get("result", {}).get("records", [])
-    except Exception as exc:
-        logger.warning("gov_api _search_filter failed resource=%s filters=%s: %s", resource_id, filters, exc)
-        return []
+    last_exc: Exception | None = None
+    for attempt in range(3):
+        try:
+            resp = await client.get(BASE_URL, params=params)
+            resp.raise_for_status()
+            return resp.json().get("result", {}).get("records", [])
+        except Exception as exc:
+            last_exc = exc
+            if attempt < 2:
+                await asyncio.sleep(0.4 * (attempt + 1))
+    logger.warning("gov_api _search_filter failed resource=%s filters=%s: %s", resource_id, filters, last_exc)
+    if strict:
+        raise GovUnavailable(str(last_exc))
+    return []
 
 
 async def _count_filter(
@@ -168,7 +180,7 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
 
     async with httpx.AsyncClient(timeout=15) as client:
         main_records, history_records, ext_records = await asyncio.gather(
-            _search_filter(client, RES_MAIN, {"mispar_rechev": int(clean)}, limit=1),
+            _search_filter(client, RES_MAIN, {"mispar_rechev": int(clean)}, limit=1, strict=True),
             _search_filter(client, RES_HISTORY, {"mispar_rechev": int(clean)}, limit=1),
             _search_filter(client, RES_MAIN_EXT, {"mispar_rechev": int(clean)}, limit=1),
         )
