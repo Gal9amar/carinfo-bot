@@ -252,6 +252,24 @@ async def _render(ev: dict) -> str:
     return f"{verb}<b>{esc(name)}</b> · {ev['t']}\n{body}{buttons}"
 
 
+async def _disable(bot, exc) -> None:
+    """The group/topic is gone or the bot lost access: stop mirroring and tell the admin once."""
+    global _dropped
+    from src.db import set_bot_setting
+    try:
+        await set_bot_setting("mirror_enabled", "0")
+        invalidate()
+        _events.clear()
+        _dropped = 0
+        await bot.send_message(
+            ADMIN_ID,
+            f"🪞 מראה הפעולות כובתה: לא הצלחתי לשלוח לקבוצה ({type(exc).__name__}).\n"
+            "ודא שהבוט עדיין בקבוצה ויכול לכתוב בטופיק, ואז שלח /mirror_set עם קישור לטופיק.",
+        )
+    except Exception as e2:
+        logger.warning("mirror disable failed: %s", type(e2).__name__)
+
+
 async def flush(bot) -> None:
     """Send queued events as one message. Called by a repeating job every few seconds."""
     global _dropped, _pause_until, _last_warn
@@ -282,11 +300,20 @@ async def flush(bot) -> None:
         )
         _dropped = 0
     except Exception as exc:
-        from telegram.error import RetryAfter
+        from telegram.error import BadRequest, ChatMigrated, Forbidden, RetryAfter
         if isinstance(exc, RetryAfter):
             _pause_until = time.time() + float(exc.retry_after) + 1
-            for ev in reversed(taken):
+            room = (_events.maxlen or 0) - len(_events)
+            for ev in reversed(taken[-room:] if room > 0 else []):
                 _events.appendleft(ev)
-        elif time.time() - _last_warn > 60:
-            _last_warn = time.time()
-            logger.warning("mirror send failed: %s %s", type(exc).__name__, str(exc)[:120])
+            _dropped += max(0, len(taken) - max(room, 0))
+        else:
+            _dropped += len(taken)    # the next batch reports how many events were lost
+            permanent = isinstance(exc, (Forbidden, ChatMigrated)) or (
+                isinstance(exc, BadRequest) and any(s in str(exc).lower() for s in ("chat not found", "thread not found", "topic"))
+            )
+            if permanent:
+                await _disable(bot, exc)
+            elif time.time() - _last_warn > 60:
+                _last_warn = time.time()
+                logger.warning("mirror send failed: %s %s", type(exc).__name__, str(exc)[:120])

@@ -737,7 +737,7 @@ def admin_settings(free: int, maintenance_on: bool, rich_on: bool = False,
         f"• תזכורות טסט: {b(onoff(reminders_on))}\n"
         f"• תזכורת אוטומטית לרכבי המוסך: {b(onoff(garage_sync_on))}\n"
         f"• מראה פעולות לקבוצה: {b(onoff(mirror_on))}"
-        + ("" if mirror_bound else "\n  ↳ כדי לקשר: שלח /mirror_here בתוך הטופיק בקבוצה")
+        + ("" if mirror_bound else "\n  ↳ כדי לקשר: שלח /mirror_set עם קישור לטופיק, או /mirror_here בתוך הטופיק")
     )
 
 

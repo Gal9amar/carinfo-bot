@@ -462,6 +462,7 @@ async def receive_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
 async def cancel_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user_id = update.effective_user.id
+    context.user_data.pop("code_is_admin", None)
     await update.message.reply_text(M.search_cancelled(), reply_markup=ReplyKeyboardRemove())
     await update.message.reply_text("👇", reply_markup=_persistent_keyboard(is_admin=(user_id == ADMIN_ID)))
     return ConversationHandler.END
