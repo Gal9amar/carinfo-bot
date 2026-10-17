@@ -2253,6 +2253,7 @@ async def _yad2_watch_job(context) -> None:
     if (await get_bot_setting("yad2_watch_enabled")) != "1":
         return
 
+    _alerts_sent = 0
     try:
         watches = await get_all_active_watches()
         if not watches:
@@ -2310,10 +2311,12 @@ async def _yad2_watch_job(context) -> None:
                         top_link, search_url,
                     )
                     try:
-                        await context.bot.send_message(
-                            w["user_id"], text,
-                            parse_mode=HTML,
-                        )
+                        with mirror.quiet():   # automatic alerts are summarised, not copied one by one
+                            await context.bot.send_message(
+                                w["user_id"], text,
+                                parse_mode=HTML,
+                            )
+                        _alerts_sent += 1
                         await log_sent_message(w["user_id"], f"🔔 התראת מעקב יד2: {label} — {count} מודעות חדשות", kind="watch_alert")
                     except Exception as e:
                         logger.warning("Watch notify failed user=%s: %s", w["user_id"], e)
@@ -2331,6 +2334,8 @@ async def _yad2_watch_job(context) -> None:
                     )
                 except Exception:
                     pass
+        if _alerts_sent:
+            mirror.note(f"👀 התראות מעקב יד2: נשלחו {_alerts_sent}")
     except Exception as e:
         logger.error("Yad2 watcher job error: %s", e)
 
@@ -2395,19 +2400,21 @@ def main() -> None:
         from src.users import get_all_users
         users = await get_all_users()
         sent = failed = 0
-        for u in users:
-            uid = u.get("user_id")
-            if not uid or uid == ADMIN_ID:
-                continue
-            if not u.get("broadcast_consent", 1):
-                continue
-            try:
-                text = M.broadcast(M.first_name(u.get("full_name", "")), message)
-                await app.bot.send_message(uid, text, parse_mode=HTML, reply_markup=_optout_kb)
-                await log_sent_message(uid, _log_text(text), kind="broadcast")
-                sent += 1
-            except Exception:
-                failed += 1
+        with mirror.quiet():   # one summary line instead of a copy per recipient
+            for u in users:
+                uid = u.get("user_id")
+                if not uid or uid == ADMIN_ID:
+                    continue
+                if not u.get("broadcast_consent", 1):
+                    continue
+                try:
+                    text = M.broadcast(M.first_name(u.get("full_name", "")), message)
+                    await app.bot.send_message(uid, text, parse_mode=HTML, reply_markup=_optout_kb)
+                    await log_sent_message(uid, _log_text(text), kind="broadcast")
+                    sent += 1
+                except Exception:
+                    failed += 1
+        mirror.note(f"📢 שידור נשלח ל-{sent} משתמשים" + (f" ({failed} נכשלו)" if failed else "") + f"\n{message[:300]}")
         return {"ok": True, "sent": sent, "failed": failed}
 
     async def _notify_admin_grant(user_id: int, searches: int, expires: str = ""):
@@ -2447,28 +2454,30 @@ def main() -> None:
             photo_bytes = base64.b64decode(data if data else image_b64)
         except Exception:
             photo_bytes = None
-        for u in users:
-            uid = u.get("user_id")
-            if not uid or uid == ADMIN_ID or u.get("blocked"):
-                continue
-            if not u.get("broadcast_consent", 1):
-                continue
-            try:
-                text = M.broadcast(M.first_name(u.get("full_name", "")), message)
-                if photo_bytes:
-                    await app.bot.send_photo(
-                        uid,
-                        photo=_io.BytesIO(photo_bytes),
-                        caption=text,
-                        parse_mode=HTML,
-                        reply_markup=_optout_kb,
-                    )
-                else:
-                    await app.bot.send_message(uid, text, parse_mode=HTML, reply_markup=_optout_kb)
-                await log_sent_message(uid, _log_text(text), kind="broadcast")
-                sent += 1
-            except Exception:
-                failed += 1
+        with mirror.quiet():
+            for u in users:
+                uid = u.get("user_id")
+                if not uid or uid == ADMIN_ID or u.get("blocked"):
+                    continue
+                if not u.get("broadcast_consent", 1):
+                    continue
+                try:
+                    text = M.broadcast(M.first_name(u.get("full_name", "")), message)
+                    if photo_bytes:
+                        await app.bot.send_photo(
+                            uid,
+                            photo=_io.BytesIO(photo_bytes),
+                            caption=text,
+                            parse_mode=HTML,
+                            reply_markup=_optout_kb,
+                        )
+                    else:
+                        await app.bot.send_message(uid, text, parse_mode=HTML, reply_markup=_optout_kb)
+                    await log_sent_message(uid, _log_text(text), kind="broadcast")
+                    sent += 1
+                except Exception:
+                    failed += 1
+        mirror.note(f"📢 שידור עם תמונה נשלח ל-{sent} משתמשים" + (f" ({failed} נכשלו)" if failed else "") + f"\n{message[:300]}")
         return {"ok": True, "sent": sent, "failed": failed}
 
     from src.notifier import register_broadcast_photo_notifier
@@ -2630,13 +2639,18 @@ def main() -> None:
     async def _send_expiry_reminders(context, days: int):
         try:
             user_ids = await get_users_expiring_in_days(days)
-            for uid in user_ids:
-                try:
-                    text = M.expiry_reminder(await _name_of(uid), days)
-                    await context.bot.send_message(uid, text, parse_mode=HTML)
-                    await log_sent_message(uid, _log_text(text), kind="expiry_reminder")
-                except Exception:
-                    pass
+            delivered = 0
+            with mirror.quiet():
+                for uid in user_ids:
+                    try:
+                        text = M.expiry_reminder(await _name_of(uid), days)
+                        await context.bot.send_message(uid, text, parse_mode=HTML)
+                        await log_sent_message(uid, _log_text(text), kind="expiry_reminder")
+                        delivered += 1
+                    except Exception:
+                        pass
+            if delivered:
+                mirror.note(f"⏰ תזכורות מנוי ({days} ימים): נשלחו {delivered}")
         except Exception as e:
             logger.warning("Expiry reminder job (days=%d) error: %s", days, e)
 
@@ -2670,7 +2684,10 @@ def main() -> None:
                 added = await _rem.sync_garage()
             else:
                 await _rem.deactivate_orphans()
-            sent = await _rem.run_due(_send_test_reminder, _fetch_tokef)
+            with mirror.quiet():
+                sent = await _rem.run_due(_send_test_reminder, _fetch_tokef)
+            if sent:
+                mirror.note(f"🔔 תזכורות טסט: נשלחו {sent}")
             logger.info("test reminders: garage_added=%s sent=%s", added, sent)
         except Exception as e:
             logger.warning("Test reminders job error: %s", e)

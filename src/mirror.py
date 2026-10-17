@@ -24,6 +24,7 @@ import contextlib
 import contextvars
 import logging
 import os
+import threading
 import time
 from collections import deque
 from datetime import datetime, timedelta, timezone
@@ -38,6 +39,7 @@ HEADER_TTL = 600          # a reply is attached to the user's last action header
 CONFIG_TTL = 15           # seconds a settings read is cached
 
 _ops: deque = deque(maxlen=MAX_QUEUE)
+_lock = threading.Lock()                    # the API (uvicorn thread) and the bot loop both touch the queue
 _dropped = 0
 _who: dict[int, tuple[str, str]] = {}      # uid -> (name, @username)
 _hdr_enq: dict[int, float] = {}             # uid -> when a header op was last queued
@@ -45,13 +47,17 @@ _hdr_msg: dict[int, int] = {}               # uid -> message_id of that header i
 _cfg = {"at": 0.0, "enabled": False, "chat": None, "thread": None}
 _pause_until = 0.0
 _redact: contextvars.ContextVar[bool] = contextvars.ContextVar("mirror_redact", default=False)
+_quiet: contextvars.ContextVar[bool] = contextvars.ContextVar("mirror_quiet", default=False)
 _last_warn = 0.0
 
 
 # ── configuration ──────────────────────────────────────────────────────────
 
 def invalidate() -> None:
+    """Settings or binding changed: re-read the config and forget threading to the old topic."""
     _cfg["at"] = 0.0
+    _hdr_msg.clear()
+    _hdr_enq.clear()
 
 
 async def _config() -> dict:
@@ -71,6 +77,25 @@ async def _config() -> dict:
         logger.warning("mirror config read failed: %s", type(exc).__name__)
         _cfg["at"] = time.time()
     return _cfg
+
+
+@contextlib.contextmanager
+def quiet():
+    """Bulk/automatic sends (broadcasts, reminders, alerts) are not copied one by one; use `note()` for a summary."""
+    token = _quiet.set(True)
+    try:
+        yield
+    finally:
+        _quiet.reset(token)
+
+
+def note(text: str) -> None:
+    """One summary line in the feed (e.g. '📢 broadcast sent to 120 users')."""
+    try:
+        if _cfg["enabled"]:
+            _push({"op": "header", "uid": 0, "name": "מערכת", "uname": "", "t": _clock(), "push": True, "text": text})
+    except Exception:
+        pass
 
 
 @contextlib.contextmanager
@@ -106,9 +131,10 @@ def _clock() -> str:
 
 def _push(op: dict) -> None:
     global _dropped
-    if len(_ops) == _ops.maxlen:
-        _dropped += 1
-    _ops.append(op)
+    with _lock:
+        if len(_ops) == _ops.maxlen:
+            _dropped += 1
+        _ops.append(op)
 
 
 def _clip(text: str, limit: int) -> str:
@@ -188,10 +214,19 @@ def _drop_pending(uid: int, message_id) -> None:
     """Forget pending copies of a message (it was edited again or deleted before we mirrored it)."""
     if message_id is None:
         return
-    keep = [o for o in _ops if not (o.get("uid") == uid and o.get("mid") == message_id and not o.get("sent"))]
-    if len(keep) != len(_ops):
+    with _lock:
+        keep = [o for o in _ops if not (o.get("uid") == uid and o.get("mid") == message_id)]
+        if len(keep) == len(_ops):
+            return
+        # a "📤" header whose copy was just dropped would be left dangling: remove it too
+        cleaned = []
+        for i, o in enumerate(keep):
+            nxt = keep[i + 1] if i + 1 < len(keep) else None
+            if o["op"] == "header" and o.get("push") and o.get("uid") == uid and (nxt is None or nxt["op"] == "header" or nxt.get("uid") != uid):
+                continue
+            cleaned.append(o)
         _ops.clear()
-        _ops.extend(keep)
+        _ops.extend(cleaned)
 
 
 def _need_header(uid: int) -> bool:
@@ -223,9 +258,11 @@ async def record_outgoing(chat_id, kind: str = "text", text: str = "", parse_mod
         cfg = await _config()
         if not cfg["enabled"] or chat_id == cfg["chat"]:
             return
+        if _quiet.get():
+            return
         if edited:
             _drop_pending(chat_id, message_id)
-        if edited or _need_header(chat_id):
+        if _need_header(chat_id):   # an edit right after the user's action rides on that action's header
             name = await _display_name(chat_id)
             _hdr_enq[chat_id] = time.time()
             _push({"op": "header", "uid": chat_id, "name": name, "uname": "", "t": _clock(),
@@ -338,8 +375,9 @@ async def _disable(bot, exc) -> None:
     try:
         await set_bot_setting("mirror_enabled", "0")
         invalidate()
-        _ops.clear()
-        _dropped = 0
+        with _lock:
+            _ops.clear()
+            _dropped = 0
         await bot.send_message(
             ADMIN_ID,
             f"🪞 מראה הפעולות כובתה: לא הצלחתי לשלוח לקבוצה ({type(exc).__name__}).\n"
@@ -355,25 +393,34 @@ async def flush(bot) -> None:
     if not _ops or time.time() < _pause_until:
         return
     cfg = await _config()
-    if not cfg["enabled"] or not cfg["chat"]:
-        _ops.clear()
-        _dropped = 0
-        return
-    if _dropped:
-        n, _dropped = _dropped, 0
-        _ops.appendleft({"op": "header", "uid": 0, "name": "מראה", "uname": "", "t": _clock(), "push": True,
-                         "text": f"⚠️ הושמטו {n} אירועים בגלל עומס"}) if len(_ops) < (_ops.maxlen or 0) else None
-    op = _ops[0]
+    with _lock:
+        if not cfg["enabled"] or not cfg["chat"]:
+            _ops.clear()
+            _dropped = 0
+            return
+        if _dropped and len(_ops) < (_ops.maxlen or 0):    # keep counting until the notice fits in the queue
+            _ops.appendleft({"op": "header", "uid": 0, "name": "מראה", "uname": "", "t": _clock(), "push": True,
+                             "text": f"⚠️ הושמטו {_dropped} אירועים בגלל עומס"})
+            _dropped = 0
+        if not _ops:
+            return
+        op = _ops[0]
     try:
         await _send_op(bot, cfg, op)
-        _ops.popleft()
+        with _lock:
+            if _ops and _ops[0] is op:
+                _ops.popleft()
     except Exception as exc:
         from telegram.error import BadRequest, ChatMigrated, Forbidden, RetryAfter
         if isinstance(exc, RetryAfter):
             _pause_until = time.time() + float(exc.retry_after) + 1     # the op stays at the head of the queue
             return
-        _ops.popleft()                                                   # drop the op that failed
-        _dropped += 1
+        with _lock:
+            if _ops and _ops[0] is op:
+                _ops.popleft()                                           # drop the op that failed
+            _dropped += 1
+        if op["op"] == "header":
+            _hdr_msg.pop(op["uid"], None)                                # later copies must not hang off an old header
         permanent = isinstance(exc, (Forbidden, ChatMigrated)) or (
             isinstance(exc, BadRequest) and any(m in str(exc).lower() for m in ("chat not found", "thread not found", "topic"))
         )
