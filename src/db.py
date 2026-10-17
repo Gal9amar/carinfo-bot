@@ -252,11 +252,6 @@ async def init_db() -> None:
     source       TEXT NOT NULL DEFAULT 'manual',
     created_at   TEXT NOT NULL DEFAULT (datetime('now'))
 )""")
-    migrations.append("""CREATE TABLE IF NOT EXISTS photo_ocr_log (
-    id      INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    at      TEXT NOT NULL DEFAULT (datetime('now'))
-)""")
     for sql in statements:
         conn.execute(sql)
     for sql in migrations:
@@ -275,7 +270,6 @@ async def init_db() -> None:
         "CREATE INDEX IF NOT EXISTS idx_ove_owned  ON owned_vehicle_expenses(owned_vehicle_id)",
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_ov_active_unique ON owned_vehicles(user_id, plate) WHERE status='owned'",
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_tr_user_plate ON test_reminders(user_id, plate)",
-        "CREATE INDEX IF NOT EXISTS idx_pol_user_at ON photo_ocr_log(user_id, at)",
         "CREATE INDEX IF NOT EXISTS idx_yw_user    ON yad2_watches(user_id)",
         "CREATE INDEX IF NOT EXISTS idx_tickets_user ON tickets(user_id)",
         "CREATE INDEX IF NOT EXISTS idx_tr_ticket  ON ticket_replies(ticket_id)",
@@ -298,7 +292,6 @@ async def init_db() -> None:
     )
     conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('rich_messages_enabled', '0')")
     conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('test_reminders_enabled', '0')")
-    conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('photo_plate_enabled', '0')")
     conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('test_reminders_garage_sync', '0')")
     conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('referral_bonus', '10')")
     conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('free_searches', '10')")

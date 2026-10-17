@@ -4320,7 +4320,6 @@ function SettingsTab() {
           { key: 'rich_messages_enabled', icon: '📊', title: 'תוצאת חיפוש כטבלה', desc: 'כרטיס התוצאה, ההשוואה וההיסטוריה בבוט נשלחים כטבלה. אם השליחה נכשלת, נשלח כרטיס רגיל.' },
           { key: 'test_reminders_enabled', icon: '🔔', title: 'תזכורות טסט', desc: 'הבוט מזכיר חודש, שבוע ויום לפני פקיעת הטסט, למי שביקש תזכורת.' },
           { key: 'test_reminders_garage_sync', icon: '🚗', title: 'תזכורת אוטומטית לרכבי המוסך', desc: 'מצרף לתזכורות גם כל רכב שמשתמש שמר ב"רכבים שקניתי", בלי שביקש. פועל רק כשתזכורות טסט פעילות.' },
-          { key: 'photo_plate_enabled', icon: '📷', title: 'זיהוי מספר מתמונה', desc: 'המשתמש שולח צילום של הלוחית ומאשר את המספר לפני החיפוש. התמונה נשלחת ל-Claude לזיהוי.', keyMissing: !settings.photo_plate_key_configured },
         ].map(f => {
           const on = !!settings[f.key]
           return (
@@ -4333,7 +4332,6 @@ function SettingsTab() {
                   </span>
                 </div>
                 <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{f.desc}</div>
-                {f.keyMissing && <div style={{ fontSize: 13, color: 'var(--danger)', fontWeight: 700, marginTop: 6 }}>⚠️ <span dir="ltr">ANTHROPIC_API_KEY</span> חסר בשרת, הזיהוי לא יעבוד עד שיוגדר.</div>}
               </div>
               <button
                 type="button" role="switch" aria-checked={on} aria-label={f.title}

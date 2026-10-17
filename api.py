@@ -28,7 +28,7 @@ WEBAPP_URL   = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_U
 # Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
 # webapp can detect a new release and force-reload instead of running stale
 # cached JS. Falls back to process start time for non-Render environments.
-APP_VERSION = "1792227796"
+APP_VERSION = "1792229187"
 
 api = FastAPI()
 
@@ -829,9 +829,7 @@ async def admin_get_settings(_: dict = Depends(_require_admin)):
         "maintenance":         (await get_bot_setting("maintenance")) == "1",
         "rich_messages_enabled": (await get_bot_setting("rich_messages_enabled")) == "1",
         "test_reminders_enabled": (await get_bot_setting("test_reminders_enabled")) == "1",
-        "photo_plate_enabled": (await get_bot_setting("photo_plate_enabled")) == "1",
         "test_reminders_garage_sync": (await get_bot_setting("test_reminders_garage_sync")) == "1",
-        "photo_plate_key_configured": bool(os.environ.get("ANTHROPIC_API_KEY")),
         "free_searches":       _u.FREE_SEARCHES,
         "referral_bonus":      int((await get_bot_setting("referral_bonus")) or "10"),
         "promo_searches":      _u.PROMO_SEARCHES,
@@ -870,7 +868,6 @@ class SettingsUpdate(BaseModel):
     maintenance:         bool         | None = None
     rich_messages_enabled: bool       | None = None
     test_reminders_enabled: bool      | None = None
-    photo_plate_enabled: bool         | None = None
     test_reminders_garage_sync: bool  | None = None
     free_searches:       int          | None = None
     referral_bonus:      int          | None = None
@@ -917,8 +914,6 @@ async def admin_update_settings(body: SettingsUpdate, _: dict = Depends(_require
         await set_bot_setting("test_reminders_enabled", "1" if body.test_reminders_enabled else "0")
     if body.test_reminders_garage_sync is not None:
         await set_bot_setting("test_reminders_garage_sync", "1" if body.test_reminders_garage_sync else "0")
-    if body.photo_plate_enabled is not None:
-        await set_bot_setting("photo_plate_enabled", "1" if body.photo_plate_enabled else "0")
     if body.free_searches is not None:
         _u.FREE_SEARCHES = max(0, body.free_searches)
         await set_bot_setting("free_searches", str(_u.FREE_SEARCHES))

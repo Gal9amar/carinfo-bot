@@ -47,7 +47,6 @@ carinfo-bot/
 │   ├── yad2_watcher.py     # new-listing alerts ("watches")
 │   ├── formatter.py        # vehicle data → Telegram text (HTML)
 │   ├── reminders.py        # annual-test (טסט) reminders: table test_reminders, daily job logic
-│   ├── plate_ocr.py        # licence plate from a photo via Claude vision (opt-in)
 │   ├── rich.py             # sendRichMessage client (tables), gated by bot_settings.rich_messages_enabled
 │   ├── messages.py         # ALL user/admin bot copy: HTML builders, personal tone, first-name greeting
 │   ├── pdf_report.py       # PDF report (reportlab + python-bidi)
@@ -119,7 +118,6 @@ Created idempotently at startup (`init_db()` in `src/db.py` plus per-module `ini
 | `order_sequence` | 0 | Counter for order refs (`{member_id}-{seq:05d}`) |
 | `test_reminders_enabled` | 0 | Daily 07:00 UTC job notifies 30/7/1/0 days before the test expires (`src/reminders.py`) for users who pressed the 🔔 button. Re-checks the registry before notifying and never notifies on unverified data; blocked-bot users are deactivated |
 | `test_reminders_garage_sync` | 0 | Also auto-enrol every car in users' garages (no explicit consent, so off by default); reminders for sold/deleted cars are deactivated |
-| `photo_plate_enabled` | 0 | Photo → plate via Claude (`src/plate_ocr.py`); needs `ANTHROPIC_API_KEY`; 3 photos/h/user + 300/day global, persisted in table `photo_ocr_log`; requires an allowed (non-blocked, has quota) user |
 | `rich_messages_enabled` | 0 | Send the lookup result card as a table via `sendRichMessage` (Bot API 10.1+, `src/rich.py`). Toggle: admin panel → Settings, or bot `/admin` → settings. Any API failure falls back to the classic HTML card |
 
 ---
@@ -233,7 +231,6 @@ Seeded when table empty: 🔍 50 חיפושים ₪10 · 🔍 100 חיפושים
 | `PAYMENT_PROVIDER_TOKEN` | — | Telegram invoices |
 | `YAD2_PROXY_URL`, `YAD2_PROXY_SECRET`, `YAD2_CF_WORKER_URL` | — | Israeli-IP proxy for Yad2 (secrets: set via env, don't commit) |
 | `PORT` | 8080 | Server port |
-| `ANTHROPIC_API_KEY` | — | Only for photo plate recognition (model `claude-haiku-5-5`) |
 | `LOGO_PATH`, `COVER_PATH` | — | PDF assets |
 
 `APP_VERSION` in `api.py` is a **hardcoded string** (comment about `RENDER_GIT_COMMIT` is outdated): bump it to force all clients to reload.
@@ -242,10 +239,10 @@ Seeded when table empty: 🔍 50 חיפושים ₪10 · 🔍 100 חיפושים
 
 ## Telegram Bot (bot.py)
 
-Commands: `/start [ref_UID]`, `/help`, `/status`, `/code` (conversation), `/admin`, `/buy`, `/compare A B`, `/myid`, `/optout`, `/optin`. Photo messages → plate recognition (if enabled). Result card buttons: full report, `rem|add|PLATE` (test reminder), `cmp|start|PLATE` (compare), garage/alerts deep links, share.
+Commands: `/start [ref_UID]`, `/help`, `/status`, `/code` (conversation), `/admin`, `/buy`, `/compare A B`, `/myid`, `/optout`, `/optin`. Result card buttons: full report, `rem|add|PLATE` (test reminder), `cmp|start|PLATE` (compare), garage/alerts deep links, share.
 Callbacks: `new_search`, `show_packages`, `pkg|`, `buy|`, `paid|`, `approve|`, `decline|`, `deliver|`, `history`/`hist_plate|`, `pdf_report`, `share_report`, `how_it_works`, `back_to_start`, `adm|`, `admpkg|`, `usr|`/`ugrant|`/`utoggle|`, `broadcast_optout|optin`, `chat_admin`, `admin_panel`. Telegram invoice payments handled via pre-checkout + successful-payment handlers. Any text → plate lookup (`handle_plate`).
 Jobs (JobQueue): daily expiry reminders (06:00 UTC), hourly `expire_subscriptions`, every 30 min Yad2 watch alerts.
-Test reminders: `test_reminders` table (unique user+plate); stop with `rem|stop|ID`. `_lookup_flow` in `bot.py` is the shared lookup path (typed plate and photo confirmation).
+Test reminders: `test_reminders` table (unique user+plate); stop with `rem|stop|ID`. `_lookup_flow` in `bot.py` is the shared lookup path (typed plates).
 **Message style:** every bot message is sent with `ParseMode.HTML` (never Markdown/MarkdownV2). Copy lives in `src/messages.py`; builders take the user's first name (`M.first_name(...)`; `_first_name(tg_user)` / `await _name_of(user_id)` in `bot.py`) and escape every dynamic value with `M.esc`. Sent-message log stores `M.strip_html(text)`. Admin notifications keep an `ID: <code>…</code>` token — `handle_admin_message` parses it to route replies.
 `src/notifier.py` lets `api.py` trigger bot messages (payments, tickets, grants, broadcasts, orders, product delivery) without importing `bot.py`; callbacks are registered in `bot.py`.
 

@@ -40,7 +40,6 @@ from src.users import (
 )
 from src.rich import send_rich_message, rich_enabled
 from src import reminders as _rem
-from src import plate_ocr
 from src.formatter import (
     quick_summary_rich,
     compare_rich,
@@ -490,7 +489,7 @@ def _admin_gen_keyboard() -> InlineKeyboardMarkup:
 
 
 def _admin_settings_keyboard(maintenance_on: bool = False, rich_on: bool = False,
-                             reminders_on: bool = False, photo_on: bool = False, garage_sync_on: bool = False) -> InlineKeyboardMarkup:
+                             reminders_on: bool = False, garage_sync_on: bool = False) -> InlineKeyboardMarkup:
     maint_label = "🔴 בטל תחזוקה" if maintenance_on else "🔧 הפעל תחזוקה"
     maint_style = "danger" if maintenance_on else None
     return InlineKeyboardMarkup([
@@ -500,7 +499,6 @@ def _admin_settings_keyboard(maintenance_on: bool = False, rich_on: bool = False
         [InlineKeyboardButton("📊 כבה תוצאה כטבלה" if rich_on else "📊 הפעל תוצאה כטבלה", callback_data="adm|toggle_rich")],
         [InlineKeyboardButton("🔔 כבה תזכורות טסט" if reminders_on else "🔔 הפעל תזכורות טסט", callback_data="adm|toggle_reminders")],
         [InlineKeyboardButton("🚗 כבה תזכורת אוטומטית למוסך" if garage_sync_on else "🚗 הפעל תזכורת אוטומטית למוסך", callback_data="adm|toggle_garage_sync")],
-        [InlineKeyboardButton("📷 כבה זיהוי מתמונה" if photo_on else "📷 הפעל זיהוי מתמונה", callback_data="adm|toggle_photo")],
         [InlineKeyboardButton("🔙 חזרה",                     callback_data="adm|main")],
     ])
 
@@ -510,11 +508,10 @@ async def _settings_view() -> tuple[str, InlineKeyboardMarkup]:
     maintenance = (await get_bot_setting("maintenance")) == "1"
     rich_on     = (await get_bot_setting("rich_messages_enabled")) == "1"
     reminders   = (await get_bot_setting("test_reminders_enabled")) == "1"
-    photo_on    = (await get_bot_setting("photo_plate_enabled")) == "1"
     garage_sync = (await get_bot_setting("test_reminders_garage_sync")) == "1"
     return (
-        M.admin_settings(_u.FREE_SEARCHES, maintenance, rich_on, reminders, photo_on, garage_sync),
-        _admin_settings_keyboard(maintenance, rich_on, reminders, photo_on, garage_sync),
+        M.admin_settings(_u.FREE_SEARCHES, maintenance, rich_on, reminders, garage_sync),
+        _admin_settings_keyboard(maintenance, rich_on, reminders, garage_sync),
     )
 
 
@@ -687,7 +684,6 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         "toggle_maintenance": "maintenance",
         "toggle_rich": "rich_messages_enabled",
         "toggle_reminders": "test_reminders_enabled",
-        "toggle_photo": "photo_plate_enabled",
         "toggle_garage_sync": "test_reminders_garage_sync",
     }
     if action == "settings" or action in toggles:
@@ -1900,74 +1896,8 @@ async def handle_compare_callback(update: Update, context: ContextTypes.DEFAULT_
     )
 
 
-async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user = update.effective_user
-    name = _first_name(user)
-    msg = update.message
-    if (await get_bot_setting("photo_plate_enabled")) != "1" or not plate_ocr.key_configured():
-        await msg.reply_text(M.photo_disabled(name), parse_mode=HTML)
-        return
-    if await _maintenance_blocks(user.id):
-        await msg.reply_text(M.maintenance(name), parse_mode=HTML)
-        return
-    group = getattr(msg, "media_group_id", None)
-    if group:   # an album is one request: answer only for its first photo
-        if context.user_data.get("photo_group") == group:
-            return
-        context.user_data["photo_group"] = group
-    allowed, left = await is_allowed(user.id, user.username or "", user.full_name or "")
-    if not allowed:
-        if await is_blocked(user.id):
-            await msg.reply_text(M.blocked(name), parse_mode=HTML, reply_markup=_blocked_keyboard())
-        else:
-            await msg.reply_text(M.payment_required(name, PAYMENT_MSG), parse_mode=HTML, reply_markup=_payment_keyboard(user.id == ADMIN_ID))
-        return
-    if user.id != ADMIN_ID and not await plate_ocr.allow(user.id):
-        await msg.reply_text(M.photo_busy(name), parse_mode=HTML)
-        return
-    photo = msg.photo[-1]
-    if photo.file_size and photo.file_size > plate_ocr.MAX_IMAGE_BYTES:
-        await msg.reply_text(M.photo_not_found(name), parse_mode=HTML)
-        return
-    try:
-        tg_file = await photo.get_file()
-        data = bytes(await tg_file.download_as_bytearray())
-        plate = await plate_ocr.read_plate(data, "image/jpeg")
-    except Exception as exc:
-        logger.warning("photo plate failed: %s", type(exc).__name__)
-        plate = None
-    if not plate:
-        await msg.reply_text(M.photo_not_found(name), parse_mode=HTML)
-        return
-    await msg.reply_text(
-        M.photo_ask_confirm(name, plate),
-        parse_mode=HTML,
-        reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton("🔍 כן, חפש", callback_data=f"photo|go|{plate}", style="success"),
-            InlineKeyboardButton("✏️ לא, אקליד", callback_data="photo|no"),
-        ]]),
-    )
-
-
-async def handle_photo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
-    parts = query.data.split("|")
-    try:
-        await query.edit_message_reply_markup(reply_markup=None)
-    except Exception:
-        pass
-    if parts[1] == "no":
-        await query.message.reply_text(M.ask_plate(_first_name(query.from_user)), parse_mode=HTML)
-        return
-    plate = parts[2]
-    if not PLATE_RE.match(plate):
-        return
-    await _lookup_flow(query.message, query.from_user, query.message.chat_id, context, plate)
-
-
 async def _lookup_flow(message, tg_user, chat_id: int, context: ContextTypes.DEFAULT_TYPE, plate: str) -> None:
-    """Quota check -> registry lookup -> result card. Shared by typed plates and photo confirmations."""
+    """Quota check -> registry lookup -> result card. Used by typed plates."""
     user_id = tg_user.id
     name    = _first_name(tg_user)
     is_admin = user_id == ADMIN_ID
@@ -2571,8 +2501,6 @@ def main() -> None:
     app.add_handler(CommandHandler("optin",  cmd_optin))
     app.add_handler(CallbackQueryHandler(handle_reminder_callback, pattern=r"^rem\|"))
     app.add_handler(CallbackQueryHandler(handle_compare_callback,  pattern=r"^cmp\|start\|"))
-    app.add_handler(CallbackQueryHandler(handle_photo_callback,    pattern=r"^photo\|"))
-    app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(CallbackQueryHandler(handle_broadcast_consent_callback, pattern=r"^broadcast_(optout|optin)$"))
     app.add_handler(CallbackQueryHandler(handle_user_callback,   pattern=r"^(usr|ugrant|utoggle)\|"))
     app.add_handler(CallbackQueryHandler(handle_admin_callback,  pattern=r"^adm\|"))

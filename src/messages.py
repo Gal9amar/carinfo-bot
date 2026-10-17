@@ -400,28 +400,6 @@ def history_table_intro(name: str) -> str:
     return f"📜 {_n(name)}, אלה החיפושים האחרונים שלך:"
 
 
-def photo_ask_confirm(name: str, plate: str) -> str:
-    return (
-        f"📷 {_n(name)}, זיהיתי את המספר {code(plate)}.\nלחפש אותו?\n\n"
-        + quote(i("התמונה נשלחת לזיהוי אוטומטי באמצעות Claude של Anthropic, ואינה נשמרת אצלנו."))
-    )
-
-
-def photo_not_found(name: str) -> str:
-    return (
-        f"📷 {_n(name)}, לא הצלחתי לקרוא מספר רכב בתמונה.\n"
-        "נסה לצלם מקרוב ובאור טוב, או פשוט הקלד את המספר."
-    )
-
-
-def photo_busy(name: str) -> str:
-    return f"⏳ {_n(name)}, קיבלתי יותר מדי תמונות בזמן קצר. נסה שוב עוד רגע, או הקלד את המספר."
-
-
-def photo_disabled(name: str) -> str:
-    return f"📷 {_n(name)}, זיהוי מספר מתמונה לא פעיל כרגע. אפשר להקליד את המספר."
-
-
 def pdf_preparing(name: str) -> str:
     return f"📄 {esc(name)}, מכין לך את קובץ הדוח... רגע קטן."
 
@@ -744,7 +722,7 @@ def admin_stats_short(stats: dict) -> str:
 
 
 def admin_settings(free: int, maintenance_on: bool, rich_on: bool = False,
-                   reminders_on: bool = False, photo_on: bool = False, garage_sync_on: bool = False) -> str:
+                   reminders_on: bool = False, garage_sync_on: bool = False) -> str:
     maint = "🔴 פעיל" if maintenance_on else "🟢 כבוי"
 
     def onoff(v: bool) -> str:
@@ -757,7 +735,6 @@ def admin_settings(free: int, maintenance_on: bool, rich_on: bool = False,
         f"• תוצאת חיפוש כטבלה: {b(onoff(rich_on))}\n"
         f"• תזכורות טסט: {b(onoff(reminders_on))}\n"
         f"• תזכורת אוטומטית לרכבי המוסך: {b(onoff(garage_sync_on))}\n"
-        f"• זיהוי מספר מתמונה: {b(onoff(photo_on))}"
     )
 
 
