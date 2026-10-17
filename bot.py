@@ -1774,6 +1774,11 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await _lookup_flow(update.message, update.effective_user, update.effective_chat.id, context, plate)
 
 
+async def handle_mirror_noop(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Buttons in the mirror group are inert copies."""
+    await update.callback_query.answer("זה רק העתק של מה שהמשתמש ראה — הכפתור לא פעיל", show_alert=True)
+
+
 async def _mirror_incoming(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await mirror.record_incoming(update, context.user_data)
 
@@ -2565,6 +2570,7 @@ def main() -> None:
     app.add_handler(CommandHandler("code",   cmd_code))
     app.add_handler(CommandHandler("admin",  cmd_admin))
     app.add_handler(TypeHandler(Update, _mirror_incoming), group=-1)   # blocking: the user action must be queued before the bot reacts
+    app.add_handler(CallbackQueryHandler(handle_mirror_noop, pattern=r"^mirror\|noop$"))
     app.add_handler(CommandHandler("mirror_here", cmd_mirror_here))
     app.add_handler(CommandHandler("mirror_off", cmd_mirror_off))
     app.add_handler(CommandHandler("mirror_set", cmd_mirror_set))
@@ -2692,7 +2698,7 @@ def main() -> None:
         async def _mirror_flush_job(context):
             await mirror.flush(context.bot)
 
-        app.job_queue.run_repeating(_mirror_flush_job, interval=4, first=6, name="mirror_flush")
+        app.job_queue.run_repeating(_mirror_flush_job, interval=3, first=6, name="mirror_flush")
         app.job_queue.run_daily(
             _test_reminders_job,
             time=_dt.time(hour=7, minute=0, tzinfo=_dt.timezone.utc),   # 10:00 Israel (summer)

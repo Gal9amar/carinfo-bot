@@ -24,9 +24,11 @@ async def rich_enabled() -> bool:
         return False
 
 
-async def send_rich_message(chat_id: int, html: str, reply_markup=None, is_rtl: bool = True) -> bool:
+async def send_rich_message(chat_id: int, html: str, reply_markup=None, is_rtl: bool = True, *, mirror: bool = True,
+                            message_thread_id: int | None = None, reply_to: int | None = None, force: bool = False) -> bool:
+    """Send a table message. `mirror=False` is used by the activity mirror for its own copies."""
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-    if not (token and await rich_enabled()):
+    if not (token and (force or await rich_enabled())):
         return False
     payload: dict = {
         "chat_id": chat_id,
@@ -34,16 +36,23 @@ async def send_rich_message(chat_id: int, html: str, reply_markup=None, is_rtl: 
     }
     if reply_markup is not None:
         payload["reply_markup"] = reply_markup.to_dict()
+    if message_thread_id:
+        payload["message_thread_id"] = message_thread_id
+    if reply_to:
+        payload["reply_parameters"] = {"message_id": reply_to, "allow_sending_without_reply": True}
+    if not mirror:
+        payload["disable_notification"] = True
     try:
         async with httpx.AsyncClient(timeout=15) as client:
             resp = await client.post(f"https://api.telegram.org/bot{token}/sendRichMessage", json=payload)
         data = resp.json()
         if data.get("ok"):
-            from src import mirror
-            from src.messages import strip_html
-            for tag in ("</tr>", "</h3>", "</p>", "</blockquote>", "<br>"):
-                html = html.replace(tag, "\n")
-            await mirror.record_outgoing(chat_id, strip_html(html.replace("</td>", " | ").replace("</th>", " | ")), reply_markup)
+            if mirror:
+                from src import mirror as _mirror
+                await _mirror.record_outgoing(
+                    chat_id, "rich", html, reply_markup=reply_markup,
+                    message_id=(data.get("result") or {}).get("message_id"),
+                )
             return True
         logger.warning("sendRichMessage rejected: %s", data.get("description"))
     except Exception as exc:
