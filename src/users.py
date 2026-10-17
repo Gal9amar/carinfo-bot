@@ -271,7 +271,7 @@ async def is_allowed(user_id: int, username: str = "", full_name: str = "") -> t
     return left > 0, left
 
 
-async def increment_search(user_id: int, plate: str = "") -> None:
+async def increment_search(user_id: int, plate: str = "", details: dict | None = None) -> None:
     # While the global "unlimited for everyone" benefit is active, searches
     # don't consume the user's own quota — so cancelling the benefit later
     # restores everyone's real balance exactly as it was.
@@ -284,8 +284,10 @@ async def increment_search(user_id: int, plate: str = "") -> None:
             [user_id],
         )
     if plate:
+        d = details or {}
         await asyncio.gather(bump, execute(
-            "INSERT INTO search_history (user_id, plate) VALUES (?, ?)", [user_id, plate]))
+            "INSERT INTO search_history (user_id, plate, make, model, year, color) VALUES (?, ?, ?, ?, ?, ?)",
+            [user_id, plate, d.get("make", ""), d.get("model", ""), d.get("year", ""), d.get("color", "")]))
     else:
         await bump
     if global_unlimited:
@@ -628,6 +630,35 @@ async def get_search_history(user_id: int, limit: int = 10) -> list[str]:
         [user_id, limit],
     )
     return [row[0] for row in r.rows]
+
+def vehicle_summary(record: dict) -> dict:
+    """The few fields the history list shows, taken from a registry record."""
+    return {
+        "make":  str(record.get("tozeret_nm") or ""),
+        "model": str(record.get("kinuy_mishari") or record.get("degem_nm") or ""),
+        "year":  str(record.get("shnat_yitzur") or ""),
+        "color": str(record.get("tzeva_rechev") or ""),
+    }
+
+
+async def get_history_with_details(user_id: int, limit: int = 20) -> list[dict]:
+    """Last N unique plates (newest first) with the vehicle summary stored when they were searched.
+    Entries from before the summary was stored come back with empty fields (see backfill_history_details)."""
+    r = await execute(
+        "SELECT plate, MAX(COALESCE(make,'')), MAX(COALESCE(model,'')), MAX(COALESCE(year,'')), MAX(COALESCE(color,'')) "
+        "FROM search_history WHERE user_id = ? GROUP BY plate ORDER BY MAX(searched_at) DESC LIMIT ?",
+        [user_id, limit],
+    )
+    return [{"plate": x[0], "make": x[1], "model": x[2], "year": x[3], "color": x[4]} for x in r.rows]
+
+
+async def backfill_history_details(user_id: int, plate: str, details: dict) -> None:
+    await execute(
+        "UPDATE search_history SET make=?, model=?, year=?, color=? "
+        "WHERE user_id=? AND plate=? AND COALESCE(make,'')='' AND COALESCE(model,'')=''",
+        [details.get("make", ""), details.get("model", ""), details.get("year", ""), details.get("color", ""), user_id, plate],
+    )
+
 
 async def get_search_history_rows(user_id: int, limit: int = 10) -> list[tuple[str, str]]:
     """Last N unique plates with the time of their most recent search, newest first."""

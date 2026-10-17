@@ -1952,8 +1952,9 @@ async def _compare_flow(message, tg_user, chat_id: int, context, plate_a: str, p
     delivered = await send_rich_message(chat_id, rich_html, reply_markup=kb)
     if not delivered:
         await message.reply_text(classic, parse_mode=HTML, reply_markup=kb)
+    from src.users import vehicle_summary
     for plate in to_charge:   # charge only once the user actually got the comparison
-        await increment_search(user_id, plate)
+        await increment_search(user_id, plate, vehicle_summary(rec_a if plate == plate_a else rec_b))
     await set_last_plate(user_id, plate_b)
 
 
@@ -2088,7 +2089,8 @@ async def _lookup_flow(message, tg_user, chat_id: int, context: ContextTypes.DEF
     last_plate = await get_last_plate(user_id)
     is_repeat  = (last_plate == plate)
     if not is_repeat:
-        await increment_search(user_id, plate)
+        from src.users import vehicle_summary
+        await increment_search(user_id, plate, vehicle_summary(record))
         await set_last_plate(user_id, plate)
         try:
             from src.activity import log as _log

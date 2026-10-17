@@ -339,3 +339,22 @@ async def fetch_vehicle_data(plate: str) -> Optional[dict]:
     if same_model_total is not None:
         record["_same_model_count"] = same_model_total
     return record
+
+
+async def fetch_vehicle_summary(plate: str) -> Optional[dict]:
+    """ONE registry request (make/model/year/color) — enough for list screens such as the search history."""
+    try:
+        mispar = int(plate.replace("-", "").strip())
+    except ValueError:
+        return None
+    async with httpx.AsyncClient(timeout=8, headers=GOV_HEADERS) as client:
+        recs = await _search_filter(client, RES_MAIN, {"mispar_rechev": mispar}, limit=1)
+    if not recs:
+        return None
+    r = recs[0]
+    return {
+        "make":  str(r.get("tozeret_nm") or ""),
+        "model": str(r.get("kinuy_mishari") or r.get("degem_nm") or ""),
+        "year":  str(r.get("shnat_yitzur") or ""),
+        "color": str(r.get("tzeva_rechev") or ""),
+    }

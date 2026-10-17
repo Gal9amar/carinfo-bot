@@ -30,7 +30,7 @@ WEBAPP_URL   = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_U
 # Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
 # webapp can detect a new release and force-reload instead of running stale
 # cached JS. Falls back to process start time for non-Render environments.
-APP_VERSION = "1792256112"
+APP_VERSION = "1792256320"
 
 api = FastAPI()
 
@@ -662,34 +662,35 @@ async def get_user_orders(user: dict = Depends(_get_user)):
 
 @api.get("/api/user/history")
 async def get_user_history(user: dict = Depends(_get_user)):
+    """Search history. Make/model/year/color are stored with each lookup, so the list needs no registry
+    calls; older entries without them are filled in lazily (one light request each) and saved."""
     import asyncio
-    from src.users import get_search_history
-    from src.api.gov_api import fetch_vehicle_data
+    from src.users import get_history_with_details, backfill_history_details
+    from src.api.gov_api import fetch_vehicle_summary
     from src.cache import cache
     from src import yad2 as _yad2
+    uid = int(user["id"])
+    items = await get_history_with_details(uid, limit=20)
 
-    plates = await get_search_history(int(user["id"]), limit=20)
+    async def fill(item: dict) -> None:
+        if item["make"] or item["model"]:
+            return
+        rec = cache.get(item["plate"])
+        if rec is not None:
+            from src.users import vehicle_summary
+            det = vehicle_summary(rec)
+        else:
+            det = await fetch_vehicle_summary(item["plate"])
+        if det and (det["make"] or det["model"]):
+            item.update(det)
+            await backfill_history_details(uid, item["plate"], det)
 
-    async def enrich(plate: str) -> dict:
-        record = cache.get(plate)
-        if record is None:
-            try:
-                record = await fetch_vehicle_data(plate)
-                if record:
-                    cache.set(plate, record)
-            except Exception:
-                record = None
-        entry: dict = {"plate": plate}
-        if record:
-            entry["make"]  = record.get("tozeret_nm") or ""
-            entry["model"] = record.get("kinuy_mishari") or record.get("degem_nm") or ""
-            entry["year"]  = str(record.get("shnat_yitzur") or "")
-            entry["color"] = record.get("tzeva_rechev") or ""
-            entry["yad2"]  = _yad2.build_url(record) or ""
-        return entry
-
-    results = await asyncio.gather(*[enrich(p) for p in plates])
-    return list(results)
+    missing = [it for it in items if not (it["make"] or it["model"])]
+    if missing:
+        await asyncio.gather(*(fill(it) for it in missing), return_exceptions=True)
+    for it in items:
+        it["yad2"] = _yad2.build_url({"tozeret_nm": it["make"], "kinuy_mishari": it["model"], "shnat_yitzur": it["year"]}) if it["make"] else ""
+    return items
 
 
 # ── Vehicle report ───────────────────────────────────────────────────────────
@@ -729,7 +730,8 @@ async def get_vehicle(plate: str, user: dict = Depends(_get_user)):
             pass
 
     # Independent writes: overlap their Turso round-trips.
-    await asyncio.gather(increment_search(uid, plate), _log_search())
+    from src.users import vehicle_summary
+    await asyncio.gather(increment_search(uid, plate, vehicle_summary(record)), _log_search())
     return JSONResponse(content=record, headers={"Cache-Control": "no-store"})
 
 
@@ -765,7 +767,8 @@ async def compare_vehicles(plate: str, other: str, user: dict = Depends(_get_use
         raise HTTPException(status_code=502, detail="registry_unavailable")
     if not rec_a or not rec_b:
         raise HTTPException(status_code=404, detail="not_found")
-    await increment_search(uid, other)
+    from src.users import vehicle_summary
+    await increment_search(uid, other, vehicle_summary(rec_b))
     return JSONResponse(
         content={
             "a": {"plate": plate, "title": _compare_title(rec_a)},

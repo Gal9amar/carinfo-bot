@@ -99,12 +99,12 @@ export default function HistoryPage({ onBack, onViewPlate, onNavigate }) {
                         <LicensePlate plate={plate} size="sm" fill />
 
                         {/* Row 2: make, model, year */}
-                        {details && (
-                          <div style={{
-                            fontSize: 12, color: 'var(--hint)',
-                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                          }}>{details}</div>
-                        )}
+                        {/* Always rendered so every row has the same height/structure */}
+                        <div style={{
+                          fontSize: 12, color: 'var(--text-muted)',
+                          minHeight: 18, lineHeight: '18px',
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}>{details || 'פרטי הרכב אינם זמינים כרגע'}</div>
                       </div>
 
                       {/* Column 2: button spanning both rows */}
