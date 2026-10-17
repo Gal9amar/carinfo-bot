@@ -30,7 +30,7 @@ WEBAPP_URL   = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_U
 # Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
 # webapp can detect a new release and force-reload instead of running stale
 # cached JS. Falls back to process start time for non-Render environments.
-APP_VERSION = "1792248386"
+APP_VERSION = "1792249004"
 
 api = FastAPI()
 

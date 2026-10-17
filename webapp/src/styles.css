@@ -279,17 +279,20 @@ button.card:active { transform: scale(0.98); }
   100% { background-position:  400% 0; }
 }
 
-/* Modal */
+/* Modal (legacy centred dialog; still used by a few small admin dialogs) */
 .modal-overlay {
   position: fixed;
-  inset: 0;
+  top: 0; right: 0; left: 0;
+  height: 100vh;
+  height: 100dvh;
+  max-height: var(--tg-viewport-stable-height, 100dvh);
   background: rgba(0,0,0,0.55);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
   z-index: 100;
-  padding: 16px;
-  overflow-y: auto;
+  padding: 12px;
+  overflow: hidden;
 }
 
 .modal {
@@ -299,9 +302,9 @@ button.card:active { transform: scale(0.98); }
   padding: 24px;
   width: 100%;
   max-width: 420px;
-  max-height: 85vh;
+  max-height: 100%;
   overflow-y: auto;
-  margin: auto 0;
+  overscroll-behavior: contain;
   box-shadow: var(--shadow);
 }
 
@@ -309,6 +312,112 @@ button.card:active { transform: scale(0.98); }
   font-size: 18px;
   font-weight: 700;
   margin-bottom: 16px;
+}
+
+/* Sheet: shared admin form container (components/Sheet.jsx) */
+.sheet-overlay {
+  position: fixed;
+  top: 0; right: 0; left: 0;
+  height: 100vh;
+  height: 100dvh;
+  max-height: var(--tg-viewport-stable-height, 100dvh);
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 100;
+  padding-top: max(8px, env(safe-area-inset-top, 0px));
+  overflow: hidden;
+}
+.sheet {
+  background: var(--bg-card);
+  width: 100%;
+  max-width: 480px;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px 20px 0 0;
+  box-shadow: var(--shadow);
+  outline: none;
+}
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 20px 0;
+  flex-shrink: 0;
+}
+.sheet-title { font-size: 18px; font-weight: 800; min-width: 0; overflow-wrap: anywhere; }
+.sheet-close {
+  width: 44px; height: 44px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: none; background: transparent; color: var(--text-muted);
+  font-size: 18px; cursor: pointer; border-radius: 50%;
+  margin-inline-end: -10px;
+}
+.sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 20px 16px;
+}
+.sheet-foot {
+  flex-shrink: 0;
+  display: flex;
+  gap: 10px;
+  padding: 12px 20px calc(12px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--border);
+  background: var(--bg-card);
+}
+.sheet-foot .btn { flex: 1; margin: 0; min-height: 48px; padding: 12px; }
+.sheet .input { margin-bottom: 0; min-height: 48px; }
+.sheet textarea.input { min-height: 0; }
+.sheet .input[type="color"] { padding: 2px; }
+
+.field { margin-bottom: 14px; min-width: 0; }
+.field-row { display: flex; gap: 10px; align-items: flex-start; }
+.field-row > .field { flex: 1; min-width: 0; }
+.field-label { display: block; font-size: 13px; font-weight: 700; color: var(--text-main); margin-bottom: 6px; }
+.field-hint { font-size: 12px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }
+.field-hint-inline { font-weight: 400; color: var(--text-muted); }
+.feat-row { border: 1px solid var(--border); border-radius: 14px; padding: 10px 12px; margin-bottom: 8px; }
+.feat-text { font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; margin-bottom: 8px; }
+.feat-text.is-off { color: var(--text-muted); }
+.feat-ctrls { display: flex; flex-wrap: wrap; gap: 8px 12px; justify-content: space-between; }
+.feat-grp { display: flex; gap: 6px; }
+.feat-add { display: flex; gap: 8px; align-items: stretch; margin-top: 8px; }
+.feat-add .input { flex: 1; min-width: 0; }
+.feat-add .btn { width: 48px; flex: 0 0 48px; padding: 0; margin: 0; }
+.sheet-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.sheet-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  min-height: 36px; padding: 4px 6px 4px 12px; font-size: 13px; max-width: 100%;
+  border-radius: 20px; color: var(--text-main);
+  background: rgba(0, 102, 214, 0.1); border: 1px solid rgba(0, 102, 214, 0.3);
+  overflow-wrap: anywhere;
+}
+.sheet-chip button {
+  width: 32px; height: 32px; border: none; background: none; color: var(--text-muted);
+  cursor: pointer; font-size: 14px; border-radius: 50%; flex-shrink: 0;
+}
+.sheet-chip-add {
+  min-height: 44px; padding: 6px 14px; font-size: 13px; max-width: 100%;
+  border-radius: 22px; background: transparent; color: var(--text-muted);
+  border: 1px dashed rgba(0, 102, 214, 0.5); cursor: pointer; font-family: inherit;
+  text-align: start; overflow-wrap: anywhere;
+}
+.sheet-icon-btn {
+  min-width: 44px; min-height: 44px; border-radius: 12px; cursor: pointer; font-family: inherit;
+  border: 1.5px solid rgba(0, 100, 200, 0.25); background: transparent; color: var(--text-muted);
+  font-size: 16px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; padding: 0;
+}
+.sheet-icon-btn:disabled { opacity: .35; cursor: default; }
+@media (min-width: 520px) {
+  .sheet-overlay { align-items: center; padding: 16px; }
+  .sheet { border-radius: 20px; max-height: 92%; }
 }
 
 .modal-overlay-full {

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import Sheet, { Field, FieldGroup } from '../components/Sheet.jsx'
 import { fmtDateTime, fmtDate as fmtDateIL, fmtTimeShort } from '../utils/time.js'
 import { adminOrderApprove, adminOrderCancel, adminDeliverOrder } from '../api.js'
 import {
@@ -877,11 +878,11 @@ function BannerModal({ title, form, setForm, saving, onSave, onClose }) {
   const valid = form.title?.trim() && form.link_value?.toString().trim()
 
   return (
-    <div className="modal-overlay-full">
-      <div className="modal-full">
-        <button type="button" className="btn btn-secondary" style={{ marginBottom: 16, width: 'auto', padding: '8px 16px' }} onClick={onClose}>← חזרה</button>
-        <div className="modal-title">{title}</div>
-
+    <Sheet title={title} onClose={onClose} footer={<>
+      <button className="btn" disabled={saving || !valid} onClick={onSave}>{saving ? '...' : 'שמור'}</button>
+      <button className="btn btn-secondary" onClick={onClose}>ביטול</button>
+    </>}>
+      <div>
         {/* Live preview */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 14, width: '100%',
@@ -897,55 +898,51 @@ function BannerModal({ title, form, setForm, saving, onSave, onClose }) {
           </div>
         </div>
 
-        <input className="input" placeholder="כותרת" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
-        <input className="input" placeholder="כותרת משנה" value={form.subtitle} onChange={e => setForm(f => ({ ...f, subtitle: e.target.value }))} />
-        <input className="input" placeholder="אייקון (אימוג'י)" value={form.icon} onChange={e => setForm(f => ({ ...f, icon: e.target.value }))} />
+        <Field label="כותרת"><input className="input" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} /></Field>
+        <Field label="כותרת משנה"><input className="input" value={form.subtitle} onChange={e => setForm(f => ({ ...f, subtitle: e.target.value }))} /></Field>
+        <Field label="אייקון (אימוג'י)"><input className="input" value={form.icon} onChange={e => setForm(f => ({ ...f, icon: e.target.value }))} /></Field>
 
-        <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
-          <label style={{ flex: 1, fontSize: 12, color: 'var(--hint)' }}>
-            צבע התחלה
-            <input type="color" value={form.color_from} onChange={e => setForm(f => ({ ...f, color_from: e.target.value }))}
-              style={{ width: '100%', height: 36, borderRadius: 8, border: 'none', marginTop: 4, cursor: 'pointer' }} />
-          </label>
-          <label style={{ flex: 1, fontSize: 12, color: 'var(--hint)' }}>
-            צבע סיום
-            <input type="color" value={form.color_to} onChange={e => setForm(f => ({ ...f, color_to: e.target.value }))}
-              style={{ width: '100%', height: 36, borderRadius: 8, border: 'none', marginTop: 4, cursor: 'pointer' }} />
-          </label>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <Field label="צבע התחלה" style={{ flex: 1 }}>
+            <input className="input" type="color" value={form.color_from} onChange={e => setForm(f => ({ ...f, color_from: e.target.value }))}
+              style={{ width: '100%', height: 48, cursor: 'pointer' }} />
+          </Field>
+          <Field label="צבע סיום" style={{ flex: 1 }}>
+            <input className="input" type="color" value={form.color_to} onChange={e => setForm(f => ({ ...f, color_to: e.target.value }))}
+              style={{ width: '100%', height: 48, cursor: 'pointer' }} />
+          </Field>
         </div>
 
-        <label style={{
-          display: 'flex', alignItems: 'center', gap: 10,
-          background: 'var(--bg2)', borderRadius: 10, padding: '10px 14px', marginBottom: 12,
-          cursor: 'pointer', userSelect: 'none',
-        }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>הצג באתר</div>
-            <div style={{ fontSize: 11, color: 'var(--hint)', marginTop: 2 }}>
+        <button
+          type="button" role="switch" aria-checked={form.is_active !== false}
+          onClick={() => setForm(f => ({ ...f, is_active: f.is_active === false }))}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'start', fontFamily: 'inherit',
+            background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 14px', marginBottom: 14,
+            minHeight: 56, cursor: 'pointer', userSelect: 'none', color: 'var(--text-main)',
+          }}
+        >
+          <span style={{ flex: 1, minWidth: 0 }}>
+            <span style={{ display: 'block', fontSize: 14, fontWeight: 700 }}>הצג באתר</span>
+            <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
               {form.is_active !== false ? 'מוצג' : 'מוסתר — לא מוצג בשום מקום'}
-            </div>
-          </div>
-          <div
-            onClick={() => setForm(f => ({ ...f, is_active: f.is_active === false }))}
-            style={{
-              width: 44, height: 24, borderRadius: 12, flexShrink: 0,
-              background: form.is_active !== false ? '#177a33' : 'rgba(0,100,200,0.18)',
-              position: 'relative', transition: 'background 0.2s', cursor: 'pointer',
-            }}
-          >
-            <div style={{
+            </span>
+          </span>
+          <span aria-hidden="true" style={{
+            width: 44, height: 24, borderRadius: 12, flexShrink: 0,
+            background: form.is_active !== false ? '#177a33' : 'rgba(0,100,200,0.18)',
+            position: 'relative', transition: 'background 0.2s',
+          }}>
+            <span style={{
               position: 'absolute', top: 3, width: 18, height: 18, borderRadius: '50%',
               background: '#fff', transition: 'left 0.2s',
               left: form.is_active !== false ? 23 : 3,
             }} />
-          </div>
-        </label>
+          </span>
+        </button>
 
-        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--hint)', marginBottom: 6 }}>
-          באילו עמודים להציג
-          <span style={{ fontWeight: 400, marginRight: 6 }}>· ניתן לבחור כמה שרוצים</span>
-        </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+        <FieldGroup label="באילו עמודים להציג" hint="ניתן לבחור כמה שרוצים">
+        <div className="sheet-chips">
           {PLACEMENT_OPTIONS.map(o => {
             const active = (form.placements || ['home']).includes(o.value)
             return (
@@ -958,17 +955,19 @@ function BannerModal({ title, form, setForm, saving, onSave, onClose }) {
                   return { ...f, placements: next }
                 })}
                 style={{
-                  fontSize: 12, fontWeight: 600, padding: '6px 12px', borderRadius: 20,
+                  fontSize: 13, fontWeight: 600, padding: '6px 14px', borderRadius: 22, minHeight: 44, fontFamily: 'inherit',
                   border: `1.5px solid ${active ? 'var(--btn)' : 'rgba(0,100,200,0.18)'}`,
                   background: active ? 'var(--btn)22' : 'transparent',
-                  color: active ? 'var(--text)' : 'var(--hint)', cursor: 'pointer',
+                  color: active ? 'var(--text-main)' : 'var(--text-muted)', cursor: 'pointer',
                 }}
+                aria-pressed={active}
               >{active ? '✓ ' : ''}{o.label}</button>
             )
           })}
         </div>
+        </FieldGroup>
 
-        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--hint)', marginBottom: 6 }}>לאן להפנות בלחיצה</div>
+        <Field label="לאן להפנות בלחיצה">
         <select
           className="input"
           value={form.link_type}
@@ -980,47 +979,49 @@ function BannerModal({ title, form, setForm, saving, onSave, onClose }) {
           <option value="page">📄 מסך / תפריט באתר</option>
           <option value="product">📦 מוצר דיגיטלי</option>
         </select>
+        </Field>
 
         {form.link_type === 'page' && (
+          <Field label="מסך יעד">
           <select className="input" value={form.link_value} onChange={e => setForm(f => ({ ...f, link_value: e.target.value }))}>
             {BANNER_PAGE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
+          </Field>
         )}
 
         {form.link_type === 'product' && (
           products === null ? (
-            <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 12 }}>טוען מוצרים...</div>
+            <div className="field-hint" role="status" style={{ marginBottom: 14 }}>טוען מוצרים...</div>
           ) : products.length === 0 ? (
-            <div style={{ fontSize: 12, color: 'var(--hint)', marginBottom: 12 }}>אין מוצרים דיגיטליים — הוסף מוצר בטאב "מוצרים דיגיטליים" קודם</div>
+            <div className="field-hint" style={{ marginBottom: 14 }}>אין מוצרים דיגיטליים — הוסף מוצר בטאב "מוצרים דיגיטליים" קודם</div>
           ) : (
+            <Field label="מוצר יעד">
             <select className="input" value={form.link_value} onChange={e => setForm(f => ({ ...f, link_value: e.target.value }))}>
               <option value="">— בחר מוצר —</option>
               {products.map(p => <option key={p.id} value={p.id}>{p.name} · ₪{p.price}</option>)}
             </select>
+            </Field>
           )
         )}
 
+        <FieldGroup label="תמונת רקע" hint="אופציונלי">
         {form.image_url ? (
-          <div style={{ position: 'relative', marginBottom: 8, marginTop: 4 }}>
-            <img src={form.image_url} alt="תצוגה מקדימה" style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 8, display: 'block' }} onError={e => { e.target.style.display = 'none' }} />
-            <button onClick={() => setForm(f => ({ ...f, image_url: '' }))} style={{
-              position: 'absolute', top: 6, left: 6, background: 'rgba(0,0,0,0.55)', color: '#fff',
-              border: 'none', borderRadius: '50%', width: 28, height: 28, fontSize: 14, cursor: 'pointer', lineHeight: 1,
+          <div style={{ position: 'relative' }}>
+            <img src={form.image_url} alt="תצוגה מקדימה" style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 12, display: 'block' }} onError={e => { e.target.style.display = 'none' }} />
+            <button type="button" aria-label="הסר תמונה" onClick={() => setForm(f => ({ ...f, image_url: '' }))} style={{
+              position: 'absolute', top: 4, left: 4, background: 'rgba(0,0,0,0.6)', color: '#fff',
+              border: 'none', borderRadius: '50%', width: 44, height: 44, fontSize: 16, cursor: 'pointer', lineHeight: 1,
             }}>✕</button>
           </div>
         ) : (
-          <div style={{ display: 'flex', gap: 8, marginBottom: 8, marginTop: 4 }}>
-            <button type="button" className="btn" style={{ flex: 1, marginTop: 0 }} disabled={compressing} onClick={() => fileRef.current?.click()}>
-              {compressing ? '...' : '🖼 העלה תמונת רקע (אופציונלי)'}
-            </button>
-          </div>
+          <button type="button" className="btn btn-secondary" style={{ marginTop: 0 }} disabled={compressing} onClick={() => fileRef.current?.click()}>
+            {compressing ? '...' : '🖼 העלה תמונת רקע'}
+          </button>
         )}
-        <input ref={fileRef} type="file" accept="image/*" hidden onChange={handleFile} />
-
-        <button className="btn" disabled={saving || !valid} onClick={onSave}>{saving ? '...' : 'שמור'}</button>
-        <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={onClose}>ביטול</button>
+        <input ref={fileRef} type="file" accept="image/*" hidden onChange={handleFile} aria-label="העלאת תמונת רקע" />
+        </FieldGroup>
       </div>
-    </div>
+    </Sheet>
   )
 }
 
@@ -1057,42 +1058,31 @@ function ProductFeaturesEditor({ features, onChange }) {
   ]
 
   return (
-    <div style={{ marginTop: 4, marginBottom: 12 }}>
-      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--hint)', marginBottom: 8 }}>
-        תכונות המוצר
-        <span style={{ fontWeight: 400, marginRight: 6 }}>· ✓ קיים &nbsp; ✗ לא קיים &nbsp; • טקסט בלבד</span>
-      </div>
-
+    <FieldGroup label="תכונות המוצר" hint="✓ קיים · ✗ לא קיים · • טקסט בלבד">
       {features.map((item, idx) => (
-        <div key={item.text} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 7 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 1, flexShrink: 0 }}>
-            <button type="button" onClick={() => moveFeature(idx, -1)} disabled={idx === 0}
-              style={{ width: 20, height: 18, border: '1px solid rgba(0,100,200,0.18)', borderRadius: 4, background: 'transparent', color: idx === 0 ? 'rgba(0,100,200,0.18)' : 'var(--hint)', cursor: idx === 0 ? 'default' : 'pointer', fontSize: 10, lineHeight: 1, padding: 0 }}>▲</button>
-            <button type="button" onClick={() => moveFeature(idx, 1)} disabled={idx === features.length - 1}
-              style={{ width: 20, height: 18, border: '1px solid rgba(0,100,200,0.18)', borderRadius: 4, background: 'transparent', color: idx === features.length - 1 ? 'rgba(0,100,200,0.18)' : 'var(--hint)', cursor: idx === features.length - 1 ? 'default' : 'pointer', fontSize: 10, lineHeight: 1, padding: 0 }}>▼</button>
+        <div key={item.text} className="feat-row">
+          <div className="feat-text">{item.text}</div>
+          <div className="feat-ctrls">
+            <div className="feat-grp">
+              {STATES.map(s => (
+                <button key={s.state} type="button" className="sheet-icon-btn" onClick={() => setFeatureState(item.text, s.state)}
+                  aria-pressed={item.state === s.state} aria-label={`${s.title}: ${item.text}`} title={s.title}
+                  style={item.state === s.state ? { borderColor: s.color, background: `${s.color}22`, color: s.color } : undefined}>{s.icon}</button>
+              ))}
+            </div>
+            <div className="feat-grp">
+              <button type="button" className="sheet-icon-btn" onClick={() => moveFeature(idx, -1)} disabled={idx === 0} aria-label={`הזז למעלה: ${item.text}`}>▲</button>
+              <button type="button" className="sheet-icon-btn" onClick={() => moveFeature(idx, 1)} disabled={idx === features.length - 1} aria-label={`הזז למטה: ${item.text}`}>▼</button>
+              <button type="button" className="sheet-icon-btn" onClick={() => removeFeature(item.text)} aria-label={`הסר: ${item.text}`} title="הסר">✕</button>
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
-            {STATES.map(s => (
-              <button key={s.state} type="button" onClick={() => setFeatureState(item.text, s.state)}
-                style={{
-                  width: 28, height: 28, border: '1.5px solid', borderRadius: 7,
-                  borderColor: item.state === s.state ? s.color : 'rgba(0,100,200,0.25)',
-                  background: item.state === s.state ? `${s.color}22` : 'transparent',
-                  color: item.state === s.state ? s.color : 'var(--hint)',
-                  cursor: 'pointer', fontSize: 14, lineHeight: 1, fontWeight: 700,
-                }} title={s.title}>{s.icon}</button>
-            ))}
-          </div>
-          <span style={{ fontSize: 13, flex: 1, lineHeight: 1.4 }}>{item.text}</span>
-          <button type="button" onClick={() => removeFeature(item.text)}
-            style={{ background: 'none', border: 'none', color: 'var(--hint)', cursor: 'pointer', fontSize: 15, padding: '0 2px', flexShrink: 0 }} title="הסר">✕</button>
         </div>
       ))}
 
-      <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+      <div className="feat-add">
         <input
           className="input"
-          style={{ flex: 1, marginBottom: 0, fontSize: 13 }}
+          aria-label="תכונה חדשה"
           placeholder="הוסף תכונה חדשה..."
           value={newFeature}
           onChange={e => setNewFeature(e.target.value)}
@@ -1101,12 +1091,12 @@ function ProductFeaturesEditor({ features, onChange }) {
         <button
           type="button"
           className="btn"
-          style={{ width: 'auto', padding: '0 14px', marginTop: 0, fontSize: 13, flexShrink: 0 }}
+          aria-label="הוסף תכונה"
           disabled={!newFeature.trim()}
           onClick={addCustomFeature}
         >+</button>
       </div>
-    </div>
+    </FieldGroup>
   )
 }
 
@@ -1139,93 +1129,56 @@ function ProductModal({ title, form, setForm, saving, onSave, onClose, isNew }) 
   const valid = form.name?.trim() && form.price !== '' && parseInt(form.price) >= 0
 
   return (
-    <div className="modal-overlay-full">
-      <div className="modal-full">
-        <button
-          type="button"
-          className="btn btn-secondary"
-          style={{ marginBottom: 16, width: 'auto', padding: '8px 16px' }}
-          onClick={onClose}
-        >← חזרה</button>
-        <div className="modal-title">{title}</div>
-        <input
-          className="input"
-          placeholder="שם המוצר"
-          value={form.name}
-          onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-        />
-        <textarea
-          className="input"
-          placeholder="תיאור המוצר"
-          rows={3}
-          value={form.description}
-          onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-        />
-        <input
-          className="input"
-          placeholder="מחיר (₪)"
-          type="number"
-          value={form.price}
-          onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
-        />
+    <Sheet title={title} onClose={onClose} footer={<>
+      <button className="btn" disabled={saving || !valid} onClick={onSave}>{saving ? '...' : 'שמור'}</button>
+      <button className="btn btn-secondary" onClick={onClose}>ביטול</button>
+    </>}>
+      <div>
+        <Field label="שם המוצר">
+          <input className="input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+        </Field>
+        <Field label="תיאור המוצר">
+          <textarea className="input" rows={3} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
+        </Field>
+        <Field label="מחיר (₪)">
+          <input className="input" type="number" inputMode="numeric" min="0" dir="ltr" style={{ textAlign: 'start' }} value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} />
+        </Field>
 
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, fontSize: 13 }}>
-          <input type="checkbox" checked={form.is_active !== false} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} />
+        <label style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, fontSize: 14, minHeight: 44 }}>
+          <input type="checkbox" style={{ width: 22, height: 22, flexShrink: 0 }} checked={form.is_active !== false} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} />
           מוצר פעיל
         </label>
 
-        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--hint)', marginBottom: 6 }}>סטטוס זמינות</div>
-        <select
-          className="input"
-          value={form.availability_status || 'available'}
-          onChange={e => setForm(f => ({ ...f, availability_status: e.target.value }))}
-        >
-          <option value="available">✅ זמין</option>
-          <option value="coming_soon">🔜 בקרוב</option>
-        </select>
+        <Field label="סטטוס זמינות">
+          <select className="input" value={form.availability_status || 'available'} onChange={e => setForm(f => ({ ...f, availability_status: e.target.value }))}>
+            <option value="available">✅ זמין</option>
+            <option value="coming_soon">🔜 בקרוב</option>
+          </select>
+        </Field>
 
-        <select
-          className="input"
-          value={form.delivery_type}
-          onChange={e => setForm(f => ({ ...f, delivery_type: e.target.value }))}
-        >
-          <option value="auto">אוטומטי (ממאגר מלאי)</option>
-          <option value="manual">ידני (אספקה על ידי מנהל)</option>
-        </select>
+        <Field label="אופן אספקה">
+          <select className="input" value={form.delivery_type} onChange={e => setForm(f => ({ ...f, delivery_type: e.target.value }))}>
+            <option value="auto">אוטומטי (ממאגר מלאי)</option>
+            <option value="manual">ידני (אספקה על ידי מנהל)</option>
+          </select>
+        </Field>
 
-        <input
-          className="input"
-          placeholder="הערת זמן משלוח (לדוגמה: 14m3h)"
-          value={form.delivery_time_note}
-          onChange={e => setForm(f => ({ ...f, delivery_time_note: e.target.value }))}
-        />
+        <Field label="הערת זמן משלוח" hint="לדוגמה: 14m3h">
+          <input className="input" value={form.delivery_time_note} onChange={e => setForm(f => ({ ...f, delivery_time_note: e.target.value }))} />
+        </Field>
 
         {form.delivery_type === 'manual' && (
-          <input
-            className="input"
-            placeholder="כמות במלאי"
-            type="number"
-            min="0"
-            value={form.quantity_stock}
-            onChange={e => setForm(f => ({ ...f, quantity_stock: e.target.value }))}
-          />
+          <Field label="כמות במלאי">
+            <input className="input" type="number" inputMode="numeric" min="0" dir="ltr" style={{ textAlign: 'start' }} value={form.quantity_stock} onChange={e => setForm(f => ({ ...f, quantity_stock: e.target.value }))} />
+          </Field>
         )}
         {form.delivery_type === 'auto' && (
           isNew ? (
-            <>
-              <textarea
-                className="input"
-                placeholder={'מלאי התחלתי — כל שורה = יחידת מלאי אחת (קוד/קישור)'}
-                rows={4}
-                value={form.stock_text || ''}
-                onChange={e => setForm(f => ({ ...f, stock_text: e.target.value }))}
-              />
-              <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 12, lineHeight: 1.4 }}>
-                ניתן להוסיף עוד מלאי בהמשך דרך כפתור "📤 מלאי" בכרטיס המוצר.
-              </div>
-            </>
+            <Field label="מלאי התחלתי" hint='כל שורה = יחידת מלאי אחת (קוד/קישור). ניתן להוסיף עוד מלאי בהמשך דרך כפתור "📤 מלאי" בכרטיס המוצר.'>
+              <textarea className="input" rows={4} dir="ltr" value={form.stock_text || ''} onChange={e => setForm(f => ({ ...f, stock_text: e.target.value }))} />
+            </Field>
           ) : (
-            <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 12, lineHeight: 1.4 }}>
+            <div className="field-hint" style={{ marginBottom: 14 }}>
               במצב אוטומטי המלאי מנוהל דרך כפתור "📤 מלאי" בכרטיס המוצר — כל שורה שתעלה שם היא יחידת מלאי אחת (קוד/קישור).
             </div>
           )
@@ -1236,41 +1189,36 @@ function ProductModal({ title, form, setForm, saving, onSave, onClose, isNew }) 
           onChange={features => setForm(f => ({ ...f, features }))}
         />
 
+        <FieldGroup label="תמונה">
         {form.image_url ? (
-          <div style={{ position: 'relative', marginBottom: 8 }}>
+          <div style={{ position: 'relative' }}>
             <img
               src={form.image_url}
               alt="תצוגה מקדימה"
-              style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 8, display: 'block' }}
+              style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 12, display: 'block' }}
               onError={e => { e.target.style.display = 'none' }}
             />
             <button
+              type="button"
+              aria-label="הסר תמונה"
               onClick={() => setForm(f => ({ ...f, image_url: '' }))}
               style={{
-                position: 'absolute', top: 6, left: 6,
-                background: 'rgba(0,0,0,0.55)', color: '#fff',
-                border: 'none', borderRadius: '50%', width: 28, height: 28,
-                fontSize: 14, cursor: 'pointer', lineHeight: 1,
+                position: 'absolute', top: 4, left: 4,
+                background: 'rgba(0,0,0,0.6)', color: '#fff',
+                border: 'none', borderRadius: '50%', width: 44, height: 44,
+                fontSize: 16, cursor: 'pointer', lineHeight: 1,
               }}
             >✕</button>
           </div>
         ) : (
-          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-            <button
-              type="button"
-              className="btn"
-              style={{ flex: 1, marginTop: 0 }}
-              disabled={compressing}
-              onClick={() => fileRef.current?.click()}
-            >{compressing ? '...' : '🖼 העלה תמונה'}</button>
-          </div>
+          <button type="button" className="btn btn-secondary" style={{ marginTop: 0 }} disabled={compressing} onClick={() => fileRef.current?.click()}>
+            {compressing ? '...' : '🖼 העלה תמונה'}
+          </button>
         )}
-        <input ref={fileRef} type="file" accept="image/*" hidden onChange={handleFile} />
-
-        <button className="btn" disabled={saving || !valid} onClick={onSave}>{saving ? '...' : 'שמור'}</button>
-        <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={onClose}>ביטול</button>
+        <input ref={fileRef} type="file" accept="image/*" hidden onChange={handleFile} aria-label="העלאת תמונה" />
+        </FieldGroup>
       </div>
-    </div>
+    </Sheet>
   )
 }
 
@@ -1381,72 +1329,44 @@ function ChipsEditor({ chips, onChange, isFree, suggestions = [] }) {
   const availableSuggestions = suggestions.filter(s => !chips.includes(s))
 
   return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--hint)', marginBottom: 8 }}>
-        ציפים
-        {isFree && <span style={{ fontWeight: 400, marginRight: 6 }}>· הציפ "X חיפושים נותרו" מוצג אוטומטית</span>}
-      </div>
-
+    <FieldGroup label="ציפים" hint={isFree ? 'הציפ "X חיפושים נותרו" מוצג אוטומטית' : undefined}>
       {/* Current chips */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-        {chips.map(chip => (
-          <span key={chip} style={{
-            display: 'inline-flex', alignItems: 'center', gap: 5,
-            fontSize: 12, padding: '4px 10px',
-            background: 'var(--btn)22', border: '1px solid var(--btn)44',
-            borderRadius: 20, color: 'var(--text)',
-          }}>
-            {chip}
-            <button
-              type="button"
-              onClick={() => removeChip(chip)}
-              style={{ background: 'none', border: 'none', color: 'var(--hint)', cursor: 'pointer', fontSize: 13, padding: 0, lineHeight: 1 }}
-            >✕</button>
-          </span>
-        ))}
-      </div>
+      {chips.length > 0 && (
+        <div className="sheet-chips" style={{ marginBottom: 10 }}>
+          {chips.map(chip => (
+            <span key={chip} className="sheet-chip">
+              {chip}
+              <button type="button" aria-label={`הסר ציפ: ${chip}`} onClick={() => removeChip(chip)}>✕</button>
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Suggestions from other packages */}
       {availableSuggestions.length > 0 && (
-        <div style={{ marginBottom: 8 }}>
-          <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 5 }}>בחר מהרשימה:</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+        <div style={{ marginBottom: 10 }}>
+          <div className="field-hint" style={{ marginTop: 0, marginBottom: 6 }}>בחר מהרשימה:</div>
+          <div className="sheet-chips">
             {availableSuggestions.map(s => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => onChange([...chips, s])}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 4,
-                  fontSize: 12, padding: '3px 9px',
-                  background: 'transparent', border: '1px dashed var(--btn)66',
-                  borderRadius: 20, color: 'var(--hint)', cursor: 'pointer',
-                }}
-              >+ {s}</button>
+              <button key={s} type="button" className="sheet-chip-add" onClick={() => onChange([...chips, s])}>+ {s}</button>
             ))}
           </div>
         </div>
       )}
 
       {/* Add new */}
-      <div style={{ display: 'flex', gap: 6 }}>
+      <div className="feat-add">
         <input
           className="input"
-          style={{ flex: 1, marginBottom: 0, fontSize: 13 }}
+          aria-label="ציפ חדש"
           placeholder='לדוגמה: 💳 חד-פעמי'
           value={newChip}
           onChange={e => setNewChip(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && addChip()}
         />
-        <button
-          type="button"
-          className="btn"
-          style={{ width: 'auto', padding: '0 14px', marginTop: 0, fontSize: 13, flexShrink: 0 }}
-          disabled={!newChip.trim()}
-          onClick={addChip}
-        >+</button>
+        <button type="button" className="btn" aria-label="הוסף ציפ" disabled={!newChip.trim()} onClick={addChip}>+</button>
       </div>
-    </div>
+    </FieldGroup>
   )
 }
 
@@ -1517,193 +1437,166 @@ function PackageModal({ title, form, setForm, saving, onSave, onClose, suggestio
     reader.readAsDataURL(file)
   }
 
+  const isFreePkg = form.searches === '0'
+  const isUnlimited = parseInt(form.searches) === -1
+
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-title">{title}</div>
-        <input
-          className="input"
-          placeholder="שם המוצר"
-          value={form.label}
-          onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
-        />
-        {form.searches !== '0' && (
+    <Sheet title={title} onClose={onClose} footer={<>
+      <button className="btn" disabled={saving} onClick={onSave}>{saving ? '...' : 'שמור'}</button>
+      <button className="btn btn-secondary" onClick={onClose}>ביטול</button>
+    </>}>
+      <div>
+        <Field label="שם המוצר">
+          <input className="input" value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} />
+        </Field>
+        {!isFreePkg && (
           <>
-            <input
-              className="input"
-              placeholder="חיפושים (-1 לבלתי מוגבל)"
-              type="number"
-              value={form.searches}
-              onChange={e => setForm(f => ({ ...f, searches: e.target.value }))}
-            />
-            <input
-              className="input"
-              placeholder="מחיר (₪)"
-              type="number"
-              value={form.price}
-              onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
-            />
+            <div className="field-row">
+              <Field label="חיפושים" hint="-1 = בלתי מוגבל">
+                <input className="input" type="number" inputMode="numeric" dir="ltr" style={{ textAlign: 'start' }} value={form.searches} onChange={e => setForm(f => ({ ...f, searches: e.target.value }))} />
+              </Field>
+              <Field label="מחיר (₪)">
+                <input className="input" type="number" inputMode="numeric" min="0" dir="ltr" style={{ textAlign: 'start' }} value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} />
+              </Field>
+            </div>
+            {isUnlimited && (
+              <Field label="משך בחודשים" hint="ברירת מחדל: 1">
+                <input className="input" type="number" inputMode="numeric" min="1" dir="ltr" style={{ textAlign: 'start' }} value={form.duration_months ?? '1'} onChange={e => setForm(f => ({ ...f, duration_months: e.target.value }))} />
+              </Field>
+            )}
           </>
         )}
-        {parseInt(form.searches) === -1 && (
-          <input
-            className="input"
-            placeholder="משך בחודשים (ברירת מחדל: 1)"
-            type="number"
-            min="1"
-            value={form.duration_months ?? '1'}
-            onChange={e => setForm(f => ({ ...f, duration_months: e.target.value }))}
-          />
-        )}
 
+        <FieldGroup label="תמונה">
         {form.image_url ? (
-          <div style={{ position: 'relative', marginBottom: 8 }}>
+          <div style={{ position: 'relative' }}>
             <img
               src={form.image_url}
               alt="תצוגה מקדימה"
-              style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 8, display: 'block' }}
+              style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 12, display: 'block' }}
               onError={e => { e.target.style.display = 'none' }}
             />
             <button
+              type="button"
+              aria-label="הסר תמונה"
               onClick={() => setForm(f => ({ ...f, image_url: '' }))}
               style={{
-                position: 'absolute', top: 6, left: 6,
-                background: 'rgba(0,0,0,0.55)', color: '#fff',
-                border: 'none', borderRadius: '50%', width: 28, height: 28,
-                fontSize: 14, cursor: 'pointer', lineHeight: 1,
+                position: 'absolute', top: 4, left: 4,
+                background: 'rgba(0,0,0,0.6)', color: '#fff',
+                border: 'none', borderRadius: '50%', width: 44, height: 44,
+                fontSize: 16, cursor: 'pointer', lineHeight: 1,
               }}
             >✕</button>
           </div>
         ) : (
-          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              style={{ flex: 1, marginTop: 0, fontSize: 13 }}
-              disabled={compressing}
-              onClick={() => fileRef.current?.click()}
-            >
+          <>
+            <button type="button" className="btn btn-secondary" style={{ marginTop: 0 }} disabled={compressing} onClick={() => fileRef.current?.click()}>
               {compressing ? '⏳ מכווץ...' : '📷 העלאה מהמכשיר'}
             </button>
             <input
               className="input"
-              style={{ flex: 2, marginBottom: 0 }}
+              style={{ marginTop: 8 }}
+              aria-label="או הדבק כתובת URL של תמונה"
+              dir="ltr"
               placeholder="או הדבק כתובת URL"
               value={form.image_url}
               onChange={e => setForm(f => ({ ...f, image_url: e.target.value }))}
             />
-          </div>
+          </>
         )}
-        <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
+        <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} aria-label="העלאת תמונה" />
+        </FieldGroup>
 
         {/* Chips */}
-        <ChipsEditor chips={form.chips || []} onChange={chips => setForm(f => ({ ...f, chips }))} isFree={form.searches === '0'} suggestions={suggestions} />
+        <ChipsEditor chips={form.chips || []} onChange={chips => setForm(f => ({ ...f, chips }))} isFree={isFreePkg} suggestions={suggestions} />
 
         {/* Features */}
-        <div style={{ marginTop: 4, marginBottom: 8 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--hint)', marginBottom: 8 }}>
-            תכונות המוצר
-            <span style={{ fontWeight: 400, marginRight: 6 }}>· ✅ קיים &nbsp; ✗ לא קיים &nbsp; ריק = מוסתר</span>
-          </div>
-
+        <FieldGroup label="תכונות המוצר" hint="✓ קיים · ✗ לא קיים · ריק = מוסתר">
           {/* Active features — ordered list with ↑↓ */}
           {activeFeatures.map((item, idx) => {
             const state = item.included ? 'included' : 'excluded'
             return (
-              <div key={item.text} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 7 }}>
-                {/* Reorder */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 1, flexShrink: 0 }}>
-                  <button type="button" onClick={() => moveFeature(idx, -1)} disabled={idx === 0}
-                    style={{ width: 20, height: 18, border: '1px solid rgba(0,100,200,0.18)', borderRadius: 4, background: 'transparent', color: idx === 0 ? 'rgba(0,100,200,0.18)' : 'var(--hint)', cursor: idx === 0 ? 'default' : 'pointer', fontSize: 10, lineHeight: 1, padding: 0 }}>▲</button>
-                  <button type="button" onClick={() => moveFeature(idx, 1)} disabled={idx === activeFeatures.length - 1}
-                    style={{ width: 20, height: 18, border: '1px solid rgba(0,100,200,0.18)', borderRadius: 4, background: 'transparent', color: idx === activeFeatures.length - 1 ? 'rgba(0,100,200,0.18)' : 'var(--hint)', cursor: idx === activeFeatures.length - 1 ? 'default' : 'pointer', fontSize: 10, lineHeight: 1, padding: 0 }}>▼</button>
+              <div key={item.text} className="feat-row">
+                <div className="feat-text">{item.text}</div>
+                <div className="feat-ctrls">
+                  <div className="feat-grp">
+                    <button type="button" className="sheet-icon-btn" onClick={() => setFeatureState(item.text, 'included')} aria-pressed={state === 'included'} aria-label={`קיים: ${item.text}`} title="קיים"
+                      style={state === 'included' ? { borderColor: '#177a33', background: '#177a3322', color: '#177a33' } : undefined}>✓</button>
+                    <button type="button" className="sheet-icon-btn" onClick={() => setFeatureState(item.text, 'excluded')} aria-pressed={state === 'excluded'} aria-label={`לא קיים: ${item.text}`} title="לא קיים"
+                      style={state === 'excluded' ? { borderColor: '#c53030', background: '#c5303022', color: '#c53030' } : undefined}>✗</button>
+                  </div>
+                  <div className="feat-grp">
+                    <button type="button" className="sheet-icon-btn" onClick={() => moveFeature(idx, -1)} disabled={idx === 0} aria-label={`הזז למעלה: ${item.text}`}>▲</button>
+                    <button type="button" className="sheet-icon-btn" onClick={() => moveFeature(idx, 1)} disabled={idx === activeFeatures.length - 1} aria-label={`הזז למטה: ${item.text}`}>▼</button>
+                    <button type="button" className="sheet-icon-btn" onClick={() => removeFeature(item.text)} aria-label={`הסר מהרשימה: ${item.text}`} title="הסר מהרשימה">✕</button>
+                  </div>
                 </div>
-                {/* Toggle buttons */}
-                <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
-                  <button type="button" onClick={() => setFeatureState(item.text, 'included')}
-                    style={{ width: 28, height: 28, border: '1.5px solid', borderColor: state === 'included' ? '#177a33' : 'rgba(0,100,200,0.25)', borderRadius: 7, background: state === 'included' ? '#177a3322' : 'transparent', color: state === 'included' ? '#177a33' : 'var(--hint)', cursor: 'pointer', fontSize: 14, lineHeight: 1, fontWeight: 700 }} title="קיים">✓</button>
-                  <button type="button" onClick={() => setFeatureState(item.text, 'excluded')}
-                    style={{ width: 28, height: 28, border: '1.5px solid', borderColor: state === 'excluded' ? '#c53030' : 'rgba(0,100,200,0.25)', borderRadius: 7, background: state === 'excluded' ? '#c5303022' : 'transparent', color: state === 'excluded' ? '#c53030' : 'var(--hint)', cursor: 'pointer', fontSize: 14, lineHeight: 1, fontWeight: 700 }} title="לא קיים">✗</button>
-                </div>
-                <span style={{ fontSize: 13, flex: 1, lineHeight: 1.4 }}>{item.text}</span>
-                <button type="button" onClick={() => removeFeature(item.text)}
-                  style={{ background: 'none', border: 'none', color: 'var(--hint)', cursor: 'pointer', fontSize: 15, padding: '0 2px', flexShrink: 0 }} title="הסר מהרשימה">✕</button>
               </div>
             )
           })}
 
           {/* Inactive defaults — click to add */}
           {inactiveDefaults.length > 0 && (
-            <div style={{ borderTop: '1px solid rgba(0,100,200,0.18)', marginTop: 8, paddingTop: 8 }}>
-              <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 6 }}>לחץ להוספה לרשימה:</div>
+            <div style={{ marginTop: 10 }}>
+              <div className="field-hint" style={{ marginTop: 0, marginBottom: 6 }}>לחץ להוספה לרשימה:</div>
               {inactiveDefaults.map(feat => (
-                <div key={feat} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                  <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
-                    <button type="button" onClick={() => setFeatureState(feat, 'included')}
-                      style={{ width: 28, height: 28, border: '1.5px solid rgba(0,100,200,0.18)', borderRadius: 7, background: 'transparent', color: 'var(--hint)', cursor: 'pointer', fontSize: 14, lineHeight: 1, fontWeight: 700 }} title="הוסף כקיים">✓</button>
-                    <button type="button" onClick={() => setFeatureState(feat, 'excluded')}
-                      style={{ width: 28, height: 28, border: '1.5px solid rgba(0,100,200,0.18)', borderRadius: 7, background: 'transparent', color: 'var(--hint)', cursor: 'pointer', fontSize: 14, lineHeight: 1, fontWeight: 700 }} title="הוסף כלא קיים">✗</button>
+                <div key={feat} className="feat-row" style={{ borderStyle: 'dashed' }}>
+                  <div className="feat-text is-off">{feat}</div>
+                  <div className="feat-grp">
+                    <button type="button" className="sheet-icon-btn" onClick={() => setFeatureState(feat, 'included')} aria-label={`הוסף כקיים: ${feat}`} title="הוסף כקיים">✓</button>
+                    <button type="button" className="sheet-icon-btn" onClick={() => setFeatureState(feat, 'excluded')} aria-label={`הוסף כלא קיים: ${feat}`} title="הוסף כלא קיים">✗</button>
                   </div>
-                  <span style={{ fontSize: 13, color: 'var(--hint)', opacity: 0.5, flex: 1, lineHeight: 1.4 }}>{feat}</span>
                 </div>
               ))}
             </div>
           )}
 
           {/* Add new custom feature */}
-          <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+          <div className="feat-add">
             <input
               className="input"
-              style={{ flex: 1, marginBottom: 0, fontSize: 13 }}
+              aria-label="תכונה חדשה"
               placeholder="הוסף תכונה חדשה..."
               value={newFeature}
               onChange={e => setNewFeature(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && addCustomFeature()}
             />
-            <button
-              type="button"
-              className="btn"
-              style={{ width: 'auto', padding: '0 14px', marginTop: 0, fontSize: 13, flexShrink: 0 }}
-              disabled={!newFeature.trim()}
-              onClick={addCustomFeature}
-            >+</button>
+            <button type="button" className="btn" aria-label="הוסף תכונה" disabled={!newFeature.trim()} onClick={addCustomFeature}>+</button>
           </div>
-        </div>
+        </FieldGroup>
 
         {/* Active toggle */}
-        {form.searches !== '0' && (
-          <label style={{
-            display: 'flex', alignItems: 'center', gap: 10,
-            background: 'var(--bg2)', borderRadius: 10, padding: '10px 14px', marginBottom: 8,
-            cursor: 'pointer', userSelect: 'none',
-          }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>מוצר פעיל</div>
-              <div style={{ fontSize: 11, color: 'var(--hint)', marginTop: 2 }}>
+        {!isFreePkg && (
+          <button
+            type="button" role="switch" aria-checked={form.is_active !== false}
+            onClick={() => setForm(f => ({ ...f, is_active: f.is_active === false }))}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'start', fontFamily: 'inherit',
+              background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 14px',
+              minHeight: 56, cursor: 'pointer', userSelect: 'none', color: 'var(--text-main)',
+            }}
+          >
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: 'block', fontSize: 14, fontWeight: 700 }}>מוצר פעיל</span>
+              <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
                 {form.is_active !== false ? 'מוצג לכל המשתמשים' : 'מוסתר — לא מוצג בדף המוצרים'}
-              </div>
-            </div>
-            <div
-              onClick={() => setForm(f => ({ ...f, is_active: f.is_active === false }))}
-              style={{
-                width: 44, height: 24, borderRadius: 12, flexShrink: 0,
-                background: form.is_active !== false ? '#177a33' : 'rgba(0,100,200,0.18)',
-                position: 'relative', transition: 'background 0.2s', cursor: 'pointer',
-              }}
-            >
-              <div style={{
+              </span>
+            </span>
+            <span aria-hidden="true" style={{
+              width: 44, height: 24, borderRadius: 12, flexShrink: 0,
+              background: form.is_active !== false ? '#177a33' : 'rgba(0,100,200,0.18)',
+              position: 'relative', transition: 'background 0.2s',
+            }}>
+              <span style={{
                 position: 'absolute', top: 3, width: 18, height: 18, borderRadius: '50%',
                 background: '#fff', transition: 'left 0.2s',
                 left: form.is_active !== false ? 23 : 3,
               }} />
-            </div>
-          </label>
+            </span>
+          </button>
         )}
-
-        <button className="btn" disabled={saving} onClick={onSave}>{saving ? '...' : 'שמור'}</button>
-        <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={onClose}>ביטול</button>
       </div>
-    </div>
+    </Sheet>
   )
 }
 
@@ -1885,18 +1778,17 @@ function AdminGrantsTab() {
 
 function AdminGrantModal({ title, form, setForm, saving, onSave, onClose }) {
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-title">{title}</div>
-        <input className="input" placeholder="שם ההטבה" value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} />
-        <input className="input" placeholder="חיפושים (0=חינם, -1=חודשי, -2=חופשי)" type="number" value={form.searches} onChange={e => setForm(f => ({ ...f, searches: e.target.value }))} />
-        <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 12, lineHeight: 1.4 }}>
-          0 = מנוי חינם · -1 = מנוי חודשי · -2 = גישה חופשית · מספר חיובי = הוספת חיפושים
-        </div>
-        <button className="btn" disabled={saving || !form.label.trim()} onClick={onSave}>{saving ? '...' : 'שמור'}</button>
-        <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={onClose}>ביטול</button>
-      </div>
-    </div>
+    <Sheet title={title} onClose={onClose} footer={<>
+      <button className="btn" disabled={saving || !form.label.trim()} onClick={onSave}>{saving ? '...' : 'שמור'}</button>
+      <button className="btn btn-secondary" onClick={onClose}>ביטול</button>
+    </>}>
+      <Field label="שם ההטבה">
+        <input className="input" value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} />
+      </Field>
+      <Field label="חיפושים" hint="0 = מנוי חינם · -1 = מנוי חודשי · -2 = גישה חופשית · מספר חיובי = הוספת חיפושים">
+        <input className="input" type="number" inputMode="numeric" dir="ltr" style={{ textAlign: 'start' }} value={form.searches} onChange={e => setForm(f => ({ ...f, searches: e.target.value }))} />
+      </Field>
+    </Sheet>
   )
 }
 
@@ -3543,81 +3435,60 @@ function PaymentMethodModal({ method, onClose, onSaved }) {
     setSaving(false)
   }
 
-  return createPortal(
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()} style={{ padding: '18px 16px' }}>
-        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14 }}>
-          {method ? `✏️ עריכת ${method.name}` : '➕ אמצעי תשלום חדש'}
-        </div>
+  return (
+    <Sheet title={method ? `✏️ עריכת ${method.name}` : '➕ אמצעי תשלום חדש'} onClose={onClose} footer={<>
+      <button className="btn" disabled={saving || uploading || !name.trim()} onClick={save}>{saving ? '⏳...' : '💾 שמור'}</button>
+      <button className="btn btn-secondary" onClick={onClose}>ביטול</button>
+    </>}>
+      <Field label="שם">
+        <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="לדוגמה: PayPal" />
+      </Field>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div>
-            <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 4 }}>שם</div>
-            <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="לדוגמה: PayPal" style={{ fontSize: 13 }} />
-          </div>
-
-          <div>
-            <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 6 }}>לוגו</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              {logoUrl
-                ? <img src={logoUrl} alt="logo" style={{ width: 52, height: 52, objectFit: 'contain', borderRadius: 10, background: '#fff', padding: 4, flexShrink: 0 }} onError={e => e.target.style.display='none'} />
-                : <div style={{ width: 52, height: 52, borderRadius: 10, background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>💳</div>
-              }
-              <div style={{ flex: 1 }}>
-                <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleLogoFile} />
-                <button
-                  onClick={() => fileRef.current?.click()}
-                  disabled={uploading}
-                  style={{ width: '100%', padding: '9px 0', borderRadius: 9, border: '1px dashed rgba(0,100,200,0.3)', background: 'var(--bg)', color: 'var(--hint)', fontSize: 12, cursor: uploading ? 'default' : 'pointer' }}
-                >{uploading ? '⏳ מעלה...' : '📁 בחר תמונה'}</button>
-                {logoUrl && (
-                  <button onClick={() => setLogoUrl('')} style={{ width: '100%', marginTop: 5, padding: '5px 0', borderRadius: 7, border: 'none', background: '#c5303018', color: '#c53030', fontSize: 11, cursor: 'pointer' }}>הסר לוגו</button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 4 }}>כתובת לתשלום (URL)</div>
-            <input className="input" value={paymentUrl} onChange={e => setPaymentUrl(e.target.value)} placeholder="https://..." style={{ fontSize: 13 }} />
-          </div>
-
-          <div
-            onClick={() => setManual(v => !v)}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              background: 'var(--bg)', borderRadius: 10, padding: '10px 12px', cursor: 'pointer',
-            }}
-          >
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>אישור ידני</div>
-              <div style={{ fontSize: 11, color: 'var(--hint)' }}>{manual ? 'מנהל מאשר ידנית לאחר קבלת תשלום' : 'אישור אוטומטי מיידי (כגון PayPal API)'}</div>
-            </div>
-            <div style={{
-              width: 40, height: 22, borderRadius: 11, transition: 'background 0.2s',
-              background: manual ? '#c53030' : '#177a33',
-              position: 'relative', flexShrink: 0,
-            }}>
-              <div style={{
-                position: 'absolute', top: 3, width: 16, height: 16, borderRadius: '50%', background: '#fff',
-                transition: 'left 0.2s', left: manual ? 3 : 21,
-              }} />
-            </div>
+      <FieldGroup label="לוגו">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {logoUrl
+            ? <img src={logoUrl} alt="" width={52} height={52} style={{ width: 52, height: 52, objectFit: 'contain', borderRadius: 10, background: '#fff', border: '1px solid var(--border)', padding: 4, flexShrink: 0 }} onError={e => e.target.style.display='none'} />
+            : <div aria-hidden="true" style={{ width: 52, height: 52, borderRadius: 10, background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>💳</div>
+          }
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleLogoFile} aria-label="העלאת לוגו" />
+            <button type="button" className="btn btn-secondary" style={{ margin: 0, minHeight: 44, padding: 10, fontSize: 14 }}
+              onClick={() => fileRef.current?.click()} disabled={uploading}
+            >{uploading ? '⏳ מעלה...' : '📁 בחר תמונה'}</button>
+            {logoUrl && (
+              <button type="button" className="btn btn-danger" style={{ margin: 0, minHeight: 44, padding: 10, fontSize: 14 }} onClick={() => setLogoUrl('')}>הסר לוגו</button>
+            )}
           </div>
         </div>
+      </FieldGroup>
 
-        <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-          <button
-            className="btn"
-            disabled={saving || uploading || !name.trim()}
-            onClick={save}
-            style={{ flex: 1, marginTop: 0 }}
-          >{saving ? '⏳...' : '💾 שמור'}</button>
-          <button className="btn btn-secondary" onClick={onClose} style={{ flex: 1, marginTop: 0 }}>ביטול</button>
-        </div>
-      </div>
-    </div>,
-    document.body
+      <Field label="כתובת לתשלום (URL)">
+        <input className="input" dir="ltr" value={paymentUrl} onChange={e => setPaymentUrl(e.target.value)} placeholder="https://..." />
+      </Field>
+
+      <button
+        type="button" role="switch" aria-checked={manual}
+        onClick={() => setManual(v => !v)}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, width: '100%', textAlign: 'start', fontFamily: 'inherit',
+          background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 14px', minHeight: 56, cursor: 'pointer', color: 'var(--text-main)',
+        }}
+      >
+        <span style={{ minWidth: 0 }}>
+          <span style={{ display: 'block', fontSize: 14, fontWeight: 700 }}>אישור ידני</span>
+          <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)' }}>{manual ? 'מנהל מאשר ידנית לאחר קבלת תשלום' : 'אישור אוטומטי מיידי (כגון PayPal API)'}</span>
+        </span>
+        <span aria-hidden="true" style={{
+          width: 44, height: 24, borderRadius: 12, transition: 'background 0.2s', flexShrink: 0,
+          background: manual ? '#c53030' : '#177a33', position: 'relative',
+        }}>
+          <span style={{
+            position: 'absolute', top: 3, width: 18, height: 18, borderRadius: '50%', background: '#fff',
+            transition: 'left 0.2s', left: manual ? 3 : 23,
+          }} />
+        </span>
+      </button>
+    </Sheet>
   )
 }
 
