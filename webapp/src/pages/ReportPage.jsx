@@ -1327,7 +1327,7 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
             border: '1px solid #007aff33',
           }}>
             <div style={{ fontSize: 36, marginBottom: 8 }}>🔄</div>
-            <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 6 }}>העברת בעלות אונליין</div>
+            <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 6, color: '#fff' }}>העברת בעלות אונליין</div>
             <div style={{ fontSize: 13, color: '#93c5fd', lineHeight: 1.6 }}>
               באמצעות האזור האישי של gov.il ניתן לבצע העברת בעלות על הרכב מהבית, ללא ביקור בדואר ישראל.
             </div>
