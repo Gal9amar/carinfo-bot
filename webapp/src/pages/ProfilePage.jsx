@@ -72,17 +72,17 @@ export default function ProfilePage({ user, onNavigate, onBack }) {
             fontSize: 22, fontWeight: 900, letterSpacing: '-0.5px',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>{fullName}</div>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
-            {[user.username && `@${user.username}`, user.first_seen && `הצטרף/ה ב-${fmtDateLong(user.first_seen)}`]
-              .filter(Boolean).join(' · ')}
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2, lineHeight: 1.5 }}>
+            {user.username && <div dir="ltr" style={{ textAlign: 'right' }}>@{user.username}</div>}
+            {user.first_seen && <div>הצטרף/ה ב-{fmtDateLong(user.first_seen)}</div>}
           </div>
+          <span style={{
+            display: 'inline-block', maxWidth: '100%', marginTop: 6, borderRadius: 14, padding: '3px 10px', fontSize: 12, fontWeight: 700, lineHeight: 1.4,
+            border: '1px solid var(--border)',
+            background: isSubscriber ? 'rgba(0, 122, 255, 0.1)' : 'rgba(255,255,255,0.85)',
+            color: isSubscriber ? 'var(--primary)' : 'var(--text-muted)',
+          }}>{subLabel}</span>
         </div>
-        <span style={{
-          flexShrink: 0, borderRadius: 99, padding: '4px 12px', fontSize: 12, fontWeight: 700,
-          border: '1px solid var(--border)',
-          background: isSubscriber ? 'rgba(0, 122, 255, 0.1)' : 'rgba(255,255,255,0.85)',
-          color: isSubscriber ? 'var(--primary)' : 'var(--text-muted)',
-        }}>{subLabel}</span>
       </header>
 
       {/* Plan and quota */}
