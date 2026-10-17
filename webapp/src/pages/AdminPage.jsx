@@ -4236,11 +4236,11 @@ function SettingsTab() {
     setSaving(false)
   }
 
-  async function toggleRichMessages() {
+  async function toggleSetting(key) {
     setSaving(true)
     try {
-      await adminUpdateSettings({ rich_messages_enabled: !settings.rich_messages_enabled })
-      setSettings(s => ({ ...s, rich_messages_enabled: !s.rich_messages_enabled }))
+      await adminUpdateSettings({ [key]: !settings[key] })
+      setSettings(s => ({ ...s, [key]: !s[key] }))
     } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
     setSaving(false)
   }
@@ -4300,24 +4300,30 @@ function SettingsTab() {
           />
         </div>
 
-        {/* Rich messages (tables) */}
-        <div className="card" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, borderLeft: settings.rich_messages_enabled ? '4px solid #10b981' : '4px solid #9ca3af' }}>
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              📊 תוצאת חיפוש כטבלה
-              <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: settings.rich_messages_enabled ? 'rgba(16, 185, 129, 0.1)' : 'rgba(156, 163, 175, 0.15)', color: settings.rich_messages_enabled ? '#10b981' : '#6b7280', fontWeight: 700 }}>
-                {settings.rich_messages_enabled ? 'פעיל' : 'כבוי'}
-              </span>
+        {/* Bot feature toggles */}
+        {[
+          { key: 'rich_messages_enabled', icon: '📊', title: 'תוצאת חיפוש כטבלה', desc: 'שולח את כרטיס התוצאה בבוט כטבלה (Rich Message), וגם את ההשוואה וההיסטוריה. אם השליחה נכשלת, נשלח הכרטיס הרגיל.' },
+          { key: 'test_reminders_enabled', icon: '🔔', title: 'תזכורות טסט', desc: 'תזכורת בבוט חודש, שבוע ויום לפני פקיעת הטסט, למי שביקש אותה וגם לרכבים במוסך.' },
+          { key: 'photo_plate_enabled', icon: '📷', title: 'זיהוי מספר רכב מתמונה', desc: settings.photo_plate_key_configured ? 'המשתמש שולח צילום של הלוחית ומקבל אישור לפני החיפוש. התמונה נשלחת ל-Claude לזיהוי, והשימוש מוגבל לכמה תמונות לשעה למשתמש.' : '⚠️ חסר ANTHROPIC_API_KEY בשרת, ולכן הזיהוי לא יעבוד עד שיוגדר.' },
+        ].map(f => (
+          <div key={f.key} className="card" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, borderLeft: settings[f.key] ? '4px solid #10b981' : '4px solid #9ca3af' }}>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                {f.icon} {f.title}
+                <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: settings[f.key] ? 'rgba(16, 185, 129, 0.1)' : 'rgba(156, 163, 175, 0.15)', color: settings[f.key] ? '#10b981' : '#6b7280', fontWeight: 700 }}>
+                  {settings[f.key] ? 'פעיל' : 'כבוי'}
+                </span>
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{f.desc}</div>
             </div>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>שולח את כרטיס התוצאה בבוט כטבלה (Rich Message). אם השליחה נכשלת, נשלח הכרטיס הרגיל.</div>
+            <button
+              className={`toggle ${settings[f.key] ? 'on' : ''}`}
+              onClick={() => toggleSetting(f.key)}
+              disabled={saving}
+              style={{ margin: 0, opacity: saving ? 0.6 : 1 }}
+            />
           </div>
-          <button
-            className={`toggle ${settings.rich_messages_enabled ? 'on' : ''}`}
-            onClick={toggleRichMessages}
-            disabled={saving}
-            style={{ margin: 0, opacity: saving ? 0.6 : 1 }}
-          />
-        </div>
+        ))}
 
         {/* Free searches */}
         <div className="card" style={{ padding: '20px', borderLeft: '4px solid #007aff' }}>

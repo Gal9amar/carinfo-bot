@@ -588,6 +588,16 @@ async def get_search_history(user_id: int, limit: int = 10) -> list[str]:
     )
     return [row[0] for row in r.rows]
 
+async def get_search_history_rows(user_id: int, limit: int = 10) -> list[tuple[str, str]]:
+    """Last N unique plates with the time of their most recent search, newest first."""
+    r = await execute(
+        "SELECT plate, MAX(searched_at) FROM search_history WHERE user_id = ? "
+        "GROUP BY plate ORDER BY MAX(searched_at) DESC LIMIT ?",
+        [user_id, limit],
+    )
+    return [(row[0], str(row[1] or "")) for row in r.rows]
+
+
 async def get_quota_expires(user_id: int) -> str | None:
     """Returns quota_expires ISO string or None."""
     r = await execute(

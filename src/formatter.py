@@ -507,6 +507,35 @@ def cat_recalls(record: dict) -> str:
     return "".join(lines)
 
 
+def _insights(record: dict, km_warn: str) -> list[str]:
+    """Up to 3 short, plain-Hebrew observations derived from official data."""
+    out: list[str] = []
+    ownership = record.get("_ownership") or []
+    n = len(ownership)
+    dealer = sum(1 for o in ownership if o.get("baalut") == "סוחר")
+    if n == 1 and ownership[0].get("baalut") == "פרטי":
+        out.append("יד ראשונה — רשום בעלים אחד בלבד")
+    elif n >= 4:
+        out.append(f"לרכב רשומים {n} בעלים — שווה לשאול את המוכר למה הוחלף כל כך הרבה")
+    if dealer and n >= 2:
+        out.append("הרכב עבר דרך סוחר (בעלות סוחר רשומה בהיסטוריה)")
+    try:
+        year = int(_val(record, "shnat_yitzur"))
+        age = date.today().year - year
+        km = int(float(_val(record, "kilometer_test_aharon") or 0))
+        if age >= 1 and km and not km_warn:
+            avg = km // age
+            if avg < 6000:
+                out.append(f'ק"מ נמוך יחסית לגיל (≈{avg:,} בשנה) — כדאי לבקש היסטוריית טיפולים')
+            elif avg > 25000:
+                out.append(f'ק"מ גבוה יחסית לגיל (≈{avg:,} בשנה)')
+        if age >= 15:
+            out.append(f"רכב בן {age} שנים — מומלץ בדיקה במכון לפני קנייה")
+    except Exception:
+        pass
+    return out[:3]
+
+
 def _summary_fields(record: dict) -> dict:
     """Facts shown in the short summary, independent of rendering."""
     manufacturer = _val(record, "tozeret_nm")
@@ -531,7 +560,7 @@ def _summary_fields(record: dict) -> dict:
         except Exception:
             km_str = f'{km} ק"מ'
 
-    owner_count     = len(ownership)
+    owner_count     = len(ownership) if ownership else None  # None = no ownership data found
     km_warn_plain   = _km_fraud_check(record)
     flip_warn_plain = _flip_check(record)
     has_body_change = str(record.get("shinui_mivne_ind", "")).strip() == "1"
@@ -564,6 +593,7 @@ def _summary_fields(record: dict) -> dict:
         or "🟡" in test_str
         or "🔴" in test_str
         or has_body_change
+        or (owner_count is not None and owner_count >= 4)
         or ("גבוה" in km_warn_plain if km_warn_plain else False)
     )
 
@@ -572,7 +602,7 @@ def _summary_fields(record: dict) -> dict:
     elif is_yellow:
         overall = "🟡 שים לב"
     else:
-        overall = "🟢 תקין"
+        overall = "🟢 לא נמצאו דגלים"
 
     agra_group = _val(w, "kvuzat_agra_cd")
     shnat      = _val(record, "shnat_yitzur")
@@ -584,6 +614,8 @@ def _summary_fields(record: dict) -> dict:
         "make_model": f"{manufacturer} {model}",
         "rest_of_title": f"{year}" + (f" · {color}" if color else ""),
         "owners": owner_count,
+        "overall": overall,
+        "insights": _insights(record, km_warn_plain),
         "baalut": baalut,
         "km": km_str or "—",
         "test": test_str,
@@ -594,6 +626,12 @@ def _summary_fields(record: dict) -> dict:
     }
 
 
+def _owners_text(owners) -> str:
+    if owners is None:
+        return "אין מידע על בעלויות קודמות"
+    return "בעלים אחד" if owners == 1 else f"{owners} בעלים"
+
+
 def quick_summary(record: dict) -> str:
     """Short summary block for the top of every result (HTML parse mode)."""
     f = _summary_fields(record)
@@ -601,7 +639,8 @@ def quick_summary(record: dict) -> str:
     lines = [
         f"{header}\n",
         "\n",
-        f"👥 {_escape(str(f['owners']))} {_escape('בעלים')}\n",
+        f"🚦 <b>{_escape('מצב כללי')}:</b> {_escape(f['overall'])}\n",
+        f"👥 {_escape(_owners_text(f['owners']))}\n",
         f"🏷 <b>{_escape('בעלות נוכחית')}:</b> {_escape(f['baalut'])}\n",
         f"🛣 {_escape(f['km'])}\n",
         f"📅 <b>{_escape('טסט')}:</b> {_escape(f['test'])}\n",
@@ -617,6 +656,8 @@ def quick_summary(record: dict) -> str:
         lines.append("\n")
         flags_html = "\n".join(f"⚠️ {_escape(flag)}" for flag in f["flags"])
         lines.append(f"<blockquote>{flags_html}</blockquote>\n")
+    if f["insights"]:
+        lines.append("\n<blockquote>" + "\n".join(f"💡 {_escape(t)}" for t in f["insights"]) + "</blockquote>\n")
     return "".join(lines)
 
 
@@ -624,7 +665,8 @@ def quick_summary_rich(record: dict) -> str:
     """Same facts as quick_summary, as a table in Rich HTML (sendRichMessage)."""
     f = _summary_fields(record)
     rows = [
-        ("👥 בעלים", str(f["owners"])),
+        ("🚦 מצב כללי", f["overall"]),
+        ("👥 בעלים", _owners_text(f["owners"]) if f["owners"] in (None, 1) else str(f["owners"])),
         ("🏷 בעלות נוכחית", f["baalut"] or "—"),
         ("🛣 קילומטראז'", f["km"]),
         ("📅 טסט", f["test"]),
@@ -642,7 +684,56 @@ def quick_summary_rich(record: dict) -> str:
     )
     if f["flags"]:
         out += "<blockquote>" + "<br>".join(f"⚠️ {_escape(flag)}" for flag in f["flags"]) + "</blockquote>"
+    if f["insights"]:
+        out += "<blockquote>" + "<br>".join(f"💡 {_escape(t)}" for t in f["insights"]) + "</blockquote>"
     return out
+
+
+def _compare_rows(a: dict, b: dict) -> list[tuple[str, str, str]]:
+    fa, fb = _summary_fields(a), _summary_fields(b)
+
+    def fuel(r: dict) -> str:
+        return _val(r, "sug_delek_nm") or _val(r.get("_wltp") or {}, "sug_delek_nm") or "—"
+
+    return [
+        ("שנת ייצור", _val(a, "shnat_yitzur") or "—", _val(b, "shnat_yitzur") or "—"),
+        ("סוג דלק", fuel(a), fuel(b)),
+        ("בעלים", _owners_text(fa["owners"]), _owners_text(fb["owners"])),
+        ("בעלות נוכחית", fa["baalut"] or "—", fb["baalut"] or "—"),
+        ("קילומטראז'", fa["km"], fb["km"]),
+        ("טסט", fa["test"], fb["test"]),
+        ("אגרת רישוי", fa["agra"] or "—", fb["agra"] or "—"),
+        ("מצב כללי", fa["overall"], fb["overall"]),
+    ]
+
+
+def _compare_title(r: dict) -> str:
+    return f"{_val(r, 'tozeret_nm')} {_val(r, 'kinuy_mishari', 'degem_nm')}".strip() or _val(r, "mispar_rechev")
+
+
+def compare_rich(a: dict, b: dict) -> str:
+    """Side-by-side table in Rich HTML (sendRichMessage)."""
+    head = (
+        f"<tr><th>נתון</th><th>{_escape(_compare_title(a))}<br>{_escape(_val(a, 'mispar_rechev'))}</th>"
+        f"<th>{_escape(_compare_title(b))}<br>{_escape(_val(b, 'mispar_rechev'))}</th></tr>"
+    )
+    body = "".join(
+        f"<tr><td>{_escape(k)}</td><td>{_escape(x)}</td><td>{_escape(y)}</td></tr>"
+        for k, x, y in _compare_rows(a, b)
+    )
+    return f"<h3>⚖️ השוואה בין שני רכבים</h3><table bordered striped>{head}{body}</table>"
+
+
+def compare_classic(a: dict, b: dict) -> str:
+    """Fallback without tables: one two-line block per attribute (HTML parse mode)."""
+    lines = [
+        f"⚖️ <b>השוואה בין שני רכבים</b>\n",
+        f"🅰️ <b>{_escape(_compare_title(a))}</b> ({_escape(_val(a, 'mispar_rechev'))})\n",
+        f"🅱️ <b>{_escape(_compare_title(b))}</b> ({_escape(_val(b, 'mispar_rechev'))})\n",
+    ]
+    for k, x, y in _compare_rows(a, b):
+        lines.append(f"\n<b>{_escape(k)}</b>\n🅰️ {_escape(x)}\n🅱️ {_escape(y)}")
+    return "".join(lines)
 
 
 def get_share_text(record: dict) -> str:

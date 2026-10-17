@@ -44,6 +44,11 @@ export default function App() {
     if (page === 'ticket') { setScreen('ticket'); return }
     if (page === 'referral') { setScreen('referral'); return }
     if (page === 'garage') { setScreen('garage'); return }
+    if (page === 'watches') {
+      setScreen('watches')
+      fetchUser().catch(() => null).then(usr => setUser(usr))
+      return
+    }
     if (page === 'garageHowItWorks') { setScreen('garageHowItWorks'); return }
     if (page === 'profile') {
       setScreen('profile')
