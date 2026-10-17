@@ -221,7 +221,7 @@ Users watch make/model/year; `_yad2_watch_job` runs every 30 min and DMs new lis
 | `admin_stats()`, `get_all_users()`, block/unblock, broadcast consent, sent-message log | Admin support |
 
 ## src/packages.py — Defaults
-Plan-card feature lists: `_DEFAULT_FREE_FEATURES` / `_DEFAULT_PREMIUM_FEATURES` (mirrored in `PackagesPage.jsx` fallbacks and `DEFAULT_PKG_FEATURES` in AdminPage). `_upgrade_default_features()` (run by `init_packages`) upgrades only never-customised lists of the FREE (`searches=0`) and unlimited (`searches=-1`) cards; admin-edited lists are left alone — the package editor offers the new lines under "בחר מהרשימה".
+Plan-card feature lists: ONE shared list `PLAN_FEATURES` (`src/packages.py`, mirrored in `PackagesPage.jsx` and `DEFAULT_PKG_FEATURES` in AdminPage): the FREE and the Premium (`searches=-1`) card show the same lines in the same order; lines not in the plan are ✗ on FREE and ✓ on Premium. `_upgrade_default_features()` resets both cards to it once per `_PLAN_FEATURES_VERSION` (setting `plan_features_version`); afterwards the admin may edit freely — bump the version to force another reset.
 Seeded when table empty: 🔍 50 חיפושים ₪10 · 🔍 100 חיפושים ₪20 · 🔍 200 חיפושים ₪30 · ♾️ מנוי חודשי ₪25 (`searches=-1`), plus a FREE card (`searches=0`, ₪0) with default feature/chip lists. Admin edits these live in the DB; defaults are not re-applied. Packages page colours cycle by index%3 (Silver `#1e40af→#0ea5e9`, Gold `#92400e→#f59e0b`, Platinum `#4c1d95→#a855f7`).
 
 ---

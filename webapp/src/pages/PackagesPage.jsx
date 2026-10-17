@@ -4,26 +4,20 @@ import PageBanners from '../components/PageBanners.jsx'
 import { fetchProducts } from '../api.js'
 import { safeDescriptionHtml } from '../utils/safeHtml.js'
 
-const FREE_FEATURES = [
-  { text: 'נתוני רכב בסיסיים — שנה, דגם, בעלות, טסט, ק״מ', included: true },
-  { text: 'היסטוריית חיפושים אישית', included: true },
-  { text: 'השוואת רכבים — חיפוש אחד לכל השוואה', included: true },
-  { text: 'תזכורת טסט וניהול ״רכבים שקניתי״', included: true },
-  { text: 'חיפושים ללא הגבלה', included: false },
-  { text: 'מחיר שוק Yad2', included: false },
-  { text: 'התראות על מודעות חדשות ב-Yad2', included: false },
-  { text: 'הורדת דוח PDF מפורט', included: false },
+// Same lines, same order on the FREE and Premium cards; premiumOnly lines are ✗ on FREE.
+const PLAN_FEATURES = [
+  ['נתוני רכב מלאים — שנה, דגם, בעלות, טסט, ק״מ', false],
+  ['היסטוריית חיפושים אישית', false],
+  ['השוואת רכבים', false],
+  ['תזכורת טסט וניהול ״רכבים שקניתי״', false],
+  ['חיפושים ללא הגבלה', true],
+  ['מחיר שוק Yad2', true],
+  ['התראות על מודעות חדשות ב-Yad2', true],
+  ['דוח PDF מפורט', true],
+  ['גישה לכל פיצ׳רי הפרימיום העתידיים', true],
 ]
-
-const PREMIUM_FEATURES = [
-  { text: 'חיפושים ללא הגבלה למשך חודש', included: true },
-  { text: 'מחיר שוק Yad2 — השוואת מחירים עדכנית', included: true },
-  { text: 'התראות על מודעות חדשות ב-Yad2', included: true },
-  { text: 'הורדת דוח PDF מפורט', included: true },
-  { text: 'השוואת רכבים ללא עלות חיפוש נוספת', included: true },
-  { text: 'נתוני רכב מלאים, היסטוריית חיפושים, תזכורת טסט ו״רכבים שקניתי״', included: true },
-  { text: 'גישה לכל פיצ׳רי הפרימיום הקיימים והעתידיים', included: true },
-]
+const FREE_FEATURES = PLAN_FEATURES.map(([text, premiumOnly]) => ({ text, included: !premiumOnly }))
+const PREMIUM_FEATURES = PLAN_FEATURES.map(([text]) => ({ text, included: true }))
 
 export default function PackagesPage({ packages, user, highlightProductId, onSelect, onPrivacy, onSupport, onReferral, onBack, onNavigate }) {
   const [quantities, setQuantities] = useState({})

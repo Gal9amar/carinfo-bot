@@ -14,41 +14,23 @@ _DEFAULT_PACKAGES = [
     (4, "♾️ מנוי חודשי",   -1,  25, "", 4, 1),
 ]
 
-def _f(text: str, included: bool = True) -> dict:
-    return {"text": text, "included": included}
-
-
-# Feature lists shown on the plan cards. Keep in sync with the fallbacks in
-# webapp/src/pages/PackagesPage.jsx and DEFAULT_PKG_FEATURES in AdminPage.jsx.
-_DEFAULT_FREE_FEATURES = [
-    _f("נתוני רכב בסיסיים — שנה, דגם, בעלות, טסט, ק״מ"),
-    _f("היסטוריית חיפושים אישית"),
-    _f("השוואת רכבים — חיפוש אחד לכל השוואה"),
-    _f("תזכורת טסט וניהול ״רכבים שקניתי״"),
-    _f("חיפושים ללא הגבלה", False),
-    _f("מחיר שוק Yad2", False),
-    _f("התראות על מודעות חדשות ב-Yad2", False),
-    _f("הורדת דוח PDF מפורט", False),
+# One shared feature list for the plan cards: the FREE and the Premium card show the SAME lines in the
+# SAME order; a line the plan doesn't include is shown with ✗ (premium_only=True lines are ✗ on FREE).
+# Keep in sync with PLAN_FEATURES in webapp/src/pages/PackagesPage.jsx and DEFAULT_PKG_FEATURES in AdminPage.jsx.
+PLAN_FEATURES = [
+    ("נתוני רכב מלאים — שנה, דגם, בעלות, טסט, ק״מ", False),
+    ("היסטוריית חיפושים אישית", False),
+    ("השוואת רכבים", False),
+    ("תזכורת טסט וניהול ״רכבים שקניתי״", False),
+    ("חיפושים ללא הגבלה", True),
+    ("מחיר שוק Yad2", True),
+    ("התראות על מודעות חדשות ב-Yad2", True),
+    ("דוח PDF מפורט", True),
+    ("גישה לכל פיצ׳רי הפרימיום העתידיים", True),
 ]
-
-_DEFAULT_PREMIUM_FEATURES = [
-    _f("חיפושים ללא הגבלה למשך חודש"),
-    _f("מחיר שוק Yad2 — השוואת מחירים עדכנית"),
-    _f("התראות על מודעות חדשות ב-Yad2"),
-    _f("הורדת דוח PDF מפורט"),
-    _f("השוואת רכבים ללא עלות חיפוש נוספת"),
-    _f("נתוני רכב מלאים, היסטוריית חיפושים, תזכורת טסט ו״רכבים שקניתי״"),
-    _f("גישה לכל פיצ׳רי הפרימיום הקיימים והעתידיים"),
-]
-
-# Wording of the previous defaults: a stored list made only of these lines was never customised
-# by the admin and is upgraded automatically (see _upgrade_default_features).
-_LEGACY_FEATURE_TEXTS = {
-    "נתוני רכב בסיסיים — שנה, דגם, בעלות, טסט, ק״מ", "היסטוריית חיפושים אישית", "מחיר שוק Yad2",
-    "הורדת דוח PDF מפורט", "העתקת דוח לשיתוף", "הערות אישיות לכל רכב",
-    "נתוני רכב מלאים — שנה, דגם, בעלות, טסט, ק״מ", "מחיר שוק Yad2 — השוואת מחירים עדכנית",
-    "הערות אישיות לכל רכב — נשמרות ומופיעות בדוח", "גישה לכל תכונות המנוי הקיימות והעתידיות",
-}
+_DEFAULT_FREE_FEATURES = [{"text": t, "included": not premium_only} for t, premium_only in PLAN_FEATURES]
+_DEFAULT_PREMIUM_FEATURES = [{"text": t, "included": True} for t, _ in PLAN_FEATURES]
+_PLAN_FEATURES_VERSION = "2"
 
 _cache: list[tuple] | None = None  # (id, label, searches, price, image_url, display_order, duration_months, features, chips, package_type, is_active)
 
@@ -100,18 +82,18 @@ async def init_packages() -> None:
 
 
 async def _upgrade_default_features() -> None:
-    """Replace never-customised (empty / old-default) feature lists of the FREE and the unlimited
-    (Premium) cards with the current ones, so new features such as compare and Yad2 alerts show up."""
+    """One-time (per _PLAN_FEATURES_VERSION) reset of the FREE (searches=0) and unlimited/Premium
+    (searches=-1) cards to the shared PLAN_FEATURES list, so both cards list the same lines in the same
+    order. Afterwards the admin can edit them freely; the reset is not repeated."""
+    from src.db import get_bot_setting, set_bot_setting
+    if (await get_bot_setting("plan_features_version")) == _PLAN_FEATURES_VERSION:
+        return
     for searches, new_list in ((0, _DEFAULT_FREE_FEATURES), (-1, _DEFAULT_PREMIUM_FEATURES)):
-        r = await execute(
-            "SELECT id, COALESCE(features,'[]') FROM packages WHERE searches=? AND COALESCE(package_type,'searches')='searches'",
-            [searches],
+        await execute(
+            "UPDATE packages SET features=? WHERE searches=? AND COALESCE(package_type,'searches')='searches'",
+            [json.dumps(new_list, ensure_ascii=False), searches],
         )
-        for pid, raw in r.rows:
-            texts = {f["text"] for f in _normalize_features(raw)}
-            if not texts or texts <= _LEGACY_FEATURE_TEXTS:
-                await execute("UPDATE packages SET features=? WHERE id=?",
-                              [json.dumps(new_list, ensure_ascii=False), pid])
+    await set_bot_setting("plan_features_version", _PLAN_FEATURES_VERSION)
 
 
 def _normalize_features(raw) -> list:
