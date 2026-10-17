@@ -39,7 +39,7 @@ export function fmtDateFull(ts) {
   try {
     const d = parse(ts)
     if (isNaN(d)) return String(ts).slice(0, 10)
-    return d.toLocaleDateString('he-IL', { timeZone: TZ, day: '2-digit', month: '2-digit', year: 'numeric' })
+    return d.toLocaleDateString('he-IL', { timeZone: TZ, day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\./g, '/')
   } catch { return String(ts).slice(0, 10) }
 }
 
