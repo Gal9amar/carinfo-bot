@@ -2463,7 +2463,7 @@ def main() -> None:
                     continue
                 try:
                     text = M.broadcast(M.first_name(u.get("full_name", "")), message)
-                    if photo_bytes:
+                    if photo_bytes and len(text) <= 1024:
                         await app.bot.send_photo(
                             uid,
                             photo=_io.BytesIO(photo_bytes),
@@ -2471,6 +2471,10 @@ def main() -> None:
                             parse_mode=HTML,
                             reply_markup=_optout_kb,
                         )
+                    elif photo_bytes:
+                        # Telegram limits photo captions to 1024 chars: send the image, then the full text
+                        await app.bot.send_photo(uid, photo=_io.BytesIO(photo_bytes))
+                        await app.bot.send_message(uid, text, parse_mode=HTML, reply_markup=_optout_kb)
                     else:
                         await app.bot.send_message(uid, text, parse_mode=HTML, reply_markup=_optout_kb)
                     await log_sent_message(uid, _log_text(text), kind="broadcast")
