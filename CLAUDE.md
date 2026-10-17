@@ -45,7 +45,8 @@ carinfo-bot/
 │   ├── yad2.py             # Yad2 URL building + market price (cached) 
 │   ├── yad2_models.json   # manufacturer→model→Yad2 ID map
 │   ├── yad2_watcher.py     # new-listing alerts ("watches")
-│   ├── formatter.py        # vehicle data → Telegram text
+│   ├── formatter.py        # vehicle data → Telegram text (HTML)
+│   ├── messages.py         # ALL user/admin bot copy: HTML builders, personal tone, first-name greeting
 │   ├── pdf_report.py       # PDF report (reportlab + python-bidi)
 │   ├── tickets.py  activity.py  cache.py(1h TTL)  
 │   ├── notifier.py         # callback registry: api.py ↔ bot.py decoupling
@@ -236,6 +237,7 @@ Seeded when table empty: 🔍 50 חיפושים ₪10 · 🔍 100 חיפושים
 Commands: `/start [ref_UID]`, `/help`, `/status`, `/code` (conversation), `/admin`, `/buy`, `/myid`, `/optout`, `/optin`.
 Callbacks: `new_search`, `show_packages`, `pkg|`, `buy|`, `paid|`, `approve|`, `decline|`, `deliver|`, `history`/`hist_plate|`, `pdf_report`, `share_report`, `how_it_works`, `back_to_start`, `adm|`, `admpkg|`, `usr|`/`ugrant|`/`utoggle|`, `broadcast_optout|optin`, `chat_admin`, `admin_panel`. Telegram invoice payments handled via pre-checkout + successful-payment handlers. Any text → plate lookup (`handle_plate`).
 Jobs (JobQueue): daily expiry reminders (06:00 UTC), hourly `expire_subscriptions`, every 30 min Yad2 watch alerts.
+**Message style:** every bot message is sent with `ParseMode.HTML` (never Markdown/MarkdownV2). Copy lives in `src/messages.py`; builders take the user's first name (`M.first_name(...)`; `_first_name(tg_user)` / `await _name_of(user_id)` in `bot.py`) and escape every dynamic value with `M.esc`. Sent-message log stores `M.strip_html(text)`. Admin notifications keep an `ID: <code>…</code>` token — `handle_admin_message` parses it to route replies.
 `src/notifier.py` lets `api.py` trigger bot messages (payments, tickets, grants, broadcasts, orders, product delivery) without importing `bot.py`; callbacks are registered in `bot.py`.
 
 ## Startup Sequence

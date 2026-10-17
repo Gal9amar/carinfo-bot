@@ -452,9 +452,9 @@ async def _grant_payment(
                 combined = "\n\n".join(claimed)
                 await execute("UPDATE paypal_transactions SET delivery_content=? WHERE ref=?", [combined, ref])
                 try:
-                    from src.notifier import send_user_message
+                    from src.notifier import notify_user_product_delivered
                     for content in claimed:
-                        await send_user_message(user_id, f"📦 ההזמנה שלך מוכנה!\n\n{content}")
+                        await notify_user_product_delivered(user_id, label, ref, content)
                 except Exception:
                     pass
                 if len(claimed) < qty:
@@ -2095,7 +2095,7 @@ async def admin_gift_all(body: GiftAllBody, _: dict = Depends(_require_admin)):
                 "SELECT ?, user_id FROM users WHERE blocked = 0",
                 [group_id],
             )
-        gift_text = "🎁 *קיבלת מנוי חופשי חודשי!*\n\nגישה ללא הגבלת חיפושים ל\\-30 ימים 🎉" + (f"\n\n{msg}" if msg else "")
+        gift_text = "🎁 קיבלת מנוי חופשי חודשי!\n\nגישה ללא הגבלת חיפושים ל-30 ימים 🎉" + (f"\n\n{msg}" if msg else "")
         log_desc = f"מתנה לכולם: מנוי חופשי חודשי. הודעה: {msg[:60]}"
     else:
         if body.searches < 1:
@@ -2104,7 +2104,7 @@ async def admin_gift_all(body: GiftAllBody, _: dict = Depends(_require_admin)):
             "UPDATE users SET searches_quota = searches_quota + ? WHERE searches_quota >= 0 AND blocked = 0",
             [body.searches],
         )
-        gift_text = f"🎁 *קיבלת {body.searches} חיפושים במתנה!*" + (f"\n\n{msg}" if msg else "")
+        gift_text = f"🎁 קיבלת {body.searches} חיפושים במתנה!" + (f"\n\n{msg}" if msg else "")
         log_desc = f"מתנה לכולם: +{body.searches} חיפושים. הודעה: {msg[:60]}"
 
     notified = 0

@@ -37,13 +37,12 @@ from src.users import (
     set_broadcast_consent, get_broadcast_consent,
 )
 from src.formatter import (
-    format_error,
-    format_not_found,
     get_summary,
     get_share_text,
     yad2_label,
     quick_summary,
 )
+from src import messages as M
 from src.pdf_report import generate_pdf
 from src import yad2 as _yad2
 
@@ -77,17 +76,30 @@ def _pkgs() -> list[tuple[str, int, int]]:
         ("♾️ מנוי חודשי",  -1,  25),
     ]
 
-_MD_SPECIAL = r"\_*[]()~`>#+-=|{}.!"
-def _escape_md(text: str) -> str:
-    return "".join(f"\\{c}" if c in _MD_SPECIAL else c for c in text)
+HTML = ParseMode.HTML
 
 logger.info("ADMIN_ID loaded: %s", ADMIN_ID)
 
-PAYMENT_MSG = (
-    "🔒 *נגמרו הבדיקות החינמיות שלך*\n\n"
-    "לרכישת בדיקות נוספות לחץ על הכפתור למטה\\.\n"
-    "נחזור אליך בהקדם\\!"
-)
+# Optional admin-authored (plain text) replacement for the default payment wall copy.
+PAYMENT_MSG: str | None = None
+
+
+def _first_name(user) -> str:
+    """First name of a Telegram user object, for personal greetings."""
+    return M.first_name(getattr(user, "first_name", None) or getattr(user, "full_name", "") or "")
+
+
+async def _name_of(user_id: int) -> str:
+    """First name of any user by id (for notifications that only carry a user_id)."""
+    try:
+        u = await get_user_by_id(user_id)
+    except Exception:
+        u = None
+    return M.first_name((u or {}).get("full_name", ""))
+
+
+def _log_text(html_text: str) -> str:
+    return M.strip_html(html_text)
 
 WAITING_CODE = 1
 WAITING_FREE_COUNT = 2
@@ -194,8 +206,8 @@ async def cmd_myid(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     uid = update.effective_user.id
     is_admin = uid == ADMIN_ID
     await update.message.reply_text(
-        f"🆔 Your ID: `{uid}`\n👑 Admin: `{is_admin}`\n⚙️ ADMIN\\_ID set to: `{ADMIN_ID}`",
-        parse_mode=ParseMode.MARKDOWN_V2,
+        f"🆔 Your ID: {M.code(uid)}\n👑 Admin: {M.code(is_admin)}\n⚙️ ADMIN_ID set to: {M.code(ADMIN_ID)}",
+        parse_mode=HTML,
     )
 
 
@@ -211,19 +223,14 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             try:
                 await context.bot.send_message(
                     ADMIN_ID,
-                    f"💬 *פנייה חדשה למנהל\\!*\n\n"
-                    f"👤 משתמש: {uname}\n"
-                    f"📛 שם: {fullname}\n"
-                    f"🆔 ID: `{user_id}`",
-                    parse_mode=ParseMode.MARKDOWN_V2,
+                    M.admin_chat_request(uname, fullname, user_id),
+                    parse_mode=HTML,
                 )
             except Exception as e:
                 logger.warning("Failed to notify admin: %s", e)
         sent = await update.message.reply_text(
-            "💬 *הודעתך נשלחה למנהל\\!*\n\n"
-            "ניצור איתך קשר בהקדם\\.\n\n"
-            "_כדי להמשיך את השיחה — השב \\(Reply\\) להודעה זו_\\.",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            M.admin_chat_sent(_first_name(user)),
+            parse_mode=HTML,
         )
         context.bot_data.setdefault("admin_chat_msg_ids", set()).add(sent.message_id)
         return
@@ -235,20 +242,14 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             try:
                 await context.bot.send_message(
                     ADMIN_ID,
-                    f"💰 *בקשת רכישה חדשה\\!*\n\n"
-                    f"👤 משתמש: {uname}\n"
-                    f"📛 שם: {fullname}\n"
-                    f"🆔 ID: `{user_id}`\n\n"
-                    f"לפתיחת גישה:\n`/admin grant {uname} 50`",
-                    parse_mode=ParseMode.MARKDOWN_V2,
+                    M.admin_buy_request(uname, fullname, user_id),
+                    parse_mode=HTML,
                 )
             except Exception as e:
                 logger.warning("Failed to notify admin: %s", e)
         await update.message.reply_text(
-            "✅ *קיבלנו את בקשתך\\!*\n\n"
-            "ניצור איתך קשר בהקדם לאחר אישור התשלום\\.\n\n"
-            "📝 ציין בהודעה: *CarInfo*",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            M.purchase_request_received(_first_name(user)),
+            parse_mode=HTML,
         )
         return
 
@@ -266,19 +267,12 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     if is_new and ADMIN_ID:
         try:
-            from telegram.helpers import escape_markdown
             stats = await admin_stats()
             uname = f"@{user.username}" if user.username else f"id:{user_id}"
-            uname_esc    = escape_markdown(uname, version=2)
-            fullname_esc = escape_markdown(user.full_name or '', version=2)
             await context.bot.send_message(
                 ADMIN_ID,
-                f"👋 *משתמש חדש הצטרף\\!*\n\n"
-                f"👤 {uname_esc}\n"
-                f"📛 {fullname_esc}\n"
-                f"🆔 `{user_id}`\n\n"
-                f"👥 סה\"כ משתמשים: *{stats['total_users']}*",
-                parse_mode=ParseMode.MARKDOWN_V2,
+                M.admin_new_user(uname, user.full_name or "", user_id, stats["total_users"]),
+                parse_mode=HTML,
             )
         except Exception as e:
             logger.warning("Failed to notify admin of new user: %s", e)
@@ -294,40 +288,25 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         promo_info = get_promo_welcome_info()
         if promo_info:
             try:
-                from telegram.helpers import escape_markdown as _esc
-                label_esc    = _esc(promo_info['label'], version=2)
                 duration     = promo_info['duration_days']
                 expires_str  = promo_info.get('expires_str', '')
                 if duration and duration > 0:
                     duration_text = f"לתקופה של {duration} ימים"
                 else:
                     duration_text = "ללא הגבלת זמן"
-                expires_text = f" \\(עד {_esc(expires_str, version=2)}\\)" if expires_str else ""
-                promo_text = f"🎉 ברוכים הבאים למבצע! {promo_info['label']} — {duration_text}"
-                await context.bot.send_message(
-                    user_id,
-                    f"🎉 *ברוכים הבאים למבצע ההצטרפות\\!*\n\n"
-                    f"בהתאם למבצע הצטרפות הפעיל — מגיע לך:\n"
-                    f"✨ *{label_esc}*\n"
-                    f"⏱ {duration_text}{expires_text}",
-                    parse_mode=ParseMode.MARKDOWN_V2,
-                )
-                await log_sent_message(user_id, promo_text, kind="promo_welcome")
+                expires_text = f" (עד {expires_str})" if expires_str else ""
+                promo_msg = M.promo_welcome(_first_name(user), promo_info['label'], duration_text, expires_text)
+                await context.bot.send_message(user_id, promo_msg, parse_mode=HTML)
+                await log_sent_message(user_id, _log_text(promo_msg), kind="promo_welcome")
             except Exception as e:
                 logger.warning("Failed to send promo welcome: %s", e)
 
     if not is_new and referrer_id:
         try:
             ref_uname = f"@{user.username}" if user.username else str(user_id)
-            ref_info_msg = f"ℹ️ לא ניתן לקבל בונוס הפניה — {ref_uname} כבר קיים בבוט"
-            await context.bot.send_message(
-                referrer_id,
-                f"ℹ️ *לא ניתן לקבל בונוס הפניה*\n\n"
-                f"המשתמש {ref_uname} כבר קיים בבוט\\.\n"
-                f"הבונוס ניתן רק עבור משתמשים חדשים שמצטרפים לראשונה\\.",
-                parse_mode=ParseMode.MARKDOWN_V2,
-            )
-            await log_sent_message(referrer_id, ref_info_msg, kind="referral_info")
+            ref_info_msg = M.referral_rejected(await _name_of(referrer_id), ref_uname)
+            await context.bot.send_message(referrer_id, ref_info_msg, parse_mode=HTML)
+            await log_sent_message(referrer_id, _log_text(ref_info_msg), kind="referral_info")
         except Exception:
             pass
 
@@ -342,18 +321,10 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 [bonus, referrer_id],
             )
             ref_uname = f"@{user.username}" if user.username else str(user_id)
-            referral_msg = (
-                f"🎉 *חבר חדש הצטרף דרך הלינק שלך!*\n\n"
-                f"👤 {ref_uname} הצטרף לבוט\n"
-                f"🎁 קיבלת *{bonus} חיפושים* בונוס!"
-            )
+            referral_msg = M.referral_bonus(await _name_of(referrer_id), ref_uname, bonus)
             try:
-                await context.bot.send_message(
-                    referrer_id,
-                    referral_msg,
-                    parse_mode="Markdown",
-                )
-                await log_sent_message(referrer_id, referral_msg, kind="referral_bonus")
+                await context.bot.send_message(referrer_id, referral_msg, parse_mode=HTML)
+                await log_sent_message(referrer_id, _log_text(referral_msg), kind="referral_bonus")
             except Exception:
                 pass
             try:
@@ -369,98 +340,64 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not allowed:
         if await is_blocked(user_id):
             await update.message.reply_text(
-                "🚫 *הגישה שלך לבוט חסומה\\.*\n\nלפרטים או לערעור פנה למנהל דרך הכפתור למטה\\.",
-                parse_mode=ParseMode.MARKDOWN_V2,
+                M.blocked(_first_name(user)),
+                parse_mode=HTML,
                 reply_markup=_blocked_keyboard(),
             )
         else:
             await update.message.reply_text(
-                PAYMENT_MSG,
-                parse_mode=ParseMode.MARKDOWN_V2,
+                M.payment_required(_first_name(user), PAYMENT_MSG),
+                parse_mode=HTML,
                 reply_markup=_payment_keyboard(),
             )
         return
 
+    expires = None
     if left == -1:
         from src.users import get_quota_expires
         expires = await get_quota_expires(user_id)
-        if expires:
-            try:
-                from datetime import datetime as _dt
-                exp_str = _dt.fromisoformat(expires[:10]).strftime("%d/%m/%Y")
-            except Exception:
-                exp_str = expires[:10]
-            searches_info = f"♾️ מנוי חודשי פעיל עד {exp_str}"
-        else:
-            searches_info = "✅ גישה בלתי מוגבלת"
-    elif left > 0:
-        searches_info = f"נותרו לך *{left}* בדיקות\\."
-    else:
-        searches_info = "גישה מלאה פעילה ✅"
 
-    welcome_text = f"🚗 ברוך הבא ל-CarInfo! {searches_info}"
+    welcome_text = M.welcome(_first_name(user), M.quota_line(left, expires), is_new=is_new)
     await update.message.reply_text(
-        "🚗 *ברוך הבא ל\\-CarInfo\\!*\n"
-        "_הבוט החכם לבדיקת רכבים בישראל_\n\n"
-        "⚡ שלח מספר לוחית רישוי ותקבל תוך שניות:\n\n"
-        "📋 פרטי הרכב המלאים\n"
-        "👥 היסטוריית בעלויות\n"
-        "⚙️ מפרט טכני מלא\n"
-        "🛡️ בטיחות ו\\-ADAS\n"
-        "🔔 ריקולים פתוחים\n"
-        "💰 הערכת מחיר שוק\n\n"
-        "🔍 *כיצד להתחיל?*\n"
-        "פשוט שלח מספר לוחית רישוי\n"
-        "לדוגמה: _1234567_\n\n"
-        f"🆓 {searches_info}",
-        parse_mode=ParseMode.MARKDOWN_V2,
+        welcome_text,
+        parse_mode=HTML,
         reply_markup=_welcome_keyboard(is_admin),
     )
-    await log_sent_message(user_id, welcome_text, kind="welcome")
+    await log_sent_message(user_id, _log_text(welcome_text), kind="welcome")
 
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
-        "📖 *שימוש בבוט*\n\n"
-        "שלח מספר רכב → קבל סיכום \\+ תפריט קטגוריות\\.\n\n"
-        "*קטגוריות:*\n"
-        "📋 פרטים כלליים · ⚙️ מפרט טכני\n"
-        "🔧 גלגלים · 🛋️ ציוד\n"
-        "🛡️ בטיחות · 🤖 ADAS\n"
-        "📅 היסטוריה · 👥 בעלויות · 🔔 ריקולים\n\n"
-        "*פקודות:*\n"
-        "`/code XXXXXXXX` \\– הזן קוד גישה\n"
-        "`/status` \\– בדוק את מצב חשבונך",
-        parse_mode=ParseMode.MARKDOWN_V2,
+        M.help_text(_first_name(update.effective_user)),
+        parse_mode=HTML,
     )
 
 
 async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = update.effective_user.id
-    allowed, left = await is_allowed(user_id)
+    user = update.effective_user
+    allowed, left = await is_allowed(user.id)
+    expires = None
     if left == -1:
-        msg = "✅ גישה מלאה פעילה"
-    elif left > 0:
-        msg = f"🆓 נותרו לך *{left}* בדיקות חינמיות"
-    else:
-        msg = "🔒 הבדיקות החינמיות שלך נוצלו\n\nשלח `/help` לפרטי רכישה"
-    await update.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN_V2)
+        from src.users import get_quota_expires
+        expires = await get_quota_expires(user.id)
+    await update.message.reply_text(
+        M.status(_first_name(user), left if allowed else 0, expires),
+        parse_mode=HTML,
+    )
 
 
 async def cmd_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = update.effective_user.id
+    user = update.effective_user
     args = context.args
     if not args:
-        await update.message.reply_text(
-            "הזן קוד גישה: `/code XXXXXXXX`",
-            parse_mode=ParseMode.MARKDOWN_V2,
-        )
+        await update.message.reply_text(M.code_usage(), parse_mode=HTML)
         return
     code = args[0].strip().upper()
-    success, msg = await apply_code(user_id, code)
+    success, result = await apply_code(user.id, code)
+    name = _first_name(user)
     await update.message.reply_text(
-        f"{'✅' if success else '❌'} {msg}",
-        parse_mode=ParseMode.MARKDOWN_V2 if not success else None,
+        M.code_applied(name, result) if success else M.code_rejected(name, result),
+        parse_mode=HTML,
     )
 
 
@@ -469,9 +406,8 @@ async def cb_enter_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     is_admin = query.from_user.id == ADMIN_ID
     await query.answer()
     await query.edit_message_text(
-        "🎟️ *הזן קוד הטבה*\n\n"
-        "שלח את הקוד שקיבלת \\(לא תלוי רישיות\\):",
-        parse_mode=ParseMode.MARKDOWN_V2,
+        M.enter_code_prompt(_first_name(query.from_user)),
+        parse_mode=HTML,
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("📱 פתח תפריט", web_app=WebAppInfo(url=os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_URL", "https://carinfo-bot.onrender.com")))],
         ]),
@@ -481,21 +417,23 @@ async def cb_enter_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
 
 async def receive_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    user_id  = update.effective_user.id
+    user     = update.effective_user
+    user_id  = user.id
     is_admin = context.user_data.pop("code_is_admin", user_id == ADMIN_ID)
     code     = update.message.text.strip().upper()
-    success, msg = await apply_code(user_id, code)
+    success, result = await apply_code(user_id, code)
+    name = _first_name(user)
     if success:
         await update.message.reply_text(
-            f"✅ *{_escape_md(msg)}*\n\nתוכל להתחיל לחפש רכבים עכשיו\\!",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            M.code_applied(name, result),
+            parse_mode=HTML,
             reply_markup=_persistent_keyboard(is_admin),
         )
-        await log_sent_message(user_id, f"✅ קוד הופעל: {msg}", kind="code_applied")
+        await log_sent_message(user_id, f"✅ קוד הופעל: {result}", kind="code_applied")
     else:
         await update.message.reply_text(
-            f"❌ *קוד לא תקין*\n\n{_escape_md(msg)}\n\nנסה שוב או חזור לתפריט החבילות\\.",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            M.code_rejected(name, result),
+            parse_mode=HTML,
             reply_markup=InlineKeyboardMarkup([
                 *_persistent_rows(is_admin),
             ]),
@@ -505,7 +443,7 @@ async def receive_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
 async def cancel_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user_id = update.effective_user.id
-    await update.message.reply_text("בסדר, חיפוש בוטל.", reply_markup=ReplyKeyboardRemove())
+    await update.message.reply_text(M.search_cancelled(), reply_markup=ReplyKeyboardRemove())
     await update.message.reply_text("👇", reply_markup=_persistent_keyboard(is_admin=(user_id == ADMIN_ID)))
     return ConversationHandler.END
 
@@ -556,30 +494,22 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             try:
                 amount = int(args[2])
             except ValueError:
-                await update.message.reply_text("כמות חייבת להיות מספר", parse_mode=ParseMode.MARKDOWN_V2)
+                await update.message.reply_text("🔢 הכמות חייבת להיות מספר.")
                 return
             target = await get_user_by_username(username)
             if not target and username.isdigit():
                 target = await get_user_by_id(int(username))
             if not target:
-                await update.message.reply_text(
-                    f"משתמש לא נמצא\\. נסה עם ה\\-ID המספרי במקום ה\\-username\\.",
-                    parse_mode=ParseMode.MARKDOWN_V2,
-                )
+                await update.message.reply_text("🔍 משתמש לא נמצא. נסה עם ה-ID המספרי במקום ה-username.")
                 return
             note = " ".join(args[3:]) if len(args) > 3 else ""
             msg = await admin_grant(user_id, target["user_id"], amount, note)
             await update.message.reply_text(f"✅ {username}: {msg}")
             # Notify user
             try:
-                if amount == -2:
-                    user_msg = "🎖️ קיבלת גישה חופשית ללא הגבלת זמן! תוכל לחפש רכבים ללא הגבלה."
-                elif amount == -1:
-                    user_msg = f"🎉 המנוי החודשי שלך אושר!\n\n{msg}\n\nתוכל לחפש רכבים ללא הגבלה!"
-                else:
-                    user_msg = f"🎉 נוספו לך {amount} בדיקות רכב!\n\nתוכל להתחיל לחפש מיד."
-                await context.bot.send_message(target["user_id"], user_msg)
-                await log_sent_message(target["user_id"], user_msg, kind="grant")
+                user_msg = M.grant_cmd(M.first_name(target.get("full_name", "")), amount, msg)
+                await context.bot.send_message(target["user_id"], user_msg, parse_mode=HTML)
+                await log_sent_message(target["user_id"], _log_text(user_msg), kind="grant")
             except Exception as e:
                 logger.warning("Failed to notify user after grant: %s", e)
             return
@@ -599,18 +529,15 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 kind = f"{count} בדיקות"
             use_str = "חד פעמי" if single else "רב פעמי"
             await update.message.reply_text(
-                f"✅ קוד חדש \\({_escape_md(kind)}, {use_str}\\):\n`{code}`",
-                parse_mode=ParseMode.MARKDOWN_V2,
+                f"✅ קוד חדש ({M.esc(kind)}, {use_str}):\n{M.code(code)}",
+                parse_mode=HTML,
             )
             return
 
     stats = await admin_stats()
     await update.message.reply_text(
-        f"🛠 *פאנל ניהול CarInfo*\n\n"
-        f"👤 משתמשים: *{stats['total_users']}* \\| פעילים: *{stats['active_users']}*\n"
-        f"🔍 בדיקות: *{stats['total_searches']}*\n"
-        f"🔑 קודים: *{stats['used_codes']}/{stats['total_codes']}* נוצלו",
-        parse_mode=ParseMode.MARKDOWN_V2,
+        M.admin_panel(_first_name(update.effective_user), stats),
+        parse_mode=HTML,
         reply_markup=_admin_main_keyboard(),
     )
 
@@ -629,11 +556,8 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
     if action == "main":
         stats = await admin_stats()
         await query.edit_message_text(
-            f"🛠 *פאנל ניהול CarInfo*\n\n"
-            f"👤 משתמשים: *{stats['total_users']}* \\| פעילים: *{stats['active_users']}*\n"
-            f"🔍 בדיקות: *{stats['total_searches']}*\n"
-            f"🔑 קודים: *{stats['used_codes']}/{stats['total_codes']}* נוצלו",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            M.admin_panel(_first_name(query.from_user), stats),
+            parse_mode=HTML,
             reply_markup=_admin_main_keyboard(),
         )
         return
@@ -641,13 +565,8 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
     if action == "stats":
         stats = await admin_stats()
         await query.edit_message_text(
-            f"📊 *סטטיסטיקות מפורטות*\n\n"
-            f"• סה\"כ משתמשים: *{stats['total_users']}*\n"
-            f"• פעילים \\(יש להם מכסה\\): *{stats['active_users']}*\n"
-            f"• סה\"כ בדיקות שבוצעו: *{stats['total_searches']}*\n"
-            f"• קודים שנוצרו: *{stats['total_codes']}*\n"
-            f"• קודים שנוצלו: *{stats['used_codes']}*",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            M.admin_stats_detail(stats),
+            parse_mode=HTML,
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 חזרה", callback_data="adm|main")]]),
         )
         return
@@ -656,12 +575,11 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         users = await get_all_users()
         if not users:
             await query.edit_message_text(
-                "אין משתמשים עדיין\\.",
-                parse_mode=ParseMode.MARKDOWN_V2,
+                "👥 אין משתמשים עדיין.",
                 reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 חזרה", callback_data="adm|main")]]),
             )
             return
-        lines = ["👥 *משתמשים* \\(מסודר לפי בדיקות\\)\n"]
+        lines = [f"👥 {M.b('משתמשים')} (מסודר לפי בדיקות)\n\n"]
         for u in users[:25]:
             uname    = f"@{u['username']}" if u.get("username") else ""
             fullname = u.get("full_name", "")
@@ -671,19 +589,18 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
             left     = u.get("searches_left", 0)
             quota_str = "∞" if quota == -1 else str(quota)
             left_str  = "∞" if left  == -1 else str(left)
-            from src.formatter import _escape
-            lines.append(f"• {_escape(display)}: {done}/{quota_str} \\(נותרו: {left_str}\\)\n")
+            lines.append(f"• {M.esc(display)}: {done}/{quota_str} (נותרו: {left_str})\n")
         await query.edit_message_text(
             "".join(lines),
-            parse_mode=ParseMode.MARKDOWN_V2,
+            parse_mode=HTML,
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 חזרה", callback_data="adm|main")]]),
         )
         return
 
     if action == "gen_menu":
         await query.edit_message_text(
-            "🔑 *יצירת קוד גישה*\n\nבחר כמות בדיקות לקוד:",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            f"🔑 {M.b('יצירת קוד גישה')}\n\nבחר כמות בדיקות לקוד:",
+            parse_mode=HTML,
             reply_markup=_admin_gen_keyboard(),
         )
         return
@@ -705,11 +622,11 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
         use_str = "חד פעמי" if single else "רב פעמי"
         await query.edit_message_text(
-            f"✅ *קוד חדש נוצר*\n\n"
-            f"סוג: {_escape_md(kind)} \\| {use_str}\n\n"
-            f"`{code}`\n\n"
-            f"_העתק את הקוד ושלח ללקוח_",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            f"✅ {M.b('קוד חדש נוצר')}\n\n"
+            f"סוג: {M.esc(kind)} | {use_str}\n\n"
+            f"{M.code(code)}\n\n"
+            f"{M.i('העתק את הקוד ושלח ללקוח')}",
+            parse_mode=HTML,
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("🔑 צור קוד נוסף", callback_data="adm|gen_menu")],
                 [InlineKeyboardButton("🔙 ראשי",          callback_data="adm|main")],
@@ -719,12 +636,12 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
     if action == "grant_info":
         await query.edit_message_text(
-            "💳 *הענקת גישה למשתמש*\n\n"
+            f"💳 {M.b('הענקת גישה למשתמש')}\n\n"
             "שלח פקודה בפורמט:\n"
-            "`/admin grant @username 50`\n\n"
+            f"{M.code('/admin grant @username 50')}\n\n"
             "לגישה בלתי מוגבלת:\n"
-            "`/admin grant @username \\-1`",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            f"{M.code('/admin grant @username -1')}",
+            parse_mode=HTML,
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 חזרה", callback_data="adm|main")]]),
         )
         return
@@ -733,12 +650,9 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         import src.users as _u
         free        = _u.FREE_SEARCHES
         maintenance = (await get_bot_setting("maintenance")) == "1"
-        maint_str   = "🔴 פעיל" if maintenance else "🟢 כבוי"
         await query.edit_message_text(
-            f"⚙️ *הגדרות בוט*\n\n"
-            f"• בדיקות חינמיות למשתמש חדש: *{free}*\n"
-            f"• מצב תחזוקה: *{maint_str}*",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            M.admin_settings(free, maintenance),
+            parse_mode=HTML,
             reply_markup=_admin_settings_keyboard(maintenance),
         )
         return
@@ -748,22 +662,19 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         new_val     = "0" if maintenance else "1"
         await set_bot_setting("maintenance", new_val)
         maintenance = new_val == "1"
-        maint_str   = "🔴 פעיל" if maintenance else "🟢 כבוי"
         import src.users as _u
         free = _u.FREE_SEARCHES
         await query.edit_message_text(
-            f"⚙️ *הגדרות בוט*\n\n"
-            f"• בדיקות חינמיות למשתמש חדש: *{free}*\n"
-            f"• מצב תחזוקה: *{maint_str}*",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            M.admin_settings(free, maintenance),
+            parse_mode=HTML,
             reply_markup=_admin_settings_keyboard(maintenance),
         )
         return
 
     if action == "set_payment":
         await query.message.reply_text(
-            "✏️ *שינוי הודעת תשלום*\n\nשלח את הטקסט החדש \\(פשוט, ללא Markdown\\):",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            f"✏️ {M.b('שינוי הודעת תשלום')}\n\nשלח את הטקסט החדש (טקסט פשוט — אני אוסיף ברכה אישית עם שם המשתמש):",
+            parse_mode=HTML,
         )
         context.user_data["admin_setting"] = "payment_msg"
         return
@@ -771,8 +682,8 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
     if action == "set_free":
         import src.users as _u
         await query.message.reply_text(
-            f"🆓 *שינוי בדיקות חינמיות*\n\nהערך הנוכחי: *{_u.FREE_SEARCHES}*\n\nשלח את המספר החדש:",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            f"🆓 {M.b('שינוי בדיקות חינמיות')}\n\nהערך הנוכחי: {M.b(_u.FREE_SEARCHES)}\n\nשלח את המספר החדש:",
+            parse_mode=HTML,
         )
         context.user_data["admin_setting"] = "free_count"
         return
@@ -781,8 +692,7 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         users = await get_all_users()
         if not users:
             await query.edit_message_text(
-                "אין משתמשים עדיין\\.",
-                parse_mode=ParseMode.MARKDOWN_V2,
+                "👥 אין משתמשים עדיין.",
                 reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 חזרה", callback_data="adm|main")]]),
             )
             return
@@ -798,8 +708,8 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
             buttons.append([InlineKeyboardButton(label, callback_data=action_cb)])
         buttons.append([InlineKeyboardButton("🔙 חזרה", callback_data="adm|main")])
         await query.edit_message_text(
-            "🚫 *חסימת משתמשים*\n\n🔴 \\= חסום כעת\nלחץ על משתמש לחסום / שחרר:",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            M.ADMIN_BLOCK_LIST,
+            parse_mode=HTML,
             reply_markup=InlineKeyboardMarkup(buttons),
         )
         return
@@ -808,13 +718,9 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         target_id = int(parts[2])
         await block_user(target_id)
         try:
-            block_msg = "🚫 הגישה שלך לבוט נחסמה. לפרטים פנה למנהל."
-            await context.bot.send_message(
-                target_id,
-                "🚫 הגישה שלך לבוט נחסמה\\. לפרטים פנה למנהל\\.",
-                parse_mode=ParseMode.MARKDOWN_V2,
-            )
-            await log_sent_message(target_id, block_msg, kind="block")
+            block_msg = M.blocked(await _name_of(target_id))
+            await context.bot.send_message(target_id, block_msg, parse_mode=HTML)
+            await log_sent_message(target_id, _log_text(block_msg), kind="block")
         except Exception:
             pass
         users = await get_all_users()
@@ -830,8 +736,8 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
             buttons.append([InlineKeyboardButton(label, callback_data=cb)])
         buttons.append([InlineKeyboardButton("🔙 חזרה", callback_data="adm|main")])
         await query.edit_message_text(
-            "🚫 *חסימת משתמשים*\n\n🔴 \\= חסום כעת\nלחץ על משתמש לחסום / שחרר:",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            M.ADMIN_BLOCK_LIST,
+            parse_mode=HTML,
             reply_markup=InlineKeyboardMarkup(buttons),
         )
         return
@@ -840,13 +746,9 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         target_id = int(parts[2])
         await unblock_user(target_id)
         try:
-            unblock_msg = "✅ החסימה שלך הוסרה. תוכל להמשיך להשתמש בבוט."
-            await context.bot.send_message(
-                target_id,
-                "✅ החסימה שלך הוסרה\\. תוכל להמשיך להשתמש בבוט\\.",
-                parse_mode=ParseMode.MARKDOWN_V2,
-            )
-            await log_sent_message(target_id, unblock_msg, kind="unblock")
+            unblock_msg = M.unblocked(await _name_of(target_id))
+            await context.bot.send_message(target_id, unblock_msg, parse_mode=HTML)
+            await log_sent_message(target_id, _log_text(unblock_msg), kind="unblock")
         except Exception:
             pass
         users = await get_all_users()
@@ -862,8 +764,8 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
             buttons.append([InlineKeyboardButton(label, callback_data=cb)])
         buttons.append([InlineKeyboardButton("🔙 חזרה", callback_data="adm|main")])
         await query.edit_message_text(
-            "🚫 *חסימת משתמשים*\n\n🔴 \\= חסום כעת\nלחץ על משתמש לחסום / שחרר:",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            M.ADMIN_BLOCK_LIST,
+            parse_mode=HTML,
             reply_markup=InlineKeyboardMarkup(buttons),
         )
         return
@@ -879,24 +781,25 @@ async def handle_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     # Check if it's a specific plate from history
     if query.data.startswith("hist_plate|"):
         plate = query.data.split("|")[1]
-        searching_msg = await query.message.reply_text("🔍 מחפש נתונים\\.\\.\\.", parse_mode=ParseMode.MARKDOWN_V2)
+        name = _first_name(query.from_user)
+        searching_msg = await query.message.reply_text(f"🔍 {M.esc(name)}, מחפש נתונים...")
         try:
             record = await fetch_vehicle_data(plate)
         except Exception as exc:
             await searching_msg.delete()
-            await query.message.reply_text(format_error(), parse_mode=ParseMode.MARKDOWN_V2)
+            await query.message.reply_text(M.lookup_error(name), parse_mode=HTML)
             return
         await searching_msg.delete()
         if not record:
-            await query.message.reply_text(format_not_found(plate), parse_mode=ParseMode.MARKDOWN_V2)
+            await query.message.reply_text(M.not_found(name, plate), parse_mode=HTML)
             return
         context.user_data["last_record"] = record
         context.user_data["last_share_text"] = get_share_text(record)
-        card = f"🔖 לוחית: `{plate}`\n" + quick_summary(record)
+        card = M.result_intro(name, plate) + quick_summary(record)
         yad2_link = _yad2.build_url(record)
         await query.message.reply_text(
             card,
-            parse_mode=ParseMode.MARKDOWN_V2,
+            parse_mode=HTML,
             reply_markup=build_result_keyboard(is_admin=is_admin, record=record, yad2_link=yad2_link),
         )
         return
@@ -905,7 +808,8 @@ async def handle_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     history = await get_search_history(user_id, limit=10)
     if not history:
         await query.edit_message_text(
-            "📜 אין היסטוריית חיפושים עדיין.",
+            M.history_empty(_first_name(query.from_user)),
+            parse_mode=HTML,
             reply_markup=InlineKeyboardMarkup([[
                 InlineKeyboardButton("🔙 חזרה", callback_data="back_to_start")
             ]])
@@ -918,8 +822,8 @@ async def handle_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     buttons.append([InlineKeyboardButton("🔙 חזרה", callback_data="back_to_start")])
 
     await query.edit_message_text(
-        "📜 *היסטוריית החיפושים שלך:*\n_לחץ על מספר רכב לצפייה חוזרת \\(לא מנכה בדיקה\\)_",
-        parse_mode=ParseMode.MARKDOWN_V2,
+        M.history_list(_first_name(query.from_user)),
+        parse_mode=HTML,
         reply_markup=InlineKeyboardMarkup(buttons),
     )
 
@@ -934,37 +838,17 @@ async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYP
     u    = await get_user_by_id(user_id)
     left  = u.get("searches_left", 0) if u else 0
     quota = u.get("searches_quota", 0) if u else 0
+    expires = None
     if quota == -1:
+        left = -1
         try:
             expires = await get_quota_expires(user_id)
-            if expires:
-                from datetime import datetime as _dt
-                exp_str = _dt.strptime(expires, "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y")
-                _si = f"♾️ מנוי חודשי פעיל עד {_escape_md(exp_str)}"
-            else:
-                _si = "✅ גישה בלתי מוגבלת"
         except Exception:
-            _si = "✅ גישה בלתי מוגבלת"
-    elif left > 0:
-        _si = f"נותרו לך *{left}* בדיקות\\."
-    else:
-        _si = "גישה מלאה פעילה ✅"
+            expires = None
 
     await query.edit_message_text(
-        "🚗 *ברוך הבא ל\\-CarInfo\\!*\n"
-        "_הבוט החכם לבדיקת רכבים בישראל_\n\n"
-        "⚡ שלח מספר לוחית רישוי ותקבל תוך שניות:\n\n"
-        "📋 פרטי הרכב המלאים\n"
-        "👥 היסטוריית בעלויות\n"
-        "⚙️ מפרט טכני מלא\n"
-        "🛡️ בטיחות ו\\-ADAS\n"
-        "🔔 ריקולים פתוחים\n"
-        "💰 הערכת מחיר שוק\n\n"
-        "🔍 *כיצד להתחיל?*\n"
-        "פשוט שלח מספר לוחית רישוי\n"
-        "לדוגמה: _1234567_\n\n"
-        f"🆓 {_si}",
-        parse_mode=ParseMode.MARKDOWN_V2,
+        M.welcome(_first_name(query.from_user), M.quota_line(left, expires)),
+        parse_mode=HTML,
         reply_markup=_welcome_keyboard(is_admin),
     )
 
@@ -975,37 +859,11 @@ async def handle_how_it_works(update: Update, context: ContextTypes.DEFAULT_TYPE
     is_admin = query.from_user.id == ADMIN_ID
     await query.answer()
 
-    free = _u.FREE_SEARCHES
-    pkg_lines = []
-    for label, searches, price in _pkgs():
-        desc = "ללא הגבלה" if searches == -1 else f"{searches} חיפושים"
-        pkg_lines.append(f"• {_escape_md(label)} – ₪{price}")
-
+    pkg_lines = [f"• {M.esc(label)} – ₪{price}" for label, _searches, price in _pkgs()]
     pkg_text = "\n".join(pkg_lines) if pkg_lines else "אין חבילות זמינות כרגע"
     await query.edit_message_text(
-        "ℹ️ *איך CarInfo עובד?*\n"
-        "_הבוט החכם לבדיקת רכבים בישראל_\n\n"
-        "⚡ *שלח לוחית רישוי — קבל דוח מלא תוך שניות*\n\n"
-        "📋 *מה מוצג על כל רכב:*\n"
-        "🚗 פרטים כלליים – יצרן, דגם, שנה, צבע\n"
-        "⚙️ מפרט טכני – מנוע, הנעה, דלק, כוח סוס\n"
-        "🛞 גלגלים וצמיגים\n"
-        "🪑 ציוד ונוחות – מיזוג, הגה כוח, חלונות\n"
-        "🛡️ בטיחות – ABS, ESP, כריות אוויר, CO2\n"
-        "🤖 מערכות ADAS – בלימה אוטומטית, שמירת נתיב\n"
-        "📅 היסטוריה – רישום, טסט, ק\"מ, שינויי מבנה\n"
-        "👥 בעלויות – כמה בעלים, פרטי/סוחר\n"
-        "💰 הערכת מחיר שוק – על בסיס Yad2\n"
-        "🚨 בדיקת גנבה – מאגר המשטרה\n"
-        "⚠️ ריקולים – תקלות ידועות של הדגם\n\n"
-        f"🆓 *חינמי:* כל משתמש חדש מקבל *{free} חיפושים* לניסיון\n\n"
-        "🎁 *קבל חיפושים במתנה:*\n"
-        "הפנה חברים לבוט וקבל חיפושים על כל הצטרפות\n\n"
-        "📦 *חבילות חיפוש:*\n"
-        f"{pkg_text}\n\n"
-        "🔑 *קוד גישה?* שלח `/code XXXXXXXX`\n"
-        "🎫 *תמיכה?* לחץ על כפתור התמיכה בתפריט",
-        parse_mode=ParseMode.MARKDOWN_V2,
+        M.how_it_works(_first_name(query.from_user), _u.FREE_SEARCHES, pkg_text),
+        parse_mode=HTML,
         reply_markup=_persistent_keyboard(is_admin),
     )
 
@@ -1021,8 +879,8 @@ async def handle_package_callback(update: Update, context: ContextTypes.DEFAULT_
     if data == "show_packages":
         webapp_url = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_URL", "https://carinfo-bot.onrender.com")
         await query.edit_message_text(
-            "🛒 *רכישת חבילת חיפושים*\n\nפתח את התפריט לרכישה:",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            M.packages_intro(_first_name(user)),
+            parse_mode=HTML,
             reply_markup=InlineKeyboardMarkup([[
                 InlineKeyboardButton("📱 פתח תפריט", web_app=WebAppInfo(url=webapp_url))
             ]]),
@@ -1056,26 +914,6 @@ def _grant_description(amount: int) -> str:
     if amount == 0:
         return "מסלול FREE"
     return f"{amount} בדיקות"
-
-
-def _format_grant_message(searches: int, expires: str = "") -> str:
-    from datetime import datetime
-    today = datetime.now().strftime("%d/%m/%Y")
-    footer = "\n\nלפרטים המלאים אודות הפיצרים למנוי שלך ניתן להיכנס לתפריט *רכישת מנויים*."
-
-    if searches == 0:
-        return f"🔔 *המנוי שלך עודכן!*\n\n📦 מסוג: מסלול FREE\n📅 החל מ: {today}{footer}"
-    if searches == -2:
-        return f"🔔 *המנוי שלך עודכן!*\n\n📦 מסוג: גישה חופשית ♾️\n📅 החל מ: {today}\n⏰ בתוקף: ללא הגבלת זמן{footer}"
-    if searches == -1:
-        end_str = ""
-        if expires:
-            try:
-                end_str = f"\n⏰ בתוקף עד: {datetime.fromisoformat(expires).strftime('%d/%m/%Y')}"
-            except Exception:
-                pass
-        return f"🔔 *המנוי שלך עודכן!*\n\n📦 מסוג: מנוי חודשי\n📅 החל מ: {today}{end_str}{footer}"
-    return f"🔔 *המנוי שלך עודכן!*\n\n📦 נוספו: {searches} חיפושים 🔍\n📅 החל מ: {today}{footer}"
 
 
 async def handle_user_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1131,9 +969,9 @@ async def handle_user_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         try:
             from src.users import get_quota_expires
             expires = await get_quota_expires(uid) or ""
-            msg = _format_grant_message(amount, expires)
-            await context.bot.send_message(uid, msg, parse_mode="Markdown")
-            await log_sent_message(uid, msg, kind="grant")
+            msg = M.grant_update(await _name_of(uid), amount, expires)
+            await context.bot.send_message(uid, msg, parse_mode=HTML)
+            await log_sent_message(uid, _log_text(msg), kind="grant")
         except Exception:
             pass
         # Refresh user view
@@ -1173,18 +1011,18 @@ async def handle_user_callback(update: Update, context: ContextTypes.DEFAULT_TYP
             await unblock_user(uid)
             await query.answer("✅ שוחרר", show_alert=True)
             try:
-                unblock_msg = "✅ החסימה שלך הוסרה. תוכל להמשיך להשתמש בבוט."
-                await context.bot.send_message(uid, unblock_msg)
-                await log_sent_message(uid, unblock_msg, kind="block")
+                unblock_msg = M.unblocked(await _name_of(uid))
+                await context.bot.send_message(uid, unblock_msg, parse_mode=HTML)
+                await log_sent_message(uid, _log_text(unblock_msg), kind="block")
             except Exception:
                 pass
         else:
             await block_user(uid)
             await query.answer("🚫 נחסם", show_alert=True)
             try:
-                block_msg = "🚫 הגישה שלך לבוט נחסמה. לפרטים פנה למנהל."
-                await context.bot.send_message(uid, block_msg)
-                await log_sent_message(uid, block_msg, kind="block")
+                block_msg = M.blocked(await _name_of(uid))
+                await context.bot.send_message(uid, block_msg, parse_mode=HTML)
+                await log_sent_message(uid, _log_text(block_msg), kind="block")
             except Exception:
                 pass
         # Refresh
@@ -1220,13 +1058,7 @@ async def handle_admin_keyboard(update: Update, context: ContextTypes.DEFAULT_TY
 
     async def send_stats():
         stats = await admin_stats()
-        await update.message.reply_text(
-            f"📊 *סטטיסטיקות*\n\n"
-            f"• משתמשים: *{stats['total_users']}* \\| פעילים: *{stats['active_users']}*\n"
-            f"• בדיקות שבוצעו: *{stats['total_searches']}*\n"
-            f"• קודים: *{stats['used_codes']}/{stats['total_codes']}* נוצלו",
-            parse_mode=ParseMode.MARKDOWN_V2,
-        )
+        await update.message.reply_text(M.admin_stats_short(stats), parse_mode=HTML)
 
     async def send_users():
         users = await get_all_users()
@@ -1255,7 +1087,7 @@ async def handle_admin_keyboard(update: Update, context: ContextTypes.DEFAULT_TY
     async def send_block_list():
         users = await get_all_users()
         if not users:
-            await update.message.reply_text("אין משתמשים\\.", parse_mode=ParseMode.MARKDOWN_V2)
+            await update.message.reply_text("👥 אין משתמשים עדיין.")
             return
         buttons = []
         for u in users[:20]:
@@ -1268,40 +1100,37 @@ async def handle_admin_keyboard(update: Update, context: ContextTypes.DEFAULT_TY
             cb       = f"adm|unblock|{uid}" if bl else f"adm|block|{uid}"
             buttons.append([InlineKeyboardButton(label, callback_data=cb)])
         await update.message.reply_text(
-            "🚫 *חסום / שחרר משתמש*\n\n🔴 \\= חסום כעת\\:",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            M.ADMIN_BLOCK_LIST,
+            parse_mode=HTML,
             reply_markup=InlineKeyboardMarkup(buttons),
         )
 
     async def send_gen_menu():
         await update.message.reply_text(
-            "🔑 *יצירת קוד גישה*\n\nבחר כמות:",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            f"🔑 {M.b('יצירת קוד גישה')}\n\nבחר כמות:",
+            parse_mode=HTML,
             reply_markup=_admin_gen_keyboard(),
         )
 
     async def send_grant_info():
         await update.message.reply_text(
-            "💳 *הענקת גישה*\n\nשלח:\n`/admin grant @username 50`\n\nלגישה בלתי מוגבלת:\n`/admin grant @username \\-1`",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            f"💳 {M.b('הענקת גישה')}\n\nשלח:\n{M.code('/admin grant @username 50')}\n\nלגישה בלתי מוגבלת:\n{M.code('/admin grant @username -1')}",
+            parse_mode=HTML,
         )
 
     async def send_settings():
         import src.users as _u
         maintenance = (await get_bot_setting("maintenance")) == "1"
-        maint_str   = "🔴 פעיל" if maintenance else "🟢 כבוי"
         await update.message.reply_text(
-            f"⚙️ *הגדרות בוט*\n\n"
-            f"• בדיקות חינמיות למשתמש חדש: *{_u.FREE_SEARCHES}*\n"
-            f"• מצב תחזוקה: *{maint_str}*",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            M.admin_settings(_u.FREE_SEARCHES, maintenance),
+            parse_mode=HTML,
             reply_markup=_admin_settings_keyboard(maintenance),
         )
 
     async def send_broadcast_prompt():
         await update.message.reply_text(
-            "📢 *שליחת הודעה לכולם*\n\nשלח את ההודעה שתרצה להפיץ לכל המשתמשים:",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            f"📢 {M.b('שליחת הודעה לכולם')}\n\nשלח את ההודעה שתרצה להפיץ (טקסט פשוט — כל משתמש יקבל אותה עם ברכה אישית בשמו):",
+            parse_mode=HTML,
         )
         context.user_data["admin_setting"] = "broadcast"
 
@@ -1317,8 +1146,8 @@ async def handle_admin_keyboard(update: Update, context: ContextTypes.DEFAULT_TY
             )])
         buttons.append([InlineKeyboardButton("➕ הוסף חבילה", callback_data="admpkg|add")])
         await update.message.reply_text(
-            "💰 *עריכת מחירי חבילות*\n\nבחר חבילה לעריכה או הוסף חדשה:",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            f"💰 {M.b('עריכת מחירי חבילות')}\n\nבחר חבילה לעריכה או הוסף חדשה:",
+            parse_mode=HTML,
             reply_markup=InlineKeyboardMarkup(buttons),
         )
 
@@ -1335,22 +1164,20 @@ async def handle_admin_keyboard(update: Update, context: ContextTypes.DEFAULT_TY
     if text_msg == "🛠 פאנל מנהל":
         stats = await admin_stats()
         await update.message.reply_text(
-            f"🛠 *פאנל ניהול CarInfo*\n\n"
-            f"👤 משתמשים: *{stats['total_users']}* \\| פעילים: *{stats['active_users']}*\n"
-            f"🔍 בדיקות: *{stats['total_searches']}*\n"
-            f"🔑 קודים: *{stats['used_codes']}/{stats['total_codes']}* נוצלו",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            M.admin_panel(_first_name(update.effective_user), stats),
+            parse_mode=HTML,
             reply_markup=_admin_main_keyboard(),
         )
         return
     if text_msg == "🔍 חזור לחיפוש":
         await update.message.reply_text(
-            "🔍 שלח מספר לוחית לחיפוש:",
+            M.ask_plate(_first_name(update.effective_user)),
+            parse_mode=HTML,
             reply_markup=_cancel_search_keyboard(),
         )
         return
     if text_msg == "❌ ביטול":
-        await update.message.reply_text("בסדר, חיפוש בוטל.", reply_markup=ReplyKeyboardRemove())
+        await update.message.reply_text(M.search_cancelled(), reply_markup=ReplyKeyboardRemove())
         await update.message.reply_text("👇", reply_markup=_persistent_keyboard(is_admin=True))
         return
     fn = dispatch.get(text_msg)
@@ -1363,8 +1190,8 @@ async def cmd_buy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     webapp_url = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_URL", "https://carinfo-bot.onrender.com")
     from telegram import WebAppInfo
     await update.message.reply_text(
-        "💳 *רכישת בדיקות*\n\nלחץ על הכפתור למטה לפתיחת חנות החבילות:",
-        parse_mode=ParseMode.MARKDOWN_V2,
+        M.buy_intro(_first_name(update.effective_user)),
+        parse_mode=HTML,
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("🛒 רכישת חבילה", web_app=WebAppInfo(url=webapp_url))],
         ]),
@@ -1382,14 +1209,8 @@ async def handle_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     desc = "ללא הגבלה למשך 30 יום" if searches == -1 else f"{searches} בדיקות רכב"
     await query.message.reply_text(
-        f"💳 *{label}*\n\n"
-        f"• {desc}\n"
-        f"• מחיר: *₪{price}*\n\n"
-        f"1\\. לחץ על כפתור התשלום למטה \\(PayPal או PayBox\\)\n"
-        f"2\\. השלם את התשלום\n"
-        f"3\\. חזור לכאן ולחץ *שילמתי* לשליחת אישור\n\n"
-        f"_הגישה תיפתח לאחר אישור ידני על ידי המנהל_",
-        parse_mode=ParseMode.MARKDOWN_V2,
+        M.package_details(_first_name(query.from_user), label, desc, price),
+        parse_mode=HTML,
         reply_markup=_paypal_keyboard(searches, price),
     )
 
@@ -1412,13 +1233,8 @@ async def handle_paid_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         try:
             await context.bot.send_message(
                 ADMIN_ID,
-                f"💰 *בקשת אישור תשלום!*\n\n"
-                f"👤 {uname} | {fullname}\n"
-                f"🆔 {user_id}\n"
-                f"📦 {label}\n"
-                f"💵 {price} שח\n\n"
-                f"לאחר אימות התשלום ב-PayPal לחץ אשר:",
-                parse_mode=None,
+                M.admin_payment_request(f"{uname} | {fullname}", user_id, label, price),
+                parse_mode=HTML,
                 reply_markup=InlineKeyboardMarkup([[
                     InlineKeyboardButton("✅ אשר ופתח גישה", callback_data=f"approve|{user_id}|{searches}", style="success"),
                     InlineKeyboardButton("❌ דחה", callback_data=f"decline|{user_id}", style="danger"),
@@ -1428,9 +1244,8 @@ async def handle_paid_callback(update: Update, context: ContextTypes.DEFAULT_TYP
             logger.warning("Failed to notify admin of payment: %s", e)
 
     await query.edit_message_text(
-        "✅ *בקשתך נשלחה למנהל\\!*\n\n"
-        "הגישה תיפתח לאחר אימות התשלום\\. בדרך כלל תוך מספר דקות\\.",
-        parse_mode=ParseMode.MARKDOWN_V2,
+        M.payment_request_sent(_first_name(user)),
+        parse_mode=HTML,
     )
 
 
@@ -1442,10 +1257,8 @@ async def _notify_admin_payment(user_id: int, name: str, label: str, searches: i
         return
     await _bot_instance.send_message(
         ADMIN_ID,
-        f"💰 *בקשת אישור תשלום \\(Mini App\\)!*\n\n"
-        f"👤 {name}\n🆔 {user_id}\n📦 {label}\n💵 {price} שח\n🔑 ref: {ref}\n\n"
-        f"לאחר אימות התשלום ב\\-PayPal לחץ אשר:",
-        parse_mode=ParseMode.MARKDOWN_V2,
+        M.admin_payment_request(name, user_id, label, price, ref),
+        parse_mode=HTML,
         reply_markup=InlineKeyboardMarkup([[
             InlineKeyboardButton("✅ אשר ופתח גישה", callback_data=f"approve|{user_id}|{searches}", style="success"),
             InlineKeyboardButton("❌ דחה",             callback_data=f"decline|{user_id}", style="danger"),
@@ -1455,18 +1268,13 @@ async def _notify_admin_payment(user_id: int, name: str, label: str, searches: i
 
 async def _notify_admin_ticket(ticket_id: int, user_id: int, name: str, subject: str, message: str):
     try:
-        text = (
-            f"🎫 *פנייה חדשה #{ticket_id}*\n"
-            f"👤 {name} (`{user_id}`)\n"
-            f"📋 *נושא:* {subject}\n\n"
-            f"{message[:500]}"
-        )
+        text = M.admin_ticket(ticket_id, name, user_id, subject, message)
         webapp_url = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_URL", "https://carinfo-bot.onrender.com")
         from telegram import WebAppInfo
         kb = InlineKeyboardMarkup([[
             InlineKeyboardButton("🎫 פתח טיקט", web_app=WebAppInfo(url=f"{webapp_url}/?page=admin_ticket&id={ticket_id}"))
         ]])
-        await _bot_instance.send_message(ADMIN_ID, text, parse_mode="Markdown", reply_markup=kb)
+        await _bot_instance.send_message(ADMIN_ID, text, parse_mode=HTML, reply_markup=kb)
     except Exception:
         pass
 
@@ -1475,16 +1283,12 @@ async def _notify_user_ticket_reply(user_id: int, ticket_id: int, subject: str, 
     try:
         webapp_url = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_URL", "https://carinfo-bot.onrender.com")
         from telegram import WebAppInfo
-        text = (
-            f"💬 *תגובה חדשה לפנייה שלך*\n"
-            f"📋 *נושא:* {subject}\n\n"
-            f"{reply[:500]}"
-        )
+        text = M.ticket_reply(await _name_of(user_id), subject, reply)
         kb = InlineKeyboardMarkup([[
             InlineKeyboardButton("📂 פתח פנייה", web_app=WebAppInfo(url=f"{webapp_url}/?page=ticket&id={ticket_id}"))
         ]])
-        await _bot_instance.send_message(user_id, text, parse_mode="Markdown", reply_markup=kb)
-        await log_sent_message(user_id, text, kind="ticket_reply")
+        await _bot_instance.send_message(user_id, text, parse_mode=HTML, reply_markup=kb)
+        await log_sent_message(user_id, _log_text(text), kind="ticket_reply")
     except Exception:
         pass
 
@@ -1506,13 +1310,9 @@ async def handle_approve_callback(update: Update, context: ContextTypes.DEFAULT_
         desc = "מנוי חודשי ללא הגבלה" if searches == -1 else f"{searches} בדיקות"
         await query.edit_message_text(f"✅ אושר! {desc} למשתמש {target}")
         try:
-            user_msg = (
-                "🎉 המנוי החודשי שלך פעיל! תוכל לבצע חיפושים ללא הגבלה למשך 30 יום."
-                if searches == -1 else
-                f"🎉 התשלום אושר! נוספו לך {searches} בדיקות רכב. תוכל להתחיל מיד!"
-            )
-            await context.bot.send_message(target, user_msg)
-            await log_sent_message(target, user_msg, kind="payment")
+            user_msg = M.payment_approved_simple(await _name_of(target), searches)
+            await context.bot.send_message(target, user_msg, parse_mode=HTML)
+            await log_sent_message(target, _log_text(user_msg), kind="payment")
         except Exception:
             pass
     except Exception as e:
@@ -1531,9 +1331,9 @@ async def handle_decline_callback(update: Update, context: ContextTypes.DEFAULT_
 
     await query.edit_message_text("❌ הבקשה נדחתה.")
     try:
-        decline_msg = "❌ *התשלום לא אומת\\.*\n\nלשאלות פנה למנהל דרך צ'אט המנהל\\."
-        await context.bot.send_message(target, decline_msg, parse_mode=ParseMode.MARKDOWN_V2)
-        await log_sent_message(target, decline_msg, kind="payment")
+        decline_msg = M.payment_declined(await _name_of(target))
+        await context.bot.send_message(target, decline_msg, parse_mode=HTML)
+        await log_sent_message(target, _log_text(decline_msg), kind="payment")
     except Exception:
         pass
 
@@ -1549,7 +1349,7 @@ async def handle_deliver_callback(update: Update, context: ContextTypes.DEFAULT_
     ref = query.data.split("|", 1)[1]
     context.user_data["admin_setting"] = "deliver_content"
     context.user_data["admin_deliver_ref"] = ref
-    await query.message.reply_text(f"✍️ שלח את תוכן המשלוח עבור הזמנה `{ref}`:", parse_mode=ParseMode.MARKDOWN)
+    await query.message.reply_text(f"✍️ שלח את תוכן המשלוח עבור הזמנה {M.code(ref)}:", parse_mode=HTML)
 
 
 async def handle_pre_checkout(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1575,26 +1375,17 @@ async def handle_successful_payment(update: Update, context: ContextTypes.DEFAUL
     await admin_grant(ADMIN_ID, user_id, searches, note="Telegram Stars payment")
 
     amount_ils = payment.total_amount // 100
-    await update.message.reply_text(
-        f"✅ *תשלום התקבל\\!*\n\n"
-        f"נוספו לך *{searches}* בדיקות רכב\\.\n"
-        f"סכום שחויב: ₪{amount_ils}\n\n"
-        f"תודה על הרכישה\\! 🙏",
-        parse_mode=ParseMode.MARKDOWN_V2,
-        reply_markup=ReplyKeyboardRemove(),
-    )
-    await log_sent_message(user_id, f"✅ תשלום התקבל! נוספו {searches} בדיקות — ₪{amount_ils}", kind="payment")
+    paid_msg = M.payment_received(_first_name(update.effective_user), searches, amount_ils)
+    await update.message.reply_text(paid_msg, parse_mode=HTML, reply_markup=ReplyKeyboardRemove())
+    await log_sent_message(user_id, _log_text(paid_msg), kind="payment")
 
     # Notify admin
     uname = f"@{update.effective_user.username}" if update.effective_user.username else f"id:{user_id}"
     try:
         await context.bot.send_message(
             ADMIN_ID,
-            f"💰 *תשלום חדש\\!*\n\n"
-            f"👤 {uname}\n"
-            f"🔍 {searches} בדיקות\n"
-            f"💵 ₪{amount_ils}",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            M.admin_payment_received(uname, searches, amount_ils),
+            parse_mode=HTML,
         )
     except Exception:
         pass
@@ -1623,8 +1414,8 @@ async def handle_admpkg_callback(update: Update, context: ContextTypes.DEFAULT_T
     if action == "list":
         pkgs = await get_packages()
         await query.edit_message_text(
-            "💰 *עריכת מחירי חבילות*\n\nבחר חבילה לעריכה או הוסף חדשה:",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            f"💰 {M.b('עריכת מחירי חבילות')}\n\nבחר חבילה לעריכה או הוסף חדשה:",
+            parse_mode=HTML,
             reply_markup=InlineKeyboardMarkup(_pkg_buttons(pkgs)),
         )
 
@@ -1633,13 +1424,13 @@ async def handle_admpkg_callback(update: Update, context: ContextTypes.DEFAULT_T
         pkgs   = await get_packages()
         pkg    = next((p for p in pkgs if p[0] == pkg_id), None)
         if not pkg:
-            await query.edit_message_text("❌ חבילה לא נמצאה\\.", parse_mode=ParseMode.MARKDOWN_V2)
+            await query.edit_message_text("❌ חבילה לא נמצאה.")
             return
         pid, label, searches, price = pkg
         desc = "ללא הגבלה" if searches == -1 else f"{searches} חיפושים"
         await query.edit_message_text(
-            f"📦 *{_escape_md(label)}*\n\n{_escape_md(desc)} · ₪{price}\n\nמה לעשות?",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            f"📦 {M.b(label)}\n\n{M.esc(desc)} · ₪{price}\n\nמה לעשות?",
+            parse_mode=HTML,
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("✏️ ערוך", callback_data=f"admpkg|startedit|{pid}"),
                  InlineKeyboardButton("🗑 מחק",  callback_data=f"admpkg|del|{pid}")],
@@ -1652,8 +1443,8 @@ async def handle_admpkg_callback(update: Update, context: ContextTypes.DEFAULT_T
         await delete_package(pkg_id)
         pkgs = await get_packages()
         await query.edit_message_text(
-            "✅ *חבילה נמחקה\\!*\n\nבחר חבילה לעריכה או הוסף חדשה:",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            f"✅ {M.b('החבילה נמחקה')}\n\nבחר חבילה לעריכה או הוסף חדשה:",
+            parse_mode=HTML,
             reply_markup=InlineKeyboardMarkup(_pkg_buttons(pkgs)),
         )
 
@@ -1662,15 +1453,15 @@ async def handle_admpkg_callback(update: Update, context: ContextTypes.DEFAULT_T
         context.user_data["admin_setting"]  = "pkg_edit_searches"
         context.user_data["admin_pkg_id"]   = pkg_id
         await query.edit_message_text(
-            "✏️ *עריכת חבילה*\n\nכמה חיפושים? \\(שלח `\\-1` לבלתי מוגבל\\)",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            f"✏️ {M.b('עריכת חבילה')}\n\nכמה חיפושים? (שלח {M.code('-1')} לבלתי מוגבל)",
+            parse_mode=HTML,
         )
 
     elif action == "add":
         context.user_data["admin_setting"] = "pkg_add_label"
         await query.edit_message_text(
-            "➕ *הוספת חבילה חדשה*\n\nשלח את שם החבילה:",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            f"➕ {M.b('הוספת חבילה חדשה')}\n\nשלח את שם החבילה:",
+            parse_mode=HTML,
         )
 
 
@@ -1680,29 +1471,22 @@ async def handle_admin_message(update: Update, context: ContextTypes.DEFAULT_TYP
         return
     msg = update.message
     if not msg.reply_to_message:
-        await msg.reply_text(
-            "↩️ כדי לשלוח הודעה למשתמש — השב \\(Reply\\) להודעת ההתראה שלו\\.",
-            parse_mode=ParseMode.MARKDOWN_V2,
-        )
+        await msg.reply_text("↩️ כדי לשלוח הודעה למשתמש — השב (Reply) להודעת ההתראה שלו.")
         return
     import re as _re
     original_text = msg.reply_to_message.text or ""
     match = _re.search(r"ID[:\s`]+?(\d+)", original_text)
     if not match:
-        await msg.reply_text("לא הצלחתי לזהות את ה\\-ID של המשתמש מהודעת ההתראה\\.", parse_mode=ParseMode.MARKDOWN_V2)
+        await msg.reply_text("🤔 לא הצלחתי לזהות את ה-ID של המשתמש מהודעת ההתראה.")
         return
     target_id = int(match.group(1))
     try:
-        dm_text = f"📩 הודעה מהמנהל: {msg.text}"
-        await context.bot.send_message(
-            target_id,
-            f"📩 *הודעה מהמנהל:*\n\n{msg.text}",
-            parse_mode=ParseMode.MARKDOWN_V2,
-        )
-        await log_sent_message(target_id, dm_text, kind="admin_dm")
-        await msg.reply_text(f"✅ נשלח למשתמש `{target_id}`\\.", parse_mode=ParseMode.MARKDOWN_V2)
+        dm_html = M.admin_dm(await _name_of(target_id), msg.text)
+        await context.bot.send_message(target_id, dm_html, parse_mode=HTML)
+        await log_sent_message(target_id, _log_text(dm_html), kind="admin_dm")
+        await msg.reply_text(f"✅ נשלח למשתמש {M.code(target_id)}.", parse_mode=HTML)
     except Exception as e:
-        await msg.reply_text(f"❌ שגיאה בשליחה: `{e}`", parse_mode=ParseMode.MARKDOWN_V2)
+        await msg.reply_text(f"❌ שגיאה בשליחה: {M.code(e)}", parse_mode=HTML)
 
 
 async def _send_car_photo(message, record: dict) -> None:
@@ -1733,21 +1517,12 @@ async def _send_car_photo(message, record: dict) -> None:
         logger.warning("car_photo failed: %s", exc)
 
 
-_SEARCH_STEPS = [
-    "🔗 מתחבר למאגר משרד התחבורה\\.\\.\\.",
-    "📋 שולף נתוני רישוי ובעלות\\.\\.\\.",
-    "🔧 בודק היסטוריית טסט שנתי\\.\\.\\.",
-    "🚨 סורק מאגר רכבים גנובים\\.\\.\\.",
-    "📊 מכין את הדוח שלך\\.\\.\\.",
-]
-
-
-async def _cycle_searching_message(msg) -> None:
+async def _cycle_searching_message(msg, steps: list[str]) -> None:
     """Advance the 'searching' message through progress steps while the lookup runs."""
     try:
-        for text in _SEARCH_STEPS[1:]:
+        for text in steps[1:]:
             await asyncio.sleep(1.1)
-            await msg.edit_text(text, parse_mode=ParseMode.MARKDOWN_V2)
+            await msg.edit_text(text, parse_mode=HTML)
     except asyncio.CancelledError:
         pass
     except Exception:
@@ -1757,19 +1532,17 @@ async def _cycle_searching_message(msg) -> None:
 async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     global PAYMENT_MSG
     user_id = update.effective_user.id
+    name    = _first_name(update.effective_user)
     raw     = update.message.text.strip()
 
     # Maintenance mode — block non-admins
     if user_id != ADMIN_ID and (await get_bot_setting("maintenance")) == "1":
-        await update.message.reply_text(
-            "🔧 *הבוט בתחזוקה כרגע*\n\nנחזור בקרוב\\!",
-            parse_mode=ParseMode.MARKDOWN_V2,
-        )
+        await update.message.reply_text(M.maintenance(name), parse_mode=HTML)
         return
 
     # Cancel search
     if raw == "❌ ביטול":
-        await update.message.reply_text("בסדר, חיפוש בוטל.", reply_markup=ReplyKeyboardRemove())
+        await update.message.reply_text(M.search_cancelled(), reply_markup=ReplyKeyboardRemove())
         await update.message.reply_text("👇", reply_markup=_persistent_keyboard(is_admin=(user_id == ADMIN_ID)))
         return
 
@@ -1788,38 +1561,41 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             return
         if setting == "free_count":
             if not raw.isdigit() or int(raw) < 0:
-                await update.message.reply_text("❌ שלח מספר שלם חיובי בלבד\\.", parse_mode=ParseMode.MARKDOWN_V2)
+                await update.message.reply_text("❌ שלח מספר שלם חיובי בלבד.")
                 return
             new_val = int(raw)
             import src.users as _u
             _u.FREE_SEARCHES = new_val
             context.user_data.pop("admin_setting", None)
-            await update.message.reply_text(f"✅ עודכן\\! בדיקות חינמיות: *{new_val}*", parse_mode=ParseMode.MARKDOWN_V2)
+            await update.message.reply_text(f"✅ עודכן! בדיקות חינמיות: {M.b(new_val)}", parse_mode=HTML)
             return
         if setting == "payment_msg":
             PAYMENT_MSG = raw
             context.user_data.pop("admin_setting", None)
-            await update.message.reply_text("✅ הודעת תשלום עודכנה\\!\n\n" + raw, parse_mode=ParseMode.MARKDOWN_V2)
+            await update.message.reply_text(
+                f"✅ הודעת התשלום עודכנה! כך המשתמשים יראו אותה:\n\n{M.payment_required(name, raw)}",
+                parse_mode=HTML,
+            )
             return
         if setting == "pkg_add_label":
             context.user_data["admin_pkg_label"] = raw
             context.user_data["admin_setting"] = "pkg_add_searches"
             await update.message.reply_text(
-                "כמה חיפושים? \\(שלח `\\-1` לבלתי מוגבל\\)",
-                parse_mode=ParseMode.MARKDOWN_V2,
+                f"כמה חיפושים? (שלח {M.code('-1')} לבלתי מוגבל)",
+                parse_mode=HTML,
             )
             return
         if setting == "pkg_add_searches":
             if not raw.lstrip("-").isdigit():
-                await update.message.reply_text("❌ שלח מספר שלם בלבד\\.", parse_mode=ParseMode.MARKDOWN_V2)
+                await update.message.reply_text("❌ שלח מספר שלם בלבד.")
                 return
             context.user_data["admin_pkg_searches"] = int(raw)
             context.user_data["admin_setting"] = "pkg_add_price"
-            await update.message.reply_text("מה המחיר ב\\-₪?", parse_mode=ParseMode.MARKDOWN_V2)
+            await update.message.reply_text("מה המחיר ב-₪?")
             return
         if setting == "pkg_add_price":
             if not raw.isdigit():
-                await update.message.reply_text("❌ שלח מספר שלם חיובי בלבד\\.", parse_mode=ParseMode.MARKDOWN_V2)
+                await update.message.reply_text("❌ שלח מספר שלם חיובי בלבד.")
                 return
             from src.packages import get_packages, add_package
             label    = context.user_data.pop("admin_pkg_label", "חבילה חדשה")
@@ -1834,22 +1610,22 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 buttons.append([InlineKeyboardButton(f"📦 {lbl} — {desc} · ₪{prc}", callback_data=f"admpkg|pick|{pid}")])
             buttons.append([InlineKeyboardButton("➕ הוסף חבילה", callback_data="admpkg|add")])
             await update.message.reply_text(
-                "✅ *חבילה נוספה\\!*\n\nבחר חבילה לעריכה או הוסף חדשה:",
-                parse_mode=ParseMode.MARKDOWN_V2,
+                f"✅ {M.b('החבילה נוספה')}\n\nבחר חבילה לעריכה או הוסף חדשה:",
+                parse_mode=HTML,
                 reply_markup=InlineKeyboardMarkup(buttons),
             )
             return
         if setting == "pkg_edit_searches":
             if not raw.lstrip("-").isdigit():
-                await update.message.reply_text("❌ שלח מספר שלם בלבד\\.", parse_mode=ParseMode.MARKDOWN_V2)
+                await update.message.reply_text("❌ שלח מספר שלם בלבד.")
                 return
             context.user_data["admin_pkg_searches"] = int(raw)
             context.user_data["admin_setting"] = "pkg_edit_price"
-            await update.message.reply_text("מה המחיר ב\\-₪?", parse_mode=ParseMode.MARKDOWN_V2)
+            await update.message.reply_text("מה המחיר ב-₪?")
             return
         if setting == "pkg_edit_price":
             if not raw.isdigit():
-                await update.message.reply_text("❌ שלח מספר שלם חיובי בלבד\\.", parse_mode=ParseMode.MARKDOWN_V2)
+                await update.message.reply_text("❌ שלח מספר שלם חיובי בלבד.")
                 return
             from src.packages import get_packages, update_package
             pkg_id   = context.user_data.pop("admin_pkg_id", None)
@@ -1857,12 +1633,12 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             price    = int(raw)
             context.user_data.pop("admin_setting", None)
             if pkg_id is None:
-                await update.message.reply_text("❌ שגיאה פנימית\\.", parse_mode=ParseMode.MARKDOWN_V2)
+                await update.message.reply_text("❌ שגיאה פנימית.")
                 return
             pkgs    = await get_packages()
             pkg_row = next((p for p in pkgs if p[0] == pkg_id), None)
             if pkg_row is None:
-                await update.message.reply_text("❌ חבילה לא נמצאה\\.", parse_mode=ParseMode.MARKDOWN_V2)
+                await update.message.reply_text("❌ חבילה לא נמצאה.")
                 return
             await update_package(pkg_id, pkg_row[1], searches, price)
             pkgs = await get_packages()
@@ -1872,8 +1648,8 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 buttons.append([InlineKeyboardButton(f"📦 {lbl} — {desc} · ₪{prc}", callback_data=f"admpkg|pick|{pid}")])
             buttons.append([InlineKeyboardButton("➕ הוסף חבילה", callback_data="admpkg|add")])
             await update.message.reply_text(
-                "✅ *חבילה עודכנה\\!*\n\nבחר חבילה לעריכה או הוסף חדשה:",
-                parse_mode=ParseMode.MARKDOWN_V2,
+                f"✅ {M.b('החבילה עודכנה')}\n\nבחר חבילה לעריכה או הוסף חדשה:",
+                parse_mode=HTML,
                 reply_markup=InlineKeyboardMarkup(buttons),
             )
             return
@@ -1884,11 +1660,9 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             logger.info("Broadcast: total_users=%d tg_users=%d msg=%r", len(all_users), len(tg_users), raw[:50])
             sent_ok = sent_fail = 0
             await update.message.reply_text(
-                f"📤 שולח ל\\-*{len(tg_users)}* משתמשי טלגרם\\.\\.\\.",
-                parse_mode=ParseMode.MARKDOWN_V2,
+                f"📤 שולח ל-{M.b(len(tg_users))} משתמשי טלגרם...",
+                parse_mode=HTML,
             )
-            from telegram.helpers import escape_markdown
-            escaped_msg = escape_markdown(raw, version=2)
             broadcast_log_text = f"📢 הודעה מהמנהל: {raw}"
             _bc_optout_kb = InlineKeyboardMarkup([[
                 InlineKeyboardButton("🔕 הסר אותי מהתפוצה", callback_data="broadcast_optout"),
@@ -1902,8 +1676,8 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 try:
                     await context.bot.send_message(
                         uid,
-                        f"📢 *הודעה מהמנהל:*\n\n{escaped_msg}",
-                        parse_mode=ParseMode.MARKDOWN_V2,
+                        M.broadcast(M.first_name(u.get("full_name", "")), raw),
+                        parse_mode=HTML,
                         reply_markup=_bc_optout_kb,
                     )
                     await log_sent_message(uid, broadcast_log_text, kind="broadcast")
@@ -1913,8 +1687,8 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                     sent_fail += 1
                 await asyncio.sleep(0.05)
             await update.message.reply_text(
-                f"✅ נשלח בהצלחה: *{sent_ok}*\n❌ נכשל: *{sent_fail}*",
-                parse_mode=ParseMode.MARKDOWN_V2,
+                f"✅ נשלח בהצלחה: {M.b(sent_ok)}\n❌ נכשל: {M.b(sent_fail)}",
+                parse_mode=HTML,
             )
             return
 
@@ -1928,12 +1702,10 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             try:
                 await context.bot.send_message(
                     ADMIN_ID,
-                    f"↩️ *תגובה ממשתמש:*\n\n"
-                    f"👤 {uname} \\| 📛 {fullname} \\| 🆔 `{user_id}`\n\n"
-                    f"{raw}",
-                    parse_mode=ParseMode.MARKDOWN_V2,
+                    M.admin_user_reply(uname, fullname, user_id, raw),
+                    parse_mode=HTML,
                 )
-                sent = await msg.reply_text("✅ הודעתך נשלחה למנהל\\.", parse_mode=ParseMode.MARKDOWN_V2)
+                sent = await msg.reply_text(M.admin_chat_relayed(name), parse_mode=HTML)
                 context.bot_data.setdefault("admin_chat_msg_ids", set()).add(sent.message_id)
             except Exception as e:
                 logger.warning("Failed to relay user message to admin: %s", e)
@@ -1942,10 +1714,7 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     plate = normalize_plate(raw)
 
     if not PLATE_RE.match(plate) or len(plate) < 5:
-        await update.message.reply_text(
-            "🔢 שלח מספר רכב תקין בלבד \\(למשל: 1234567\\)",
-            parse_mode=ParseMode.MARKDOWN_V2,
-        )
+        await update.message.reply_text(M.invalid_plate(name), parse_mode=HTML)
         return
 
     tg_user  = update.effective_user
@@ -1954,31 +1723,27 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if not allowed:
         if await is_blocked(user_id):
             await update.message.reply_text(
-                "🚫 *הגישה שלך לבוט חסומה\\.*\n\nלפרטים או לערעור פנה למנהל דרך הכפתור למטה\\.",
-                parse_mode=ParseMode.MARKDOWN_V2,
+                M.blocked(name),
+                parse_mode=HTML,
                 reply_markup=_blocked_keyboard(),
             )
         else:
             await update.message.reply_text(
-                PAYMENT_MSG,
-                parse_mode=ParseMode.MARKDOWN_V2,
+                M.payment_required(name, PAYMENT_MSG),
+                parse_mode=HTML,
                 reply_markup=_payment_keyboard(is_admin),
             )
         return
 
     if left == 1:
-        await update.message.reply_text(
-            "⚠️ זוהי הבדיקה החינמית האחרונה שלך\\.",
-            parse_mode=ParseMode.MARKDOWN_V2,
-        )
+        await update.message.reply_text(M.last_free_search(name), parse_mode=HTML)
 
     # cache hit — skip API call
     record = cache.get(plate)
     if record is None:
-        searching_msg = await update.message.reply_text(
-            _SEARCH_STEPS[0], parse_mode=ParseMode.MARKDOWN_V2
-        )
-        cycler = asyncio.create_task(_cycle_searching_message(searching_msg))
+        steps = M.search_steps(name)
+        searching_msg = await update.message.reply_text(steps[0], parse_mode=HTML)
+        cycler = asyncio.create_task(_cycle_searching_message(searching_msg, steps))
         try:
             record = await fetch_vehicle_data(plate)
         except Exception as exc:
@@ -1986,7 +1751,7 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             logger.error("Error fetching data for plate %s: %s", plate, exc)
             await searching_msg.delete()
             await update.message.reply_text(
-                format_error(), parse_mode=ParseMode.MARKDOWN_V2,
+                M.lookup_error(name), parse_mode=HTML,
                 reply_markup=_persistent_keyboard(is_admin),
             )
             return
@@ -1999,7 +1764,7 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     if record is None:
         await update.message.reply_text(
-            format_not_found(plate), parse_mode=ParseMode.MARKDOWN_V2,
+            M.not_found(name, plate), parse_mode=HTML,
             reply_markup=_persistent_keyboard(is_admin),
         )
         return
@@ -2020,7 +1785,7 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             pass
 
     try:
-        card = f"🔖 לוחית: `{plate}`\n" + quick_summary(record)
+        card = M.result_intro(name, plate) + quick_summary(record)
         context.user_data["last_share_text"] = get_share_text(record)
     except Exception as exc:
         logger.error("quick_summary failed for plate %s: %s", plate, exc)
@@ -2030,7 +1795,7 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             except Exception:
                 pass
         await update.message.reply_text(
-            format_error(), parse_mode=ParseMode.MARKDOWN_V2,
+            M.lookup_error(name), parse_mode=HTML,
             reply_markup=_persistent_keyboard(is_admin),
         )
         return
@@ -2038,21 +1803,9 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if not is_repeat:
         if left == -1:
             from src.users import get_quota_expires
-            expires = await get_quota_expires(user_id)
-            if expires:
-                try:
-                    from datetime import datetime as _dt
-                    expires_str = _dt.fromisoformat(expires[:10]).strftime("%d/%m/%Y")
-                except Exception:
-                    expires_str = expires[:10].replace("-", "\\-")
-                card += f"\n\n_♾️ מנוי חודשי פעיל — תוקף עד {expires_str}_"
-            else:
-                card += "\n\n_✅ גישה בלתי מוגבלת_"
+            card += M.result_quota_footer(-1, await get_quota_expires(user_id))
         elif left > 0:
-            remaining = left - 1
-            label = "בדיקות" if remaining != 1 else "בדיקה"
-            emoji = "🟢" if remaining > 5 else ("🟡" if remaining > 1 else "🔴")
-            card += f"\n\n_{emoji} נותרו לך {remaining} {label}_"
+            card += M.result_quota_footer(left - 1, None)
 
     if searching_msg:
         try:
@@ -2064,7 +1817,7 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     try:
         await update.message.reply_text(
             card,
-            parse_mode=ParseMode.MARKDOWN_V2,
+            parse_mode=HTML,
             reply_markup=build_result_keyboard(
                 is_admin=(user_id == ADMIN_ID),
                 record=record,
@@ -2072,9 +1825,9 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             ),
         )
     except Exception as exc:
-        logger.error("reply_text MarkdownV2 failed for plate %s: %s", plate, exc)
+        logger.error("reply_text HTML failed for plate %s: %s", plate, exc)
         try:
-            plain = card.replace("\\", "")
+            plain = M.strip_html(card)
             await update.message.reply_text(
                 plain,
                 reply_markup=build_result_keyboard(
@@ -2095,7 +1848,7 @@ async def handle_share_callback(update: Update, context: ContextTypes.DEFAULT_TY
     await query.answer()
     share_text = context.user_data.get("last_share_text")
     if not share_text:
-        await query.message.reply_text("❌ לא נמצא דוח לשיתוף. בצע חיפוש חדש.")
+        await query.message.reply_text(M.no_report_to_share(_first_name(query.from_user)), parse_mode=HTML)
         return
     await query.message.reply_text(share_text)
 
@@ -2108,7 +1861,8 @@ async def handle_result_callback(update: Update, context: ContextTypes.DEFAULT_T
 
     if query.data == "new_search":
         await query.message.reply_text(
-            "🔢 שלח מספר רכב לחיפוש:",
+            M.ask_plate(_first_name(query.from_user)),
+            parse_mode=HTML,
             reply_markup=_cancel_search_keyboard(),
         )
         return
@@ -2117,8 +1871,8 @@ async def handle_result_callback(update: Update, context: ContextTypes.DEFAULT_T
         admin_username = os.environ.get("ADMIN_USERNAME", "")
         url = f"https://t.me/{admin_username}" if admin_username else f"https://t.me/{BOT_USERNAME}?start=admin_chat"
         await query.message.reply_text(
-            "💬 *לחץ לפתיחת שיחה עם המנהל:*",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            M.open_admin_chat(_first_name(query.from_user)),
+            parse_mode=HTML,
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("💬 פתח שיחה עם מנהל", url=url)]
             ]),
@@ -2128,17 +1882,11 @@ async def handle_result_callback(update: Update, context: ContextTypes.DEFAULT_T
     if query.data == "admin_panel" and user_id == ADMIN_ID:
         stats = await admin_stats()
         await query.message.reply_text(
-            f"🛠 *פאנל ניהול CarInfo*\n\n"
-            f"👤 משתמשים: *{stats['total_users']}* \\| פעילים: *{stats['active_users']}*\n"
-            f"🔍 בדיקות: *{stats['total_searches']}*\n"
-            f"🔑 קודים: *{stats['used_codes']}/{stats['total_codes']}* נוצלו",
-            parse_mode=ParseMode.MARKDOWN_V2,
+            M.admin_panel(_first_name(query.from_user), stats),
+            parse_mode=HTML,
             reply_markup=_admin_main_keyboard(),
         )
         return
-
-
-_PDF_PREPARING = "📄 מכין את קובץ הדוח... אנא המתן."
 
 
 async def handle_pdf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -2146,10 +1894,11 @@ async def handle_pdf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     await query.answer()
     record = context.user_data.get("last_record")
     if not record:
-        await query.message.reply_text("❌ לא נמצא רכב לדוח. בצע חיפוש חדש.")
+        await query.message.reply_text(M.no_report_for_pdf(_first_name(query.from_user)), parse_mode=HTML)
         return
     plate = record.get("mispar_rechev", "vehicle")
-    status_msg = await query.message.reply_text(_PDF_PREPARING)
+    name = _first_name(query.from_user)
+    status_msg = await query.message.reply_text(M.pdf_preparing(name), parse_mode=HTML)
 
     try:
         pdf_bytes = await asyncio.to_thread(
@@ -2167,7 +1916,7 @@ async def handle_pdf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             await status_msg.delete()
         except Exception:
             pass
-        await query.message.reply_text("❌ שגיאה ביצירת הדוח.")
+        await query.message.reply_text(M.pdf_failed(name), parse_mode=HTML)
         return
     try:
         await status_msg.delete()
@@ -2176,7 +1925,7 @@ async def handle_pdf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     await query.message.reply_document(
         document=io.BytesIO(pdf_bytes),
         filename=f"car_{plate}.pdf",
-        caption=f"📄 דוח רכב {plate}",
+        caption=M.pdf_caption(plate),
     )
 
 
@@ -2187,6 +1936,7 @@ async def handle_broadcast_consent_callback(update: Update, context: ContextType
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
+    name = _first_name(query.from_user)
     action = query.data  # "broadcast_optout" or "broadcast_optin"
 
     if action == "broadcast_optout":
@@ -2196,14 +1946,7 @@ async def handle_broadcast_consent_callback(update: Update, context: ContextType
                 InlineKeyboardButton("🔔 חזור לרשימת התפוצה", callback_data="broadcast_optin"),
             ]])
         )
-        await context.bot.send_message(
-            user_id,
-            "🔕 *הוסרת מרשימת השידורים*\n\n"
-            "לא תקבל עוד הודעות שידור מהמנהל\\.\n"
-            "הודעות מערכת חיוניות \\(אישורי רכישה וכו׳\\) עדיין יישלחו\\.\n\n"
-            "לחזרה לרשימה שלח `/optin`\\.",
-            parse_mode=ParseMode.MARKDOWN_V2,
-        )
+        await context.bot.send_message(user_id, M.optout(name), parse_mode=HTML)
     elif action == "broadcast_optin":
         await set_broadcast_consent(user_id, True)
         await query.edit_message_reply_markup(
@@ -2211,31 +1954,19 @@ async def handle_broadcast_consent_callback(update: Update, context: ContextType
                 InlineKeyboardButton("🔕 הסר אותי מהתפוצה", callback_data="broadcast_optout"),
             ]])
         )
-        await context.bot.send_message(
-            user_id,
-            "🔔 *נרשמת מחדש לרשימת השידורים\\!*\n\nתקבל עדכונים ומבצעים מהמנהל\\.",
-            parse_mode=ParseMode.MARKDOWN_V2,
-        )
+        await context.bot.send_message(user_id, M.optin(name), parse_mode=HTML)
 
 
 async def cmd_optout(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = update.effective_user.id
-    await set_broadcast_consent(user_id, False)
-    await update.message.reply_text(
-        "🔕 *הוסרת מרשימת השידורים*\n\n"
-        "לא תקבל עוד הודעות שידור\\.\n"
-        "לחזרה לרשימה שלח `/optin`\\.",
-        parse_mode=ParseMode.MARKDOWN_V2,
-    )
+    user = update.effective_user
+    await set_broadcast_consent(user.id, False)
+    await update.message.reply_text(M.optout(_first_name(user)), parse_mode=HTML)
 
 
 async def cmd_optin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = update.effective_user.id
-    await set_broadcast_consent(user_id, True)
-    await update.message.reply_text(
-        "🔔 *נרשמת מחדש לרשימת השידורים\\!*\n\nתקבל עדכונים ומבצעים מהמנהל\\.",
-        parse_mode=ParseMode.MARKDOWN_V2,
-    )
+    user = update.effective_user
+    await set_broadcast_consent(user.id, True)
+    await update.message.reply_text(M.optin(_first_name(user)), parse_mode=HTML)
 
 
 async def _cache_cleanup_job():
@@ -2281,13 +2012,8 @@ async def _yad2_watch_job(context) -> None:
                     await update_seen_ids(w["id"], list(current_ids)[-500:])
                     await context.bot.send_message(
                         ADMIN_ID,
-                        f"🔍 *מעקב יד2 הופעל בהצלחה\\!*\n\n"
-                        f"🚗 *{_escape_md(label)}*\n"
-                        f"✅ נמצאו {len(current_ids)} מודעות תואמות קיימות\\.\n"
-                        f"מעתה תקבל התראה בכל פעם שתתווסף מודעה חדשה\\.\n\n"
-                        f"_שים לב: קבלת ההתראות תלויה בזמינות השירות ועשויה להתעכב\\. "
-                        f"המידע מסופק כשירות בלבד ואינו מובטח כמלא או מעודכן בזמן אמת\\._",
-                        parse_mode=ParseMode.MARKDOWN_V2,
+                        M.watch_started(await _name_of(ADMIN_ID), label, len(current_ids)),
+                        parse_mode=HTML,
                     )
                     continue
 
@@ -2301,14 +2027,6 @@ async def _yad2_watch_job(context) -> None:
                     # Yad2 returns listings newest-first; take the first new item
                     top = new_listings[0] if new_listings else None
                     count = len(new_listings)
-                    prices = sorted([int(x["price"]) for x in new_listings if x.get("price")])
-                    if prices:
-                        price_range = f"₪{prices[0]:,}" if len(prices) == 1 else f"₪{prices[0]:,} – ₪{prices[-1]:,}"
-                    else:
-                        price_range = "מחיר לא צוין"
-
-                    count_word = "מודעה חדשה" if count == 1 else "מודעות חדשות"
-
                     top_price = f"₪{int(top['price']):,}" if top and top.get("price") else "מחיר לא צוין"
                     top_details = "  ".join(filter(None, [
                         f"🛣️ {int(top['km']):,} ק\"מ" if top and top.get("km") else None,
@@ -2316,25 +2034,14 @@ async def _yad2_watch_job(context) -> None:
                     ])) if top else ""
                     top_link = top.get("link", "") if top else ""
 
-                    # Primary CTA: direct link to newest item if token available, else search page
-                    if top_link:
-                        cta = f"[🆕 פתח את המודעה החדשה ביותר]({top_link})"
-                        all_link = f"\n[ראה את כל {count} המודעות ביד2]({search_url})" if count > 1 else ""
-                    else:
-                        cta = f"[🆕 ראה את המודעות החדשות ביד2]({search_url})"
-                        all_link = ""
-
-                    text = (
-                        f"👋 היי\\! מצאנו *{count} {_escape_md(count_word)}* שמתאימות לחיפוש שלך\\.\n\n"
-                        f"🚗 *{_escape_md(label)}*\n"
-                        f"💰 {_escape_md(top_price)}"
-                        + (f"\n{_escape_md(top_details)}" if top_details else "")
-                        + f"\n\n{cta}{all_link}"
+                    text = M.watch_alert(
+                        await _name_of(w["user_id"]), label, count, top_price, top_details,
+                        top_link, search_url,
                     )
                     try:
                         await context.bot.send_message(
                             w["user_id"], text,
-                            parse_mode=ParseMode.MARKDOWN_V2,
+                            parse_mode=HTML,
                         )
                         await log_sent_message(w["user_id"], f"🔔 התראת מעקב יד2: {label} — {count} מודעות חדשות", kind="watch_alert")
                     except Exception as e:
@@ -2348,8 +2055,8 @@ async def _yad2_watch_job(context) -> None:
                 try:
                     await context.bot.send_message(
                         ADMIN_ID,
-                        f"⚠️ *שגיאה בבדיקת מעקב* id={w['id']}: {_escape_md(str(e))}",
-                        parse_mode=ParseMode.MARKDOWN_V2,
+                        f"⚠️ {M.b('שגיאה בבדיקת מעקב')} id={w['id']}: {M.esc(e)}",
+                        parse_mode=HTML,
                     )
                 except Exception:
                     pass
@@ -2392,25 +2099,17 @@ def main() -> None:
     async def _notify_payment_approved(user_id: int, label: str, searches: int):
         try:
             desc = "ללא הגבלה" if searches == -1 else f"{searches} חיפושים"
-            approved_msg = f"✅ תשלומך אושר! {label} — {desc} נוספו לחשבונך"
-            await app.bot.send_message(
-                user_id,
-                f"✅ *תשלומך אושר!*\n📦 {label}\n🔍 {desc} נוספו לחשבונך",
-                parse_mode="Markdown"
-            )
-            await log_sent_message(user_id, approved_msg, kind="payment")
+            approved_msg = M.payment_approved(await _name_of(user_id), label, desc)
+            await app.bot.send_message(user_id, approved_msg, parse_mode=HTML)
+            await log_sent_message(user_id, _log_text(approved_msg), kind="payment")
         except Exception:
             pass
 
     async def _notify_payment_declined(user_id: int, label: str):
         try:
-            declined_msg = f"❌ בקשת התשלום נדחתה — {label}"
-            await app.bot.send_message(
-                user_id,
-                f"❌ *בקשת התשלום נדחתה*\n📦 {label}\nלפרטים פנה לתמיכה.",
-                parse_mode="Markdown"
-            )
-            await log_sent_message(user_id, declined_msg, kind="payment")
+            declined_msg = M.payment_declined(await _name_of(user_id), label)
+            await app.bot.send_message(user_id, declined_msg, parse_mode=HTML)
+            await log_sent_message(user_id, _log_text(declined_msg), kind="payment")
         except Exception:
             pass
 
@@ -2432,8 +2131,9 @@ def main() -> None:
             if not u.get("broadcast_consent", 1):
                 continue
             try:
-                await app.bot.send_message(uid, message, reply_markup=_optout_kb)
-                await log_sent_message(uid, message, kind="broadcast")
+                text = M.broadcast(M.first_name(u.get("full_name", "")), message)
+                await app.bot.send_message(uid, text, parse_mode=HTML, reply_markup=_optout_kb)
+                await log_sent_message(uid, _log_text(text), kind="broadcast")
                 sent += 1
             except Exception:
                 failed += 1
@@ -2441,9 +2141,9 @@ def main() -> None:
 
     async def _notify_admin_grant(user_id: int, searches: int, expires: str = ""):
         try:
-            msg = _format_grant_message(searches, expires)
-            await app.bot.send_message(user_id, msg, parse_mode="Markdown")
-            await log_sent_message(user_id, msg, kind="grant")
+            msg = M.grant_update(await _name_of(user_id), searches, expires)
+            await app.bot.send_message(user_id, msg, parse_mode=HTML)
+            await log_sent_message(user_id, _log_text(msg), kind="grant")
         except Exception:
             pass
 
@@ -2455,8 +2155,9 @@ def main() -> None:
 
     async def _send_message_to_user(user_id: int, message: str) -> bool:
         try:
-            await app.bot.send_message(user_id, message)
-            await log_sent_message(user_id, message, kind="admin_dm")
+            text = M.admin_dm(await _name_of(user_id), message)
+            await app.bot.send_message(user_id, text, parse_mode=HTML)
+            await log_sent_message(user_id, _log_text(text), kind="admin_dm")
             return True
         except Exception as e:
             logger.warning("Failed to send message to user %s: %s", user_id, e)
@@ -2482,17 +2183,18 @@ def main() -> None:
             if not u.get("broadcast_consent", 1):
                 continue
             try:
+                text = M.broadcast(M.first_name(u.get("full_name", "")), message)
                 if photo_bytes:
                     await app.bot.send_photo(
                         uid,
                         photo=_io.BytesIO(photo_bytes),
-                        caption=message,
-                        parse_mode="Markdown",
+                        caption=text,
+                        parse_mode=HTML,
                         reply_markup=_optout_kb,
                     )
                 else:
-                    await app.bot.send_message(uid, message, parse_mode="Markdown", reply_markup=_optout_kb)
-                await log_sent_message(uid, message, kind="broadcast")
+                    await app.bot.send_message(uid, text, parse_mode=HTML, reply_markup=_optout_kb)
+                await log_sent_message(uid, _log_text(text), kind="broadcast")
                 sent += 1
             except Exception:
                 failed += 1
@@ -2521,15 +2223,9 @@ def main() -> None:
             return
         status_txt = STATUS_HE.get(status, status)
         user_txt = f"@{username}" if username else f"חבר #{member_id}" if member_id else ref.split('-')[0]
-        text = (
-            f"{status_txt}\n"
-            f"🔖 הזמנה: `{ref}`\n"
-            f"👤 משתמש: {user_txt}  #{member_id or '—'}\n"
-            f"📦 מוצר: {label}\n"
-            f"💰 סכום: ₪{amount}"
-        )
+        text = M.admin_order(status_txt, ref, user_txt, member_id, label, amount)
         try:
-            await app.bot.send_message(ADMIN_ID, text, parse_mode="Markdown")
+            await app.bot.send_message(ADMIN_ID, text, parse_mode=HTML)
         except Exception:
             pass
 
@@ -2542,15 +2238,9 @@ def main() -> None:
         kb = InlineKeyboardMarkup([[
             InlineKeyboardButton("📦 שלח תוכן משלוח", callback_data=f"deliver|{ref}"),
         ]])
-        text = (
-            f"📦 *הזמנת מוצר ממתינה למשלוח ידני*\n"
-            f"🔖 הזמנה: `{ref}`\n"
-            f"👤 משתמש: {user_id}\n"
-            f"📦 מוצר: {label}\n\n"
-            f"לחץ על הכפתור כדי לשלוח את תוכן ההזמנה ללקוח."
-        )
+        text = M.admin_delivery_needed(ref, user_id, label)
         try:
-            await app.bot.send_message(ADMIN_ID, text, parse_mode="Markdown", reply_markup=kb)
+            await app.bot.send_message(ADMIN_ID, text, parse_mode=HTML, reply_markup=kb)
         except Exception:
             pass
 
@@ -2559,14 +2249,9 @@ def main() -> None:
 
     async def _notify_user_product_delivered(user_id, label, ref, content):
         try:
-            msg = (
-                f"🎉 *ההזמנה שלך הושלמה!*\n"
-                f"📦 {label}\n"
-                f"🔖 מס' הזמנה: `{ref}`\n\n"
-                f"{content}"
-            )
-            await app.bot.send_message(user_id, msg, parse_mode="Markdown")
-            await log_sent_message(user_id, msg, kind="product_delivery")
+            msg = M.product_delivered(await _name_of(user_id), label, ref, content)
+            await app.bot.send_message(user_id, msg, parse_mode=HTML)
+            await log_sent_message(user_id, _log_text(msg), kind="product_delivery")
         except Exception:
             pass
 
@@ -2576,28 +2261,14 @@ def main() -> None:
     async def _notify_admin_order_delivered(ref, user_id, username, label, price, content, auto):
         if not ADMIN_ID:
             return
-        kind_txt = "אוטומטית" if auto else "ידנית"
         user_txt = f"@{username}" if username else str(user_id)
-        text = (
-            f"🔒 *הודעה למנהל בלבד*\n\n"
-            f"✅ *הזמנת מוצר הושלמה ({kind_txt})*\n\n"
-            f"👤 {user_txt} \\(ID: `{user_id}`\\)\n"
-            f"🛒 מוצר: {label}\n"
-            f"💰 מחיר: ₪{price}\n"
-            f"🆔 הזמנה #{ref}\n\n"
-            f"📦 *נשלח:*\n{content}"
-        )
+        text = M.admin_order_delivered(user_txt, user_id, label, price, ref, content, auto)
         try:
-            await app.bot.send_message(ADMIN_ID, text, parse_mode=ParseMode.MARKDOWN_V2)
+            await app.bot.send_message(ADMIN_ID, text, parse_mode=HTML)
         except Exception:
             try:
-                # Fall back to plain text if the delivered content breaks MarkdownV2 escaping
-                await app.bot.send_message(
-                    ADMIN_ID,
-                    f"🔒 הודעה למנהל בלבד\n\n✅ הזמנת מוצר הושלמה ({kind_txt})\n\n"
-                    f"👤 {user_txt} (ID: {user_id})\n🛒 מוצר: {label}\n💰 מחיר: ₪{price}\n"
-                    f"🆔 הזמנה #{ref}\n\n📦 נשלח:\n{content}",
-                )
+                # Plain-text fallback if Telegram rejects the markup for any reason
+                await app.bot.send_message(ADMIN_ID, M.strip_html(text))
             except Exception:
                 pass
 
@@ -2677,35 +2348,13 @@ def main() -> None:
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_plate))
 
     async def _send_expiry_reminders(context, days: int):
-        messages = {
-            30: (
-                "📅 *תזכורת: חודש להתחדשות המנוי*\n\n"
-                "המנוי שלך יפוג בעוד חודש\\. "
-                "כדי להמשיך ליהנות מחיפושים ללא הגבלה, ניתן לחדש את המנוי מראש\\."
-            ),
-            7: (
-                "⚠️ *תזכורת: שבוע להתחדשות המנוי*\n\n"
-                "המנוי שלך יפוג בעוד שבוע\\. "
-                "ניתן לחדש את המנוי כדי להמשיך ליהנות מהשירות ללא הפסקה\\."
-            ),
-            1: (
-                "🔴 *תזכורת: המנוי שלך יפוג מחר\\!*\n\n"
-                "מחר הוא היום האחרון של המנוי שלך\\. "
-                "ניתן לחדש את המנוי עוד היום\\."
-            ),
-            0: (
-                "⏰ *המנוי שלך פג היום\\!*\n\n"
-                "המנוי שלך פג\\. "
-                "כדי להמשיך ליהנות מהשירות, ניתן לרכוש חבילת חיפושים\\."
-            ),
-        }
-        text = messages[days]
         try:
             user_ids = await get_users_expiring_in_days(days)
             for uid in user_ids:
                 try:
-                    await context.bot.send_message(uid, text, parse_mode=ParseMode.MARKDOWN_V2)
-                    await log_sent_message(uid, text, kind="expiry_reminder")
+                    text = M.expiry_reminder(await _name_of(uid), days)
+                    await context.bot.send_message(uid, text, parse_mode=HTML)
+                    await log_sent_message(uid, _log_text(text), kind="expiry_reminder")
                 except Exception:
                     pass
         except Exception as e:

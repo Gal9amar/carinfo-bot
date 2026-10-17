@@ -1,14 +1,14 @@
 """
-Formats vehicle data into categorized Hebrew Telegram messages (MarkdownV2).
+Formats vehicle data into categorized Hebrew Telegram messages (HTML parse mode).
 """
 
+import html
 from datetime import datetime, date
 from typing import Optional
 
 
 def _escape(text: str) -> str:
-    special = r"\_*[]()~`>#+-=|{}.!"
-    return "".join(f"\\{c}" if c in special else c for c in str(text))
+    return html.escape(str(text), quote=False)
 
 
 def _format_date(raw: Optional[str]) -> str:
@@ -80,7 +80,7 @@ def _row(label: str, value) -> str:
     v = str(value).strip() if value else ""
     if not v or v in ("None", "nan"):
         return ""
-    return f"• *{_escape(label)}:* {_escape(v)}\n"
+    return f"• <b>{_escape(label)}:</b> {_escape(v)}\n"
 
 
 def _row_always(label: str, value) -> str:
@@ -88,7 +88,7 @@ def _row_always(label: str, value) -> str:
     v = str(value).strip() if value is not None else ""
     if not v or v in ("None", "nan", ""):
         v = "✖ לא קיים"
-    return f"• *{_escape(label)}:* {_escape(v)}\n"
+    return f"• <b>{_escape(label)}:</b> {_escape(v)}\n"
 
 
 # ─────────────────────────────────────────────
@@ -121,7 +121,7 @@ def _agra_from_group(code, shnat_yitzur=None, sug_delek_nm=None) -> str:
         # חשמלי — אגרה סמלית
         fuel = (sug_delek_nm or "").strip()
         if any(w in fuel for w in ("חשמל", "electric", "ELECTRIC", "חשמלי")):
-            return f"₪{_AGRA_ELECTRIC:,} \\(חשמלי — אגרה מופחתת\\)"
+            return f"₪{_AGRA_ELECTRIC:,} (חשמלי — אגרה מופחתת)"
 
         year = int(shnat_yitzur) if shnat_yitzur else date.today().year
         age  = date.today().year - year
@@ -140,7 +140,7 @@ def _agra_from_group(code, shnat_yitzur=None, sug_delek_nm=None) -> str:
             amount = row[2]
             note   = f"גיל {age} שנים"
 
-        return f"₪{amount:,} \\(קבוצה {grp}, {note}\\)"
+        return f"₪{amount:,} (קבוצה {grp}, {note})"
     except Exception:
         return ""
 
@@ -155,7 +155,7 @@ def _inactive_label(record: dict) -> str:
 
 
 def cat_general(record: dict, w: dict) -> str:
-    lines = ["*📋 פרטים כלליים*\n"]
+    lines = ["<b>📋 פרטים כלליים</b>\n"]
     pi = record.get("_personal_import")
     if pi:
         lines.append(_row_always("יבוא", _val(pi, "sug_yevu") or "יבוא אישי"))
@@ -189,7 +189,7 @@ def cat_general(record: dict, w: dict) -> str:
     agra_str   = _agra_from_group(agra_group, shnat, sug_delek) if agra_group else ""
     if agra_str:
         lines.append(_row_always("אגרת רישוי שנתית", agra_str))
-        lines.append(f"  _\\* מחיר משוער לפי קבוצת אגרה וגיל הרכב_\n")
+        lines.append("  <i>* מחיר משוער לפי קבוצת אגרה וגיל הרכב</i>\n")
 
     importer_price = record.get("_importer_price")
     if importer_price:
@@ -203,7 +203,7 @@ def cat_general(record: dict, w: dict) -> str:
                 if age > 0:
                     dep_pct = min(age * 8, 70)
                     est = int(price_int * (1 - dep_pct / 100))
-                    lines.append(_row_always("הערכת שווי יד\\-2", f"~₪{est:,} \\(ירידת ערך ≈{dep_pct}%\\)"))
+                    lines.append(_row_always("הערכת שווי יד-2", f"~₪{est:,} (ירידת ערך ≈{dep_pct}%)"))
         except Exception:
             pass
 
@@ -220,7 +220,7 @@ def cat_specs(record: dict, w: dict) -> str:
     auto        = w.get("automatic_ind")
     gearbox     = "אוטומטית" if str(auto) == "1" else ("ידנית" if str(auto) == "0" else "✖ לא קיים")
 
-    lines = ["*⚙️ מפרט טכני*\n"]
+    lines = ["<b>⚙️ מפרט טכני</b>\n"]
     lines.append(_row_always("סוג דלק", _val(record, "sug_delek_nm")))
     lines.append(_row_always("טכנולוגיית הנעה", _val(w, "technologiat_hanaa_nm")))
     lines.append(_row_always("סוג הנעה", _val(w, "hanaa_nm")))
@@ -241,7 +241,7 @@ def cat_specs(record: dict, w: dict) -> str:
 def cat_tires(record: dict, w: dict) -> str:
     front = _val(record, "zmig_kidmi")
     rear  = _val(record, "zmig_ahori", "zmig_achori")
-    lines = ["*🔧 גלגלים וצמיגים*\n"]
+    lines = ["<b>🔧 גלגלים וצמיגים</b>\n"]
     lines.append(_row_always("צמיג קדמי", front))
     lines.append(_row_always("צמיג אחורי", rear))
     lines.append(_row_always("עומס צמיג קדמי", _val(record, "kod_omes_tzmig_kidmi")))
@@ -254,7 +254,7 @@ def cat_tires(record: dict, w: dict) -> str:
 
 def cat_equipment(record: dict, w: dict) -> str:
     power_win = _val(w, "mispar_halonot_hashmal")
-    lines = ["*🛋️ ציוד ונוחות*\n"]
+    lines = ["<b>🛋️ ציוד ונוחות</b>\n"]
     lines.append(_row_always("מיזוג אוויר", _yn_always(w.get("mazgan_ind"))))
     lines.append(_row_always("הגה כוח", _yn_always(w.get("hege_koah_ind"))))
     lines.append(_row_always("חלונות חשמל", f"{power_win} חלונות" if power_win else ""))
@@ -274,7 +274,7 @@ def cat_safety(record: dict, w: dict) -> str:
     co2_hway  = _val(w, "kamut_CO2_hway")
     airbags = _val(w, "mispar_kariot_avir")
 
-    lines = ["*🛡️ בטיחות ופליטות*\n"]
+    lines = ["<b>🛡️ בטיחות ופליטות</b>\n"]
     lines.append(_row_always("ניקוד בטיחות", _val(w, "nikud_betihut")))
     lines.append(_row_always("רמת ציוד בטיחותי", _val(w, "ramat_eivzur_betihuty")))
     lines.append(_row_always("כריות אוויר", f"{airbags} כריות" if airbags else ""))
@@ -295,7 +295,7 @@ def cat_safety(record: dict, w: dict) -> str:
 
 
 def cat_adas(record: dict, w: dict) -> str:
-    lines = ["*🤖 מערכות ADAS*\n"]
+    lines = ["<b>🤖 מערכות ADAS</b>\n"]
     lines.append(_row_always("שמירת נתיב", _yn_always(w.get("bakarat_stiya_menativ_ind"))))
     lines.append(_row_always("בקרת סטייה אקטיבית", _yn_always(w.get("bakarat_stiya_activ_s"))))
     lines.append(_row_always("ניטור מרחק קדמי", _yn_always(w.get("nitur_merhak_milfanim_ind"))))
@@ -338,12 +338,12 @@ def cat_history(record: dict, w: dict) -> str:
     gapam         = record.get("gapam_ind")
     tag_nache     = record.get("_tag_nache")
 
-    lines = ["*📅 היסטוריה ורישום*\n"]
+    lines = ["<b>📅 היסטוריה ורישום</b>\n"]
     lines.append(_row_always("תאריך רישום ראשון", _format_date(record.get("rishum_rishon_dt"))))
     lines.append(_row_always("עלייה לכביש", _format_date(record.get("moed_aliya_lakvish"))))
     lines.append(_row_always("ק\"מ בטסט אחרון", f"{km} ק\"מ" if km else ""))
     lines.append(_row_always("טסט אחרון", _format_date(record.get("mivchan_acharon_dt"))))
-    lines.append(f"• *{_escape('תוקף טסט')}:* {_escape(_test_status(record.get('tokef_dt')))}\n")
+    lines.append(f"• <b>{_escape('תוקף טסט')}:</b> {_escape(_test_status(record.get('tokef_dt')))}\n")
     lines.append(_row_always("שינוי מבנה", _yn_always(changed_body)))
     lines.append(_row_always("שינוי צבע", _yn_always(changed_color)))
     lines.append(_row_always("שינוי צמיגים", _yn_always(changed_tire)))
@@ -356,9 +356,9 @@ def cat_history(record: dict, w: dict) -> str:
 
     if tag_nache:
         hafakat = _format_tag_nache_date(tag_nache.get("hafakat"))
-        lines.append(f"• *{_escape('תו נכה')}:* ✅ כן \\(הופק: {_escape(hafakat)}\\)\n" if hafakat else f"• *{_escape('תו נכה')}:* ✅ כן\n")
+        lines.append(f"• <b>{_escape('תו נכה')}:</b> ✅ כן (הופק: {_escape(hafakat)})\n" if hafakat else f"• <b>{_escape('תו נכה')}:</b> ✅ כן\n")
     else:
-        lines.append(f"• *{_escape('תו נכה')}:* ❌ לא\n")
+        lines.append(f"• <b>{_escape('תו נכה')}:</b> ❌ לא\n")
 
     lines.append(_row_always("סטטוס רישום", _inactive_label(record)))
     return "".join(lines)
@@ -368,7 +368,7 @@ def cat_ownership(record: dict, w: dict) -> str:
     ownership = record.get("_ownership") or []
 
     if not ownership:
-        return "*👥 היסטוריית בעלויות*\n• לא נמצא מידע על בעלויות קודמות\n"
+        return "<b>👥 היסטוריית בעלויות</b>\n• לא נמצא מידע על בעלויות קודמות\n"
 
     # Count unique owners (private transitions)
     private_count = sum(1 for o in ownership if o.get("baalut") == "פרטי")
@@ -385,17 +385,17 @@ def cat_ownership(record: dict, w: dict) -> str:
             return str(dt)
 
     _lbl_total = 'סה"כ רשומות'
-    lines = [f"*👥 היסטוריית בעלויות*\n"]
-    lines.append(f"• *{_escape(_lbl_total)}:* {_escape(str(total))}\n")
-    lines.append(f"• *{_escape('בעלויות פרטיות')}:* {_escape(str(private_count))}\n")
-    lines.append(f"• *{_escape('עברו דרך סוחר')}:* {_escape(str(dealer_count))}\n")
+    lines = ["<b>👥 היסטוריית בעלויות</b>\n"]
+    lines.append(f"• <b>{_escape(_lbl_total)}:</b> {_escape(str(total))}\n")
+    lines.append(f"• <b>{_escape('בעלויות פרטיות')}:</b> {_escape(str(private_count))}\n")
+    lines.append(f"• <b>{_escape('עברו דרך סוחר')}:</b> {_escape(str(dealer_count))}\n")
     lines.append("━━━━━━━━━━━━━━━━━━\n")
 
     for i, o in enumerate(ownership, 1):
         dt      = _fmt_baalut_dt(o.get("baalut_dt", ""))
         baalut  = o.get("baalut", "לא ידוע")
         emoji   = "👤" if baalut == "פרטי" else "🏢" if baalut == "סוחר" else "❓"
-        lines.append(f"*{_escape(str(i))}\\.* {emoji} {_escape(baalut)} — {_escape(dt)}\n")
+        lines.append(f"<b>{_escape(str(i))}.</b> {emoji} {_escape(baalut)} — {_escape(dt)}\n")
 
     return "".join(lines)
 
@@ -434,7 +434,7 @@ def _km_fraud_check(record: dict) -> str:
 
 
 def _check_km_fraud(record: dict) -> str:
-    """Returns MarkdownV2-escaped km fraud warning or ''."""
+    """Returns HTML-escaped km fraud warning or ''."""
     msg = _km_fraud_check(record)
     return _escape(msg) if msg else ""
 
@@ -456,7 +456,7 @@ def _flip_check(record: dict) -> str:
 
 
 def _check_flipping(record: dict) -> str:
-    """Returns MarkdownV2-escaped flipping warning or ''."""
+    """Returns HTML-escaped flipping warning or ''."""
     msg = _flip_check(record)
     return _escape(msg) if msg else ""
 
@@ -467,10 +467,10 @@ def cat_recalls(record: dict) -> str:
 
     if not recalls:
         label = "לרכב זה" if by_plate else "לדגם זה"
-        return f"*🔔 ריקולים*\n• לא נמצאו ריקולים {_escape(label)}\n"
+        return f"<b>🔔 ריקולים</b>\n• לא נמצאו ריקולים {_escape(label)}\n"
 
-    scope = "ללוחית זו" if by_plate else "לדגם \\(לא ספציפי ללוחית\\)"
-    lines = [f"*🔔 ריקולים \\({_escape(str(len(recalls)))}\\)* — {_escape(scope)}\n"]
+    scope = "ללוחית זו" if by_plate else "לדגם (לא ספציפי ללוחית)"
+    lines = [f"<b>🔔 ריקולים ({_escape(str(len(recalls)))})</b> — {_escape(scope)}\n"]
 
     if by_plate:
         # hagbalat_recall fields: SUG_RECALL, SUG_TAKALA, TEUR_TAKALA, TAARICH_PTICHA
@@ -480,12 +480,12 @@ def cat_recalls(record: dict) -> str:
             sug      = r.get("SUG_RECALL", "")
             taarich  = str(r.get("TAARICH_PTICHA", ""))[:10]
             if teur:
-                line = f"• *{_escape(taarich)}*"
+                line = f"• <b>{_escape(taarich)}</b>"
                 if kategory:
-                    line += f" \\| {_escape(kategory)}"
+                    line += f" | {_escape(kategory)}"
                 line += f"\n  {_escape(str(teur)[:120])}"
                 if sug:
-                    line += f"\n  _סוג: {_escape(sug)}_"
+                    line += f"\n  <i>סוג: {_escape(sug)}</i>"
                 lines.append(line + "\n")
     else:
         for r in recalls:
@@ -495,12 +495,12 @@ def cat_recalls(record: dict) -> str:
             yevuan = r.get("YEVUAN_TEUR", "")
             phone  = r.get("TELEPHONE", "")
             if teur:
-                line = f"• *{_escape(str(shnat))}:* {_escape(str(teur)[:120])}"
+                line = f"• <b>{_escape(str(shnat))}:</b> {_escape(str(teur)[:120])}"
                 if ofen:
-                    line += f" _\\({_escape(str(ofen))}\\)_"
+                    line += f" <i>({_escape(str(ofen))})</i>"
                 lines.append(line + "\n")
                 if yevuan:
-                    lines.append(f"  _{_escape(str(yevuan))}_\n")
+                    lines.append(f"  <i>{_escape(str(yevuan))}</i>\n")
                 if phone:
                     lines.append(f"  📞 {_escape(str(phone))}\n")
 
@@ -508,7 +508,7 @@ def cat_recalls(record: dict) -> str:
 
 
 def quick_summary(record: dict) -> str:
-    """Short traffic-light summary block for the top of every result (MarkdownV2)."""
+    """Short summary block for the top of every result (HTML)."""
     manufacturer = _val(record, "tozeret_nm")
     model        = _val(record, "kinuy_mishari", "degem_nm")
     year         = _val(record, "shnat_yitzur")
@@ -568,7 +568,7 @@ def quick_summary(record: dict) -> str:
     )
 
     if is_red:
-        overall = "🔴 דורש בדיקה\\!"
+        overall = "🔴 דורש בדיקה!"
     elif is_yellow:
         overall = "🟡 שים לב"
     else:
@@ -580,42 +580,35 @@ def quick_summary(record: dict) -> str:
     agra_str   = _agra_from_group(agra_group, shnat, sug_delek) if agra_group else ""
 
     color_str = f" · {color}" if color else ""
-    header = f"🚗 *{_escape(manufacturer)} {_escape(model)}* {_escape(year)}{_escape(color_str)}"
+    header = f"🚗 <b>{_escape(manufacturer)} {_escape(model)}</b> {_escape(year)}{_escape(color_str)}"
 
     lines = [
         f"{header}\n",
         "\n",
         f"👥 {_escape(str(owner_count))} {_escape('בעלים')}\n",
-        "\n",
-        f"🏷 *{_escape('בעלות נוכחית')}:* {_escape(baalut)}\n",
-        "\n",
+        f"🏷 <b>{_escape('בעלות נוכחית')}:</b> {_escape(baalut)}\n",
         f"🛣 {_escape(km_str or '—')}\n",
-        "\n",
-        f"📅 *{_escape('טסט')}:* {_escape(test_str)}\n",
+        f"📅 <b>{_escape('טסט')}:</b> {_escape(test_str)}\n",
     ]
 
     if agra_str:
-        lines.append("\n")
-        lines.append(f"📋 *{_escape('אגרת רישוי')}:* {agra_str}\n")
-        lines.append(f"_{_escape('הסכום המדויק מופיע ברשיון הרכב')}_\n")
+        lines.append(f"📋 <b>{_escape('אגרת רישוי')}:</b> {_escape(agra_str)}\n")
+        lines.append(f"<i>{_escape('הסכום המדויק מופיע ברשיון הרכב')}</i>\n")
     if tag_nache:
-        lines.append("\n")
-        lines.append(f"♿ *{_escape('תו נכה')}:* ✅\n")
+        lines.append(f"♿ <b>{_escape('תו נכה')}:</b> ✅\n")
     if personal_imp:
-        lines.append("\n")
-        lines.append(f"📦 *{_escape('יבוא אישי')}:* ✅\n")
+        lines.append(f"📦 <b>{_escape('יבוא אישי')}:</b> ✅\n")
 
     if flags_plain:
         lines.append("\n")
-        for flag in flags_plain:
-            lines.append(f"⚠️ {_escape(flag.lstrip('⚠️🚨📦 '))}\n")
-            lines.append("\n")
+        flags_html = "\n".join(f"⚠️ {_escape(flag.lstrip('⚠️🚨📦 '))}" for flag in flags_plain)
+        lines.append(f"<blockquote>{flags_html}</blockquote>\n")
 
     return "".join(lines)
 
 
 def get_share_text(record: dict) -> str:
-    """Plain-text shareable bullet-point report (no MarkdownV2)."""
+    """Plain-text shareable bullet-point report (no markup)."""
     plate        = _val(record, "mispar_rechev")
     manufacturer = _val(record, "tozeret_nm")
     model        = _val(record, "kinuy_mishari", "degem_nm")
@@ -714,17 +707,17 @@ def get_summary(record: dict) -> str:
     if scrapped_dt:
         dt_str = _format_date(scrapped_dt)
         scrapped_warning = (
-            f"🚨 *אזהרה\\: רכב זה בוטל רשמית \\(גרוטאה\\)*\n"
-            f"• תאריך ביטול: *{_escape(dt_str)}*\n"
-            f"• רכב זה אינו רשאי לנסוע על הכביש\\!\n"
+            f"🚨 <b>אזהרה: רכב זה בוטל רשמית (גרוטאה)</b>\n"
+            f"• תאריך ביטול: <b>{_escape(dt_str)}</b>\n"
+            f"• רכב זה אינו רשאי לנסוע על הכביש!\n"
             "━━━━━━━━━━━━━━━━━━\n"
         )
 
     sections = [
         quick_summary(record),
-        f"🚗 *{_escape(manufacturer)} {_escape(model)}*\n",
+        f"🚗 <b>{_escape(manufacturer)} {_escape(model)}</b>\n",
         "━━━━━━━━━━━━━━━━━━\n",
-        f"• *{_escape('מספר רכב')}:* {_escape(plate)}\n\n",
+        f"• <b>{_escape('מספר רכב')}:</b> {_escape(plate)}\n\n",
         scrapped_warning,
         cat_general(record, w) + "\n",
         cat_specs(record, w) + "\n",
@@ -735,24 +728,10 @@ def get_summary(record: dict) -> str:
         cat_history(record, w) + "\n",
         cat_ownership(record, w) + "\n",
         cat_recalls(record),
-        "\n\n_⚠️ המידע נאסף ממאגרים ממשלתיים וציבוריים\\. CarInfo ומפעיל הבוט אינם אחראים לנכונות הנתונים\\. אין להסתמך על דוח זה כתחליף לבדיקה מקצועית\\._",
+        "\n\n<i>⚠️ המידע נאסף ממאגרים ממשלתיים וציבוריים. CarInfo ומפעיל הבוט אינם אחראים לנכונות הנתונים. אין להסתמך על דוח זה כתחליף לבדיקה מקצועית.</i>",
     ]
 
     return "".join(s for s in sections if s)
-
-
-def format_not_found(plate: str) -> str:
-    return (
-        f"❌ לא נמצא מידע על מספר רכב *{_escape(plate)}*\\.\n\n"
-        "ודא שהמספר תקין \\(ללא מקפים או עם מקפים\\)\\."
-    )
-
-
-def format_error() -> str:
-    return (
-        "⚠️ אירעה שגיאה בעת שליפת הנתונים\\.\n"
-        "נסה שוב עוד כמה שניות\\."
-    )
 
 
 def yad2_label(record: dict) -> str:
