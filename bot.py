@@ -36,7 +36,7 @@ from src.users import (
     log_sent_message,
     set_broadcast_consent, get_broadcast_consent,
 )
-from src.rich import rich_enabled, send_rich_message
+from src.rich import send_rich_message
 from src.formatter import (
     quick_summary_rich,
     get_summary,
@@ -472,15 +472,26 @@ def _admin_gen_keyboard() -> InlineKeyboardMarkup:
     ])
 
 
-def _admin_settings_keyboard(maintenance_on: bool = False) -> InlineKeyboardMarkup:
+def _admin_settings_keyboard(maintenance_on: bool = False, rich_on: bool = False) -> InlineKeyboardMarkup:
     maint_label = "🔴 בטל תחזוקה" if maintenance_on else "🔧 הפעל תחזוקה"
     maint_style = "danger" if maintenance_on else None
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("✏️ שנה הודעת תשלום",         callback_data="adm|set_payment")],
         [InlineKeyboardButton("🆓 שנה מספר בדיקות חינמיות", callback_data="adm|set_free")],
         [InlineKeyboardButton(maint_label,                   callback_data="adm|toggle_maintenance", style=maint_style)],
+        [InlineKeyboardButton("📊 כבה תוצאה כטבלה" if rich_on else "📊 הפעל תוצאה כטבלה", callback_data="adm|toggle_rich")],
         [InlineKeyboardButton("🔙 חזרה",                     callback_data="adm|main")],
     ])
+
+
+async def _settings_view() -> tuple[str, InlineKeyboardMarkup]:
+    import src.users as _u
+    maintenance = (await get_bot_setting("maintenance")) == "1"
+    rich_on     = (await get_bot_setting("rich_messages_enabled")) == "1"
+    return (
+        M.admin_settings(_u.FREE_SEARCHES, maintenance, rich_on),
+        _admin_settings_keyboard(maintenance, rich_on),
+    )
 
 
 async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -648,29 +659,12 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         )
         return
 
-    if action == "settings":
-        import src.users as _u
-        free        = _u.FREE_SEARCHES
-        maintenance = (await get_bot_setting("maintenance")) == "1"
-        await query.edit_message_text(
-            M.admin_settings(free, maintenance),
-            parse_mode=HTML,
-            reply_markup=_admin_settings_keyboard(maintenance),
-        )
-        return
-
-    if action == "toggle_maintenance":
-        maintenance = (await get_bot_setting("maintenance")) == "1"
-        new_val     = "0" if maintenance else "1"
-        await set_bot_setting("maintenance", new_val)
-        maintenance = new_val == "1"
-        import src.users as _u
-        free = _u.FREE_SEARCHES
-        await query.edit_message_text(
-            M.admin_settings(free, maintenance),
-            parse_mode=HTML,
-            reply_markup=_admin_settings_keyboard(maintenance),
-        )
+    if action in ("settings", "toggle_maintenance", "toggle_rich"):
+        if action != "settings":
+            key = "maintenance" if action == "toggle_maintenance" else "rich_messages_enabled"
+            await set_bot_setting(key, "0" if (await get_bot_setting(key)) == "1" else "1")
+        text, kb = await _settings_view()
+        await query.edit_message_text(text, parse_mode=HTML, reply_markup=kb)
         return
 
     if action == "set_payment":
@@ -1121,13 +1115,8 @@ async def handle_admin_keyboard(update: Update, context: ContextTypes.DEFAULT_TY
         )
 
     async def send_settings():
-        import src.users as _u
-        maintenance = (await get_bot_setting("maintenance")) == "1"
-        await update.message.reply_text(
-            M.admin_settings(_u.FREE_SEARCHES, maintenance),
-            parse_mode=HTML,
-            reply_markup=_admin_settings_keyboard(maintenance),
-        )
+        text, kb = await _settings_view()
+        await update.message.reply_text(text, parse_mode=HTML, reply_markup=kb)
 
     async def send_broadcast_prompt():
         await update.message.reply_text(
@@ -1823,8 +1812,8 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     result_kb = build_result_keyboard(
         is_admin=(user_id == ADMIN_ID), record=record, yad2_link=yad2_link,
     )
-    # Table layout via sendRichMessage (opt-in, RICH_MESSAGES=1); any failure falls through to classic HTML.
-    if rich_enabled() and await send_rich_message(
+    # Table layout via sendRichMessage (admin setting rich_messages_enabled); any failure falls through to classic HTML.
+    if await send_rich_message(
         update.effective_chat.id,
         M.result_card_rich(name, plate, quick_summary_rich(record), footer_text),
         reply_markup=result_kb,

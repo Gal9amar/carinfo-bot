@@ -46,7 +46,7 @@ carinfo-bot/
 │   ├── yad2_models.json   # manufacturer→model→Yad2 ID map
 │   ├── yad2_watcher.py     # new-listing alerts ("watches")
 │   ├── formatter.py        # vehicle data → Telegram text (HTML)
-│   ├── rich.py             # sendRichMessage client (tables), opt-in via RICH_MESSAGES
+│   ├── rich.py             # sendRichMessage client (tables), gated by bot_settings.rich_messages_enabled
 │   ├── messages.py         # ALL user/admin bot copy: HTML builders, personal tone, first-name greeting
 │   ├── pdf_report.py       # PDF report (reportlab + python-bidi)
 │   ├── tickets.py  activity.py  cache.py(1h TTL)  
@@ -115,6 +115,7 @@ Created idempotently at startup (`init_db()` in `src/db.py` plus per-module `ini
 | `yad2_watch_enabled` / `_public*` / `_groups` / `yad2_watch_max` | 0 … / 2 | New-listing alerts feature + default per-user limit |
 | `pdf_report_enabled` / `pdf_report_public*` / `pdf_report_groups` | — | PDF report feature gate |
 | `order_sequence` | 0 | Counter for order refs (`{member_id}-{seq:05d}`) |
+| `rich_messages_enabled` | 0 | Send the lookup result card as a table via `sendRichMessage` (Bot API 10.1+, `src/rich.py`). Toggle: admin panel → Settings, or bot `/admin` → settings. Any API failure falls back to the classic HTML card |
 
 ---
 
@@ -228,7 +229,6 @@ Seeded when table empty: 🔍 50 חיפושים ₪10 · 🔍 100 חיפושים
 | `YAD2_PROXY_URL`, `YAD2_PROXY_SECRET`, `YAD2_CF_WORKER_URL` | — | Israeli-IP proxy for Yad2 (secrets: set via env, don't commit) |
 | `PORT` | 8080 | Server port |
 | `LOGO_PATH`, `COVER_PATH` | — | PDF assets |
-| `RICH_MESSAGES` | 0 | `1` = send the lookup result card as a table via `sendRichMessage` (Bot API 10.1+, `src/rich.py`); any API failure falls back to the classic HTML card |
 
 `APP_VERSION` in `api.py` is a **hardcoded string** (comment about `RENDER_GIT_COMMIT` is outdated): bump it to force all clients to reload.
 

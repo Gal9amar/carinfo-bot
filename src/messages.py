@@ -633,12 +633,14 @@ def admin_stats_short(stats: dict) -> str:
     )
 
 
-def admin_settings(free: int, maintenance_on: bool) -> str:
+def admin_settings(free: int, maintenance_on: bool, rich_on: bool = False) -> str:
     maint = "🔴 פעיל" if maintenance_on else "🟢 כבוי"
+    rich = "🟢 פעיל" if rich_on else "⚪ כבוי"
     return (
         f"⚙️ {b('הגדרות בוט')}\n\n"
         f"• בדיקות חינמיות למשתמש חדש: {b(free)}\n"
-        f"• מצב תחזוקה: {b(maint)}"
+        f"• מצב תחזוקה: {b(maint)}\n"
+        f"• תוצאת חיפוש כטבלה: {b(rich)}"
     )
 
 

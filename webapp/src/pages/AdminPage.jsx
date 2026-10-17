@@ -4236,6 +4236,15 @@ function SettingsTab() {
     setSaving(false)
   }
 
+  async function toggleRichMessages() {
+    setSaving(true)
+    try {
+      await adminUpdateSettings({ rich_messages_enabled: !settings.rich_messages_enabled })
+      setSettings(s => ({ ...s, rich_messages_enabled: !s.rich_messages_enabled }))
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    setSaving(false)
+  }
+
   async function saveFree() {
     setSaving(true)
     try {
@@ -4286,6 +4295,25 @@ function SettingsTab() {
           <button
             className={`toggle ${settings.maintenance ? 'on' : ''}`}
             onClick={toggleMaintenance}
+            disabled={saving}
+            style={{ margin: 0, opacity: saving ? 0.6 : 1 }}
+          />
+        </div>
+
+        {/* Rich messages (tables) */}
+        <div className="card" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, borderLeft: settings.rich_messages_enabled ? '4px solid #10b981' : '4px solid #9ca3af' }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              📊 תוצאת חיפוש כטבלה
+              <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: settings.rich_messages_enabled ? 'rgba(16, 185, 129, 0.1)' : 'rgba(156, 163, 175, 0.15)', color: settings.rich_messages_enabled ? '#10b981' : '#6b7280', fontWeight: 700 }}>
+                {settings.rich_messages_enabled ? 'פעיל' : 'כבוי'}
+              </span>
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>שולח את כרטיס התוצאה בבוט כטבלה (Rich Message). אם השליחה נכשלת, נשלח הכרטיס הרגיל.</div>
+          </div>
+          <button
+            className={`toggle ${settings.rich_messages_enabled ? 'on' : ''}`}
+            onClick={toggleRichMessages}
             disabled={saving}
             style={{ margin: 0, opacity: saving ? 0.6 : 1 }}
           />

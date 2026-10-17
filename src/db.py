@@ -277,6 +277,7 @@ async def init_db() -> None:
     conn.execute(
         "INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('maintenance', '0')"
     )
+    conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('rich_messages_enabled', '0')")
     conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('referral_bonus', '10')")
     conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('free_searches', '10')")
     conn.execute("INSERT OR IGNORE INTO bot_settings (key, value) VALUES ('promo_searches', '0')")
