@@ -92,7 +92,7 @@ export default function HomePage({ user, onNavigate, onSearchPlate }) {
         >
           <div style={{ fontSize: 24 }} aria-hidden="true">🔧</div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 15, color: '#b45309' }}>השירות בתחזוקה כרגע</div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: '#92400e' }}>השירות בתחזוקה כרגע</div>
             <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
               {user?.is_admin ? 'מצב תחזוקה פעיל — החיפוש פתוח עבורך כמנהל' : 'חיפוש רכבים זמנית אינו זמין. נחזור בקרוב!'}
             </div>
@@ -174,7 +174,7 @@ export default function HomePage({ user, onNavigate, onSearchPlate }) {
           {plan.expires ? (
             <div style={{
               marginTop: 10, fontSize: 13, lineHeight: 1.5, fontWeight: plan.expiringSoon ? 700 : 500,
-              color: plan.expiringSoon ? '#b45309' : 'var(--text-main)',
+              color: plan.expiringSoon ? '#92400e' : 'var(--text-main)',
             }}>
               {plan.expiringSoon ? '⚠️ שימו לב · ' : '✓ '}בתוקף עד{' '}
               <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>{formatPlanExpiry(plan.expires)}</span>

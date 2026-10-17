@@ -597,7 +597,7 @@ button:focus-visible, a:focus-visible, [role="button"]:focus-visible, [tabindex]
 .admin-item-btn:disabled { opacity: 0.4; cursor: default; }
 .admin-item-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
 .admin-item-btn.del { color: var(--ai-danger); border-color: rgba(180, 35, 24, 0.3); }
-.admin-item-confirm { margin-top: 12px; padding: 12px; border-radius: 14px; background: #fef2f2; border: 1px solid rgba(180, 35, 24, 0.25); }
+.admin-item-confirm { --ai-danger: #b42318; margin-top: 12px; padding: 12px; border-radius: 14px; background: #fef2f2; border: 1px solid rgba(180, 35, 24, 0.25); }
 .admin-item-confirm p { margin: 0 0 10px; font-size: 14px; font-weight: 700; color: #7f1d1d; overflow-wrap: anywhere; }
 .admin-item-confirm .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .admin-item-confirm .admin-item-btn { flex-direction: row; min-height: 48px; font-size: 14px; }

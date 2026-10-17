@@ -70,7 +70,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
           {plan.expires && (
             <div style={{
               marginTop: 8, fontSize: 13, lineHeight: 1.5,
-              color: plan.expiringSoon ? '#b45309' : 'var(--text-main)', fontWeight: plan.expiringSoon ? 700 : 500,
+              color: plan.expiringSoon ? '#92400e' : 'var(--text-main)', fontWeight: plan.expiringSoon ? 700 : 500,
             }}>
               {plan.expiringSoon ? '⚠️ ' : ''}בתוקף עד <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>{formatPlanExpiry(plan.expires)}</span> · {daysLeftLabel(plan.daysLeft)}
             </div>
@@ -425,7 +425,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
             <div style={{
               padding: '8px 14px', fontSize: 13, fontWeight: 600, lineHeight: 1.5,
               background: plan.expiringSoon ? 'rgba(255,149,0,0.14)' : 'rgba(46,125,50,0.08)',
-              color: plan.expiringSoon ? '#b45309' : '#1b5e20',
+              color: plan.expiringSoon ? '#92400e' : '#1b5e20',
             }}>
               {plan.expiringSoon ? '⚠️ ' : ''}בתוקף עד <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>{formatPlanExpiry(plan.expires)}</span> · {daysLeftLabel(plan.daysLeft)}
             </div>

@@ -104,7 +104,7 @@ export default function ProfilePage({ user, onNavigate, onBack, onAccountDeleted
         {plan.expires && (
           <div style={{
             display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', fontSize: 13, lineHeight: 1.5,
-            color: plan.expiringSoon ? '#b45309' : 'var(--text-main)', fontWeight: plan.expiringSoon ? 700 : 500,
+            color: plan.expiringSoon ? '#92400e' : 'var(--text-main)', fontWeight: plan.expiringSoon ? 700 : 500,
           }}>
             <span>{plan.expiringSoon ? '⚠️ ' : ''}בתוקף עד <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>{formatPlanExpiry(plan.expires)}</span></span>
             <span>{daysLeftLabel(plan.daysLeft)}</span>
