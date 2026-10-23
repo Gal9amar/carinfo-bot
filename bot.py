@@ -1740,27 +1740,25 @@ async def handle_mirror_noop(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await update.callback_query.answer("זה רק העתק של מה שהמשתמש ראה — הכפתור לא פעיל", show_alert=True)
 
 
-def _consent_keyboard(bits: str) -> InlineKeyboardMarkup:
-    rows = [
-        [InlineKeyboardButton(f"{'✅' if bits[k] == '1' else '⬜'} {M.CONSENT_ITEMS[k]}",
-                              callback_data=f"consent|t|{k}|{bits}")]
-        for k in range(len(M.CONSENT_ITEMS))
-    ]
+def _consent_keyboard(bits: str = "1111") -> InlineKeyboardMarkup:
+    """One tap approves every item (the full list is spelled out in the message above)."""
     webapp_url = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_URL", "https://carinfo-bot.onrender.com")
-    rows.append([InlineKeyboardButton("📄 קריאת תנאי השימוש והמדיניות", web_app=WebAppInfo(url=f"{webapp_url}?page=privacy"))])
-    rows.append([InlineKeyboardButton("▶️ אני מאשר/ת — המשך", callback_data=f"consent|ok|0|{bits}")])
-    return InlineKeyboardMarkup(rows)
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📄 קריאת תנאי השימוש והמדיניות", web_app=WebAppInfo(url=f"{webapp_url}?page=privacy"))],
+        [InlineKeyboardButton("✅ אני מאשר/ת את כל התנאים — המשך", callback_data="consent|ok|0|" + "1" * len(M.CONSENT_ITEMS))],
+    ])
 
 
 async def _send_consent_screen(target, user, reapprove: bool) -> None:
     await target.reply_text(
-        M.consent_screen(_first_name(user), "0000", reapprove),
-        parse_mode=HTML, reply_markup=_consent_keyboard("0000"),
+        M.consent_screen(_first_name(user), reapprove=reapprove),
+        parse_mode=HTML, reply_markup=_consent_keyboard(),
     )
 
 
 async def handle_consent_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """consent|t|<idx>|<bits> toggles one item · consent|ok|0|<bits> continues (only when all approved)."""
+    """consent|ok|0|<bits> approves everything in one tap. consent|t|… is only kept for
+    consent screens sent before the single-button flow (they still toggle)."""
     query = update.callback_query
     user = query.from_user
     try:
@@ -1774,8 +1772,8 @@ async def handle_consent_callback(update: Update, context: ContextTypes.DEFAULT_
         bits = bits[:k] + ("0" if bits[k] == "1" else "1") + bits[k + 1:]
         try:
             await query.edit_message_text(
-                M.consent_screen(_first_name(user), bits), parse_mode=HTML,
-                reply_markup=_consent_keyboard(bits),
+                M.consent_screen(_first_name(user)), parse_mode=HTML,
+                reply_markup=_consent_keyboard(),
             )
         except Exception:
             pass

@@ -127,15 +127,13 @@ CONSENT_ITEMS = [
 ]
 
 
-def consent_screen(name: str, bits: str = "0000", reapprove: bool = False) -> str:
+def consent_screen(name: str, reapprove: bool = False) -> str:
     opener = (
         f"👋 {_n(name)}, עדכנו את תנאי השימוש ומדיניות הפרטיות — נדרש אישור מחדש כדי להמשיך."
         if reapprove else
         f"👋 היי {_n(name)}, ברוך הבא ל-{b('CarInfo')}!"
     )
-    checks = "\n".join(
-        f"{'✅' if bits[k] == '1' else '⬜'} {CONSENT_ITEMS[k]}" for k in range(len(CONSENT_ITEMS))
-    )
+    checks = "\n".join(f"• {t}" for t in CONSENT_ITEMS)
     return (
         f"{opener}\n\n"
         f"{b('לפני שמתחילים — ובכמה מילים על מה שחשוב לדעת:')}\n"
@@ -149,7 +147,7 @@ def consent_screen(name: str, bits: str = "0000", reapprove: bool = False) -> st
             "(אפליקציה ← פרופיל ← מחיקת החשבון).\n"
             "• אפשר להפסיק לקבל שידורים בכל עת עם /optout."
         )
-        + f"\n\n{b('יש לאשר את כל הסעיפים כדי להמשיך להשתמש בבוט:')}\n{checks}"
+        + f"\n\n{b('בלחיצה על “אני מאשר/ת” אני מצהיר/ה כי:')}\n{checks}"
     )
 
 

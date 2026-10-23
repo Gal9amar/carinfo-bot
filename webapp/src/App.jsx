@@ -423,37 +423,28 @@ const CONSENT_ITEMS = [
 ]
 
 function ConsentScreen({ onPrivacy, onApproved }) {
-  const [checked, setChecked] = useState(CONSENT_ITEMS.map(() => false))
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false)
-  const all = checked.every(Boolean)
   return (
     <div className="page">
       <div className="card">
         <h1 style={{ fontWeight: 800, fontSize: 17, margin: '0 0 6px' }}>אישור תנאי שימוש</h1>
         <p style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--text-muted)', margin: '0 0 12px' }}>
-          כדי להמשיך להשתמש בשירות יש לאשר את כל הסעיפים. אנו שומרים את הנתונים שהזנת ואת פעולותיך בשירות,
-          ותוכל למחוק את החשבון וכל הנתונים בכל עת מהפרופיל.
+          אנו שומרים את הנתונים שהזנת ואת פעולותיך בשירות, ותוכל למחוק את החשבון וכל הנתונים בכל עת מהפרופיל.
         </p>
         <button onClick={onPrivacy} style={{ background: 'none', border: 'none', textDecoration: 'underline', color: 'var(--primary)', fontSize: 13, cursor: 'pointer', padding: 4, marginBottom: 8 }}>
           קריאת תנאי השימוש ומדיניות הפרטיות
         </button>
-        <fieldset style={{ border: 'none', margin: 0, padding: 0 }}>
-          <legend className="sr-only">סעיפים לאישור</legend>
-          {CONSENT_ITEMS.map((text, k) => (
-            <label key={k} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 0', fontSize: 14, lineHeight: 1.5, cursor: 'pointer' }}>
-              <input type="checkbox" checked={checked[k]} style={{ width: 22, height: 22, flexShrink: 0, marginTop: 1 }}
-                onChange={() => setChecked(c => c.map((v, i) => (i === k ? !v : v)))} />
-              <span>{text}</span>
-            </label>
-          ))}
-        </fieldset>
+        <p style={{ fontSize: 13, fontWeight: 700, margin: '4px 0' }}>בלחיצה על “אני מאשר/ת” אני מצהיר/ה כי:</p>
+        <ul style={{ margin: 0, paddingInlineStart: 20, fontSize: 14, lineHeight: 1.7 }}>
+          {CONSENT_ITEMS.map((text, k) => <li key={k}>{text}</li>)}
+        </ul>
         {failed && <div role="alert" style={{ color: '#dc2626', fontSize: 13, marginTop: 6 }}>האישור נכשל. נסה שוב.</div>}
-        <button className="btn" disabled={!all || busy} style={{ marginTop: 12 }}
+        <button className="btn" disabled={busy} style={{ marginTop: 12 }}
           onClick={async () => {
             setBusy(true); setFailed(false)
             try { await approveConsent(); onApproved() } catch { setFailed(true); setBusy(false) }
-          }}>{busy ? 'שומר…' : 'אני מאשר/ת — המשך'}</button>
+          }}>{busy ? 'שומר…' : 'אני מאשר/ת את כל התנאים — המשך'}</button>
       </div>
     </div>
   )
