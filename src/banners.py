@@ -47,7 +47,7 @@ async def init_banners() -> None:
         await execute(
             "INSERT INTO banners (title, subtitle, icon, color_from, color_to, link_type, link_value, placements, display_order) "
             "VALUES (?,?,?,?,?,?,?,?,?)",
-            ["קבל חיפושים בחינם!", "הפנה חברים וקבל חיפושים על כל הצטרפות ←", "🎁",
+            ["קבל ימי Premium במתנה!", "הפנה חברים וקבל ימי Premium על כל הצטרפות ←", "🎁",
              "#38a169", "#276749", "page", "referral", json.dumps(["home"]), 1],
         )
         await execute(
@@ -61,13 +61,13 @@ async def init_banners() -> None:
     # inserted once (matched by title) so they become admin-editable even on
     # databases that already ran the seed above before this existed.
     await _backfill_banner(
-        "הפנה חברים — קבל חיפושים על כל הצטרפות",
+        "הפנה חברים — קבל ימי Premium על כל הצטרפות",
         "כל חבר שמצטרף לבוט דרך הלינק שלך מוסיף לך חיפושים אוטומטית", "🎁",
         "#2481cc", "#1a5fa8", "page", "packages", ["referral"],
     )
     await _backfill_banner(
-        "רוצה חיפושים בחינם?",
-        "הפנה חברים וקבל חיפושים על כל הצטרפות ←", "🎁",
+        "רוצה Premium בחינם?",
+        "הפנה חברים וקבל ימי Premium על כל הצטרפות ←", "🎁",
         "#38a169", "#276749", "page", "referral", ["packages"],
     )
 

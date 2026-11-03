@@ -92,7 +92,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
           ⭐ מה זה מסלול Premium?
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9, fontSize: 13 }}>
-          <Row icon="♾️" text="חיפושים ללא הגבלה למשך חודש מיום הפעלת המסלול" />
+          <Row icon="♾️" text="כל פיצ׳רי הפרימיום פתוחים למשך חודש מיום הפעלת המסלול" />
           <Row icon="🔓" text="כל פיצ'רי הפרימיום פתוחים: מחיר שוק, התראות על מודעות חדשות ב-Yad2 ודוח PDF — וכל פיצ'ר פרימיום שיתווסף בעתיד ייפתח לך אוטומטית" />
           <Row icon="⚖️" text="השוואת רכבים פתוחה לכל המשתמשים, גם בלי מסלול" />
           <Row icon="💳" text="תשלום חד-פעמי — אין חיוב חוזר ואין חידוש אוטומטי" />

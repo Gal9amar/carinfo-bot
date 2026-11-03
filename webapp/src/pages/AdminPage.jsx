@@ -1855,7 +1855,7 @@ function ChipsEditor({ chips, onChange, isFree, suggestions = [] }) {
   const availableSuggestions = suggestions.filter(s => !chips.includes(s))
 
   return (
-    <FieldGroup label="ציפים" hint={isFree ? 'הציפ "X חיפושים נותרו" מוצג אוטומטית' : undefined}>
+    <FieldGroup label="ציפים" hint={undefined}>
       {/* Current chips */}
       {chips.length > 0 && (
         <div className="sheet-chips" style={{ marginBottom: 10 }}>
@@ -2128,9 +2128,9 @@ function PackageModal({ title, form, setForm, saving, onSave, onClose, suggestio
 
 function grantTypeLabel(searches) {
   if (searches === 0) return 'איפוס למסלול החינמי'
-  if (searches === -1) return 'מסלול Premium לתקופה (חודש כברירת מחדל)'
-  if (searches === -2) return 'Premium קבוע ללא תפוגה'
-  return `הוספת ${searches} חיפושים`
+  if (searches === -1) return 'מנוי ל-30 יום'
+  if (searches === -2) return 'מנוי קבוע ללא תפוגה'
+  return `הוספת ${searches} ימי מנוי`
 }
 
 // Subscription plans (active unlimited packages) an admin can pick for a benefit / code / gift.
@@ -2145,7 +2145,7 @@ function PlanSelect({ id, value, onChange, plans, disabled }) {
   return (
     <select id={id} className="input" value={value || ''} disabled={disabled || !plans}
       onChange={e => onChange(e.target.value ? parseInt(e.target.value) : null)}
-      style={{ margin: 0, height: 44, borderRadius: 12 }}>
+      style={{ margin: 0, minHeight: 48, height: 'auto', borderRadius: 12, padding: '10px 12px', lineHeight: 1.4 }}>
       <option value="">{def ? `ברירת מחדל (${def.label})` : 'ברירת מחדל'}</option>
       {(plans || []).map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
     </select>
@@ -2914,7 +2914,7 @@ function GiftAllSection({ onDone }) {
 function userStatus(u) {
   if (u.blocked) return { label: 'חסום', color: '#c53030', bg: '#c5303018' }
   if (u.is_subscriber || u.searches_left === -1) return { label: 'מנוי', color: '#0066d6', bg: '#0066d618' }
-  return { label: 'חינמי', color: '#177a33', bg: '#177a3318' }
+  return { label: 'חינם', color: '#177a33', bg: '#177a3318' }
 }
 
 function relativeTime(ts) {
@@ -3021,10 +3021,9 @@ function UserCard({ u, expanded, onToggle, onEdit, onMessage, onHistory, onReloa
         <div style={{ borderTop: '1px solid var(--border)', padding: '16px', background: 'rgba(0,0,0,0.02)' }} onClick={e => e.stopPropagation()}>
 
           {/* Stats mini-grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 16 }}>
             {[
-              { label: 'נעשו', value: u.searches_done, color: '#0066d6' },
-              { label: 'נותרו', value: left, color: st.color },
+              { label: 'חיפושים', value: u.searches_done, color: '#0066d6' },
               { label: 'מסלול', value: u.searches_quota === -1 ? 'מנוי' : 'חינמי', color: '#0066d6' },
               { label: 'מזהה', value: u.user_id, mono: true },
             ].map(({ label, value, color, mono }) => (
@@ -3274,7 +3273,6 @@ function UsersTab() {
     ['all',        'הכל',     null],
     ['subscriber', 'מנויים',  'מנוי'],
     ['free',       'חינם',    'חינם'],
-    ['empty',      'אזל',     'אזל'],
     ['blocked',    'חסום',    'חסום'],
   ]
 
@@ -4106,7 +4104,6 @@ function PromoTab() {
   const [planId, setPlanId]       = useState(null)
   const plans = usePlans()
   const [days, setDays]           = useState('30')
-  const [isSub, setIsSub]         = useState(false)
   const [label, setLabel]         = useState('')
   const [start, setStart]         = useState('')
   const [end, setEnd]             = useState('')
@@ -4118,7 +4115,6 @@ function PromoTab() {
     setMode(ps === 0 ? 'off' : 'premium')
     setPlanId(s.promo_plan_id || null)
     setDays(String(s.promo_duration_days ?? 30))
-    setIsSub(!!s.promo_is_subscriber)
     setLabel(s.promo_label || '')
     setStart(s.promo_start || '')
     setEnd(s.promo_end || '')
@@ -4303,7 +4299,7 @@ function PromoTab() {
       {msg && <div role={msg.ok ? 'status' : 'alert'} className={'promo-msg ' + (msg.ok ? 'ok' : 'bad')}>{msg.ok ? '✓ ' : '✕ '}{msg.text}</div>}
 
       <div className="promo-actions">
-        <button type="button" className="btn" disabled={saving || rangeBad || countBad} onClick={save}>
+        <button type="button" className="btn" disabled={saving || rangeBad} onClick={save}>
           {saving ? 'שומר...' : mode === 'off' ? 'שמור (ללא מבצע)' : 'שמור והפעל מבצע'}
         </button>
         {ps !== 0 && !confirmClear && (
@@ -4312,7 +4308,7 @@ function PromoTab() {
       </div>
       {confirmClear && (
         <AdminItemConfirm
-          text="לבטל את המבצע? משתמשים חדשים יקבלו רק את החיפושים החינמיים. משתמשים שכבר קיבלו הטבה לא יושפעו."
+          text="לבטל את המבצע? משתמשים חדשים יקבלו רק את ימי הניסיון הרגילים. משתמשים שכבר קיבלו הטבה לא יושפעו."
           yesLabel="כן, בטל מבצע" noLabel="חזרה" busy={saving}
           onYes={clearPromo} onNo={() => setConfirmClear(false)} />
       )}
