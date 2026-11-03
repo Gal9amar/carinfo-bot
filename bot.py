@@ -160,6 +160,17 @@ def normalize_plate(text: str) -> str:
     return text.strip().replace("-", "").replace(" ", "")
 
 
+async def _result_features(user_id: int) -> frozenset:
+    """Premium buttons this user is entitled to on a result card (shared by every path that builds one)."""
+    from src.features import feature_open, levi_open
+    feats = set()
+    if await feature_open(user_id, "yad2_watch"):
+        feats.add("yad2_watch")
+    if await levi_open(user_id):
+        feats.add("levi")
+    return frozenset(feats)
+
+
 def build_result_keyboard(
     is_admin: bool = False,
     record: dict | None = None,
@@ -1102,7 +1113,10 @@ async def handle_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await query.message.reply_text(
             card,
             parse_mode=HTML,
-            reply_markup=build_result_keyboard(is_admin=is_admin, record=record, yad2_link=yad2_link),
+            reply_markup=build_result_keyboard(
+                is_admin=is_admin, record=record, yad2_link=yad2_link,
+                features=await _result_features(user_id),
+            ),
         )
         return
 
@@ -2399,13 +2413,7 @@ async def _lookup_flow(message, tg_user, chat_id: int, context: ContextTypes.DEF
             pass
 
     yad2_link = _yad2.build_url(record)
-    from src.features import feature_open, levi_open
-    _feat = set()
-    if await feature_open(user_id, "yad2_watch"):
-        _feat.add("yad2_watch")
-    if await levi_open(user_id):
-        _feat.add("levi")
-    open_features = frozenset(_feat)
+    open_features = await _result_features(user_id)
     result_kb = build_result_keyboard(
         is_admin=(user_id == ADMIN_ID), record=record, yad2_link=yad2_link, features=open_features,
     )
