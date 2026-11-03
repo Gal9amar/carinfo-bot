@@ -157,6 +157,25 @@ export async function adminFetchStats() {
   return r.json()
 }
 
+// Admin: Levi Yitzhak price-list check
+async function leviCall(path, method = 'POST', body) {
+  const r = await fetch(`${BASE}/api/admin/levi/${path}`, {
+    method, headers: headers(), body: body === undefined ? undefined : JSON.stringify(body),
+  })
+  const data = await r.json().catch(() => ({}))
+  if (!r.ok) {
+    const err = new Error(typeof data.detail === 'string' ? data.detail : `שגיאה ${r.status}`)
+    err.authExpired = r.status === 401 && String(data.detail || '').startsWith('levi_auth')
+    throw err
+  }
+  return data
+}
+export const adminLeviStatus = () => leviCall('status', 'GET')
+export const adminLeviSendSms = (phone) => leviCall('send-sms', 'POST', { phone })
+export const adminLeviValidate = (code) => leviCall('validate', 'POST', { code })
+export const adminLeviLookup = (plate) => leviCall('lookup', 'POST', { plate })
+export const adminLeviLogout = () => leviCall('logout', 'POST')
+
 export async function adminFetchUsers() {
   const r = await fetch(`${BASE}/api/admin/users`, { headers: headers() })
   if (!r.ok) throw new Error('Unauthorized')

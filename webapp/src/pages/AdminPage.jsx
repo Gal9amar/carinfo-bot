@@ -42,6 +42,7 @@ import {
   adminUploadProductStock, adminFetchProductStock, adminDeleteProductStockUnit,
   adminFetchBanners, adminAddBanner, adminUpdateBanner, adminDeleteBanner, adminReorderBanners,
   adminFetchReportLayout, adminSaveReportLayout, adminResetReportLayout,
+  adminLeviStatus, adminLeviSendSms, adminLeviValidate, adminLeviLookup, adminLeviLogout,
 } from '../api.js'
 import BackButton from '../components/BackButton.jsx'
 import AdminItemCard, { AdminItemBtn, AdminItemConfirm } from '../components/AdminItemCard.jsx'
@@ -54,6 +55,7 @@ const TABS = [
   { id: 'products', icon: '📦', label: 'מוצרים דיגיטליים' },
   { id: 'banners',  icon: '🖼️', label: 'באנרים' },
   { id: 'report_layout', icon: '🧩', label: 'סדר הדוח' },
+  { id: 'levi', icon: '📗', label: 'בדיקת מחירון לוי יצחק' },
   { id: 'grants',   icon: '🎁', label: 'הטבות מנהל' },
   { id: 'codes',    icon: '🔑', label: 'קודים' },
   { id: 'users',     icon: '👥', label: 'משתמשים' },
@@ -127,6 +129,7 @@ export default function AdminPage({ user, onBack }) {
       {tab === 'products' && <ProductsTab />}
       {tab === 'banners'  && <BannersTab />}
       {tab === 'report_layout' && <ReportLayoutTab />}
+      {tab === 'levi' && <LeviTab />}
       {tab === 'grants'   && <AdminGrantsTab />}
       {tab === 'codes'    && <CodesSection standalone />}
       {tab === 'users'     && <UsersTab />}
@@ -153,6 +156,137 @@ const rlClean = (layout) => ({
   summary: (Array.isArray(layout?.summary) ? layout.summary : []).map(i => ({ id: i.id, visible: i.visible !== false })),
   full: (Array.isArray(layout?.full) ? layout.full : []).map(i => ({ id: i.id, visible: i.visible !== false })),
 })
+
+function LeviTab() {
+  // loading (checking status) | phone | code | plate
+  const [step, setStep] = useState('loading')
+  const [phoneMask, setPhoneMask] = useState('')
+  const [phone, setPhone] = useState('')
+  const [code, setCode] = useState('')
+  const [plate, setPlate] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const [result, setResult] = useState(null)
+  const [showRaw, setShowRaw] = useState(false)
+
+  useEffect(() => {
+    adminLeviStatus()
+      .then(s => { setPhoneMask(s.phone || ''); setStep(s.logged_in ? 'plate' : 'phone') })
+      .catch(() => setStep('phone'))
+  }, [])
+
+  async function run(fn) {
+    setBusy(true); setErr('')
+    try { await fn() } catch (e) {
+      if (e.authExpired) { setStep('phone'); setResult(null) }
+      setErr(e.message || 'שגיאה')
+    } finally { setBusy(false) }
+  }
+
+  const sendSms = () => run(async () => {
+    const r = await adminLeviSendSms(phone)
+    setPhoneMask(r.phone); setCode(''); setStep('code')
+  })
+  const validate = () => run(async () => {
+    const r = await adminLeviValidate(code)
+    setPhoneMask(r.phone); setStep('plate')
+  })
+  const lookup = () => run(async () => {
+    setResult(null); setShowRaw(false)
+    setResult(await adminLeviLookup(plate))
+  })
+  const logout = () => run(async () => {
+    await adminLeviLogout()
+    setStep('phone'); setResult(null); setPhone(''); setPhoneMask('')
+  })
+
+  const inputStyle = {
+    width: '100%', padding: '12px 14px', borderRadius: 12, border: '1px solid var(--border)',
+    background: 'var(--bg)', color: 'var(--text-main)', fontSize: 16, boxSizing: 'border-box',
+  }
+  const btnStyle = (primary = true) => ({
+    padding: '12px 18px', borderRadius: 12, border: primary ? 'none' : '1px solid var(--border)',
+    background: primary ? 'var(--primary)' : 'var(--bg)', color: primary ? '#fff' : 'var(--text-main)',
+    fontWeight: 700, fontSize: 15, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1,
+  })
+  const s = result?.summary
+  const rows = s ? [
+    ['גרסה', s.trim], ['שנה', s.year], ['סוג', s.type], ['רמת גימור', s.trim_level],
+    ['עלייה לכביש', s.aliya], ['נפח מנוע', s.engine_cc ? `${Number(s.engine_cc).toLocaleString()} סמ"ק` : null],
+  ].filter(([, v]) => v) : []
+
+  if (step === 'loading') return <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><div className="loading"></div></div>
+
+  return (
+    <div className="tab-fade-in" style={{ display: 'grid', gap: 16 }}>
+      <div className="card" style={{ padding: 20, display: 'grid', gap: 14 }}>
+        <div style={{ fontWeight: 800, fontSize: 17 }}>📗 בדיקת מחירון לוי יצחק</div>
+
+        {step === 'phone' && (<>
+          <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>
+            הזן את מספר הנייד שלך. לוי יצחק ישלחו אליו SMS עם קוד אימות בן 6 ספרות.
+          </div>
+          <input style={inputStyle} inputMode="tel" dir="ltr" placeholder="05XXXXXXXX" value={phone}
+            onChange={e => setPhone(e.target.value)} onKeyDown={e => e.key === 'Enter' && !busy && sendSms()} />
+          <button style={btnStyle()} disabled={busy || !phone.trim()} onClick={sendSms}>{busy ? 'שולח…' : 'שלח קוד SMS'}</button>
+        </>)}
+
+        {step === 'code' && (<>
+          <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>
+            קוד אימות נשלח אל <b dir="ltr">{phoneMask}</b>. הזן את 6 הספרות:
+          </div>
+          <input style={{ ...inputStyle, letterSpacing: 6, textAlign: 'center' }} inputMode="numeric" dir="ltr"
+            maxLength={6} placeholder="••••••" value={code} autoFocus
+            onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
+            onKeyDown={e => e.key === 'Enter' && !busy && code.length === 6 && validate()} />
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button style={{ ...btnStyle(), flex: 1 }} disabled={busy || code.length !== 6} onClick={validate}>{busy ? 'מאמת…' : 'אמת והתחבר'}</button>
+            <button style={btnStyle(false)} disabled={busy} onClick={() => { setStep('phone'); setErr('') }}>שינוי מספר</button>
+          </div>
+        </>)}
+
+        {step === 'plate' && (<>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--text-muted)' }}>
+            <span>✅ מחובר עם <b dir="ltr">{phoneMask}</b></span>
+            <button style={{ ...btnStyle(false), padding: '6px 12px', fontSize: 13 }} disabled={busy} onClick={logout}>התנתק</button>
+          </div>
+          <input style={inputStyle} inputMode="numeric" dir="ltr" placeholder="מספר רכב" value={plate}
+            onChange={e => setPlate(e.target.value)} onKeyDown={e => e.key === 'Enter' && !busy && plate.trim() && lookup()} />
+          <button style={btnStyle()} disabled={busy || !plate.trim()} onClick={lookup}>{busy ? 'בודק…' : 'בדוק במחירון'}</button>
+        </>)}
+
+        {err && <div style={{ color: '#c53030', fontSize: 14, fontWeight: 600 }}>⚠️ {err}</div>}
+      </div>
+
+      {s && (
+        <div className="card tab-fade-in" style={{ padding: 20, display: 'grid', gap: 10 }}>
+          <div style={{ fontWeight: 800, fontSize: 16 }}>
+            {[s.manufacturer, s.model].filter(Boolean).join(' ') || 'רכב'} <span dir="ltr" style={{ color: 'var(--text-muted)', fontWeight: 600 }}>· {s.plate}</span>
+          </div>
+          {rows.map(([k, v]) => (
+            <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, borderBottom: '1px solid var(--border)', paddingBottom: 6 }}>
+              <span style={{ color: 'var(--text-muted)' }}>{k}</span><span style={{ fontWeight: 600 }}>{v}</span>
+            </div>
+          ))}
+          <div style={{ fontSize: 15, fontWeight: 800, paddingTop: 4 }}>
+            {s.price
+              ? <>💰 מחיר מחירון בסיס: <span dir="ltr">₪{Math.round(s.price).toLocaleString()}</span></>
+              : <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>לא התקבל מחיר בסיס מהמחירון לרכב זה</span>}
+          </div>
+          {s.price ? <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>לפני התאמה לק"מ, ידיים וסוג בעלות</div> : null}
+          <button style={{ ...btnStyle(false), padding: '8px 12px', fontSize: 13 }} onClick={() => setShowRaw(v => !v)}>
+            {showRaw ? 'הסתר תשובה גולמית' : '📄 תשובה גולמית (JSON)'}
+          </button>
+          {showRaw && (
+            <pre dir="ltr" style={{ margin: 0, maxHeight: 320, overflow: 'auto', fontSize: 12, background: 'var(--bg)', padding: 12, borderRadius: 10, border: '1px solid var(--border)' }}>
+              {JSON.stringify(result.raw, null, 2)}
+            </pre>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function ReportLayoutTab() {
   const [state, setState] = useState('loading') // loading | error | ready

@@ -30,7 +30,7 @@ WEBAPP_URL   = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_U
 # Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
 # webapp can detect a new release and force-reload instead of running stale
 # cached JS. Falls back to process start time for non-Render environments.
-APP_VERSION = "1792259300"
+APP_VERSION = "1793000000"
 
 api = FastAPI()
 
@@ -233,6 +233,90 @@ async def admin_set_report_layout(body: ReportLayoutBody, _: dict = Depends(_req
     if body.reset:
         return {"layout": await reset_layout()}
     return {"layout": await save_layout({"summary": body.summary, "full": body.full})}
+
+
+# ── Admin: Levi Yitzhak price-list check (phone → SMS code → plate) ──────────
+
+class LeviPhoneBody(BaseModel):
+    phone: str
+
+
+class LeviCodeBody(BaseModel):
+    code: str
+
+
+class LeviPlateBody(BaseModel):
+    plate: str
+
+
+def _levi_http_error(e: Exception) -> HTTPException:
+    return HTTPException(status_code=400, detail=str(e))
+
+
+@api.get("/api/admin/levi/status")
+async def admin_levi_status(user: dict = Depends(_require_admin)):
+    from src import levi
+    s = await levi.get_session(int(user["id"]))
+    return {
+        "logged_in": bool(s and s["token"]),
+        "phone": levi.mask_phone(s["phone"]) if s else "",
+        "awaiting_code": bool(s and not s["token"]),
+    }
+
+
+@api.post("/api/admin/levi/send-sms")
+async def admin_levi_send_sms(body: LeviPhoneBody, user: dict = Depends(_require_admin)):
+    from src import levi
+    phone = levi.normalize_phone(body.phone)
+    if not phone:
+        raise HTTPException(status_code=400, detail="מספר הנייד לא תקין (05XXXXXXXX)")
+    try:
+        await levi.send_sms(int(user["id"]), phone)
+    except levi.LeviError as e:
+        raise _levi_http_error(e)
+    return {"ok": True, "phone": levi.mask_phone(phone)}
+
+
+@api.post("/api/admin/levi/validate")
+async def admin_levi_validate(body: LeviCodeBody, user: dict = Depends(_require_admin)):
+    import re
+    from src import levi
+    code = re.sub(r"\D", "", body.code or "")
+    if not levi.CODE_RE.match(code):
+        raise HTTPException(status_code=400, detail="הקוד צריך להיות 6 ספרות")
+    try:
+        result = await levi.validate_sms(int(user["id"]), code)
+    except levi.LeviError as e:
+        raise _levi_http_error(e)
+    if result == levi.WRONG_CODE:
+        raise HTTPException(status_code=400, detail="הקוד שהוזן שגוי")
+    if result == levi.EXPIRED:
+        raise HTTPException(status_code=400, detail="הקוד פג תוקף — בקש קוד חדש")
+    s = await levi.get_session(int(user["id"]))
+    return {"ok": True, "phone": levi.mask_phone(s["phone"]) if s else ""}
+
+
+@api.post("/api/admin/levi/lookup")
+async def admin_levi_lookup(body: LeviPlateBody, user: dict = Depends(_require_admin)):
+    import re
+    from src import levi
+    plate = re.sub(r"\D", "", body.plate or "")
+    if not 5 <= len(plate) <= 8:
+        raise HTTPException(status_code=400, detail="מספר רכב צריך להיות 5–8 ספרות")
+    try:
+        result = await levi.lookup_plate(int(user["id"]), plate)
+    except levi.LeviAuthError as e:
+        raise HTTPException(status_code=401, detail=f"levi_auth: {e}")
+    except levi.LeviError as e:
+        raise _levi_http_error(e)
+    return result
+
+
+@api.post("/api/admin/levi/logout")
+async def admin_levi_logout(user: dict = Depends(_require_admin)):
+    from src import levi
+    await levi.logout(int(user["id"]))
+    return {"ok": True}
 
 
 @api.get("/api/user")
