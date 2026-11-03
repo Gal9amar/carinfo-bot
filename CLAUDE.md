@@ -301,3 +301,6 @@ Skills (`.claude/skills/`): `qa-verify-change` (scripts: `local_api.py`, `sign_i
 
 ### Rich-message tables (RTL)
 Telegram Desktop ignores `is_rtl` for table column ORDER (first cell = leftmost) while the mobile apps mirror it, so `src/rich.py` sends `is_rtl=False` and every Hebrew table is authored in visual LTR order (value column first, label column last = rightmost) with `align='right'` cells; Hebrew paragraphs start with an RLM (`‏`). Keep that convention for any new table (`quick_summary_rich`, `compare_rich`, history table).
+
+### Never block the event loop
+Bot, API and DB replies share ONE asyncio loop. Anything blocking (`urllib`, `time.sleep`, big CPU work) must run via `asyncio.to_thread` / `run_in_executor`. The Yad2 watch job once called the blocking `fetch_listings` directly and froze the whole service for ~10 s every 30 min (a lookup showed `db-writes=13s`). The `api.vehicle` log line (`user/quota … registry … db-writes … total`) shows where a slow lookup spends its time.

@@ -2873,7 +2873,9 @@ async def _yad2_watch_job(context) -> None:
                     _entitled[uid_w] = await feature_open(uid_w, "yad2_watch")
                 if not _entitled[uid_w]:
                     continue   # no longer entitled to alerts: blocked here exactly as in the Mini App
-                listings = _yad2.fetch_listings(w["make"], w.get("model", ""), w.get("year"))
+                # fetch_listings is blocking urllib (up to 15 s + retries): run it off the event loop, otherwise
+                # the whole bot/API (incl. DB replies) freezes for the length of the job every 30 minutes.
+                listings = await asyncio.to_thread(_yad2.fetch_listings, w["make"], w.get("model", ""), w.get("year"))
 
                 label = w["make"]
                 if w.get("model"):

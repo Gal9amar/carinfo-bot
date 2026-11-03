@@ -30,7 +30,7 @@ WEBAPP_URL   = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_U
 # Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
 # webapp can detect a new release and force-reload instead of running stale
 # cached JS. Falls back to process start time for non-Render environments.
-APP_VERSION = "1793745994"
+APP_VERSION = "1793746225"
 
 api = FastAPI()
 
@@ -2793,10 +2793,13 @@ async def yad2_proxy(
 
     yad2_url = f"{base}?{_ue(params)}"
     req = _ureq.Request(yad2_url, headers=_YAD2_HEADERS)
-    try:
+
+    def _fetch() -> tuple[bytes, str]:   # blocking urllib → worker thread, never on the event loop
         with _ureq.urlopen(req, timeout=15) as resp:
-            raw      = resp.read()
-            encoding = resp.headers.get("Content-Encoding", "")
+            return resp.read(), resp.headers.get("Content-Encoding", "")
+
+    try:
+        raw, encoding = await asyncio.to_thread(_fetch)
         if "gzip"    in encoding: raw = _gzip.decompress(raw)
         elif "deflate" in encoding: raw = _zlib.decompress(raw)
         data = json.loads(raw.decode("utf-8"))
