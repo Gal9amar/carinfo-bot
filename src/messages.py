@@ -518,9 +518,9 @@ def levi_calc_result(s: dict, km: int, owner_names: list, price) -> str:
 
 def result_card_rich(name: str, plate: str, summary_html: str, footer_text: str = "") -> str:
     """Result card for sendRichMessage (summary_html is already Rich HTML)."""
-    footer = f"<p><i>{esc(footer_text)}</i></p>" if footer_text else ""
+    footer = f"<p>\u200f<i>{esc(footer_text)}</i></p>" if footer_text else ""
     return (
-        f"<p>🔖 {b(name)}, הנה מה שמצאתי על לוחית {code(plate)}:</p>"
+        f"<p>\u200f🔖 {b(name)}, הנה מה שמצאתי על לוחית {code(plate)}:</p>"
         f"{summary_html}{footer}"
     )
 

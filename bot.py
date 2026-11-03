@@ -1299,11 +1299,11 @@ async def handle_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         from src.users import get_search_history_rows
         rows = await get_search_history_rows(user_id, limit=10)
         body = "".join(
-            f"<tr><td>{M.esc(plate)}</td><td>{M.esc(M.fmt_date(when))}</td></tr>" for plate, when in rows
+            f"<tr><td>{M.esc(M.fmt_date(when))}</td><td>{M.esc(plate)}</td></tr>" for plate, when in rows
         )
         html = (
             f"<p>{M.history_table_intro(_first_name(query.from_user))}</p>"
-            f"<table bordered striped><tr><th>לוחית</th><th>חיפוש אחרון</th></tr>{body}</table>"
+            f"<table bordered striped><tr><th>חיפוש אחרון</th><th>לוחית</th></tr>{body}</table>"
             f"<p><i>לחץ על מספר רכב כדי לצפות שוב — בלי לנכות בדיקה</i></p>"
         )
         if await send_rich_message(query.message.chat_id, html, reply_markup=InlineKeyboardMarkup(buttons)):
