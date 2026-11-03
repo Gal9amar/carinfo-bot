@@ -30,7 +30,7 @@ WEBAPP_URL   = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_U
 # Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
 # webapp can detect a new release and force-reload instead of running stale
 # cached JS. Falls back to process start time for non-Render environments.
-APP_VERSION = "1793745709"
+APP_VERSION = "1793745994"
 
 api = FastAPI()
 
@@ -895,17 +895,23 @@ async def get_vehicle(plate: str, user: dict = Depends(_get_user)):
     username = user.get("username") or ""
     fullname = user.get("first_name", "") + " " + user.get("last_name", "")
 
+    t0 = time.monotonic()   # per-stage timing → one INFO line, to see where a slow lookup spends its time
     allowed, _ = await is_allowed(uid, username, fullname.strip())
+    t_user = time.monotonic() - t0
     if not allowed:
         raise HTTPException(status_code=403, detail="quota_exceeded")
 
     record = cache.get(plate)
+    t_gov = 0.0
     if record is None:
+        t1 = time.monotonic()
         try:
             record = await fetch_vehicle_data(plate)
         except GovUnavailable:
             # Registry unreachable: report it as a server problem, not "not found".
             raise HTTPException(status_code=502, detail="registry_unavailable")
+        finally:
+            t_gov = time.monotonic() - t1
         if record:
             cache.set(plate, record)
     if not record:
@@ -920,7 +926,13 @@ async def get_vehicle(plate: str, user: dict = Depends(_get_user)):
 
     # Independent writes: overlap their Turso round-trips.
     from src.users import vehicle_summary
+    t2 = time.monotonic()
     await asyncio.gather(increment_search(uid, plate, vehicle_summary(record)), _log_search())
+    import logging
+    logging.getLogger("api.vehicle").info(
+        "vehicle lookup %s: user/quota=%.1fs registry=%.1fs db-writes=%.1fs total=%.1fs",
+        plate, t_user, t_gov, time.monotonic() - t2, time.monotonic() - t0,
+    )
     return JSONResponse(content=record, headers={"Cache-Control": "no-store"})
 
 
