@@ -1,4 +1,4 @@
-const LAST_UPDATED = 'אוקטובר 2026'
+const LAST_UPDATED = 'נובמבר 2026'
 const BOT_NAME     = 'CarInfo'
 const BOT_HANDLE   = '@israelcarinfobot'
 const CONTACT_URL  = 'https://t.me/israelcarinfobot'
@@ -208,6 +208,7 @@ export default function PrivacyPolicyPage({ onBack, onContact, onNavigate, onAcc
           <li>״רכבים שקניתי״ — פרטי רכבים, עלויות והוצאות שהזנת בעצמך</li>
           <li>הערות אישיות שרשמת על לוחיות רישוי</li>
           <li>התראות מודעות חדשות (Yad2) שהגדרת — יצרן, דגם ושנה</li>
+          <li>התחברות למחירון לוי יצחק (אם השתמשת בו) — מספר נייד, מזהה מכשיר טכני ואסימון גישה</li>
           <li>תזכורות טסט שביקשת (לוחית ותאריך תוקף)</li>
           <li>העדפת קבלת הודעות שידור (הסכמה / הסרה)</li>
         </ul>
@@ -258,6 +259,7 @@ export default function PrivacyPolicyPage({ onBack, onContact, onNavigate, onAcc
         <ul>
           <li><strong>data.gov.il</strong> — פורטל הנתונים הפתוחים של ממשלת ישראל (רישוי רכב, משרד התחבורה)</li>
           <li><strong>Yad2</strong> — מחירי שוק ומודעות מכירה (לתכונת מנוי בלבד)</li>
+          <li><strong>מחירון לוי יצחק</strong> — מחיר מחירון לרכב יד שנייה (לתכונת מנוי בלבד, לאחר הזדהות שלך מול לוי יצחק)</li>
         </ul>
         <p>אנו לא שומרים את תוצאות החיפוש לאחר שנשלחו למשתמש (למעט בהיסטוריית החיפוש האישית שלך).</p>
       </Section>
@@ -269,6 +271,7 @@ export default function PrivacyPolicyPage({ onBack, onContact, onNavigate, onAcc
           <li><strong>Telegram</strong> — הפלטפורמה דרכה מסופק השירות</li>
           <li><strong>Turso / Render</strong> — ספקי תשתית אחסון וענן (כפופים להסכמי סודיות)</li>
           <li><strong>Yad2</strong> — שאילתות אנונימיות למחירי שוק (ללא פרטים מזהים של המשתמש)</li>
+          <li><strong>לוי יצחק</strong> — אם בחרת להשתמש בבדיקת מחירון לוי יצחק: מספר הנייד שלך וקוד ה-SMS שאתה מקליד מועברים ללוי יצחק לצורך האימות, דרך השרת שמפעיל את הבוט, ומספר הרכב שאתה בודק מועבר אליהם לצורך הבדיקה. אצלנו נשמרים רק מספר הנייד, מזהה מכשיר טכני ואסימון הגישה שלוי יצחק מחזירים (לא קוד ה-SMS), עד שתתנתק (<code>/levi_logout</code>) או תמחק את חשבונך. שירותנו אינו קשור ללוי יצחק, והשימוש בו כפוף גם לתנאים של לוי יצחק</li>
           <li><strong>דרישה חוקית</strong> — אם נדרש על-פי דין, צו שיפוטי או רשות מוסמכת</li>
         </ul>
       </Section>

@@ -527,6 +527,15 @@ async def cb_levi_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     return await _levi_start(query.message, query.from_user, context)
 
 
+def _levi_intro_keyboard(plate: str) -> InlineKeyboardMarkup:
+    webapp_url = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_URL", "https://carinfo-bot.onrender.com")
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("✅ המשך להזדהות", callback_data=f"levi|go|{plate}"),
+         InlineKeyboardButton("❌ לא עכשיו", callback_data="levi|no")],
+        [InlineKeyboardButton("ℹ️ מידע ופרטיות", web_app=WebAppInfo(url=f"{webapp_url}/?page=leviInfo"))],
+    ])
+
+
 async def _levi_show_plate(message, user, context: ContextTypes.DEFAULT_TYPE, plate: str) -> None:
     """Look `plate` up on the user's Levi account and show the card (used by the result-card button)."""
     await context.bot.send_chat_action(message.chat_id, "typing")
@@ -536,10 +545,7 @@ async def _levi_show_plate(message, user, context: ContextTypes.DEFAULT_TYPE, pl
         await message.reply_text(
             M.levi_error("פג תוקף ההתחברות ללוי יצחק, צריך להזדהות מחדש") + "\n\n" + M.levi_intro(_first_name(user)),
             parse_mode=HTML,
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("✅ המשך להזדהות", callback_data=f"levi|go|{plate}"),
-                InlineKeyboardButton("❌ לא עכשיו", callback_data="levi|no"),
-            ]]),
+            reply_markup=_levi_intro_keyboard(plate),
         )
         return
     except _levi.LeviError as e:
@@ -573,10 +579,7 @@ async def cb_levi_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await query.message.reply_text(
         M.levi_intro(_first_name(user)),
         parse_mode=HTML,
-        reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton("✅ המשך להזדהות", callback_data=f"levi|go|{plate}"),
-            InlineKeyboardButton("❌ לא עכשיו", callback_data="levi|no"),
-        ]]),
+        reply_markup=_levi_intro_keyboard(plate),
     )
 
 
