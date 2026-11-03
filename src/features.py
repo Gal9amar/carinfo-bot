@@ -54,15 +54,17 @@ async def feature_open(user_id: int, prefix: str, *, quota: Optional[int] = None
     return False
 
 
-async def levi_open(user_id: int, *, quota: Optional[int] = None, subscriber: Optional[bool] = None) -> bool:
-    """Levi Yitzhak price check: admin always; everyone else only while `levi_enabled == "1"` AND they are
-    a subscriber (unlimited plan / מנויים / VIP) OR the "open to everyone" window (`levi_public` + dates) is on.
-    Free users with searches left do NOT get it by default (unlike feature_open)."""
+async def subscriber_feature_open(user_id: int, prefix: str, *, quota: Optional[int] = None,
+                                  subscriber: Optional[bool] = None) -> bool:
+    """Subscriber-only feature (settings `{prefix}_enabled / _public / _public_start / _public_end`): admin always;
+    others only while `{prefix}_enabled == "1"` AND they are a subscriber (unlimited plan / מנויים / VIP) OR the
+    "open to everyone" window (`{prefix}_public` + dates) is on. Unlike feature_open, free users with searches
+    left do NOT get it by default."""
     from src.db import get_bot_setting
     from src.users import get_user_by_id, is_subscriber
     if user_id == ADMIN_ID:
         return True
-    if (await get_bot_setting("levi_enabled")) != "1":
+    if (await get_bot_setting(f"{prefix}_enabled")) != "1":
         return False
     if quota is None:
         db_user = await get_user_by_id(user_id)
@@ -73,9 +75,17 @@ async def levi_open(user_id: int, *, quota: Optional[int] = None, subscriber: Op
         subscriber = await is_subscriber(user_id)
     if subscriber:
         return True
-    if (await get_bot_setting("levi_public")) == "1":
+    if (await get_bot_setting(f"{prefix}_public")) == "1":
         today = str(date.today())
-        ps = (await get_bot_setting("levi_public_start")) or ""
-        pe = (await get_bot_setting("levi_public_end")) or ""
+        ps = (await get_bot_setting(f"{prefix}_public_start")) or ""
+        pe = (await get_bot_setting(f"{prefix}_public_end")) or ""
         return (not ps or today >= ps) and (not pe or today <= pe)
     return False
+
+
+async def levi_open(user_id: int, *, quota: Optional[int] = None, subscriber: Optional[bool] = None) -> bool:
+    return await subscriber_feature_open(user_id, "levi", quota=quota, subscriber=subscriber)
+
+
+async def insurance_open(user_id: int, *, quota: Optional[int] = None, subscriber: Optional[bool] = None) -> bool:
+    return await subscriber_feature_open(user_id, "insurance", quota=quota, subscriber=subscriber)

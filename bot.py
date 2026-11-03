@@ -52,6 +52,7 @@ from src import messages as M
 from src.pdf_report import generate_pdf
 from src import yad2 as _yad2
 from src import levi as _levi
+from src import insurance as _ins
 
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -163,12 +164,14 @@ def normalize_plate(text: str) -> str:
 
 async def _result_features(user_id: int) -> frozenset:
     """Premium buttons this user is entitled to on a result card (shared by every path that builds one)."""
-    from src.features import feature_open, levi_open
+    from src.features import feature_open, levi_open, insurance_open
     feats = set()
     if await feature_open(user_id, "yad2_watch"):
         feats.add("yad2_watch")
     if await levi_open(user_id):
         feats.add("levi")
+    if await insurance_open(user_id):
+        feats.add("insurance")
     return frozenset(feats)
 
 
@@ -178,6 +181,7 @@ def build_result_keyboard(
     yad2_link: str = "",
     features: frozenset = frozenset({"yad2_watch"}),
     levi_state: str | None = None,
+    insurance_more: bool = False,
 ) -> InlineKeyboardMarkup:
     """`features`: premium features this user is entitled to (src.features) — locked buttons are hidden
     exactly where the Mini App shows its locked state, so both surfaces agree."""
@@ -209,6 +213,8 @@ def build_result_keyboard(
         }.get(state)
         if levi_btn:
             rows.append([InlineKeyboardButton(levi_btn[0], callback_data=levi_btn[1])])
+        if insurance_more:
+            rows.append([InlineKeyboardButton("🛡 בדיקה בחברות ביטוח נוספות", callback_data=f"ins|more|{plate}")])
     rows.extend(_persistent_rows(is_admin))
     return InlineKeyboardMarkup(rows)
 
@@ -2463,6 +2469,59 @@ async def handle_compare_callback(update: Update, context: ContextTypes.DEFAULT_
     )
 
 
+async def _just(value):
+    return value
+
+
+async def _levi_card_state(user_id: int, plate: str):
+    """(rows, button state) for the Levi Yitzhak row: price when verified, "יש להתחבר" otherwise."""
+    if not await _levi.is_logged_in(user_id):
+        return [(M.LEVI_ROW_LABEL, "יש להתחבר")], "login"
+    try:
+        res = await asyncio.wait_for(_levi.lookup_plate(user_id, plate), timeout=6)
+        price = res["summary"].get("price")
+        return [(M.LEVI_ROW_LABEL, f"₪{int(price):,} (בסיס)" if price else "לא נמצא מחיר")], "calc"
+    except _levi.LeviAuthError:
+        return [(M.LEVI_ROW_LABEL, "יש להתחבר")], "login"
+    except Exception as exc:
+        logger.info("Levi inline price skipped for %s: %s", plate, exc)
+        return [(M.LEVI_ROW_LABEL, "לא זמין כרגע")], "retry"
+
+
+async def _insurance_card_state(plate: str):
+    """(rows, show "more insurers" button) for the registered-insurer row."""
+    try:
+        res = await asyncio.wait_for(_ins.check_plate(plate), timeout=8)
+    except Exception as exc:
+        logger.info("Insurance row skipped for %s: %s", plate, exc)
+        return [(M.INS_ROW_LABEL, "לא זמין כרגע")], False
+    more = bool(res["failed"] or res["manual"])
+    if res["insured"]:
+        return [(M.INS_ROW_LABEL, ", ".join(res["insured"]))], more
+    return [(M.INS_ROW_LABEL, f"לא נמצאה פוליסה ({len(res['no'])} חברות נבדקו)")], more
+
+
+async def cb_insurance_more(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Button under the card: insurers that were not checked automatically + their official pages."""
+    from telegram import LinkPreviewOptions
+    from src.features import insurance_open
+    query = update.callback_query
+    user = query.from_user
+    await query.answer()
+    if not await insurance_open(user.id):
+        return
+    plate = query.data.split("|")[2]
+    try:
+        res = await _ins.check_plate(plate)
+    except _ins.InsuranceError as e:
+        await query.message.reply_text(M.levi_error(str(e)), parse_mode=HTML)
+        return
+    await query.message.reply_text(
+        M.insurance_more(_first_name(user), plate, res), parse_mode=HTML,
+        link_preview_options=LinkPreviewOptions(is_disabled=True),
+    )
+
+
 async def _lookup_flow(message, tg_user, chat_id: int, context: ContextTypes.DEFAULT_TYPE, plate: str) -> None:
     """Quota check -> registry lookup -> result card. Used by typed plates."""
     user_id = tg_user.id
@@ -2537,26 +2596,16 @@ async def _lookup_flow(message, tg_user, chat_id: int, context: ContextTypes.DEF
         except Exception:
             pass
 
-    # Levi Yitzhak row (entitled users only): price when verified, otherwise "יש להתחבר" + a login button.
+    # Premium rows (entitled users only): Levi Yitzhak price / login, and the insurer the car is registered with.
     open_features = await _result_features(user_id)
-    levi_rows, levi_state = [], None
-    if "levi" in open_features:
-        if await _levi.is_logged_in(user_id):
-            try:
-                levi_res = await asyncio.wait_for(_levi.lookup_plate(user_id, plate), timeout=6)
-                levi_price = levi_res["summary"].get("price")
-                levi_rows = [(M.LEVI_ROW_LABEL, f"₪{int(levi_price):,} (בסיס)" if levi_price else "לא נמצא מחיר")]
-                levi_state = "calc"
-            except _levi.LeviAuthError:
-                levi_rows, levi_state = [(M.LEVI_ROW_LABEL, "יש להתחבר")], "login"
-            except Exception as exc:
-                logger.info("Levi inline price skipped for %s: %s", plate, exc)
-                levi_rows, levi_state = [(M.LEVI_ROW_LABEL, "לא זמין כרגע")], "retry"
-        else:
-            levi_rows, levi_state = [(M.LEVI_ROW_LABEL, "יש להתחבר")], "login"
+    (levi_rows, levi_state), (ins_rows, ins_more) = await asyncio.gather(
+        _levi_card_state(user_id, plate) if "levi" in open_features else _just(([], None)),
+        _insurance_card_state(plate) if "insurance" in open_features else _just(([], False)),
+    )
+    extra_rows = levi_rows + ins_rows
 
     try:
-        card = M.result_intro(name, plate) + quick_summary(record, extra_rows=levi_rows)
+        card = M.result_intro(name, plate) + quick_summary(record, extra_rows=extra_rows)
         context.user_data["last_share_text"] = get_share_text(record)
     except Exception as exc:
         logger.error("quick_summary failed for plate %s: %s", plate, exc)
@@ -2592,11 +2641,12 @@ async def _lookup_flow(message, tg_user, chat_id: int, context: ContextTypes.DEF
     result_kb = build_result_keyboard(
         is_admin=(user_id == ADMIN_ID), record=record, yad2_link=yad2_link, features=open_features,
         levi_state=levi_state,
+        insurance_more=ins_more,
     )
     # Table layout via sendRichMessage (admin setting rich_messages_enabled); any failure falls through to classic HTML.
     if await send_rich_message(
         chat_id,
-        M.result_card_rich(name, plate, quick_summary_rich(record, extra_rows=levi_rows), footer_text),
+        M.result_card_rich(name, plate, quick_summary_rich(record, extra_rows=extra_rows), footer_text),
         reply_markup=result_kb,
     ):
         return
@@ -2610,6 +2660,7 @@ async def _lookup_flow(message, tg_user, chat_id: int, context: ContextTypes.DEF
                 yad2_link=yad2_link,
                 features=open_features,
                 levi_state=levi_state,
+                insurance_more=ins_more,
             ),
         )
     except Exception as exc:
@@ -2624,6 +2675,7 @@ async def _lookup_flow(message, tg_user, chat_id: int, context: ContextTypes.DEF
                     yad2_link=yad2_link,
                     features=open_features,
                     levi_state=levi_state,
+                    insurance_more=ins_more,
                 ),
             )
         except Exception as exc2:
@@ -3155,6 +3207,7 @@ def main() -> None:
     ))
 
     app.add_handler(CommandHandler("levi_logout", cmd_levi_logout))
+    app.add_handler(CallbackQueryHandler(cb_insurance_more, pattern=r"^ins\|more\|\d+$"))
     app.add_handler(ConversationHandler(
         entry_points=[CallbackQueryHandler(cb_levi_calc, pattern=r"^levi\|calc\|\d+$")],
         states={

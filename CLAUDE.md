@@ -45,6 +45,7 @@ carinfo-bot/
 │   ├── yad2.py             # Yad2 URL building + market price (cached) 
 │   ├── yad2_models.json   # manufacturer→model→Yad2 ID map
 │   ├── yad2_watcher.py     # new-listing alerts ("watches")
+│   ├── insurance.py        # registered-insurer lookup via the operator's Car check API (/api/property-insurance-check, today's date)
 │   ├── levi.py             # Levi Yitzhak price list: SMS login on the user's own account (API of the official app)
 │   ├── formatter.py        # vehicle data → Telegram text (HTML)
 │   ├── scheduled_broadcast.py  # broadcasts scheduled for a later date/time (table scheduled_broadcasts, atomic claim)
@@ -124,6 +125,7 @@ Created idempotently at startup (`init_db()` in `src/db.py` plus per-module `ini
 | `test_reminders_enabled` | 0 | Daily 07:00 UTC job notifies 30/7/1/0 days before the test expires (`src/reminders.py`) for users who pressed the 🔔 button. Re-checks the registry before notifying and never notifies on unverified data; blocked-bot users are deactivated |
 | `test_reminders_garage_sync` | 0 | Also auto-enrol every car in users' garages (no explicit consent, so off by default); reminders for sold/deleted cars are deactivated |
 | `mirror_enabled` / `mirror_chat_id` / `mirror_thread_id` / `mirror_miniapp` | 0 / — / — / 1 | Activity mirror (`src/mirror.py`). Admin sends `/mirror_here` inside the target group topic → binds chat+topic and enables; `/mirror_off` disables; also a toggle in admin Settings / bot `/admin`. Never mirrors the admin's own chat or group chats; masks typed promo codes and delivered product content (`🔒 תוכן מוסתר`) |
+| `insurance_enabled` / `insurance_public` / `_public_start` / `_public_end` / `_public_label` | 0 / 0 / "" / "" / "" | Result-card row "🛡 ביטוח צד ג׳ / מקיף" (insurer(s) where the car is insured today; `src/insurance.py` calls `INSURANCE_API_BASE`, default car-check-il.netlify.app) + button `ins|more|PLATE` for insurers not auto-checked. Same gate as Levi: `features.subscriber_feature_open` |
 | `levi_enabled` / `levi_public` / `_public_start` / `_public_end` / `_public_label` | 0 / 0 / "" / "" / "" | Levi Yitzhak price check (admin → פיצ'רים card, same layout as the other features: master toggle → "פתוח לכולם" + label + dates → save). `levi_public` + date window opens it to non-subscribers too. For **subscribers** (quota −1 / מנויים / VIP; free users with searches left do NOT get it). Admin always. Gate = `features.levi_open` (not `feature_open`); toggle: admin → פיצ'רים card; `/api/user` returns `show_levi`. Result card (entitled users only): a "📗 מחירון לוי יצחק" row in the summary — verified → base price (6 s timeout) + button `levi|calc|PLATE` (שקלול מחיר: km → hands → ownership type per hand → `/main/get-price/`, payload mirrors the Android app, **unverified against the live API**); not verified → "יש להתחבר" + button `levi|plate|PLATE` → intro + phone/SMS verification (`levi|go|PLATE`) → lookup; no search quota consumed |
 | `rich_messages_enabled` | 0 | Send the lookup result card as a table via `sendRichMessage` (Bot API 10.1+, `src/rich.py`). Toggle: admin panel → Settings, or bot `/admin` → settings. Any API failure falls back to the classic HTML card |
 
@@ -246,6 +248,7 @@ Seeded when table empty: 🔍 50 חיפושים ₪10 · 🔍 100 חיפושים
 | `PAYMENT_PROVIDER_TOKEN` | — | Telegram invoices |
 | `YAD2_PROXY_URL`, `YAD2_PROXY_SECRET`, `YAD2_CF_WORKER_URL` | — | Israeli-IP proxy for Yad2 (secrets: set via env, don't commit) |
 | `LEVI_API_BASE` | https://s.leviitzhak.xyz | Levi Yitzhak app API (override with an Israeli-IP proxy if it gets geo-blocked) |
+| `INSURANCE_API_BASE` | https://car-check-il.netlify.app | Base URL of the Car check site whose `/api/property-insurance-check` the bot calls |
 | `LEVI_ORIGIN` | https://localhost | `Origin` header sent to the Levi API (it answers "Origin required." without one; default = the Android app's WebView origin) |
 | `PORT` | 8080 | Server port |
 | `LOGO_PATH`, `COVER_PATH` | — | PDF assets |

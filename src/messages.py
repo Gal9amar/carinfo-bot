@@ -470,6 +470,22 @@ def result_quota_footer(left: int, expires: Optional[str]) -> str:
 
 
 LEVI_ROW_LABEL = "📗 מחירון לוי יצחק"
+INS_ROW_LABEL = "🛡 ביטוח צד ג׳ / מקיף"
+
+
+def insurance_more(name: str, plate: str, res: dict) -> str:
+    """Insurers that were not checked automatically (blocked / need captcha or SMS), with their official pages."""
+    lines = [f"🛡 {_n(name)}, בדיקת ביטוח לרכב {code(plate)} (נכון ל־{esc(res.get('date', ''))})", ""]
+    if res.get("insured"):
+        lines.append(f"✅ נמצאה פוליסה ב: {b(', '.join(res['insured']))}")
+    else:
+        lines.append(f"❔ לא נמצאה פוליסה ב־{len(res.get('no', []))} החברות שנבדקו אוטומטית.")
+    pending = [(r["name"], r["url"]) for r in res.get("failed", [])] + [(r["name"], r["url"]) for r in res.get("manual", [])]
+    if pending:
+        lines += ["", "אלו לא נבדקו אוטומטית (חסימה או אימות באתר החברה) — אפשר לבדוק ידנית:"]
+        lines += [f"• {link(n, u) if u else esc(n)}" for n, u in pending]
+    lines += ["", i("המידע לפי אתרי חברות הביטוח, לביטוח רכוש / צד ג׳ / מקיף — לא אישור משפטי.")]
+    return "\n".join(lines)
 
 
 def levi_calc_ask_km(name: str) -> str:

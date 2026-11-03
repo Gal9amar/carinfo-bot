@@ -15,7 +15,7 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from src.features import feature_open, levi_open
+from src.features import feature_open, levi_open, insurance_open
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import BaseModel
@@ -30,7 +30,7 @@ WEBAPP_URL   = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_U
 # Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
 # webapp can detect a new release and force-reload instead of running stale
 # cached JS. Falls back to process start time for non-Render environments.
-APP_VERSION = "1793743948"
+APP_VERSION = "1793744427"
 
 api = FastAPI()
 
@@ -342,7 +342,7 @@ async def get_user_info(user: dict = Depends(_get_user)):
                 # 'none' = never started the bot / deleted account → must /start; 'pending' = approve in-app
                 "consent_stage": stage, "maintenance": maintenance,
                 "is_admin": False, "searches_left": 0, "searches_quota": 0,
-                "show_market_price": False, "show_pdf_report": False, "show_watch": False, "show_levi": False,
+                "show_market_price": False, "show_pdf_report": False, "show_watch": False, "show_levi": False, "show_insurance": False,
                 "bot_username": BOT_USERNAME,
             }
     left = db_user.get("searches_left", 0) if db_user else 0
@@ -365,6 +365,7 @@ async def get_user_info(user: dict = Depends(_get_user)):
     show_pdf    = await _check_feature("pdf_report")
     show_watch  = await _check_feature("yad2_watch")
     show_levi   = await levi_open(user_id, quota=quota, subscriber=is_subscriber)
+    show_insurance = await insurance_open(user_id, quota=quota, subscriber=is_subscriber)
 
     async def _public_label(key_prefix: str) -> str:
         if (await get_bot_setting(f"{key_prefix}_public")) != "1":
@@ -374,6 +375,7 @@ async def get_user_info(user: dict = Depends(_get_user)):
     pdf_public_label   = await _public_label("pdf_report")
     watch_public_label = await _public_label("yad2_watch")
     levi_public_label  = await _public_label("levi")
+    insurance_public_label = await _public_label("insurance")
 
     # Find matching package label by searches count
     subscription_label = None
@@ -427,9 +429,11 @@ async def get_user_info(user: dict = Depends(_get_user)):
         "show_pdf_report": show_pdf,
         "show_watch": show_watch,
         "show_levi": show_levi,
+        "show_insurance": show_insurance,
         "pdf_public_label": pdf_public_label,
         "watch_public_label": watch_public_label,
         "levi_public_label": levi_public_label,
+        "insurance_public_label": insurance_public_label,
         "watch_max": watch_max,
         "is_subscriber": is_subscriber,
         "subscription_label": subscription_label,
@@ -1118,6 +1122,11 @@ async def admin_get_settings(_: dict = Depends(_require_admin)):
         "levi_public_start":         (await get_bot_setting("levi_public_start")) or "",
         "levi_public_end":           (await get_bot_setting("levi_public_end"))   or "",
         "levi_public_label":         (await get_bot_setting("levi_public_label")) or "",
+        "insurance_enabled":         (await get_bot_setting("insurance_enabled")) == "1",
+        "insurance_public":          (await get_bot_setting("insurance_public")) == "1",
+        "insurance_public_start":    (await get_bot_setting("insurance_public_start")) or "",
+        "insurance_public_end":      (await get_bot_setting("insurance_public_end"))   or "",
+        "insurance_public_label":    (await get_bot_setting("insurance_public_label")) or "",
     }
 
 
@@ -1165,6 +1174,11 @@ class SettingsUpdate(BaseModel):
     levi_public_start:         str          | None = None
     levi_public_end:           str          | None = None
     levi_public_label:         str          | None = None
+    insurance_enabled:         bool         | None = None
+    insurance_public:          bool         | None = None
+    insurance_public_start:    str          | None = None
+    insurance_public_end:      str          | None = None
+    insurance_public_label:    str          | None = None
 
 
 @api.post("/api/admin/settings")
@@ -1304,6 +1318,16 @@ async def admin_update_settings(body: SettingsUpdate, _: dict = Depends(_require
         await set_bot_setting("levi_public_end", body.levi_public_end.strip())
     if body.levi_public_label is not None:
         await set_bot_setting("levi_public_label", body.levi_public_label.strip())
+    if body.insurance_enabled is not None:
+        await set_bot_setting("insurance_enabled", "1" if body.insurance_enabled else "0")
+    if body.insurance_public is not None:
+        await set_bot_setting("insurance_public", "1" if body.insurance_public else "0")
+    if body.insurance_public_start is not None:
+        await set_bot_setting("insurance_public_start", body.insurance_public_start.strip())
+    if body.insurance_public_end is not None:
+        await set_bot_setting("insurance_public_end", body.insurance_public_end.strip())
+    if body.insurance_public_label is not None:
+        await set_bot_setting("insurance_public_label", body.insurance_public_label.strip())
     return {"ok": True}
 
 

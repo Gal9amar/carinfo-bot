@@ -4315,6 +4315,98 @@ function PromoTab() {
   )
 }
 
+// Subscriber-feature card (master toggle → "open to everyone" + label + dates → save), settings keys `${prefix}_*`.
+function FeatureAccessCard({ prefix, icon, title, desc, color, tint, settings }) {
+  const [enabled, setEnabled] = useState(!!settings[`${prefix}_enabled`])
+  const [pub, setPub]         = useState(!!settings[`${prefix}_public`])
+  const [start, setStart]     = useState(settings[`${prefix}_public_start`] || '')
+  const [end, setEnd]         = useState(settings[`${prefix}_public_end`] || '')
+  const [label, setLabel]     = useState(settings[`${prefix}_public_label`] || '')
+  const [saving, setSaving]   = useState(false)
+
+  async function save() {
+    setSaving(true)
+    try {
+      await adminUpdateSettings({
+        [`${prefix}_enabled`]:      enabled,
+        [`${prefix}_public`]:       pub,
+        [`${prefix}_public_start`]: start,
+        [`${prefix}_public_end`]:   end,
+        [`${prefix}_public_label`]: label,
+      })
+      window.Telegram?.WebApp?.showAlert('✅ הגדרות עודכנו')
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
+    setSaving(false)
+  }
+
+  const today = new Date().toISOString().slice(0, 10)
+  const inWindow = (!start || today >= start) && (!end || today <= end)
+
+  return (
+    <div className="card" style={{ padding: '24px', borderTop: `4px solid ${color}` }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 24, background: tint, width: 44, height: 44, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</span>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-main)' }}>{title}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{desc}</div>
+          </div>
+        </div>
+        <label className="toggle-row" style={{ margin: 0, padding: 0 }}>
+          <button type="button" role="switch" aria-checked={!!enabled} aria-label={`${title} — הפעלה`} className={`toggle ${enabled ? 'on' : ''}`} onClick={() => setEnabled(v => !v)} style={{ margin: 0 }} />
+        </label>
+      </div>
+
+      {enabled && (
+        <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 16, animation: 'fadeIn 0.3s' }}>
+          <div style={{ background: 'var(--bg)', borderRadius: 16, padding: '20px', border: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: pub ? 16 : 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 18 }}>🌐</span>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-main)' }}>פתוח לכולם (חינמי)</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>הפעלת הפיצ'ר גם למשתמשים ללא מנוי</div>
+                </div>
+              </div>
+              <button type="button" role="switch" aria-checked={!!pub} aria-label={`${title} — פתוח גם ללא מנוי`} className={`toggle ${pub ? 'on' : ''}`} onClick={() => setPub(v => !v)} />
+            </div>
+
+            {pub && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>טקסט תצוגה למשתמש</div>
+                  <input type="text" className="input" style={{ margin: 0, borderRadius: 10 }}
+                    placeholder='לדוגמה: פתוח לכולם עד 01/07/2026'
+                    value={label} onChange={e => setLabel(e.target.value)} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>תאריך התחלה</div>
+                    <input type="date" aria-label="תאריך התחלה" className="input" style={{ margin: 0, borderRadius: 10 }}
+                      value={start} onChange={e => setStart(e.target.value)} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>תאריך סיום</div>
+                    <input type="date" aria-label="תאריך סיום" className="input" style={{ margin: 0, borderRadius: 10 }}
+                      value={end} onChange={e => setEnd(e.target.value)} />
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: inWindow ? '#047857' : '#9a4a07', background: inWindow ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', padding: '8px 12px', borderRadius: 8, display: 'inline-block', marginTop: 4 }}>
+                  {inWindow ? '🟢 פעיל כעת לכולם' : '🟡 מחוץ לטווח התאריכים (מוסתר מחינמיים)'}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <button className="btn" style={{ marginTop: 20, width: '100%', height: 44, borderRadius: 12, fontWeight: 700, background: 'var(--bg)', border: '1px solid var(--primary)', color: 'var(--primary)' }} disabled={saving} onClick={save}>
+        {saving ? '⏳ שומר...' : `💾 שמור הגדרות ${title}`}
+      </button>
+    </div>
+  )
+}
+
 function FeaturesTab() {
   const [settings, setSettings]                 = useState(null)
   const [yad2Enabled, setYad2Enabled]           = useState(false)
@@ -4336,12 +4428,6 @@ function FeaturesTab() {
   const [watchPublicEnd, setWatchPublicEnd]     = useState('')
   const [watchPublicLabel, setWatchPublicLabel] = useState('')
   const [watchSaving, setWatchSaving]           = useState(false)
-  const [leviEnabled, setLeviEnabled]           = useState(false)
-  const [leviPublic, setLeviPublic]             = useState(false)
-  const [leviPublicStart, setLeviPublicStart]   = useState('')
-  const [leviPublicEnd, setLeviPublicEnd]       = useState('')
-  const [leviPublicLabel, setLeviPublicLabel]   = useState('')
-  const [leviSaving, setLeviSaving]             = useState(false)
 
   useEffect(() => {
     adminFetchSettings().then(s => {
@@ -4362,11 +4448,6 @@ function FeaturesTab() {
       setWatchPublicStart(s.yad2_watch_public_start || '')
       setWatchPublicEnd(s.yad2_watch_public_end || '')
       setWatchPublicLabel(s.yad2_watch_public_label || '')
-      setLeviEnabled(!!s.levi_enabled)
-      setLeviPublic(!!s.levi_public)
-      setLeviPublicStart(s.levi_public_start || '')
-      setLeviPublicEnd(s.levi_public_end || '')
-      setLeviPublicLabel(s.levi_public_label || '')
     }).catch(() => {})
   }, [])
 
@@ -4398,21 +4479,6 @@ function FeaturesTab() {
       window.Telegram?.WebApp?.showAlert('✅ הגדרות עודכנו')
     } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
     setPdfSaving(false)
-  }
-
-  async function saveLevi() {
-    setLeviSaving(true)
-    try {
-      await adminUpdateSettings({
-        levi_enabled:      leviEnabled,
-        levi_public:       leviPublic,
-        levi_public_start: leviPublicStart,
-        levi_public_end:   leviPublicEnd,
-        levi_public_label: leviPublicLabel,
-      })
-      window.Telegram?.WebApp?.showAlert('✅ הגדרות עודכנו')
-    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
-    setLeviSaving(false)
   }
 
   if (!settings) return <div className="loading"></div>
@@ -4665,74 +4731,12 @@ function FeaturesTab() {
         </div>
 
         {/* Levi Yitzhak price list */}
-        <div className="card" style={{ padding: '24px', borderTop: '4px solid #15803d' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 24, background: 'rgba(21, 128, 61, 0.1)', width: 44, height: 44, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>📗</span>
-              <div>
-                <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-main)' }}>מחירון לוי יצחק</div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>מחיר מחירון ושקלול מחיר, אחרי הזדהות בטלפון וקוד SMS. אדמין תמיד רואה.</div>
-              </div>
-            </div>
-            <label className="toggle-row" style={{ margin: 0, padding: 0 }}>
-              <button type="button" role="switch" aria-checked={!!leviEnabled} aria-label="מחירון לוי יצחק — הפעלה" className={`toggle ${leviEnabled ? 'on' : ''}`} onClick={() => setLeviEnabled(v => !v)} style={{ margin: 0 }} />
-            </label>
-          </div>
+        <FeatureAccessCard prefix="levi" icon="📗" color="#15803d" tint="rgba(21, 128, 61, 0.1)" settings={settings}
+          title="מחירון לוי יצחק" desc="מחיר מחירון ושקלול מחיר, אחרי הזדהות בטלפון וקוד SMS. אדמין תמיד רואה." />
 
-          {leviEnabled && (
-            <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 16, animation: 'fadeIn 0.3s' }}>
-              <div style={{ background: 'var(--bg)', borderRadius: 16, padding: '20px', border: '1px solid var(--border)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: leviPublic ? 16 : 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontSize: 18 }}>🌐</span>
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-main)' }}>פתוח לכולם (חינמי)</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>הפעלת הפיצ'ר גם למשתמשים ללא מנוי</div>
-                    </div>
-                  </div>
-                  <button type="button" role="switch" aria-checked={!!leviPublic} aria-label="מחירון לוי יצחק — פתוח גם ללא מנוי" className={`toggle ${leviPublic ? 'on' : ''}`} onClick={() => setLeviPublic(v => !v)} />
-                </div>
-
-                {leviPublic && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-                    <div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>טקסט תצוגה למשתמש</div>
-                      <input type="text" className="input" style={{ margin: 0, borderRadius: 10 }}
-                        placeholder='לדוגמה: פתוח לכולם עד 01/07/2026'
-                        value={leviPublicLabel} onChange={e => setLeviPublicLabel(e.target.value)} />
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                      <div>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>תאריך התחלה</div>
-                        <input type="date" aria-label="תאריך התחלה" className="input" style={{ margin: 0, borderRadius: 10 }}
-                          value={leviPublicStart} onChange={e => setLeviPublicStart(e.target.value)} />
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>תאריך סיום</div>
-                        <input type="date" aria-label="תאריך סיום" className="input" style={{ margin: 0, borderRadius: 10 }}
-                          value={leviPublicEnd} onChange={e => setLeviPublicEnd(e.target.value)} />
-                      </div>
-                    </div>
-                    {(() => {
-                      const today = new Date().toISOString().slice(0, 10)
-                      const inWindow = (!leviPublicStart || today >= leviPublicStart) &&
-                                       (!leviPublicEnd   || today <= leviPublicEnd)
-                      return (
-                        <div style={{ fontSize: 12, fontWeight: 700, color: inWindow ? '#047857' : '#9a4a07', background: inWindow ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', padding: '8px 12px', borderRadius: 8, display: 'inline-block', marginTop: 4 }}>
-                          {inWindow ? '🟢 פעיל כעת לכולם' : '🟡 מחוץ לטווח התאריכים (מוסתר מחינמיים)'}
-                        </div>
-                      )
-                    })()}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          <button className="btn" style={{ marginTop: 20, width: '100%', height: 44, borderRadius: 12, fontWeight: 700, background: 'var(--bg)', border: '1px solid var(--primary)', color: 'var(--primary)' }} disabled={leviSaving} onClick={saveLevi}>
-            {leviSaving ? '⏳ שומר...' : '💾 שמור הגדרות מחירון לוי יצחק'}
-          </button>
-        </div>
+        {/* Registered insurer (Car check API) */}
+        <FeatureAccessCard prefix="insurance" icon="🛡" color="#1d4ed8" tint="rgba(29, 78, 216, 0.1)" settings={settings}
+          title="חברת ביטוח רשומה" desc="באיזו חברה הרכב מבוטח (צד ג׳ / מקיף) נכון להיום. אדמין תמיד רואה." />
       </div>
     </div>
   )
