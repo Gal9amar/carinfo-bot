@@ -33,10 +33,12 @@ function Header({ publicLabel }) {
 
 function Row({ label, value, strong }) {
   if (value === null || value === undefined || value === '') return null
+  // Long text (e.g. the Levi-vs-Yad2 comparison) goes on its own line instead of wrapping in a narrow column.
+  const stack = typeof value === 'string' && value.length > 22
   return (
-    <div style={ROW}>
-      <span style={{ color: 'var(--hint)', flexShrink: 0, minWidth: 110 }}>{label}</span>
-      <span style={{ fontWeight: strong ? 800 : 500, textAlign: 'end' }}>{value}</span>
+    <div style={stack ? { ...ROW, flexDirection: 'column', gap: 4 } : ROW}>
+      <span style={{ color: 'var(--hint)', flexShrink: 0, minWidth: stack ? 0 : 110 }}>{label}</span>
+      <span style={{ fontWeight: strong ? 800 : 500, textAlign: stack ? 'start' : 'end' }}>{value}</span>
     </div>
   )
 }

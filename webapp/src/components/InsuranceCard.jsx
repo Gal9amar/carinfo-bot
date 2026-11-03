@@ -62,12 +62,18 @@ export default function InsuranceCard({ plate, user, onNavigate }) {
 
       {state === 'done' && data && (
         <>
-          <div style={ROW}>
-            <span style={{ color: 'var(--hint)', flexShrink: 0, minWidth: 110 }}>ביטוח צד ג׳ / מקיף</span>
-            <span style={{ fontWeight: 800, textAlign: 'end', color: data.insured?.length ? '#177a33' : 'inherit' }}>
-              {data.insured?.length ? `✅ ${data.insured.join(', ')}` : `לא נמצאה פוליסה (${data.no?.length || 0} חברות נבדקו)`}
-            </span>
-          </div>
+          {data.insured?.length ? (
+            <div style={ROW}>
+              <span style={{ color: 'var(--hint)', flexShrink: 0, minWidth: 110 }}>ביטוח צד ג׳ / מקיף</span>
+              <span style={{ fontWeight: 800, textAlign: 'end', color: '#177a33' }}>✅ {data.insured.join(', ')}</span>
+            </div>
+          ) : (
+            // long message: its own line under the label instead of wrapping inside a narrow column
+            <div style={{ ...ROW, flexDirection: 'column', gap: 4 }}>
+              <span style={{ color: 'var(--hint)' }}>ביטוח צד ג׳ / מקיף</span>
+              <span style={{ fontWeight: 800 }}>לא נמצאה פוליסה ({data.no?.length || 0} חברות נבדקו)</span>
+            </div>
+          )}
           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
             נכון ל־{data.date}, לפי אתרי חברות הביטוח — לא אישור משפטי. “לא נמצאה פוליסה” אצל חברה אחת אינו אומר שהרכב לא מבוטח.
           </div>
