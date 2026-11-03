@@ -3,7 +3,7 @@ import { fetchReportLayout } from '../api.js'
 
 // Default order of the report sections (used until/unless the admin layout arrives).
 export const DEFAULT_REPORT_ORDER = {
-  summary: ['score', 'test', 'model_count', 'ownership', 'main_details', 'recalls', 'notes', 'garage', 'market', 'alerts', 'pdf', 'compare'],
+  summary: ['score', 'test', 'model_count', 'ownership', 'main_details', 'recalls', 'notes', 'garage', 'market', 'levi', 'insurance', 'alerts', 'pdf', 'compare'],
   full: ['general', 'technical', 'wheels', 'equipment', 'safety', 'adas', 'history', 'recalls'],
 }
 
