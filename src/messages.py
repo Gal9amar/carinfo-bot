@@ -469,12 +469,18 @@ def result_quota_footer(left: int, expires: Optional[str]) -> str:
     return f"\n{i(result_quota_text(left, expires))}"
 
 
-def result_card_rich(name: str, plate: str, summary_html: str, footer_text: str = "") -> str:
+def levi_card_line(price) -> str:
+    """One extra line on the result card: Levi Yitzhak base list price."""
+    return f"📗 {b('מחירון לוי יצחק')} (בסיס): {b(f'₪{int(price):,}')}"
+
+
+def result_card_rich(name: str, plate: str, summary_html: str, footer_text: str = "", extra_html: str = "") -> str:
     """Result card for sendRichMessage (summary_html is already Rich HTML)."""
     footer = f"<p><i>{esc(footer_text)}</i></p>" if footer_text else ""
+    extra = f"<p>{extra_html}</p>" if extra_html else ""
     return (
         f"<p>🔖 {b(name)}, הנה מה שמצאתי על לוחית {code(plate)}:</p>"
-        f"{summary_html}{footer}"
+        f"{summary_html}{extra}{footer}"
     )
 
 

@@ -2395,6 +2395,22 @@ async def _lookup_flow(message, tg_user, chat_id: int, context: ContextTypes.DEF
         )
         return
 
+    # Entitled + already verified with Levi Yitzhak: show the list price right on the card.
+    # Anything slow or failing just falls back to the "📗 מחירון לוי יצחק" button.
+    open_features = await _result_features(user_id)
+    levi_html = ""
+    if "levi" in open_features and await _levi.is_logged_in(user_id):
+        try:
+            levi_res = await asyncio.wait_for(_levi.lookup_plate(user_id, plate), timeout=6)
+            levi_price = levi_res["summary"].get("price")
+            if levi_price:
+                levi_html = M.levi_card_line(levi_price)
+                open_features = open_features - {"levi"}
+        except Exception as exc:
+            logger.info("Levi inline price skipped for %s: %s", plate, exc)
+    if levi_html:
+        card += "\n" + levi_html
+
     footer_text = ""
     if not is_repeat:
         if left == -1:
@@ -2413,14 +2429,13 @@ async def _lookup_flow(message, tg_user, chat_id: int, context: ContextTypes.DEF
             pass
 
     yad2_link = _yad2.build_url(record)
-    open_features = await _result_features(user_id)
     result_kb = build_result_keyboard(
         is_admin=(user_id == ADMIN_ID), record=record, yad2_link=yad2_link, features=open_features,
     )
     # Table layout via sendRichMessage (admin setting rich_messages_enabled); any failure falls through to classic HTML.
     if await send_rich_message(
         chat_id,
-        M.result_card_rich(name, plate, quick_summary_rich(record), footer_text),
+        M.result_card_rich(name, plate, quick_summary_rich(record), footer_text, extra_html=levi_html),
         reply_markup=result_kb,
     ):
         return
