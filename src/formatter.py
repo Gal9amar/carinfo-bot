@@ -659,10 +659,10 @@ def quick_summary_rich(record: dict, extra_rows: list | None = None) -> str:
         rows.append(("♿ תו נכה", "✅"))
     if f["personal_import"]:
         rows.append(("📦 יבוא אישי", "✅"))
-    body = "".join(f"<tr><td>{_escape(v)}</td><td>{_escape(k)}</td></tr>" for k, v in rows)   # RTL: label on the right
+    body = "".join(f"<tr><td align='right'>{_escape(v)}</td><td align='right'>{_escape(k)}</td></tr>" for k, v in rows)   # RTL: label on the right
     out = (
         f"<h3>🚗 {_escape(f['make_model'])} {_escape(f['rest_of_title'])}</h3>"
-        f"<table bordered striped><tr><th>פירוט</th><th>נתון</th></tr>{body}</table>"
+        f"<table bordered striped><tr><th align='right'>פירוט</th><th align='right'>נתון</th></tr>{body}</table>"
     )
     if f["flags"]:
         out += "<blockquote>" + "<br>".join(f"⚠️ {_escape(flag)}" for flag in f["flags"]) + "</blockquote>"
@@ -696,11 +696,11 @@ def _compare_title(r: dict) -> str:
 def compare_rich(a: dict, b: dict) -> str:
     """Side-by-side table in Rich HTML (sendRichMessage)."""
     head = (
-        f"<tr><th>{_escape(_compare_title(b))}<br>{_escape(_val(b, 'mispar_rechev'))}</th>"
-        f"<th>{_escape(_compare_title(a))}<br>{_escape(_val(a, 'mispar_rechev'))}</th><th>נתון</th></tr>"
+        f"<tr><th align='right'>{_escape(_compare_title(b))}<br>{_escape(_val(b, 'mispar_rechev'))}</th>"
+        f"<th align='right'>{_escape(_compare_title(a))}<br>{_escape(_val(a, 'mispar_rechev'))}</th><th align='right'>נתון</th></tr>"
     )
     body = "".join(
-        f"<tr><td>{_escape(y)}</td><td>{_escape(x)}</td><td>{_escape(k)}</td></tr>"
+        f"<tr><td align='right'>{_escape(y)}</td><td align='right'>{_escape(x)}</td><td align='right'>{_escape(k)}</td></tr>"
         for k, x, y in _compare_rows(a, b)
     )
     return f"<h3>⚖️ השוואה בין שני רכבים</h3><table bordered striped>{head}{body}</table>"
