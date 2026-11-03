@@ -762,8 +762,16 @@ async def levi_calc_owner(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if is_admin:
         context.user_data["levi_raw"] = out["raw"]
         rows.append([InlineKeyboardButton("📄 תשובה גולמית (JSON)", callback_data="levi|raw")])
+    from src import pricing
+    cmp_line = ""
+    try:
+        record = cache.get(calc["plate"])
+        cmp = pricing.compare(out["price"], await pricing.market_for_plate(user.id, calc["plate"], record))
+        cmp_line = pricing.compare_text(cmp) if cmp else ""
+    except Exception as exc:
+        logger.info("Levi calc comparison skipped: %s", exc)
     await query.message.reply_text(
-        M.levi_calc_result(calc["summary"], calc["km"], names, out["price"]),
+        M.levi_calc_result(calc["summary"], calc["km"], names, out["price"], cmp_line),
         parse_mode=HTML, reply_markup=InlineKeyboardMarkup(rows),
     )
     return ConversationHandler.END
@@ -2476,16 +2484,26 @@ async def _just(value):
 async def _levi_card_state(user_id: int, plate: str):
     """(rows, button state) for the Levi Yitzhak row: price when verified, "יש להתחבר" otherwise."""
     if not await _levi.is_logged_in(user_id):
-        return [(M.LEVI_ROW_LABEL, "יש להתחבר")], "login"
+        return [(M.LEVI_ROW_LABEL, "יש להתחבר")], "login", None
     try:
         res = await asyncio.wait_for(_levi.lookup_plate(user_id, plate), timeout=6)
         price = res["summary"].get("price")
-        return [(M.LEVI_ROW_LABEL, f"₪{int(price):,} (בסיס)" if price else "לא נמצא מחיר")], "calc"
+        return [(M.LEVI_ROW_LABEL, f"₪{int(price):,} (בסיס)" if price else "לא נמצא מחיר")], "calc", price
     except _levi.LeviAuthError:
-        return [(M.LEVI_ROW_LABEL, "יש להתחבר")], "login"
+        return [(M.LEVI_ROW_LABEL, "יש להתחבר")], "login", None
     except Exception as exc:
         logger.info("Levi inline price skipped for %s: %s", plate, exc)
-        return [(M.LEVI_ROW_LABEL, "לא זמין כרגע")], "retry"
+        return [(M.LEVI_ROW_LABEL, "לא זמין כרגע")], "retry", None
+
+
+async def _market_card_state(user_id: int, record: dict):
+    """Yad2 market stats for the card (only for users who may see them), or None."""
+    from src import pricing
+    try:
+        return await asyncio.wait_for(pricing.market_for_plate(user_id, record.get("mispar_rechev", ""), record), timeout=8)
+    except Exception as exc:
+        logger.info("Yad2 market skipped for card: %s", exc)
+        return None
 
 
 async def _insurance_card_state(plate: str):
@@ -2598,10 +2616,15 @@ async def _lookup_flow(message, tg_user, chat_id: int, context: ContextTypes.DEF
 
     # Premium rows (entitled users only): Levi Yitzhak price / login, and the insurer the car is registered with.
     open_features = await _result_features(user_id)
-    (levi_rows, levi_state), (ins_rows, ins_more) = await asyncio.gather(
-        _levi_card_state(user_id, plate) if "levi" in open_features else _just(([], None)),
+    (levi_rows, levi_state, levi_price), (ins_rows, ins_more), market = await asyncio.gather(
+        _levi_card_state(user_id, plate) if "levi" in open_features else _just(([], None, None)),
         _insurance_card_state(plate) if "insurance" in open_features else _just(([], False)),
+        _market_card_state(user_id, record) if "levi" in open_features else _just(None),
     )
+    from src import pricing
+    cmp = pricing.compare(levi_price, market)
+    if cmp:   # Levi list price vs the Yad2 median, with the percentage
+        levi_rows = levi_rows + [(M.MARKET_CMP_LABEL, pricing.compare_text(cmp))]
     extra_rows = levi_rows + ins_rows
 
     try:
@@ -2747,6 +2770,11 @@ async def handle_pdf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     status_msg = await query.message.reply_text(M.pdf_preparing(name), parse_mode=HTML)
 
     try:
+        from src.pricing import premium_extras
+        try:
+            extras = await premium_extras(query.from_user.id, str(plate), record)
+        except Exception:
+            extras = None
         pdf_bytes = await asyncio.to_thread(
             generate_pdf,
             record,
@@ -2755,6 +2783,7 @@ async def handle_pdf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             logo_path=os.environ.get("LOGO_PATH", ""),
             cover_path=os.environ.get("COVER_PATH", ""),
             channel="telegram",
+            extras=extras,
         )
     except Exception as e:
         logger.error("PDF generation failed for plate %s: %s", plate, e)

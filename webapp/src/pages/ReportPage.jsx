@@ -6,6 +6,8 @@ import BackButton from '../components/BackButton.jsx'
 import PageBanners from '../components/PageBanners.jsx'
 import VehicleLookupLoader from '../components/VehicleLookupLoader.jsx'
 import CompareCard from '../components/CompareCard.jsx'
+import LeviCard from '../components/LeviCard.jsx'
+import InsuranceCard from '../components/InsuranceCard.jsx'
 import PremiumLock from '../components/PremiumLock.jsx'
 import { getMarketStats } from '../utils/marketPrice.js'
 import { fmtDate, testStatus } from '../utils/time.js'
@@ -987,6 +989,8 @@ export default function ReportPage({ plate, onBack, user, onNavigate }) {
     notes: notesCard,
     garage: garageCard,
     market: marketCard,
+    levi: <LeviCard plate={plateNum} user={user} onNavigate={onNavigate} />,
+    insurance: <InsuranceCard plate={plateNum} user={user} onNavigate={onNavigate} />,
     alerts: watchCard,
     pdf: pdfCard,
     compare: <CompareCard plate={plateNum} user={user} onNavigate={onNavigate} />,

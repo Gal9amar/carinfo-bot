@@ -170,6 +170,7 @@ def generate_pdf(
     channel: str = "",
     car_image_url: str = "",
     notes: str = "",
+    extras: dict | None = None,
 ) -> bytes:
     """Generate a premium Hebrew vehicle-report PDF."""
     from reportlab.lib import colors
@@ -918,6 +919,31 @@ def generate_pdf(
             ])
             if ptbl:
                 story.extend(_section([_section_title("שווי ומחיר"), ptbl]))
+        except Exception:
+            pass
+
+    # ── שווי שוק וביטוח (Levi Yitzhak list price · Yad2 comparison · registered insurer) ───────
+    if extras:
+        try:
+            from src.pricing import compare_text
+            rows: list[tuple[str, str]] = []
+            lv = extras.get("levi") or {}
+            if lv.get("price"):
+                rows.append(("מחירון לוי יצחק (בסיס)", f"₪{int(lv['price']):,}"))
+            mk = extras.get("market") or {}
+            cmp = extras.get("compare")
+            if cmp:
+                rows.append(("חציון מודעות יד2", f"₪{cmp['market']:,}" + (f" · {cmp['count']} מודעות" if cmp.get("count") else "")))
+                rows.append(("מחירון מול יד2", compare_text(cmp)))
+            ins = extras.get("insurance")
+            if ins:
+                if ins.get("insured"):
+                    rows.append(("ביטוח צד ג׳ / מקיף", ", ".join(ins["insured"]) + f" (נכון ל־{ins.get('date', '')})"))
+                else:
+                    rows.append(("ביטוח צד ג׳ / מקיף", f"לא נמצאה פוליסה ב־{len(ins.get('no', []))} חברות שנבדקו (נכון ל־{ins.get('date', '')})"))
+            kv = _kv_table(rows, highlight={"מחירון לוי יצחק (בסיס)", "ביטוח צד ג׳ / מקיף"}) if rows else None
+            if kv:
+                story.extend(_section([_section_title("שווי שוק וביטוח"), kv]))
         except Exception:
             pass
 

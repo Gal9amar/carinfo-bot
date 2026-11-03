@@ -15,7 +15,7 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from src.features import feature_open, levi_open, insurance_open
+from src.features import feature_open, levi_open, insurance_open, yad2_market_authorized
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import BaseModel
@@ -30,7 +30,7 @@ WEBAPP_URL   = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_U
 # Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
 # webapp can detect a new release and force-reload instead of running stale
 # cached JS. Falls back to process start time for non-Render environments.
-APP_VERSION = "1793744671"
+APP_VERSION = "1793745354"
 
 api = FastAPI()
 
@@ -235,7 +235,7 @@ async def admin_set_report_layout(body: ReportLayoutBody, _: dict = Depends(_req
     return {"layout": await save_layout({"summary": body.summary, "full": body.full})}
 
 
-# ── Admin: Levi Yitzhak price-list check (phone → SMS code → plate) ──────────
+# ── Levi Yitzhak price list, registered insurer, Levi-vs-Yad2 (Mini App + admin tab) ──────────────────────
 
 class LeviPhoneBody(BaseModel):
     phone: str
@@ -249,12 +249,30 @@ class LeviPlateBody(BaseModel):
     plate: str
 
 
+class LeviCalcBody(BaseModel):
+    km: int
+    owner_ids: list[str]   # one ownership-type id per hand, current hand last
+
+
 def _levi_http_error(e: Exception) -> HTTPException:
     return HTTPException(status_code=400, detail=str(e))
 
 
-@api.get("/api/admin/levi/status")
-async def admin_levi_status(user: dict = Depends(_require_admin)):
+def _digits(plate: str) -> str:
+    import re
+    return re.sub(r"\D", "", plate or "")
+
+
+async def _require_levi(user: dict = Depends(_get_user)) -> dict:
+    """Entitled to the Levi Yitzhak feature (admin always; others per levi_enabled / subscriber / public window)."""
+    from src.features import levi_open
+    if not await levi_open(int(user["id"])):
+        raise HTTPException(status_code=403, detail="locked")
+    return user
+
+
+@api.get("/api/levi/status")
+async def levi_status(user: dict = Depends(_require_levi)):
     from src import levi
     s = await levi.get_session(int(user["id"]))
     return {
@@ -264,8 +282,8 @@ async def admin_levi_status(user: dict = Depends(_require_admin)):
     }
 
 
-@api.post("/api/admin/levi/send-sms")
-async def admin_levi_send_sms(body: LeviPhoneBody, user: dict = Depends(_require_admin)):
+@api.post("/api/levi/send-sms")
+async def levi_send_sms(body: LeviPhoneBody, user: dict = Depends(_require_levi)):
     from src import levi
     phone = levi.normalize_phone(body.phone)
     if not phone:
@@ -277,11 +295,10 @@ async def admin_levi_send_sms(body: LeviPhoneBody, user: dict = Depends(_require
     return {"ok": True, "phone": levi.mask_phone(phone)}
 
 
-@api.post("/api/admin/levi/validate")
-async def admin_levi_validate(body: LeviCodeBody, user: dict = Depends(_require_admin)):
-    import re
+@api.post("/api/levi/validate")
+async def levi_validate(body: LeviCodeBody, user: dict = Depends(_require_levi)):
     from src import levi
-    code = re.sub(r"\D", "", body.code or "")
+    code = _digits(body.code)
     if not levi.CODE_RE.match(code):
         raise HTTPException(status_code=400, detail="הקוד צריך להיות 6 ספרות")
     try:
@@ -296,27 +313,106 @@ async def admin_levi_validate(body: LeviCodeBody, user: dict = Depends(_require_
     return {"ok": True, "phone": levi.mask_phone(s["phone"]) if s else ""}
 
 
-@api.post("/api/admin/levi/lookup")
-async def admin_levi_lookup(body: LeviPlateBody, user: dict = Depends(_require_admin)):
-    import re
+@api.post("/api/levi/logout")
+async def levi_logout_api(user: dict = Depends(_get_user)):
+    """Open to everyone: it only erases the caller's own Levi data."""
     from src import levi
-    plate = re.sub(r"\D", "", body.plate or "")
+    await levi.logout(int(user["id"]))
+    return {"ok": True}
+
+
+@api.post("/api/levi/lookup")
+async def levi_lookup_admin(body: LeviPlateBody, user: dict = Depends(_require_admin)):
+    """Admin debug tab: summary + the raw upstream answer."""
+    from src import levi
+    plate = _digits(body.plate)
     if not 5 <= len(plate) <= 8:
         raise HTTPException(status_code=400, detail="מספר רכב צריך להיות 5–8 ספרות")
     try:
-        result = await levi.lookup_plate(int(user["id"]), plate)
+        return await levi.lookup_plate(int(user["id"]), plate)
     except levi.LeviAuthError as e:
         raise HTTPException(status_code=401, detail=f"levi_auth: {e}")
     except levi.LeviError as e:
         raise _levi_http_error(e)
-    return result
 
 
-@api.post("/api/admin/levi/logout")
-async def admin_levi_logout(user: dict = Depends(_require_admin)):
+@api.get("/api/levi/owners")
+async def levi_owners(user: dict = Depends(_require_levi)):
     from src import levi
-    await levi.logout(int(user["id"]))
-    return {"ok": True}
+    try:
+        owners = await levi.owner_types(int(user["id"]))
+    except levi.LeviAuthError as e:
+        raise HTTPException(status_code=401, detail=f"levi_auth: {e}")
+    except levi.LeviError as e:
+        raise _levi_http_error(e)
+    return {"owners": [{"id": o["id"], "name": o["name"]} for o in owners]}
+
+
+async def _levi_with_comparison(user_id: int, plate: str, price, summary: dict) -> dict:
+    from src import pricing
+    market = None
+    try:
+        market = await pricing.market_for_plate(user_id, plate)
+    except Exception:
+        market = None
+    cmp = pricing.compare(price, market)
+    return {"summary": summary, "comparison": cmp, "comparison_text": pricing.compare_text(cmp) if cmp else ""}
+
+
+@api.get("/api/vehicle/{plate}/levi")
+async def vehicle_levi(plate: str, user: dict = Depends(_require_levi)):
+    from src import levi
+    await _ensure_not_maintenance(user)
+    plate = _digits(plate)
+    uid = int(user["id"])
+    try:
+        res = await levi.lookup_plate(uid, plate)
+    except levi.LeviAuthError as e:
+        raise HTTPException(status_code=401, detail=f"levi_auth: {e}")
+    except levi.LeviError as e:
+        raise _levi_http_error(e)
+    return await _levi_with_comparison(uid, plate, res["summary"].get("price"), res["summary"])
+
+
+@api.post("/api/vehicle/{plate}/levi/calc")
+async def vehicle_levi_calc(plate: str, body: LeviCalcBody, user: dict = Depends(_require_levi)):
+    from src import levi
+    await _ensure_not_maintenance(user)
+    plate = _digits(plate)
+    uid = int(user["id"])
+    if not 0 <= body.km <= 999_999:
+        raise HTTPException(status_code=400, detail="קילומטראז' לא תקין")
+    if not 1 <= len(body.owner_ids) <= 20:
+        raise HTTPException(status_code=400, detail="מספר ידיים לא תקין")
+    try:
+        res = await levi.lookup_plate(uid, plate)
+        params = levi.calc_params(res["raw"])
+        owners = {o["id"]: o["name"] for o in await levi.owner_types(uid)}
+        if not params or not owners:
+            raise levi.LeviError("לא ניתן לשקלל מחיר לרכב הזה (חסרים נתוני דגם מהשרת)")
+        if any(oid not in owners for oid in body.owner_ids):
+            raise levi.LeviError("סוג בעלות לא מוכר")
+        out = await levi.calc_price(uid, params, body.km, body.owner_ids)
+    except levi.LeviAuthError as e:
+        raise HTTPException(status_code=401, detail=f"levi_auth: {e}")
+    except levi.LeviError as e:
+        raise _levi_http_error(e)
+    data = await _levi_with_comparison(uid, plate, out["price"], res["summary"])
+    data.update(price=out["price"], owner_names=[owners[o] for o in body.owner_ids], km=body.km)
+    return data
+
+
+@api.get("/api/vehicle/{plate}/insurance")
+async def vehicle_insurance(plate: str, user: dict = Depends(_get_user)):
+    from src import insurance
+    from src.features import insurance_open
+    if not await insurance_open(int(user["id"])):
+        raise HTTPException(status_code=403, detail="locked")
+    await _ensure_not_maintenance(user)
+    try:
+        return await insurance.check_plate(_digits(plate))
+    except insurance.InsuranceError as e:
+        raise HTTPException(status_code=502, detail=str(e))
 
 
 @api.get("/api/user")
@@ -430,6 +526,8 @@ async def get_user_info(user: dict = Depends(_get_user)):
         "show_watch": show_watch,
         "show_levi": show_levi,
         "show_insurance": show_insurance,
+        "levi_teaser": (not show_levi) and (await get_bot_setting("levi_enabled")) == "1",
+        "insurance_teaser": (not show_insurance) and (await get_bot_setting("insurance_enabled")) == "1",
         "pdf_public_label": pdf_public_label,
         "watch_public_label": watch_public_label,
         "levi_public_label": levi_public_label,
@@ -897,6 +995,11 @@ async def get_vehicle_pdf(plate: str, user: dict = Depends(_get_user)):
         note = await _get_note(user_id, plate)
     except Exception:
         note = ""
+    from src.pricing import premium_extras
+    try:
+        extras = await premium_extras(user_id, plate, record)
+    except Exception:
+        extras = None
     pdf_bytes = await _asyncio.to_thread(
         generate_pdf, record,
         tg_link=f"t.me/{BOT_USERNAME}",
@@ -905,6 +1008,7 @@ async def get_vehicle_pdf(plate: str, user: dict = Depends(_get_user)):
         cover_path=os.environ.get("COVER_PATH", ""),
         channel="telegram",
         notes=note,
+        extras=extras,
     )
 
     from src.notifier import send_user_document
@@ -2553,29 +2657,8 @@ async def vehicle_market_price(plate: str, user: dict = Depends(_get_user)):
         raise HTTPException(status_code=403, detail="disabled")
 
     user_id = int(user["id"])
-    allowed = False
-
-    # Check public (open-to-all) mode with optional date window
     public_on    = (await get_bot_setting("yad2_market_public")) == "1"
-    public_start = (await get_bot_setting("yad2_market_public_start")) or ""
-    public_end   = (await get_bot_setting("yad2_market_public_end"))   or ""
-    if public_on:
-        from datetime import date as _date
-        today = str(_date.today())
-        in_window = (not public_start or today >= public_start) and \
-                    (not public_end   or today <= public_end)
-        allowed = in_window
-
-    # If not allowed via public, check group membership
-    if not allowed:
-        groups_json = (await get_bot_setting("yad2_market_groups")) or "[]"
-        allowed_groups = json.loads(groups_json)
-        if allowed_groups:
-            r = await execute(
-                f"SELECT 1 FROM user_group_members WHERE user_id=? AND group_id IN ({','.join('?' * len(allowed_groups))})",
-                [user_id, *allowed_groups]
-            )
-            allowed = len(r.rows) > 0
+    allowed      = await yad2_market_authorized(user_id)
 
     # Always fetch data — unauthorized users see a blurred teaser
     clean = plate.replace("-", "").replace(" ", "")

@@ -513,7 +513,10 @@ def levi_calc_ask_owner(idx: int, total: int) -> str:
     return f"👤 {b(f'יד {idx} מתוך {total}')}{esc(cur)}\nמה סוג הבעלות?"
 
 
-def levi_calc_result(s: dict, km: int, owner_names: list, price) -> str:
+MARKET_CMP_LABEL = "⚖️ מחירון מול יד2"
+
+
+def levi_calc_result(s: dict, km: int, owner_names: list, price, compare: str = "") -> str:
     title = " ".join(str(p) for p in (s.get("manufacturer"), s.get("model"), s.get("year")) if p) or "רכב"
     lines = [
         f"⚖️ {b('שקלול מחיר — מחירון לוי יצחק')}",
@@ -528,6 +531,8 @@ def levi_calc_result(s: dict, km: int, owner_names: list, price) -> str:
             lines.append(i(f"מחיר בסיס: ₪{int(s['price']):,}"))
     else:
         lines.append(f"💰 {i('לא התקבל מחיר מותאם מהמחירון')}")
+    if compare:
+        lines.append(f"{MARKET_CMP_LABEL}: {esc(compare)}")
     lines += ["", i("הערכה לפי מחירון לוי יצחק, לא אישור רשמי")]
     return "\n".join(lines)
 

@@ -157,24 +157,30 @@ export async function adminFetchStats() {
   return r.json()
 }
 
-// Admin: Levi Yitzhak price-list check
-async function leviCall(path, method = 'POST', body) {
-  const r = await fetch(`${BASE}/api/admin/levi/${path}`, {
+// Levi Yitzhak price list, Levi-vs-Yad2 comparison and registered insurer (admin tab + report cards)
+async function apiCall(path, method = 'GET', body) {
+  const r = await fetch(`${BASE}${path}`, {
     method, headers: headers(), body: body === undefined ? undefined : JSON.stringify(body),
   })
   const data = await r.json().catch(() => ({}))
   if (!r.ok) {
     const err = new Error(typeof data.detail === 'string' ? data.detail : `שגיאה ${r.status}`)
+    err.status = r.status
     err.authExpired = r.status === 401 && String(data.detail || '').startsWith('levi_auth')
     throw err
   }
   return data
 }
-export const adminLeviStatus = () => leviCall('status', 'GET')
-export const adminLeviSendSms = (phone) => leviCall('send-sms', 'POST', { phone })
-export const adminLeviValidate = (code) => leviCall('validate', 'POST', { code })
-export const adminLeviLookup = (plate) => leviCall('lookup', 'POST', { plate })
-export const adminLeviLogout = () => leviCall('logout', 'POST')
+export const adminLeviStatus = () => apiCall('/api/levi/status')
+export const adminLeviSendSms = (phone) => apiCall('/api/levi/send-sms', 'POST', { phone })
+export const adminLeviValidate = (code) => apiCall('/api/levi/validate', 'POST', { code })
+export const adminLeviLookup = (plate) => apiCall('/api/levi/lookup', 'POST', { plate })
+export const adminLeviLogout = () => apiCall('/api/levi/logout', 'POST')
+export const fetchLeviOwners = () => apiCall('/api/levi/owners')
+export const fetchVehicleLevi = (plate) => apiCall(`/api/vehicle/${encodeURIComponent(plate)}/levi`)
+export const calcVehicleLevi = (plate, km, ownerIds) =>
+  apiCall(`/api/vehicle/${encodeURIComponent(plate)}/levi/calc`, 'POST', { km, owner_ids: ownerIds })
+export const fetchVehicleInsurance = (plate) => apiCall(`/api/vehicle/${encodeURIComponent(plate)}/insurance`)
 
 export async function adminFetchUsers() {
   const r = await fetch(`${BASE}/api/admin/users`, { headers: headers() })

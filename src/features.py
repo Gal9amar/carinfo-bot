@@ -89,3 +89,36 @@ async def levi_open(user_id: int, *, quota: Optional[int] = None, subscriber: Op
 
 async def insurance_open(user_id: int, *, quota: Optional[int] = None, subscriber: Optional[bool] = None) -> bool:
     return await subscriber_feature_open(user_id, "insurance", quota=quota, subscriber=subscriber)
+
+
+async def yad2_market_authorized(user_id: int) -> bool:
+    """Same rule the Mini App uses to UNBLUR Yad2 market data (`/api/vehicle/{plate}/market-price`.authorized):
+    `yad2_market_enabled` AND (open-to-all window OR member of `yad2_market_groups`)."""
+    from src.db import get_bot_setting, execute
+    if (await get_bot_setting("yad2_market_enabled")) != "1":
+        return False
+    if (await get_bot_setting("yad2_market_public")) == "1":
+        today = str(date.today())
+        ps = (await get_bot_setting("yad2_market_public_start")) or ""
+        pe = (await get_bot_setting("yad2_market_public_end")) or ""
+        if (not ps or today >= ps) and (not pe or today <= pe):
+            return True
+    try:
+        groups = [int(g) for g in json.loads((await get_bot_setting("yad2_market_groups")) or "[]")]
+    except (ValueError, TypeError):
+        groups = []
+    if groups:
+        r = await execute(
+            f"SELECT 1 FROM user_group_members WHERE user_id=? AND group_id IN ({','.join('?' * len(groups))})",
+            [user_id, *groups],
+        )
+        return bool(r.rows)
+    return False
+
+
+async def market_visible(user_id: int) -> bool:
+    """May this user see Yad2 market numbers (and anything derived from them, e.g. the Levi comparison)?"""
+    from src.db import get_bot_setting
+    if user_id == ADMIN_ID:
+        return (await get_bot_setting("yad2_market_enabled")) == "1"
+    return await yad2_market_authorized(user_id)

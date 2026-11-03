@@ -45,6 +45,7 @@ carinfo-bot/
 │   ├── yad2.py             # Yad2 URL building + market price (cached) 
 │   ├── yad2_models.json   # manufacturer→model→Yad2 ID map
 │   ├── yad2_watcher.py     # new-listing alerts ("watches")
+│   ├── pricing.py          # Levi list price vs Yad2 median (compare / compare_text), market_for_plate, premium_extras (PDF)
 │   ├── insurance.py        # registered-insurer lookup via the operator's Car check API (/api/property-insurance-check, today's date)
 │   ├── levi.py             # Levi Yitzhak price list: SMS login on the user's own account (API of the official app)
 │   ├── formatter.py        # vehicle data → Telegram text (HTML)
@@ -142,7 +143,7 @@ Auth: header `X-Init-Data` = Telegram WebApp initData, HMAC-validated with the b
 | Area | Endpoints |
 |------|-----------|
 | Profile | `GET /api/user` (quota, flags `show_market_price/show_pdf_report/show_watch`, `is_subscriber`, `global_unlimited_active`, `watch_max`, labels…) · `/api/user/history` · `/api/user/orders` · `/api/user/referral` · `/api/user/referrals` |
-| Vehicle | `GET /api/vehicle/{plate}` (consumes quota, 403 `quota_exceeded`, 404 not found) · `/api/vehicle/{plate}/pdf` · `/api/vehicle/{plate}/market-price` · `GET/POST /api/notes/{plate}` |
+| Vehicle | `GET /api/vehicle/{plate}` (consumes quota, 403 `quota_exceeded`, 404 not found) · `/api/vehicle/{plate}/pdf` · `/api/vehicle/{plate}/market-price` · `GET /api/vehicle/{plate}/levi` (+ `POST …/levi/calc`, `GET /api/levi/owners|status`, `POST /api/levi/send-sms|validate|logout`; gated by `levi_open` → 403 `locked`; `comparison` only for users who may see Yad2 market data) · `GET /api/vehicle/{plate}/insurance` (gated by `insurance_open`) · `GET/POST /api/notes/{plate}` |
 | Payment | `POST /api/payment/initiate` (`package_id` XOR `product_id`, `quantity`, `intent_only`) · `POST /api/payment/promote` (intent→created + notify admin) |
 | Garage | `GET/POST /api/user/garage` · `GET …/check/{plate}` · `PATCH/DELETE …/{id}` · `POST …/{id}/sell` · `POST …/{id}/expenses` · `DELETE …/{id}/expenses/{eid}` |
 | Alerts | `GET /api/watches/makes`, `/api/watches/models` · `GET/POST /api/user/watches` · `DELETE …/{id}` · `PATCH …/{id}/toggle` |
@@ -193,7 +194,7 @@ Link `https://t.me/{BOT_USERNAME}?start=ref_{referrer_id}` → `/start ref_X` �
 ### Feature access (compare / PDF / alerts / market price)
 **One rule for bot AND Mini App:** `src/features.py::feature_open(user_id, prefix)` (`pdf_report`, `yad2_watch`; market price has its own blurred-data gate). Used by `/api/user` (`show_*`), the PDF / watches endpoints, the bot's result-card buttons (locked ones are hidden), the PDF callback and the Yad2 watch job. Never re-implement the gate. Premium components in the Mini App live on the report's **Summary** tab (market price, alerts, PDF); a user who isn't entitled sees them **blurred** with a call-to-action. The Full tab only holds vehicle details. **Compare is NOT premium** — open to every user in bot and Mini App; `GET /api/vehicle/{a}/compare/{b}` costs 1 search (for b; none when unlimited).
 `/api/user` computes `show_*` via `feature_open`: admin ✔ · quota −1 ✔ · subscriber (incl. VIP) ✔ · member of `{prefix}_groups` ✔ · quota left > 0 ✔ · else if `{prefix}_enabled != 0` and public mode active within its date window ✔. `public_label` fields are shown only while public mode is active.
-`GET /api/vehicle/{plate}/market-price` uses its **own** gate: requires `yad2_market_enabled=1` (403 `disabled`), `authorized` = public-mode window **or** membership in `yad2_market_groups`; data is always returned and the UI blurs it when `authorized=false`. (These two gates differ — check both when changing access rules.)
+`GET /api/vehicle/{plate}/market-price` uses its **own** gate: requires `yad2_market_enabled=1` (403 `disabled`), `authorized` = public-mode window **or** membership in `yad2_market_groups`; data is always returned and the UI blurs it when `authorized=false`. (These two gates differ — check both when changing access rules.) Anything derived from the market numbers (the Levi-vs-Yad2 comparison in the bot card, Mini App Levi card, calc result and PDF) uses `features.market_visible` = admin (if enabled) or `yad2_market_authorized`, i.e. exactly who sees the numbers unblurred.
 
 ### Report layout (admin-controlled)
 `src/report_layout.py` — order + visibility of every component of the report's **Summary** and **Full** tabs (`bot_settings.report_layout`, normalised against the component catalogue so new components never break a saved layout). Public `GET /api/report-layout`; admin `GET/POST /api/admin/report-layout` (`{summary,full}` or `{reset:true}`); admin tab **סדר הדוח**. `ReportPage.jsx` renders sections from an id→element map in layout order (default order shown immediately). Add a component = add it to `COMPONENTS` in `report_layout.py` AND the ReportPage map.
@@ -297,3 +298,6 @@ Skills (`.claude/skills/`): `qa-verify-change` (scripts: `local_api.py`, `sign_i
 ### Lessons / guardrails
 - Never commit an emptied or truncated file: check `git diff --stat` before every push (`AdminPage.jsx` was once pushed empty → white admin screen).
 - A `lazy()` page must `export default`.
+
+### Rich-message tables (RTL)
+Telegram Desktop ignores `is_rtl` for table column ORDER (first cell = leftmost) while the mobile apps mirror it, so `src/rich.py` sends `is_rtl=False` and every Hebrew table is authored in visual LTR order (value column first, label column last = rightmost) with `align='right'` cells; Hebrew paragraphs start with an RLM (`‏`). Keep that convention for any new table (`quick_summary_rich`, `compare_rich`, history table).

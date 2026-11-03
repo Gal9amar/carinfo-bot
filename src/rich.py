@@ -24,7 +24,11 @@ async def rich_enabled() -> bool:
         return False
 
 
-async def send_rich_message(chat_id: int, html: str, reply_markup=None, is_rtl: bool = True, *, mirror: bool = True,
+# Telegram clients disagree on RTL tables: Desktop ignores `is_rtl` for the column ORDER (first cell = leftmost) while
+# the mobile apps mirror the columns. Sending is_rtl=False makes every client use the visual left-to-right order, so
+# Hebrew tables are authored in that order (label column last = rightmost) with align="right" cells, and Hebrew
+# paragraphs start with an RLM so their direction/alignment stays right-to-left.
+async def send_rich_message(chat_id: int, html: str, reply_markup=None, is_rtl: bool = False, *, mirror: bool = True,
                             message_thread_id: int | None = None, reply_to: int | None = None, force: bool = False) -> bool:
     """Send a table message. `mirror=False` is used by the activity mirror for its own copies."""
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
