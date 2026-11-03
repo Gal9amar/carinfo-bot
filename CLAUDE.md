@@ -245,6 +245,7 @@ Seeded when table empty: 🔍 50 חיפושים ₪10 · 🔍 100 חיפושים
 | `PAYMENT_PROVIDER_TOKEN` | — | Telegram invoices |
 | `YAD2_PROXY_URL`, `YAD2_PROXY_SECRET`, `YAD2_CF_WORKER_URL` | — | Israeli-IP proxy for Yad2 (secrets: set via env, don't commit) |
 | `LEVI_API_BASE` | https://s.leviitzhak.xyz | Levi Yitzhak app API (override with an Israeli-IP proxy if it gets geo-blocked) |
+| `LEVI_ORIGIN` | https://localhost | `Origin` header sent to the Levi API (it answers "Origin required." without one; default = the Android app's WebView origin) |
 | `PORT` | 8080 | Server port |
 | `LOGO_PATH`, `COVER_PATH` | — | PDF assets |
 

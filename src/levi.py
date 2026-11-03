@@ -24,7 +24,10 @@ logger = logging.getLogger(__name__)
 
 API_BASE = os.environ.get("LEVI_API_BASE", "https://s.leviitzhak.xyz").rstrip("/")
 _TIMEOUT = httpx.Timeout(20.0, connect=10.0)
-_HEADERS = {"Accept": "application/json", "Content-Type": "application/json"}
+# The API answers "Origin required." without an Origin header. The official Android app's
+# WebView sends https://localhost; LEVI_ORIGIN overrides it if Levi changes the allow-list.
+ORIGIN = os.environ.get("LEVI_ORIGIN", "https://localhost")
+_HEADERS = {"Accept": "application/json", "Content-Type": "application/json", "Origin": ORIGIN}
 
 PHONE_RE = re.compile(r"^05[0-689]\d{7}$")   # same prefixes the Levi app accepts
 CODE_RE = re.compile(r"^\d{6}$")
