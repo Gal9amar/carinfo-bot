@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>תוכנית עבודה — מעבר ל-API של Turso</title>
+<style>
+  :root {
+    --bg: #f5f7fb; --card: #ffffff; --text: #1b2433; --muted: #5d6b82; --border: #dde3ee;
+    --accent: #1d4ed8; --ok: #15803d; --warn: #b45309; --bad: #b91c1c; --code-bg: #eef2f9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1624; --card: #172136; --text: #e6ebf5; --muted: #98a6bf; --border: #26334d;
+      --accent: #6ea0ff; --ok: #4ade80; --warn: #fbbf24; --bad: #f87171; --code-bg: #1d2a44;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); line-height: 1.7;
+         font-family: "Segoe UI", "Heebo", "Rubik", Arial, sans-serif; }
+  main { max-width: 920px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  h2 { font-size: 20px; margin: 36px 0 12px; padding-bottom: 6px; border-bottom: 2px solid var(--border); }
+  h3 { font-size: 16px; margin: 22px 0 8px; }
+  p { margin: 8px 0; }
+  .sub { color: var(--muted); font-size: 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; margin: 12px 0; }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+  .stat b { display: block; font-size: 24px; color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 14px; }
+  th, td { border: 1px solid var(--border); padding: 8px 10px; text-align: right; vertical-align: top; }
+  th { background: var(--code-bg); }
+  code, pre { font-family: Consolas, "Courier New", monospace; direction: ltr; unicode-bidi: embed; }
+  code { background: var(--code-bg); padding: 1px 6px; border-radius: 6px; font-size: 13px; }
+  pre { background: var(--code-bg); padding: 12px 14px; border-radius: 10px; overflow-x: auto; font-size: 13px; text-align: left; }
+  .tag { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px; color: #fff; }
+  .done { background: var(--ok); } .todo { background: var(--accent); } .opt { background: var(--muted); } .risk { background: var(--bad); }
+  ul, ol { padding-inline-start: 22px; margin: 8px 0; }
+  li { margin: 4px 0; }
+  .check li { list-style: none; margin-inline-start: -22px; }
+  .check li::before { content: "☐ "; color: var(--accent); font-weight: 700; }
+  .check li.d::before { content: "☑ "; color: var(--ok); }
+  .note { border-inline-start: 4px solid var(--warn); }
+  .good { border-inline-start: 4px solid var(--ok); }
+  details { margin: 10px 0; } summary { cursor: pointer; font-weight: 700; }
+  footer { margin-top: 40px; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>תוכנית עבודה — מעבר ל-API של Turso (HTTP)</h1>
+<p class="sub">carinfo-bot · עודכן לאחרונה: 4 בנובמבר 2026 · מסמך פנימי להמשך עבודה (לבעל המערכת ולמי שימשיך את הפיתוח)</p>
+
+<div class="card good">
+  <b>בקצרה:</b> הספרייה הנייטיבית של Turso (<code>libsql_experimental</code>) מחזיקה את ה-GIL של פייתון לאורך כל סיבוב רשת,
+  ולכן כל שאילתה מקפיאה את התהליך כולו (הבוט, ה-API ו-event loop). המעבר ל-API של Turso ב-HTTP דרך <code>httpx.AsyncClient</code>
+  נותן שאילתות אסינכרוניות באמת, חיבור פתוח (keep-alive) ואפשרות לשלוח כמה פקודות בבקשה אחת.
+  מוצע לבצע בשלבים, מאחורי מתג בסביבה, כך שאפשר לחזור לספרייה הנוכחית בלי commit.
+</div>
+
+<h2>1. למה (רקע וראיות)</h2>
+<ul>
+  <li><b>התסמין:</b> חיפוש ב-WebApp נתקע שניות עד עשרות שניות בשלב "מרכיב את הדוח", במיוחד אחרי deploy.</li>
+  <li><b>הלוג (3 בנובמבר, שירות הבוט ב-Render):</b>
+    <pre>vehicle lookup 15733801: user/quota=2.1s registry=4.5s db-writes=35.0s total=41.6s
+vehicle lookup 4422279:  user/quota=0.6s registry=3.3s db-writes=13.0s total=16.8s
+vehicle lookup 4422279:  user/quota=1.0s registry=0.0s db-writes=22.2s total=23.1s
+WARNING Run time of job "scheduled_broadcast" was missed by 0:00:11</pre>
+    קריאת נתוני הרכב (3–5 שניות) והמכסה תקינות. הכתיבות למסד הן הצוואר, וה-loop קפא ל-11 שניות ויותר.</li>
+  <li><b>קוד המקור של <code>libsql-python</code> (<code>src/lib.rs</code>):</b>
+    <code>execute()</code> רץ ב-<code>rt().block_on(...)</code> בלי לשחרר את ה-GIL. לכן 6 התהליכונים ב-<code>ThreadPoolExecutor</code>
+    לא נותנים מקביליות, וכל סיבוב רשת (כ-150–500 מילישניות) עוצר את כל התהליך.</li>
+  <li><b>ברירת המחדל של הספרייה (<code>isolation_level="DEFERRED"</code>):</b> כל INSERT/UPDATE/DELETE שולח BEGIN, אחר כך את הפקודה, אחר כך COMMIT. שלושה סיבובי רשת לכתיבה.</li>
+  <li><b>כמות הפקודות לכל פעולה</b> (נמדד עם מונה על שכבת ה-DB, נתונים מקומיים):
+    <table>
+      <tr><th>פעולה</th><th>פקודות</th><th>הערה</th></tr>
+      <tr><td><code>GET /api/user</code></td><td>4</td><td>קריאות בלבד</td></tr>
+      <tr><td><code>GET /api/vehicle/{plate}</code></td><td>6</td><td>3 כתיבות + 3 קריאות (בדיקת מכסה, היסטוריה, לוג)</td></tr>
+      <tr><td>חיפוש בבוט (כל הפונקציות יחד)</td><td>כ-10</td><td>is_allowed, last_plate, increment_search, set_last_plate, לוג…</td></tr>
+      <tr><td>אתחול (<code>_init_core</code>)</td><td>146</td><td>רץ פעם אחת לכל שינוי קוד אחרי התיקון, ראו למטה</td></tr>
+    </table>
+  </li>
+  <li>הקוד כבר חסכוני בפקודות (מטמוני הסכמה, הגדרות, הסכמות). הפער הוא מחיר כל פקודה, ולא מספרן.</li>
+</ul>
+
+<h2>2. מה כבר בוצע (ב-main)</h2>
+<table>
+  <tr><th>commit</th><th>מה</th><th>סטטוס</th></tr>
+  <tr><td><code>86b99eb</code></td><td>משימת התראות יד2 ופרוקסי <code>/yad2</code> מריצים <code>urllib</code> בתהליכון (<code>asyncio.to_thread</code>) ולא על ה-loop</td><td><span class="tag done">בוצע</span></td></tr>
+  <tr><td><code>d802ea8</code></td><td>שורת לוג עם זמני שלבים בחיפוש (<code>api.vehicle</code>: user/quota, registry, db-writes, total)</td><td><span class="tag done">בוצע</span></td></tr>
+  <tr><td><code>99189a7</code></td><td>דילוג על אתחול הסכמה (<code>_init_core</code>) כשהקוד לא השתנה (חתימה ב-<code>bot_settings.schema_sig</code>); הרצה בתהליכון; אתחול המודולים במקביל</td><td><span class="tag done">בוצע</span></td></tr>
+  <tr><td><code>cdc8798</code></td><td><code>isolation_level=None</code> (autocommit): סיבוב אחד לכתיבה במקום שלושה, עם fallback לגרסה ישנה של הספרייה</td><td><span class="tag done">בוצע</span></td></tr>
+</table>
+<p class="sub">עדיין צריך לאמת בפרודקשן: ש-<code>db-writes</code> בשורת <code>vehicle lookup</code> ירד, גם בדקה שאחרי deploy.</p>
+
+<h2>3. מטרה ומדדי הצלחה</h2>
+<div class="grid">
+  <div class="card stat"><b>&lt; 1s</b>זמן <code>db-writes</code> לחיפוש (היום 13–35 שניות אחרי deploy)</div>
+  <div class="card stat"><b>0</b>אזהרות "Run time … was missed" בלוג בזמן עומס רגיל</div>
+  <div class="card stat"><b>&lt; 10s</b>עלייה של הבוט אחרי deploy (היום 25–110 שניות)</div>
+</div>
+
+<h2>4. תכנון</h2>
+<h3>4.1 עקרון</h3>
+<ul>
+  <li>כל הקוד משתמש רק ב-<code>await execute(sql, args)</code> (כ-259 אתרי קריאה) שמחזיר <code>.rows</code> (רשימת tuples) ו-<code>.columns</code> (אובייקטים עם <code>.name</code>).
+      רק <code>src/db.py</code> נוגע בחיבור עצמו. לכן אפשר להחליף את המימוש בלי לגעת בשאר הקוד.</li>
+  <li>כתובת <code>file:</code> (פיתוח מקומי ובדיקות) ממשיכה לרוץ על <code>libsql</code> או <code>sqlite</code> כמו היום. ה-HTTP רק לכתובות <code>libsql://</code> / <code>https://</code>.</li>
+  <li>מתג סביבה: <code>TURSO_HTTP=1</code> מדליק את הלקוח החדש. ברירת המחדל כבויה, כך שה-deploy הראשון לא משנה כלום.</li>
+</ul>
+
+<h3>4.2 הלקוח החדש (<code>src/db.py</code>)</h3>
+<ul>
+  <li><code>httpx.AsyncClient</code> יחיד לכל התהליך, <code>http2=True</code> אם זמין, <code>timeout</code> של 15 שניות, keep-alive.</li>
+  <li><code>execute(sql, args)</code>: בקשת pipeline אחת עם <code>execute</code> + <code>close</code>; המרת הטיפוסים לפי הטבלה בנספח; אותה מחלקה <code>_Result</code>.</li>
+  <li><code>execute_many([(sql, args), …], transactional=False)</code>: פקודות רבות בבקשה אחת (לאתחול, למונה ההזמנות, ולכתיבות שמגיעות יחד).</li>
+  <li>ניסיון חוזר אחד על שגיאות רשת/5xx (כמו הלוגיקה של <code>_CONN_ERRORS</code> היום), עם backoff קצר. שגיאות SQL (<code>error</code> בתשובה) מוחזרות כחריגה, כמו היום.</li>
+  <li>הסרת <code>_executor</code> ו-<code>_local</code> עבור ה-HTTP. ה-<code>ThreadPoolExecutor</code> ישאר רק לנתיב <code>file:</code>.</li>
+</ul>
+
+<h3>4.3 נקודות מגע ב-<code>src/db.py</code></h3>
+<table>
+  <tr><th>פונקציה</th><th>שינוי</th></tr>
+  <tr><td><code>_get_conn</code>, <code>_run</code>, <code>execute</code></td><td>נתיב HTTP חדש מאחורי המתג; הנתיב הישן נשאר</td></tr>
+  <tr><td><code>_init_core</code> (146 פקודות)</td><td>בקשה אחת (batch) במקום סיבוב לכל פקודה; הדילוג לפי <code>schema_sig</code> נשאר</td></tr>
+  <tr><td><code>_bump_counter</code> / <code>next_counter</code></td><td>3 פקודות בבקשה אחת (טרנזקציה); מבטל את הצורך בנעילה בתהליך</td></tr>
+  <tr><td><code>_load_settings</code></td><td>ללא שינוי (snapshot של 5 שניות)</td></tr>
+  <tr><td><code>src/products.py</code> (~שורה 186)</td><td>הערה על "RETURNING לא נתמך בגרסה הזו": לבדוק אם ב-HTTP נתמך ולפשט אם כן</td></tr>
+</table>
+
+<h2>5. שלבים וזמנים (הערכה)</h2>
+<table>
+  <tr><th>#</th><th>שלב</th><th>משימות</th><th>זמן</th><th></th></tr>
+  <tr><td>1</td><td>לקוח HTTP</td>
+    <td><ul><li>פרסור כתובת <code>libsql://</code> → <code>https://</code></li><li><code>execute</code> עם המרת טיפוסים</li><li>טיפול בשגיאות וניסיון חוזר</li><li>מתג <code>TURSO_HTTP</code></li></ul></td>
+    <td>30–45 דק׳</td><td><span class="tag todo">לביצוע</span></td></tr>
+  <tr><td>2</td><td>Batch</td>
+    <td><ul><li><code>execute_many</code></li><li>אתחול <code>_init_core</code> בבקשה אחת</li><li><code>_bump_counter</code> כטרנזקציה</li></ul></td>
+    <td>15–20 דק׳</td><td><span class="tag todo">לביצוע</span></td></tr>
+  <tr><td>3</td><td>בדיקות</td>
+    <td><ul><li>שרת מדומה (FastAPI/httpx MockTransport) שמממש את הפרוטוקול</li><li>הרצה של כל סקריפטי הבדיקה הקיימים (API מקצה לקצה) בשני המצבים</li><li>בדיקת שגיאות: 5xx, timeout, טוקן שגוי, SQL לא תקין</li></ul></td>
+    <td>15–20 דק׳</td><td><span class="tag todo">לביצוע</span></td></tr>
+  <tr><td>4</td><td>איחוד כתיבות</td>
+    <td><ul><li>כתיבות החיפוש (<code>increment_search</code> + היסטוריה + לוג פעילות) בבקשה אחת</li><li>קריאות שמגיעות יחד ב-<code>is_allowed</code> ובפיצ'רים</li></ul></td>
+    <td>20–30 דק׳</td><td><span class="tag opt">אופציונלי</span></td></tr>
+  <tr><td>5</td><td>פריסה והתבוננות</td>
+    <td><ul><li>deploy עם המתג כבוי</li><li>הדלקת <code>TURSO_HTTP=1</code> ב-Render</li><li>מעקב אחרי הלוג יום שלם</li></ul></td>
+    <td>כ-24 שעות</td><td><span class="tag todo">לביצוע</span></td></tr>
+</table>
+<p>סה״כ עבודת פיתוח: כשעה עד שעה וחצי (בלי שלב 4: כשעה). אין לי גישה ל-Turso האמיתי מסביבת הפיתוח, ולכן האימות מול השרת האמיתי מתבצע רק בשלב 5.</p>
+
+<h2>6. פריסה ושחזור</h2>
+<ol>
+  <li><b>deploy עם מתג כבוי:</b> אפס שינוי התנהגותי; מוודאים שהבוט עולה.</li>
+  <li><b>הדלקה:</b> ב-Render ← Environment ← <code>TURSO_HTTP=1</code>, והפעלה מחדש.</li>
+  <li><b>בדיקות אחרי הדלקה (5 דקות):</b> חיפוש בבוט, חיפוש ב-WebApp, רכישה/הענקת מנוי (כתיבה), פאנל ניהול.</li>
+  <li><b>שחזור:</b> להסיר את <code>TURSO_HTTP</code> (או לשים <code>0</code>) ולהפעיל מחדש. אין צורך ב-commit ואין שינוי סכימה.</li>
+</ol>
+
+<h2>7. סיכונים</h2>
+<table>
+  <tr><th>סיכון</th><th>הסתברות</th><th>הפחתה</th></tr>
+  <tr><td>פרטי הפרוטוקול (טיפוסים, שגיאות) שונים ממה שמתועד כאן</td><td>בינונית</td><td>לאמת מול התיעוד הרשמי בתחילת שלב 1; שרת מדומה לפי התיעוד; מתג שחזור</td></tr>
+  <tr><td>הבדלי התנהגות בין <code>libsql</code> ל-HTTP (למשל <code>RETURNING</code>, טיפוסי מספרים)</td><td>נמוכה</td><td>המרת טיפוסים מפורשת; הרצת כל בדיקות ה-API בשני המצבים</td></tr>
+  <tr><td>טרנזקציה שנשברת באמצע בקשה (חיבור שנופל)</td><td>נמוכה</td><td>בקשה אחת = טרנזקציה אחת בצד השרת; ניסיון חוזר רק לפקודות אידמפוטנטיות</td></tr>
+  <tr><td>כתובת ה-HTTP של בסיס הנתונים שונה מהצפוי</td><td>נמוכה</td><td>גזירה אוטומטית מ-<code>TURSO_DATABASE_URL</code>, ושגיאה ברורה בלוג בעלייה</td></tr>
+  <tr><td>עומס בקשות (rate limit) בצד Turso</td><td>נמוכה</td><td>פחות בקשות מהיום (batch); backoff על 429</td></tr>
+</table>
+
+<h2>8. חלופות שנשקלו</h2>
+<ul>
+  <li><b>Embedded replica</b> (קבצים מקומיים עם סנכרון מ-Turso): קריאות מקומיות כמעט מיידיות. נדחה לעת עתה: כתיבות עדיין עוברות לשרת
+      ועדיין מחזיקות GIL, התיעוד מזהיר מפני פתיחת הקובץ בזמן סנכרון (בעיה עם חיבורים מרובי תהליכונים), והדיסק ב-Render אפמרלי (סנכרון מלא בכל הפעלה).</li>
+  <li><b>תהליך נפרד לשכבת ה-DB:</b> פותר GIL, אבל מוסיף מורכבות תפעולית. ה-HTTP נותן אותו יתרון בפשטות.</li>
+  <li><b>הישארות עם autocommit בלבד:</b> כבר בוצע. חוסך שני סיבובים לכתיבה אבל לא מסיר את ההקפאה.</li>
+</ul>
+
+<h2>9. רשימת בדיקה לקבלה</h2>
+<ul class="check">
+  <li class="d">אתחול הסכמה מדלג כשלא השתנה (נבדק מקומית: 146 → 30 פקודות)</li>
+  <li class="d">חיבור autocommit (נבדק מקומית עם דוגמה)</li>
+  <li>לקוח HTTP עובד עם שרת מדומה: SELECT, INSERT, UPDATE, NULL, מספר שלם גדול, טקסט בעברית</li>
+  <li>שגיאת SQL מחזירה חריגה עם הודעה קריאה</li>
+  <li>ניסיון חוזר בשגיאת רשת ו-5xx; אין ניסיון חוזר בשגיאת SQL</li>
+  <li>אתחול הסכמה בבקשה אחת ומדלג כשלא השתנה</li>
+  <li>מונה הזמנות אטומי בבקשה אחת</li>
+  <li>כל בדיקות ה-API מקצה לקצה עוברות בשני המצבים (<code>TURSO_HTTP=0</code> ו-<code>=1</code>)</li>
+  <li>פרודקשן: <code>db-writes</code> &lt; שנייה, ללא "missed by" בלוג, עלייה &lt; 10 שניות אחרי deploy</li>
+  <li>עדכון <code>CLAUDE.md</code> (סעיף "Turso / libsql performance notes" ומשתנה הסביבה החדש)</li>
+</ul>
+
+<h2>10. נספחים</h2>
+<details>
+<summary>א. פרוטוקול ה-pipeline (לאימות מול התיעוד הרשמי לפני המימוש)</summary>
+<p class="sub">מה שמופיע כאן נכתב מזיכרון של התיעוד ומקוד הספרייה. לבדוק בתחילת שלב 1 את
+<a href="https://docs.turso.tech/sdk/http/reference">docs.turso.tech/sdk/http/reference</a>.</p>
+<pre>POST https://&lt;db&gt;.turso.io/v2/pipeline
+Authorization: Bearer &lt;TURSO_AUTH_TOKEN&gt;
+Content-Type: application/json
+
+{ "requests": [
+    { "type": "execute",
+      "stmt": { "sql": "SELECT * FROM users WHERE user_id = ?",
+                "args": [ {"type": "integer", "value": "777"} ] } },
+    { "type": "close" } ] }
+
+→ { "results": [
+      { "type": "ok", "response": { "type": "execute", "result": {
+          "cols": [ {"name": "user_id"}, … ],
+          "rows": [ [ {"type": "integer", "value": "777"}, {"type": "text", "value": "…"} ] ],
+          "affected_row_count": 0, "last_insert_rowid": null } } },
+      { "type": "ok", "response": { "type": "close" } } ] }
+
+שגיאה:  { "type": "error", "error": { "message": "…", "code": "…" } }</pre>
+<table>
+  <tr><th>פייתון</th><th>ל-API (קלט)</th><th>מה-API (פלט)</th></tr>
+  <tr><td><code>None</code></td><td><code>{"type":"null"}</code></td><td><code>null</code> → <code>None</code></td></tr>
+  <tr><td><code>int</code></td><td><code>{"type":"integer","value":"123"}</code> (מחרוזת)</td><td><code>integer</code> → <code>int(value)</code></td></tr>
+  <tr><td><code>float</code></td><td><code>{"type":"float","value":1.5}</code></td><td><code>float</code> → <code>float</code></td></tr>
+  <tr><td><code>str</code></td><td><code>{"type":"text","value":"…"}</code></td><td><code>text</code> → <code>str</code></td></tr>
+  <tr><td><code>bytes</code></td><td><code>{"type":"blob","base64":"…"}</code></td><td><code>blob</code> → base64 decode</td></tr>
+</table>
+<p>כמה בקשות <code>execute</code> באותה בקשת pipeline רצות ברצף על אותו stream, ולכן אפשר לשלב <code>BEGIN</code> ... <code>COMMIT</code> כפקודות בתוך הבקשה לטרנזקציה אטומית.</p>
+</details>
+
+<details>
+<summary>ב. מיקום הקוד הרלוונטי</summary>
+<ul>
+  <li><code>src/db.py</code> — חיבור, <code>execute</code>, <code>_init_core</code>, <code>_init_modules</code>, <code>_bump_counter</code>, הגדרות (<code>get_bot_setting</code>)</li>
+  <li><code>src/users.py</code> — <code>is_allowed</code>, <code>increment_search</code>, הסכמות</li>
+  <li><code>api.py</code> — <code>get_vehicle</code> (שורת הלוג <code>api.vehicle</code> עם זמני השלבים)</li>
+  <li><code>CLAUDE.md</code> — סעיפי "Startup Sequence" ו-"Turso / libsql performance notes"</li>
+</ul>
+</details>
+
+<details>
+<summary>ג. איך מודדים</summary>
+<ul>
+  <li>בלוג של Render, חיפוש: <code>vehicle lookup</code> — השדה <code>db-writes</code> הוא המדד הראשי.</li>
+  <li><code>Run time of job … was missed by</code> — סימן שה-loop נתקע.</li>
+  <li>"Turso DB initialized" — הזמן מ-"Bot is starting" עד השורה הזו הוא זמן האתחול.</li>
+</ul>
+</details>
+
+<footer>נכתב לפי הממצאים של 3–4 בנובמבר 2026. אם משהו כאן השתנה בפרודקשן, כדאי לעדכן את המסמך לפני שמתחילים.</footer>
+</main>
+</body>
+</html>
