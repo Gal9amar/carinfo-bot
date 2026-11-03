@@ -24,7 +24,14 @@ _local     = threading.local()
 def _get_conn():
     conn = getattr(_local, "conn", None)
     if conn is None:
-        conn = _local.conn = libsql.connect(database=_URL, auth_token=_TOKEN)
+        # isolation_level=None = autocommit. With the default ("DEFERRED") the libsql binding sends BEGIN before every
+        # INSERT/UPDATE/DELETE and COMMIT after it: 3 network round trips per write instead of 1. Every statement is
+        # already committed right after it runs (see _run), so single-statement semantics are unchanged.
+        try:
+            conn = libsql.connect(database=_URL, auth_token=_TOKEN, isolation_level=None)
+        except TypeError:           # an old binding without the parameter
+            conn = libsql.connect(database=_URL, auth_token=_TOKEN)
+        _local.conn = conn
     return conn
 
 

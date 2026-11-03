@@ -304,3 +304,8 @@ Telegram Desktop ignores `is_rtl` for table column ORDER (first cell = leftmost)
 
 ### Never block the event loop
 Bot, API and DB replies share ONE asyncio loop. Anything blocking (`urllib`, `time.sleep`, big CPU work) must run via `asyncio.to_thread` / `run_in_executor`. The Yad2 watch job once called the blocking `fetch_listings` directly and froze the whole service for ~10 s every 30 min (a lookup showed `db-writes=13s`). The `api.vehicle` log line (`user/quota … registry … db-writes … total`) shows where a slow lookup spends its time.
+
+### Turso / libsql performance notes
+- `libsql_experimental.execute()` holds the **GIL for the whole network round trip** (`rt().block_on` without releasing it), so every Turso query freezes the entire process, event loop included; the worker pool does not give parallelism. Fewer round trips = the only lever. A normal Mini App lookup is ~6 statements, a bot lookup ~10.
+- Connections use `isolation_level=None` (autocommit): the default sends BEGIN + stmt + COMMIT (3 round trips) for every write.
+- Idea not done yet: talk to Turso over its HTTP pipeline API with `httpx.AsyncClient` (truly async, keep-alive, many statements per request) instead of the native binding.
