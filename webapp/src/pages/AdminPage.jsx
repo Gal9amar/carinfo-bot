@@ -147,7 +147,7 @@ export default function AdminPage({ user, onBack }) {
 }
 
 // ── Report layout tab (order / visibility of report components) ───
-const RL_PREMIUM = new Set(['market', 'alerts', 'pdf'])
+const RL_PREMIUM = new Set(['market', 'levi', 'insurance', 'alerts', 'pdf'])
 const RL_SEGMENTS = [
   { id: 'summary', label: 'דוח סיכום' },
   { id: 'full', label: 'דוח מלא' },
