@@ -39,7 +39,36 @@ class _Result:
         self.columns = [type("Col", (), {"name": c})() for c in columns]
 
 
+def _schema_signature() -> str:
+    """Hash of init_db's own source (+ admin id): changes whenever the schema/seed code changes."""
+    import hashlib
+    import inspect
+    src = inspect.getsource(_init_core) + os.environ.get("ADMIN_TELEGRAM_ID", "")
+    return hashlib.sha1(src.encode("utf-8")).hexdigest()
+
+
 async def init_db() -> None:
+    """Create/migrate the core schema, then the per-module tables.
+
+    The core part is ~220 sequential Turso round trips (25-110 s from Render) and used to run on the event loop at
+    every start, freezing the bot. It now runs only when `_init_core`'s source changed (signature stored in
+    bot_settings.schema_sig), and then on a worker thread. The per-module inits always run (they also fill caches)."""
+    sig = _schema_signature()
+    try:
+        r = await execute("SELECT value FROM bot_settings WHERE key='schema_sig'")
+        current = bool(r.rows) and r.rows[0][0] == sig
+    except Exception:
+        current = False          # first run / table missing
+    if not current:
+        await asyncio.get_running_loop().run_in_executor(_executor, _init_core)
+        await execute(
+            "INSERT INTO bot_settings (key, value) VALUES ('schema_sig', ?) "
+            "ON CONFLICT(key) DO UPDATE SET value=excluded.value", [sig],
+        )
+    await _init_modules()
+
+
+def _init_core() -> None:
     conn = _get_conn()
     statements = [
         """
@@ -371,16 +400,15 @@ async def init_db() -> None:
     conn.execute("INSERT OR IGNORE INTO user_groups (name) VALUES ('מנויים')")
     conn.commit()
 
+
+async def _init_modules() -> None:
+    # independent tables → overlap their round trips on the worker pool instead of ~26 sequential awaits
     from src.packages import init_packages
-    await init_packages()
     from src.admin_grants import init_admin_grants
-    await init_admin_grants()
     from src.products import init_products
-    await init_products()
     from src.banners import init_banners
-    await init_banners()
     from src.levi import init_levi
-    await init_levi()
+    await asyncio.gather(init_packages(), init_admin_grants(), init_products(), init_banners(), init_levi())
 
 
 async def get_vehicle_note(user_id: int, plate: str) -> str:

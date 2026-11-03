@@ -272,7 +272,7 @@ Test reminders: `test_reminders` table (unique user+plate); stop with `rem|stop|
 ## Startup Sequence
 
 1. `bot.main()` starts uvicorn thread (`api.api`) + cache cleanup thread.
-2. Bot `_post_init`: `init_db()` (tables, settings seed, groups) → `load_welcome_settings()`.
+2. Bot `_post_init`: `init_db()` → `load_welcome_settings()`. The core schema/seed part (`_init_core`, ~150 sequential Turso round trips) runs only when its source changed (hash in `bot_settings.schema_sig`) and then on a worker thread; the per-module inits (`_init_modules`) always run, concurrently. **When you add a table/column to `_init_core`, editing it is enough** — the signature changes automatically.
 3. API `_startup()`: `load_welcome_settings()`, expire stale payment rows (>30 min), notify admin of expired orders.
 4. Per-module `init_*` (packages, products, banners, …) create/migrate their tables.
 5. Bot polling + JobQueue jobs start.
