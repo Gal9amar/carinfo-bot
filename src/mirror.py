@@ -134,6 +134,13 @@ _MINIAPP_RULES: list[tuple[str, str, dict[int, str]]] = [
     ("GET", rf"^/api/vehicle/{_PLATE}/pdf$", {200: "📄 הוריד דוח PDF ללוחית {p}"}),
     ("GET", rf"^/api/vehicle/{_PLATE}/market-price$", {200: "💰 בדק מחיר שוק ללוחית {p}"}),
     ("POST", r"^/api/notes/(?P<p>[\w\-]{4,12})$", {200: "📝 שמר הערה ללוחית {p}"}),
+    # Levi Yitzhak / insurance (never include the phone number or the SMS code)
+    ("GET", rf"^/api/vehicle/{_PLATE}/levi$", {200: "📗 בדק מחירון לוי יצחק ללוחית {p}", 401: "🔑 מחירון לוי יצחק ללוחית {p} — נדרשת הזדהות"}),
+    ("POST", rf"^/api/vehicle/{_PLATE}/levi/calc$", {200: "⚖️ שקלל מחיר לוי יצחק ללוחית {p}"}),
+    ("GET", rf"^/api/vehicle/{_PLATE}/insurance$", {200: "🛡 בדק חברת ביטוח רשומה ללוחית {p}"}),
+    ("POST", r"^/api/levi/send-sms$", {200: "📱 ביקש קוד SMS מלוי יצחק (הטלפון הוסתר)"}),
+    ("POST", r"^/api/levi/validate$", {200: "✅ התחבר ללוי יצחק"}),
+    ("POST", r"^/api/levi/logout$", {200: "👋 התנתק מלוי יצחק"}),
     ("POST", r"^/api/payment/initiate$", {200: "🛒 התחיל תהליך רכישה"}),
     ("POST", r"^/api/payment/promote$", {200: "💳 דיווח שביצע תשלום — ממתין לאישור"}),
     ("POST", r"^/api/user/consent$", {200: "✅ אישר תנאי שימוש ומדיניות פרטיות"}),
