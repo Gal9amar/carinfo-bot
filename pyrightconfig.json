@@ -5,5 +5,7 @@
   "reportOptionalSubscript": "none",
   "reportAttributeAccessIssue": "none",
   "reportUndefinedVariable": "none",
-  "reportGeneralTypeIssues": "none"
+  "reportGeneralTypeIssues": "none",
+  "reportCallIssue": "none",
+  "reportOperatorIssue": "none"
 }

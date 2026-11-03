@@ -273,6 +273,113 @@ def search_cancelled() -> str:
 
 
 # ─────────────────────────────────────────────
+# Levi Yitzhak login
+# ─────────────────────────────────────────────
+
+def levi_phone_prompt(name: str) -> str:
+    return (
+        f"📗 {_n(name)}, בוא נתחבר למחירון {b('לוי יצחק')}\n\n"
+        "שלח לי את מספר הנייד שלך (למשל 0501234567), או לחץ על הכפתור לשיתוף המספר.\n"
+        "לוי יצחק ישלחו אליו SMS עם קוד אימות בן 6 ספרות.\n\n"
+        + quote(esc("ההתחברות היא לחשבון שלך אצל לוי יצחק. אנחנו שומרים רק את המספר ואת אסימון הגישה, "
+                    "ואפשר להתנתק בכל רגע עם /levi_logout."))
+        + f"\n{i('לביטול: /cancel')}"
+    )
+
+
+def levi_phone_invalid() -> str:
+    return "📵 המספר לא נראה כמו נייד ישראלי תקין. שלח מספר בפורמט 05XXXXXXXX, או /cancel לביטול."
+
+
+def levi_code_prompt(masked_phone: str) -> str:
+    return (
+        f"📩 שלחתי בקשה ללוי יצחק — קוד אימות בדרך ל־{b(masked_phone)}\n\n"
+        "שלח לי כאן את 6 הספרות שקיבלת ב־SMS.\n"
+        f"{i('לא הגיע? /levi לשליחה מחדש · /cancel לביטול')}"
+    )
+
+
+def levi_code_invalid() -> str:
+    return "🔢 הקוד צריך להיות 6 ספרות בדיוק. נסה שוב, או /cancel לביטול."
+
+
+def levi_code_wrong() -> str:
+    return "❌ הקוד שהוזן שגוי. בדוק את ה־SMS ונסה שוב."
+
+
+def levi_code_expired() -> str:
+    return "⌛ הקוד פג תוקף. שלח /levi כדי לקבל קוד חדש."
+
+
+def levi_logged_in(name: str, masked_phone: str) -> str:
+    return (
+        f"✅ {_n(name)}, התחברת בהצלחה ללוי יצחק!\n"
+        f"📱 מספר: {b(masked_phone)}\n\n"
+        f"{i('בקרוב: מחיר מחירון מותאם לכל רכב שתבדוק.')}"
+    )
+
+
+def levi_already_logged_in(name: str, masked_phone: str) -> str:
+    return (
+        f"📗 {_n(name)}, אתה כבר מחובר ללוי יצחק עם {b(masked_phone)}.\n\n"
+        "להתחברות עם מספר אחר — לחץ על הכפתור למטה. להתנתקות: /levi_logout"
+    )
+
+
+def levi_error(reason: str) -> str:
+    return f"⚠️ {esc(reason)}"
+
+
+def levi_logged_out() -> str:
+    return "👋 התנתקת מלוי יצחק. הנתונים שלך אצלנו נמחקו."
+
+
+def levi_not_logged_in() -> str:
+    return "לא היית מחובר ללוי יצחק. להתחברות: /levi"
+
+
+def levi_cancelled() -> str:
+    return "בסדר, ביטלתי את ההתחברות ללוי יצחק 👌"
+
+
+def levi_plate_prompt(masked_phone: str) -> str:
+    return (
+        f"📗 {b('בדיקת מחירון לוי יצחק')}\n"
+        f"מחובר עם {b(masked_phone)}\n\n"
+        "שלח מספר רכב לבדיקה.\n"
+        f"{i('/cancel לסיום · /levi_logout להתנתקות')}"
+    )
+
+
+def levi_plate_invalid() -> str:
+    return "🔢 מספר רכב צריך להיות 5–8 ספרות. נסה שוב, או /cancel לסיום."
+
+
+def levi_result(s: dict) -> str:
+    title = " ".join(str(p) for p in (s.get("manufacturer"), s.get("model")) if p) or "רכב"
+    rows = [
+        ("🔖 גרסה", s.get("trim")),
+        ("📅 שנה", s.get("year")),
+        ("🚘 סוג", s.get("type")),
+        ("✨ רמת גימור", s.get("trim_level")),
+        ("🛣️ עלייה לכביש", s.get("aliya")),
+        ("⚙️ נפח מנוע", f"{int(s['engine_cc']):,} סמ\"ק" if s.get("engine_cc") else None),
+    ]
+    lines = [f"📗 {b(title)} · {code(s.get('plate', ''))}", ""]
+    lines += [f"{label}: {esc(value)}" for label, value in rows if value]
+    lines.append("")
+    if s.get("price"):
+        price = f"₪{int(s['price']):,}"
+        lines.append(f"💰 {b('מחיר מחירון בסיס:')} {b(price)}")
+        lines.append(i("לפני התאמה לק\"מ, ידיים וסוג בעלות"))
+    else:
+        lines.append(f"💰 {i('לא התקבל מחיר בסיס מהמחירון לרכב זה')}")
+    lines.append("")
+    lines.append(i("שלח מספר רכב נוסף, או /cancel לסיום"))
+    return "\n".join(lines)
+
+
+# ─────────────────────────────────────────────
 # Lookup flow
 # ─────────────────────────────────────────────
 

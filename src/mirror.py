@@ -248,6 +248,8 @@ def describe_update(update, user_data=None) -> tuple[int, str, str, str] | None:
             what = f"⌨️ פקודה: {cmd}" + (" ●●●" if cmd.lower().startswith("/code") and arg else (f" {arg}" if arg else ""))
         elif user_data is not None and "code_is_admin" in user_data:
             what = "🔑 הזין קוד הטבה (הוסתר)"
+        elif user_data is not None and user_data.get("levi_step") in ("phone", "code"):
+            what = "📱 הזין פרטי התחברות ללוי יצחק (הוסתר)"
         elif text:
             what = f"💬 שלח: {text}"
         elif msg.photo:

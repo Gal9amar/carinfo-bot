@@ -877,6 +877,7 @@ async def delete_user_data(user_id: int) -> None:
         "DELETE FROM vehicle_notes WHERE user_id=?",
         "DELETE FROM yad2_watches WHERE user_id=?",
         "DELETE FROM test_reminders WHERE user_id=?",
+        "DELETE FROM levi_sessions WHERE user_id=?",
         "DELETE FROM sent_messages WHERE user_id=?",
         "DELETE FROM activity_log WHERE user_id=?",
         "DELETE FROM grants WHERE user_id=?",

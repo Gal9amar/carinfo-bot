@@ -379,6 +379,8 @@ async def init_db() -> None:
     await init_products()
     from src.banners import init_banners
     await init_banners()
+    from src.levi import init_levi
+    await init_levi()
 
 
 async def get_vehicle_note(user_id: int, plate: str) -> str:

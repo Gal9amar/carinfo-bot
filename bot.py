@@ -51,6 +51,7 @@ from src.formatter import (
 from src import messages as M
 from src.pdf_report import generate_pdf
 from src import yad2 as _yad2
+from src import levi as _levi
 
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -109,6 +110,8 @@ def _log_text(html_text: str) -> str:
     return M.strip_html(html_text)
 
 WAITING_CODE = 1
+LEVI_PHONE, LEVI_CODE, LEVI_PLATE = 11, 12, 13
+LEVI_LOGIN_TIMEOUT = 600  # seconds of silence before the Levi check session closes
 
 def _persistent_rows(is_admin: bool = False) -> list:
     """Bottom row shown in every chat keyboard — search + mini-app shortcut."""
@@ -470,6 +473,185 @@ async def cancel_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     return ConversationHandler.END
 
 
+# ── Levi Yitzhak price check — admin only for now (phone → SMS code → plate) ──
+
+def _levi_admin(update: Update) -> bool:
+    return update.effective_user is not None and update.effective_user.id == ADMIN_ID
+
+
+async def _levi_ask_phone(message, user, context: ContextTypes.DEFAULT_TYPE) -> int:
+    context.user_data["levi_step"] = "phone"
+    await message.reply_text(
+        M.levi_phone_prompt(_first_name(user)),
+        parse_mode=HTML,
+        reply_markup=ReplyKeyboardMarkup(
+            [[KeyboardButton("📱 שתף את המספר שלי", request_contact=True)], ["❌ ביטול"]],
+            resize_keyboard=True, one_time_keyboard=True,
+        ),
+    )
+    return LEVI_PHONE
+
+
+async def _levi_ask_plate(message, phone: str, context: ContextTypes.DEFAULT_TYPE) -> int:
+    context.user_data["levi_step"] = "plate"
+    await message.reply_text(
+        M.levi_plate_prompt(_levi.mask_phone(phone)),
+        parse_mode=HTML,
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("🔄 התחבר עם מספר אחר", callback_data="levi|login"),
+        ]]),
+    )
+    return LEVI_PLATE
+
+
+async def _levi_start(message, user, context: ContextTypes.DEFAULT_TYPE) -> int:
+    session = await _levi.get_session(user.id)
+    if session and session["token"]:
+        return await _levi_ask_plate(message, session["phone"], context)
+    return await _levi_ask_phone(message, user, context)
+
+
+async def cmd_levi(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    if not _levi_admin(update):
+        return ConversationHandler.END
+    return await _levi_start(update.message, update.effective_user, context)
+
+
+async def cb_levi_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    if not _levi_admin(update):
+        return ConversationHandler.END
+    return await _levi_start(query.message, query.from_user, context)
+
+
+async def cb_levi_login(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    if not _levi_admin(update):
+        return ConversationHandler.END
+    return await _levi_ask_phone(query.message, query.from_user, context)
+
+
+async def levi_receive_phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    user = update.effective_user
+    msg = update.message
+    if msg.contact:
+        if msg.contact.user_id and msg.contact.user_id != user.id:
+            await msg.reply_text("אפשר להתחבר רק עם המספר שלך 🙂 שלח את המספר שלך או /cancel.")
+            return LEVI_PHONE
+        raw = msg.contact.phone_number
+    else:
+        raw = msg.text or ""
+    phone = _levi.normalize_phone(raw)
+    if not phone:
+        await msg.reply_text(M.levi_phone_invalid(), parse_mode=HTML)
+        return LEVI_PHONE
+    try:
+        await _levi.send_sms(user.id, phone)
+    except _levi.LeviError as e:
+        await msg.reply_text(M.levi_error(str(e)), parse_mode=HTML)
+        return LEVI_PHONE
+    context.user_data["levi_step"] = "code"
+    await msg.reply_text(
+        M.levi_code_prompt(_levi.mask_phone(phone)), parse_mode=HTML, reply_markup=ReplyKeyboardRemove(),
+    )
+    return LEVI_CODE
+
+
+async def levi_receive_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    user = update.effective_user
+    code = re.sub(r"\D", "", update.message.text or "")
+    if not _levi.CODE_RE.match(code):
+        await update.message.reply_text(M.levi_code_invalid(), parse_mode=HTML)
+        return LEVI_CODE
+    try:
+        result = await _levi.validate_sms(user.id, code)
+    except _levi.LeviError as e:
+        await update.message.reply_text(M.levi_error(str(e)), parse_mode=HTML)
+        return LEVI_CODE
+    if result == _levi.WRONG_CODE:
+        await update.message.reply_text(M.levi_code_wrong(), parse_mode=HTML)
+        return LEVI_CODE
+    if result == _levi.EXPIRED:
+        context.user_data.pop("levi_step", None)
+        await update.message.reply_text(M.levi_code_expired(), parse_mode=HTML)
+        return ConversationHandler.END
+    session = await _levi.get_session(user.id)
+    phone = session["phone"] if session else ""
+    await update.message.reply_text(M.levi_logged_in(_first_name(user), _levi.mask_phone(phone)), parse_mode=HTML)
+    await log_sent_message(user.id, "✅ התחבר ללוי יצחק", kind="levi_login")
+    return await _levi_ask_plate(update.message, phone, context)
+
+
+async def levi_receive_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    user = update.effective_user
+    plate = re.sub(r"\D", "", update.message.text or "")
+    if not 5 <= len(plate) <= 8:
+        await update.message.reply_text(M.levi_plate_invalid(), parse_mode=HTML)
+        return LEVI_PLATE
+    await context.bot.send_chat_action(update.effective_chat.id, "typing")
+    try:
+        result = await _levi.lookup_plate(user.id, plate)
+    except _levi.LeviAuthError as e:
+        await update.message.reply_text(M.levi_error(f"{e} — נתחבר מחדש"), parse_mode=HTML)
+        return await _levi_ask_phone(update.message, user, context)
+    except _levi.LeviError as e:
+        await update.message.reply_text(M.levi_error(str(e)), parse_mode=HTML)
+        return LEVI_PLATE
+    context.user_data["levi_raw"] = result["raw"]
+    await update.message.reply_text(
+        M.levi_result(result["summary"]),
+        parse_mode=HTML,
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("📄 תשובה גולמית (JSON)", callback_data="levi|raw"),
+        ]]),
+    )
+    return LEVI_PLATE
+
+
+async def cb_levi_raw(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if not _levi_admin(update):
+        await query.answer()
+        return
+    raw = context.user_data.get("levi_raw")
+    if raw is None:
+        await query.answer("אין תשובה שמורה — בדוק רכב שוב", show_alert=True)
+        return
+    await query.answer()
+    import json as _json
+    await context.bot.send_document(
+        query.message.chat_id,
+        document=io.BytesIO(_json.dumps(raw, ensure_ascii=False, indent=2).encode("utf-8")),
+        filename="levi.json",
+    )
+
+
+async def levi_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    step = context.user_data.pop("levi_step", None)
+    text = "👌 סיימנו עם מחירון לוי יצחק." if step == "plate" else M.levi_cancelled()
+    await update.effective_message.reply_text(text, reply_markup=ReplyKeyboardRemove())
+    return ConversationHandler.END
+
+
+async def levi_timeout(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    context.user_data.pop("levi_step", None)
+
+
+async def cmd_levi_logout(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    if not _levi_admin(update):
+        return ConversationHandler.END
+    user_id = update.effective_user.id
+    context.user_data.pop("levi_step", None)
+    if await _levi.get_session(user_id):
+        await _levi.logout(user_id)
+        await update.message.reply_text(M.levi_logged_out(), parse_mode=HTML)
+    else:
+        await update.message.reply_text(M.levi_not_logged_in(), parse_mode=HTML)
+    return ConversationHandler.END
+
+
 def _admin_main_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("📊 סטטיסטיקות",       callback_data="adm|stats")],
@@ -478,6 +660,7 @@ def _admin_main_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton("💳 הענק גישה",         callback_data="adm|grant_info"),
          InlineKeyboardButton("🚫 חסום/שחרר",         callback_data="adm|block_menu")],
         [InlineKeyboardButton("⚙️ הגדרות בוט",        callback_data="adm|settings")],
+        [InlineKeyboardButton("📗 בדיקת מחירון לוי יצחק", callback_data="levi|check")],
     ])
 
 
@@ -2692,6 +2875,33 @@ def main() -> None:
             CallbackQueryHandler(handle_package_callback, pattern=r"^show_packages$"),
             MessageHandler(filters.Regex("^❌ ביטול$"), cancel_code),
         ],
+        per_message=False,
+    ))
+
+    app.add_handler(CommandHandler("levi_logout", cmd_levi_logout))
+    app.add_handler(CallbackQueryHandler(cb_levi_raw, pattern=r"^levi\|raw$"))
+    app.add_handler(ConversationHandler(
+        entry_points=[
+            CommandHandler("levi", cmd_levi),
+            CallbackQueryHandler(cb_levi_check, pattern=r"^levi\|check$"),
+            CallbackQueryHandler(cb_levi_login, pattern=r"^levi\|login$"),
+        ],
+        states={
+            LEVI_PHONE: [
+                MessageHandler(filters.Regex("^❌ ביטול$"), levi_cancel),
+                MessageHandler(filters.CONTACT | (filters.TEXT & ~filters.COMMAND), levi_receive_phone),
+            ],
+            LEVI_CODE: [MessageHandler(filters.TEXT & ~filters.COMMAND, levi_receive_code)],
+            LEVI_PLATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, levi_receive_plate)],
+            ConversationHandler.TIMEOUT: [TypeHandler(Update, levi_timeout)],
+        },
+        fallbacks=[
+            CommandHandler("cancel", levi_cancel),
+            CommandHandler("levi", cmd_levi),
+            CommandHandler("levi_logout", cmd_levi_logout),
+            CallbackQueryHandler(cb_levi_login, pattern=r"^levi\|login$"),
+        ],
+        conversation_timeout=LEVI_LOGIN_TIMEOUT,
         per_message=False,
     ))
 

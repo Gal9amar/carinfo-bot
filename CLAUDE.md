@@ -45,6 +45,7 @@ carinfo-bot/
 │   ├── yad2.py             # Yad2 URL building + market price (cached) 
 │   ├── yad2_models.json   # manufacturer→model→Yad2 ID map
 │   ├── yad2_watcher.py     # new-listing alerts ("watches")
+│   ├── levi.py             # Levi Yitzhak price list: SMS login on the user's own account (API of the official app)
 │   ├── formatter.py        # vehicle data → Telegram text (HTML)
 │   ├── scheduled_broadcast.py  # broadcasts scheduled for a later date/time (table scheduled_broadcasts, atomic claim)
 │   ├── reminders.py        # annual-test (טסט) reminders: table test_reminders, daily job logic
@@ -101,6 +102,7 @@ Created idempotently at startup (`init_db()` in `src/db.py` plus per-module `ini
 |-------|---------|
 | **owned_vehicles**, **owned_vehicle_expenses** | "Garage": cars the user bought (purchase/sale data, expenses) |
 | **yad2_watches** | user_id, make, model, year, seen_ids, active — new-listing alerts |
+| **levi_sessions** | user_id PK, phone, uuid (device id sent to Levi), token (JWT, NULL until the SMS code is validated) — Levi Yitzhak login (`src/levi.py`) |
 | **tickets**, **ticket_replies** | Support threads |
 | **activity_log** | Audit log (event_type, user, description) |
 | **sent_messages**, **broadcast_history** | Outbound DM / broadcast logs |
@@ -242,6 +244,7 @@ Seeded when table empty: 🔍 50 חיפושים ₪10 · 🔍 100 חיפושים
 | `PAYPAL_ME`, `PAYBOX_URL` | paypal.me / PayBox link | Payment links |
 | `PAYMENT_PROVIDER_TOKEN` | — | Telegram invoices |
 | `YAD2_PROXY_URL`, `YAD2_PROXY_SECRET`, `YAD2_CF_WORKER_URL` | — | Israeli-IP proxy for Yad2 (secrets: set via env, don't commit) |
+| `LEVI_API_BASE` | https://s.leviitzhak.xyz | Levi Yitzhak app API (override with an Israeli-IP proxy if it gets geo-blocked) |
 | `PORT` | 8080 | Server port |
 | `LOGO_PATH`, `COVER_PATH` | — | PDF assets |
 
@@ -251,7 +254,7 @@ Seeded when table empty: 🔍 50 חיפושים ₪10 · 🔍 100 חיפושים
 
 ## Telegram Bot (bot.py)
 
-Commands: `/start [ref_UID]`, `/help`, `/status`, `/code` (conversation), `/admin`, `/buy`, `/compare A B`, `/mirror_here` (admin, in the topic), `/mirror_set <t.me/c/… topic link>` (admin, anywhere; sends a test message first), `/mirror_off`, `/myid`, `/optout`, `/optin`. Result card buttons: full report, `rem|add|PLATE` (test reminder), `cmp|start|PLATE` (compare), garage/alerts deep links, share.
+Commands: `/start [ref_UID]`, `/help`, `/status`, `/code` (conversation), `/admin`, `/buy`, `/compare A B`, `/mirror_here` (admin, in the topic), `/mirror_set <t.me/c/… topic link>` (admin, anywhere; sends a test message first), `/mirror_off`, `/myid`, `/optout`, `/optin`, `/levi` + admin-menu button "📗 בדיקת מחירון לוי יצחק" (**admin only for now**; conversation: phone or shared contact → Levi Yitzhak SMS code → token in `levi_sessions` → plate lookup via `/main/new-get-by-licence-plate/`, shows base list price + a raw-JSON button; 10-min idle timeout; typed phone/code are masked in the mirror via `user_data["levi_step"]`), `/levi_logout`. Result card buttons: full report, `rem|add|PLATE` (test reminder), `cmp|start|PLATE` (compare), garage/alerts deep links, share.
 Callbacks: `new_search`, `show_packages`, `pkg|`, `buy|`, `paid|`, `approve|`, `decline|`, `deliver|`, `history`/`hist_plate|`, `pdf_report`, `share_report`, `how_it_works`, `back_to_start`, `adm|`, `admpkg|`, `usr|`/`ugrant|`/`utoggle|`, `broadcast_optout|optin`, `chat_admin`, `admin_panel`. Telegram invoice payments handled via pre-checkout + successful-payment handlers. Any text → plate lookup (`handle_plate`).
 Jobs (JobQueue): daily expiry reminders (06:00 UTC), hourly `expire_subscriptions`, every 30 min Yad2 watch alerts, daily 07:00 UTC test reminders, every 3 s `mirror_flush` (sends ONE queued mirror op per tick to respect Telegram's ~20 msgs/min group limit).
 The bot is built with `mirror.MirrorBot` (an `ExtBot` subclass): every `send_message` / `edit_message_text` / `send_photo` / `send_document` (and `delete_message`) is reported to the mirror, which re-sends the same HTML/photo/file/table to the group as a reply to the user's action header; buttons in the copy are inert (`mirror|noop`), URL buttons stay links; a blocking `TypeHandler` in group -1 records incoming updates first so the feed is in order. Mini App actions are mirrored as one 📱 header line each (no copy of the screen): a pure-ASGI middleware in `api.py` (`_MiniAppMirrorMiddleware`) reports authenticated, non-admin `/api/` calls after the response; `mirror.describe_api_call` maps them (lookups, PDF, market price, payment start/promote, garage, watches, tickets, notes, app open throttled to 1/30 min); page views are not shown. Sub-toggle `mirror_miniapp` (default 1, web admin only).
