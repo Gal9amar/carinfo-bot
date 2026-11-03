@@ -346,28 +346,22 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if is_new and referrer_id:
         try:
             from src.db import get_bot_setting, execute as _db_execute
-            from src.users import extend_premium_days, get_premium_expiry
-            bonus_str = await get_bot_setting("referral_bonus")
-            bonus = int(bonus_str) if bonus_str and bonus_str.isdigit() else 10
+            from src.users import grant_premium_days
             days_str = await get_bot_setting("referral_bonus_premium_days")
             bonus_days = int(days_str) if days_str and days_str.isdigit() else 0
             ref_uname = f"@{user.username}" if user.username else str(user_id)
-            # Premium referrers (live time-limited unlimited plan) earn plan days; everyone else earns searches.
-            new_exp = None
-            if bonus_days > 0 and await get_premium_expiry(referrer_id):
-                new_exp = await extend_premium_days(referrer_id, bonus_days)
-            if new_exp:
-                await record_referral(user_id, referrer_id, 0, bonus_days)
-                referral_msg = M.referral_bonus_days(await _name_of(referrer_id), ref_uname, bonus_days, new_exp)
+            # Every new friend earns the referrer `bonus_days` of Premium (admin-configurable; 0 = no reward).
+            status, new_exp = await grant_premium_days(referrer_id, bonus_days, "בונוס הפניית חבר")
+            await record_referral(user_id, referrer_id, 0, bonus_days if status in ("extended", "started") else 0)
+            if status in ("extended", "started"):
+                referral_msg = M.referral_bonus_days(await _name_of(referrer_id), ref_uname, bonus_days, new_exp, started=(status == "started"))
                 reward_log = f"+{bonus_days} ימי Premium"
+            elif status == "permanent":
+                referral_msg = M.referral_joined_permanent(await _name_of(referrer_id), ref_uname)
+                reward_log = "ללא תוספת (Premium קבוע)"
             else:
-                await record_referral(user_id, referrer_id, bonus)
-                await _db_execute(
-                    "UPDATE users SET searches_quota = searches_quota + ? WHERE user_id = ? AND searches_quota >= 0",
-                    [bonus, referrer_id],
-                )
-                referral_msg = M.referral_bonus(await _name_of(referrer_id), ref_uname, bonus)
-                reward_log = f"+{bonus} חיפושים"
+                referral_msg = M.referral_joined(await _name_of(referrer_id), ref_uname)
+                reward_log = "ללא הטבה"
             try:
                 await context.bot.send_message(referrer_id, referral_msg, parse_mode=HTML)
                 await log_sent_message(referrer_id, _log_text(referral_msg), kind="referral_bonus")

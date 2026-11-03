@@ -4751,7 +4751,6 @@ function SettingsTab() {
   const [loadError, setLoadError]   = useState(false)
   const [toggleError, setToggleError] = useState('')
   const [freeInput, setFreeInput]   = useState('')
-  const [referralInput, setReferralInput] = useState('')
   const [referralDaysInput, setReferralDaysInput] = useState('')
 
   function loadSettings() {
@@ -4759,7 +4758,6 @@ function SettingsTab() {
     adminFetchSettings().then(s => {
       setSettings(s)
       setFreeInput(String(s.free_searches ?? 10))
-      setReferralInput(String(s.referral_bonus ?? 10))
       setReferralDaysInput(String(s.referral_bonus_premium_days ?? 0))
     }).catch(() => setLoadError(true))
   }
@@ -4800,8 +4798,8 @@ function SettingsTab() {
     setSaving(true)
     try {
       const days = Math.max(0, parseInt(referralDaysInput) || 0)
-      await adminUpdateSettings({ referral_bonus: parseInt(referralInput), referral_bonus_premium_days: days })
-      setSettings(s => ({ ...s, referral_bonus: parseInt(referralInput), referral_bonus_premium_days: days }))
+      await adminUpdateSettings({ referral_bonus_premium_days: days })
+      setSettings(s => ({ ...s, referral_bonus_premium_days: days }))
       window.Telegram?.WebApp?.showAlert('✅ עודכן בהצלחה')
     } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
     setSaving(false)
@@ -4917,30 +4915,20 @@ function SettingsTab() {
           <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-main)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
             🤝 בונוס הפניית חברים
           </div>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>הטבה למשתמש שהפנה חבר, לפי סוג המנוי שלו: משתמש חינמי / חבילת חיפושים מקבל חיפושים, ומנוי Premium (מסלול ללא הגבלה) מקבל ימים נוספים במסלול.</div>
-          
-          <label htmlFor="ref-days" style={{ display: 'block', fontSize: 13, fontWeight: 700, marginBottom: 6 }}>מנוי Premium — ימים נוספים במסלול לכל הפניה (0 = ללא הטבה)</label>
-          <input
-            id="ref-days"
-            className="input"
-            type="number"
-            min="0"
-            max="365"
-            value={referralDaysInput}
-            onChange={e => setReferralDaysInput(e.target.value)}
-            style={{ marginTop: 0, marginBottom: 14, height: 48, borderRadius: 12, fontWeight: 700, fontSize: 16 }}
-          />
-          <label htmlFor="ref-searches" style={{ display: 'block', fontSize: 13, fontWeight: 700, marginBottom: 6 }}>משתמש חינמי — חיפושים לכל הפניה</label>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>כל חבר חדש שמצטרף דרך הלינק מזכה את מי שהפנה אותו בימי Premium. למי שכבר במסלול Premium הימים מתווספים לתוקף, ולמי שלא — מתחיל מסלול Premium לכמות הימים הזו.</div>
+
+          <label htmlFor="ref-days" style={{ display: 'block', fontSize: 13, fontWeight: 700, marginBottom: 6 }}>ימי Premium לכל חבר שמצטרף (0 = ללא הטבה)</label>
           <div style={{ display: 'flex', gap: 12 }}>
             <div style={{ position: 'relative', flex: 1 }}>
               <div style={{ position: 'absolute', top: 0, bottom: 0, right: 14, display: 'flex', alignItems: 'center', color: 'var(--text-muted)' }}>🎁</div>
-              <input 
-                id="ref-searches"
-                className="input" 
-                type="number" 
-                min="1" 
-                value={referralInput} 
-                onChange={e => setReferralInput(e.target.value)} 
+              <input
+                id="ref-days"
+                className="input"
+                type="number"
+                min="0"
+                max="365"
+                value={referralDaysInput}
+                onChange={e => setReferralDaysInput(e.target.value)}
                 style={{ margin: 0, paddingRight: 40, height: 48, borderRadius: 12, fontWeight: 700, fontSize: 16 }}
               />
             </div>

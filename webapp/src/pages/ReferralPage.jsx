@@ -31,9 +31,7 @@ export default function ReferralPage({ onBack, onNavigate }) {
 
   function fmtDate(ts) { return fmtDateIL(ts) }
 
-  const totalBonus = (referrals || []).reduce((s, r) => s + r.bonus, 0)
   const totalDays  = (referrals || []).reduce((s, r) => s + (r.bonus_days || 0), 0)
-  const premium    = !!info?.premium
 
   return (
     <div className="page">
@@ -49,11 +47,11 @@ export default function ReferralPage({ onBack, onNavigate }) {
           <div className="stat-label">הצטרפו</div>
         </div>
         <div className="stat-card">
-          <div className="stat-value">{premium ? (totalDays || '—') : (totalBonus || '—')}</div>
-          <div className="stat-label">{premium ? 'ימי Premium הרווחת' : 'חיפושים הרווחת'}</div>
+          <div className="stat-value">{totalDays || '—'}</div>
+          <div className="stat-label">ימי Premium הרווחת</div>
         </div>
         <div className="stat-card">
-          <div className="stat-value">{premium ? (info?.bonus_days ?? '—') : (info?.bonus ?? '—')}</div>
+          <div className="stat-value">{info?.bonus_days ?? '—'}</div>
           <div className="stat-label">בונוס להפניה</div>
         </div>
       </div>
@@ -108,7 +106,7 @@ export default function ReferralPage({ onBack, onNavigate }) {
             {[
               'שלח את הלינק לחבר',
               'החבר לוחץ ומצטרף לבוט',
-              premium ? `המסלול שלך מוארך אוטומטית ב-${info?.bonus_days} ימים` : `אתה מקבל ${info?.bonus ?? 10} חיפושים במתנה אוטומטית`,
+              info?.bonus_days > 0 ? `אתה מקבל ${info.bonus_days} ימי Premium במתנה, אוטומטית` : 'ההטבה על הפניות מוגדרת על ידי המנהל',
             ].map((text, i) => (
               <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 }}>
                 <span style={{
@@ -142,7 +140,7 @@ export default function ReferralPage({ onBack, onNavigate }) {
           {referrals !== null && referrals.length > 0 && (
             <>
               <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 10 }}>
-                {referrals.length} חברים הצטרפו · סה"כ {totalBonus} חיפושים הרווחת
+                {referrals.length} חברים הצטרפו · סה"כ {totalDays} ימי Premium הרווחת
               </div>
               {referrals.map(ref => (
                 <div key={ref.id} className="card" style={{
@@ -171,7 +169,7 @@ export default function ReferralPage({ onBack, onNavigate }) {
                       borderRadius: 20, padding: '3px 10px',
                       fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
                     }}>
-                      {ref.bonus_days > 0 ? `✅ +${ref.bonus_days} ימים` : `✅ +${ref.bonus} חיפושים`}
+                      {ref.bonus_days > 0 ? `✅ +${ref.bonus_days} ימי Premium` : ref.bonus > 0 ? `✅ +${ref.bonus} חיפושים` : '—'}
                     </div>
                   </div>
                 </div>

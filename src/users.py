@@ -530,6 +530,37 @@ async def extend_premium_days(user_id: int, days: int) -> Optional[str]:
     return new_exp
 
 
+async def grant_premium_days(user_id: int, days: int, note: str = "") -> tuple[str, Optional[str]]:
+    """Give `days` of Premium (unlimited plan) to anyone.
+    Returns (status, expiry_iso): "extended" (live plan prolonged), "started" (a new plan began —
+    free / search-pack users are switched to unlimited until the expiry), "permanent" (already
+    permanent Premium, nothing to add) or "none" (days <= 0)."""
+    if days <= 0:
+        return "none", None
+    await _ensure_user(user_id)
+    r = await execute("SELECT searches_quota, quota_expires FROM users WHERE user_id=?", [user_id])
+    quota, cur_exp = (r.rows[0][0], r.rows[0][1]) if r.rows else (0, None)
+    if quota == -1 and not cur_exp:
+        return "permanent", None
+    base = datetime.now()
+    status = "started"
+    if quota == -1 and cur_exp:
+        try:
+            live = datetime.fromisoformat(cur_exp)
+            if live > base:
+                base, status = live, "extended"
+        except ValueError:
+            pass
+    expires = (base + timedelta(days=days)).isoformat()
+    await execute(
+        "UPDATE users SET searches_quota = -1, searches_done = CASE WHEN ? = 'extended' THEN searches_done ELSE 0 END, quota_expires = ? WHERE user_id = ?",
+        [status, expires, user_id],
+    )
+    await add_to_subscribers(user_id)
+    await execute("INSERT INTO grants (user_id, granted_by, searches, note) VALUES (?, ?, ?, ?)", [user_id, 0, -1, note or f"+{days} ימי Premium"])
+    return status, expires
+
+
 async def get_referral_count(user_id: int) -> int:
     """Count how many users this user has successfully referred."""
     r = await execute("SELECT COUNT(*) FROM referrals WHERE referrer_id=?", [user_id])

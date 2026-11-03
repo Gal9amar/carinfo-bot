@@ -30,7 +30,7 @@ WEBAPP_URL   = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_U
 # Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
 # webapp can detect a new release and force-reload instead of running stale
 # cached JS. Falls back to process start time for non-Render environments.
-APP_VERSION = "1793747509"
+APP_VERSION = "1793800001"
 
 api = FastAPI()
 
@@ -2741,16 +2741,13 @@ async def user_referral_info(user: dict = Depends(_get_user)):
     from src.db import get_bot_setting
     uid = int(user["id"])
     count = await get_referral_count(uid)
-    bonus_str = await get_bot_setting("referral_bonus")
-    bonus = int(bonus_str) if bonus_str and bonus_str.isdigit() else 10
     bot_username = os.environ.get("BOT_USERNAME", "israelcarinfobot")
     link = f"https://t.me/{bot_username}?start=ref_{uid}"
-    from src.users import get_premium_expiry
     days_str = await get_bot_setting("referral_bonus_premium_days")
     bonus_days = int(days_str) if days_str and days_str.isdigit() else 0
-    premium = bool(bonus_days > 0 and await get_premium_expiry(uid))
-    return {"link": link, "count": count, "bonus": bonus, "total_earned": count * bonus,
-            "premium": premium, "bonus_days": bonus_days}
+    # Every referral earns Premium days; `bonus`/`premium` kept for older clients.
+    return {"link": link, "count": count, "bonus": 0, "total_earned": 0,
+            "premium": True, "bonus_days": bonus_days}
 
 
 

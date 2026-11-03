@@ -806,11 +806,27 @@ def referral_bonus(name: str, friend: str, bonus: int) -> str:
     )
 
 
-def referral_bonus_days(name: str, friend: str, days: int, expires: str) -> str:
+def referral_bonus_days(name: str, friend: str, days: int, expires: str, started: bool = False) -> str:
+    what = "קיבלת מסלול Premium ל" if started else "המסלול Premium שלך הוארך ב-"
     return (
         f"🎉 {_n(name)}, חבר חדש הצטרף דרך הלינק שלך!\n\n"
         f"👤 {esc(friend)} הצטרף לבוט\n"
-        f"🎁 המסלול Premium שלך הוארך ב-{b(_count(days, 'יום אחד', 'ימים'))} — עד {b(fmt_date(expires))}"
+        f"🎁 {what}{b(_count(days, 'יום אחד', 'ימים'))} — עד {b(fmt_date(expires))}"
+    )
+
+
+def referral_joined_permanent(name: str, friend: str) -> str:
+    return (
+        f"🎉 {_n(name)}, חבר חדש הצטרף דרך הלינק שלך!\n\n"
+        f"👤 {esc(friend)} הצטרף לבוט\n"
+        "⭐ יש לך כבר מסלול Premium קבוע, אז אין מה להאריך — תודה שאתה מפיץ!"
+    )
+
+
+def referral_joined(name: str, friend: str) -> str:
+    return (
+        f"🎉 {_n(name)}, חבר חדש הצטרף דרך הלינק שלך!\n\n"
+        f"👤 {esc(friend)} הצטרף לבוט"
     )
 
 
