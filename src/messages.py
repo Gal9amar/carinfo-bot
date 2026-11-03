@@ -314,8 +314,7 @@ def levi_code_expired() -> str:
 def levi_logged_in(name: str, masked_phone: str) -> str:
     return (
         f"✅ {_n(name)}, התחברת בהצלחה ללוי יצחק!\n"
-        f"📱 מספר: {b(masked_phone)}\n\n"
-        f"{i('בקרוב: מחיר מחירון מותאם לכל רכב שתבדוק.')}"
+        f"📱 מספר: {b(masked_phone)}"
     )
 
 
@@ -342,6 +341,25 @@ def levi_cancelled() -> str:
     return "בסדר, ביטלתי את ההתחברות ללוי יצחק 👌"
 
 
+def levi_intro(name: str) -> str:
+    return (
+        f"📗 {_n(name)}, מחירון {b('לוי יצחק')}\n\n"
+        "כדי לראות את מחיר המחירון צריך להזדהות מול לוי יצחק, בדיוק כמו באפליקציה שלהם:\n"
+        "1️⃣ שולחים את מספר הנייד שלך\n"
+        "2️⃣ לוי יצחק שולחים אליו SMS עם קוד בן 6 ספרות\n"
+        "3️⃣ מקלידים את הקוד כאן, ואנחנו ממשיכים ישר לבדיקת הרכב\n\n"
+        + quote(esc("המספר נשלח ללוי יצחק לצורך האימות. אצלנו נשמרים רק המספר ואסימון גישה, "
+                    "ואפשר להתנתק ולמחוק אותם בכל רגע עם /levi_logout. השירות שלנו אינו קשור ללוי יצחק."))
+    )
+
+
+def levi_locked(name: str) -> str:
+    return (
+        f"🔒 {_n(name)}, {b('מחירון לוי יצחק')} זמין למנויי Premium.\n\n"
+        f"שלח {code('/buy')} כדי לראות את החבילות 🛒"
+    )
+
+
 def levi_plate_prompt(masked_phone: str) -> str:
     return (
         f"📗 {b('בדיקת מחירון לוי יצחק')}\n"
@@ -355,7 +373,7 @@ def levi_plate_invalid() -> str:
     return "🔢 מספר רכב צריך להיות 5–8 ספרות. נסה שוב, או /cancel לסיום."
 
 
-def levi_result(s: dict) -> str:
+def levi_result(s: dict, more: bool = True) -> str:
     title = " ".join(str(p) for p in (s.get("manufacturer"), s.get("model")) if p) or "רכב"
     rows = [
         ("🔖 גרסה", s.get("trim")),
@@ -374,8 +392,9 @@ def levi_result(s: dict) -> str:
         lines.append(i("לפני התאמה לק\"מ, ידיים וסוג בעלות"))
     else:
         lines.append(f"💰 {i('לא התקבל מחיר בסיס מהמחירון לרכב זה')}")
-    lines.append("")
-    lines.append(i("שלח מספר רכב נוסף, או /cancel לסיום"))
+    if more:
+        lines.append("")
+        lines.append(i("שלח מספר רכב נוסף, או /cancel לסיום"))
     return "\n".join(lines)
 
 

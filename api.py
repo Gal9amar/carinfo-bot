@@ -15,7 +15,7 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from src.features import feature_open
+from src.features import feature_open, levi_open
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import BaseModel
@@ -342,7 +342,7 @@ async def get_user_info(user: dict = Depends(_get_user)):
                 # 'none' = never started the bot / deleted account → must /start; 'pending' = approve in-app
                 "consent_stage": stage, "maintenance": maintenance,
                 "is_admin": False, "searches_left": 0, "searches_quota": 0,
-                "show_market_price": False, "show_pdf_report": False, "show_watch": False,
+                "show_market_price": False, "show_pdf_report": False, "show_watch": False, "show_levi": False,
                 "bot_username": BOT_USERNAME,
             }
     left = db_user.get("searches_left", 0) if db_user else 0
@@ -364,6 +364,7 @@ async def get_user_info(user: dict = Depends(_get_user)):
     show_market = await _check_feature("yad2_market")
     show_pdf    = await _check_feature("pdf_report")
     show_watch  = await _check_feature("yad2_watch")
+    show_levi   = await levi_open(user_id, quota=quota, subscriber=is_subscriber)
 
     async def _public_label(key_prefix: str) -> str:
         if (await get_bot_setting(f"{key_prefix}_public")) != "1":
@@ -424,6 +425,7 @@ async def get_user_info(user: dict = Depends(_get_user)):
         "show_market_price": show_market,
         "show_pdf_report": show_pdf,
         "show_watch": show_watch,
+        "show_levi": show_levi,
         "pdf_public_label": pdf_public_label,
         "watch_public_label": watch_public_label,
         "watch_max": watch_max,
@@ -1109,6 +1111,7 @@ async def admin_get_settings(_: dict = Depends(_require_admin)):
         "pdf_report_public_start":   (await get_bot_setting("pdf_report_public_start")) or "",
         "pdf_report_public_end":     (await get_bot_setting("pdf_report_public_end"))   or "",
         "pdf_report_public_label":   (await get_bot_setting("pdf_report_public_label")) or "",
+        "levi_enabled":              (await get_bot_setting("levi_enabled")) == "1",
     }
 
 
@@ -1151,6 +1154,7 @@ class SettingsUpdate(BaseModel):
     pdf_report_public_start:   str          | None = None
     pdf_report_public_end:     str          | None = None
     pdf_report_public_label:   str          | None = None
+    levi_enabled:              bool         | None = None
 
 
 @api.post("/api/admin/settings")
@@ -1280,6 +1284,8 @@ async def admin_update_settings(body: SettingsUpdate, _: dict = Depends(_require
         await set_bot_setting("pdf_report_public_end", body.pdf_report_public_end.strip())
     if body.pdf_report_public_label is not None:
         await set_bot_setting("pdf_report_public_label", body.pdf_report_public_label.strip())
+    if body.levi_enabled is not None:
+        await set_bot_setting("levi_enabled", "1" if body.levi_enabled else "0")
     return {"ok": True}
 
 

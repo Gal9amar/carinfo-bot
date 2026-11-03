@@ -187,6 +187,8 @@ def build_result_keyboard(
             row3.append(InlineKeyboardButton("👀 מעקב מודעות", web_app=WebAppInfo(url=f"{webapp_url}/?page=watches")))
         row3.append(InlineKeyboardButton("📤 שתף", callback_data="share_report"))
         rows.append(row3)
+        if "levi" in features:
+            rows.append([InlineKeyboardButton("📗 מחירון לוי יצחק", callback_data=f"levi|plate|{plate}")])
     rows.extend(_persistent_rows(is_admin))
     return InlineKeyboardMarkup(rows)
 
@@ -525,6 +527,80 @@ async def cb_levi_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     return await _levi_start(query.message, query.from_user, context)
 
 
+async def _levi_show_plate(message, user, context: ContextTypes.DEFAULT_TYPE, plate: str) -> None:
+    """Look `plate` up on the user's Levi account and show the card (used by the result-card button)."""
+    await context.bot.send_chat_action(message.chat_id, "typing")
+    try:
+        result = await _levi.lookup_plate(user.id, plate)
+    except _levi.LeviAuthError:
+        await message.reply_text(
+            M.levi_error("פג תוקף ההתחברות ללוי יצחק, צריך להזדהות מחדש") + "\n\n" + M.levi_intro(_first_name(user)),
+            parse_mode=HTML,
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("✅ המשך להזדהות", callback_data=f"levi|go|{plate}"),
+                InlineKeyboardButton("❌ לא עכשיו", callback_data="levi|no"),
+            ]]),
+        )
+        return
+    except _levi.LeviError as e:
+        await message.reply_text(M.levi_error(str(e)), parse_mode=HTML)
+        return
+    is_admin = user.id == ADMIN_ID
+    if is_admin:
+        context.user_data["levi_raw"] = result["raw"]
+    await message.reply_text(
+        M.levi_result(result["summary"], more=False),
+        parse_mode=HTML,
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("📄 תשובה גולמית (JSON)", callback_data="levi|raw"),
+        ]]) if is_admin else None,
+    )
+
+
+async def cb_levi_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Result-card button: price-list lookup for this plate; asks the user to verify first if needed."""
+    from src.features import levi_open
+    query = update.callback_query
+    user = query.from_user
+    await query.answer()
+    plate = query.data.split("|")[2]
+    if not await levi_open(user.id):
+        await query.message.reply_text(M.levi_locked(_first_name(user)), parse_mode=HTML)
+        return
+    if await _levi.is_logged_in(user.id):
+        await _levi_show_plate(query.message, user, context, plate)
+        return
+    await query.message.reply_text(
+        M.levi_intro(_first_name(user)),
+        parse_mode=HTML,
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("✅ המשך להזדהות", callback_data=f"levi|go|{plate}"),
+            InlineKeyboardButton("❌ לא עכשיו", callback_data="levi|no"),
+        ]]),
+    )
+
+
+async def cb_levi_go(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """'Continue' on the intro: start phone + SMS-code verification, then show the pending plate."""
+    from src.features import levi_open
+    query = update.callback_query
+    await query.answer()
+    if not await levi_open(query.from_user.id):
+        await query.message.reply_text(M.levi_locked(_first_name(query.from_user)), parse_mode=HTML)
+        return ConversationHandler.END
+    context.user_data["levi_plate"] = query.data.split("|")[2]
+    return await _levi_ask_phone(query.message, query.from_user, context)
+
+
+async def cb_levi_no(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    try:
+        await query.message.edit_text("בסדר, לא עכשיו 👌")
+    except Exception:
+        pass
+
+
 async def cb_levi_login(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
@@ -581,6 +657,11 @@ async def levi_receive_code(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     phone = session["phone"] if session else ""
     await update.message.reply_text(M.levi_logged_in(_first_name(user), _levi.mask_phone(phone)), parse_mode=HTML)
     await log_sent_message(user.id, "✅ התחבר ללוי יצחק", kind="levi_login")
+    pending = context.user_data.pop("levi_plate", None)
+    if pending:   # came from a result card: go straight to that plate, then leave the conversation
+        context.user_data.pop("levi_step", None)
+        await _levi_show_plate(update.message, user, context, pending)
+        return ConversationHandler.END
     return await _levi_ask_plate(update.message, phone, context)
 
 
@@ -630,6 +711,7 @@ async def cb_levi_raw(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 async def levi_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     step = context.user_data.pop("levi_step", None)
+    context.user_data.pop("levi_plate", None)
     text = "👌 סיימנו עם מחירון לוי יצחק." if step == "plate" else M.levi_cancelled()
     await update.effective_message.reply_text(text, reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
@@ -637,13 +719,13 @@ async def levi_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 
 async def levi_timeout(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     context.user_data.pop("levi_step", None)
+    context.user_data.pop("levi_plate", None)
 
 
 async def cmd_levi_logout(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    if not _levi_admin(update):
-        return ConversationHandler.END
-    user_id = update.effective_user.id
+    user_id = update.effective_user.id   # open to everyone: it only erases the caller's own data
     context.user_data.pop("levi_step", None)
+    context.user_data.pop("levi_plate", None)
     if await _levi.get_session(user_id):
         await _levi.logout(user_id)
         await update.message.reply_text(M.levi_logged_out(), parse_mode=HTML)
@@ -2314,8 +2396,13 @@ async def _lookup_flow(message, tg_user, chat_id: int, context: ContextTypes.DEF
             pass
 
     yad2_link = _yad2.build_url(record)
-    from src.features import feature_open
-    open_features = frozenset({"yad2_watch"} if await feature_open(user_id, "yad2_watch") else ())
+    from src.features import feature_open, levi_open
+    _feat = set()
+    if await feature_open(user_id, "yad2_watch"):
+        _feat.add("yad2_watch")
+    if await levi_open(user_id):
+        _feat.add("levi")
+    open_features = frozenset(_feat)
     result_kb = build_result_keyboard(
         is_admin=(user_id == ADMIN_ID), record=record, yad2_link=yad2_link, features=open_features,
     )
@@ -2880,10 +2967,13 @@ def main() -> None:
 
     app.add_handler(CommandHandler("levi_logout", cmd_levi_logout))
     app.add_handler(CallbackQueryHandler(cb_levi_raw, pattern=r"^levi\|raw$"))
+    app.add_handler(CallbackQueryHandler(cb_levi_plate, pattern=r"^levi\|plate\|\d+$"))
+    app.add_handler(CallbackQueryHandler(cb_levi_no, pattern=r"^levi\|no$"))
     app.add_handler(ConversationHandler(
         entry_points=[
             CommandHandler("levi", cmd_levi),
             CallbackQueryHandler(cb_levi_check, pattern=r"^levi\|check$"),
+            CallbackQueryHandler(cb_levi_go, pattern=r"^levi\|go\|\d+$"),
             CallbackQueryHandler(cb_levi_login, pattern=r"^levi\|login$"),
         ],
         states={

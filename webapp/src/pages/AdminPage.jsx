@@ -4336,6 +4336,8 @@ function FeaturesTab() {
   const [watchPublicEnd, setWatchPublicEnd]     = useState('')
   const [watchPublicLabel, setWatchPublicLabel] = useState('')
   const [watchSaving, setWatchSaving]           = useState(false)
+  const [leviEnabled, setLeviEnabled]           = useState(false)
+  const [leviSaving, setLeviSaving]             = useState(false)
 
   useEffect(() => {
     adminFetchSettings().then(s => {
@@ -4356,6 +4358,7 @@ function FeaturesTab() {
       setWatchPublicStart(s.yad2_watch_public_start || '')
       setWatchPublicEnd(s.yad2_watch_public_end || '')
       setWatchPublicLabel(s.yad2_watch_public_label || '')
+      setLeviEnabled(!!s.levi_enabled)
     }).catch(() => {})
   }, [])
 
@@ -4387,6 +4390,18 @@ function FeaturesTab() {
       window.Telegram?.WebApp?.showAlert('✅ הגדרות עודכנו')
     } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
     setPdfSaving(false)
+  }
+
+  async function toggleLevi() {
+    const next = !leviEnabled
+    setLeviEnabled(next); setLeviSaving(true)
+    try {
+      await adminUpdateSettings({ levi_enabled: next })
+    } catch {
+      setLeviEnabled(!next)
+      window.Telegram?.WebApp?.showAlert('שגיאה')
+    }
+    setLeviSaving(false)
   }
 
   if (!settings) return <div className="loading"></div>
@@ -4636,6 +4651,20 @@ function FeaturesTab() {
           }}>
             {watchSaving ? '⏳ שומר...' : '💾 שמור הגדרות התראות'}
           </button>
+        </div>
+
+        {/* Levi Yitzhak price list */}
+        <div className="card" style={{ padding: '24px', borderTop: '4px solid #15803d' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 24, background: 'rgba(21, 128, 61, 0.1)', width: 44, height: 44, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>📗</span>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-main)' }}>מחירון לוי יצחק</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{leviEnabled ? 'פתוח למנויים (אחרי הזדהות בטלפון וקוד SMS). אדמין תמיד רואה.' : 'כבוי — רק אדמין רואה את הכפתור'}</div>
+              </div>
+            </div>
+            <button type="button" role="switch" aria-checked={!!leviEnabled} aria-label="מחירון לוי יצחק — פתוח למנויים" disabled={leviSaving} className={`toggle ${leviEnabled ? 'on' : ''}`} onClick={toggleLevi} />
+          </div>
         </div>
       </div>
     </div>
