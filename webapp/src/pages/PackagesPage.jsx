@@ -68,7 +68,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
               <span aria-hidden="true">{planIcon(plan)} </span>{plan.name}
             </span>
             <span style={{ flexShrink: 0, fontSize: 13, color: 'var(--text-muted)' }}>
-              <strong style={{ color: 'var(--primary)', fontSize: 18 }}>{user.searches_left === -1 ? '∞' : (user.searches_left ?? 0)}</strong> חיפושים
+              {plan.daysLeft != null && plan.expires ? daysLeftLabel(plan.daysLeft) : ''}
             </span>
           </div>
           {plan.expires && (
@@ -263,7 +263,6 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
       {(() => {
         const freeAccent = '#177a33'
         const freeGrad   = 'linear-gradient(135deg,#1b4332,#2d6a4f)'
-        const searchesLeft = user?.searches_left ?? 0
         return (
           <div aria-current={isFreeUser ? 'true' : undefined} style={{
             borderRadius: 20, overflow: 'hidden', marginBottom: 22,
@@ -294,11 +293,9 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
                   }}>
                     {isFreeUser ? (
                       <>
-                        <span style={{ fontSize: 52, fontWeight: 900, color: '#fff', lineHeight: 1 }}>
-                          {searchesLeft}
-                        </span>
+                        <span style={{ fontSize: 52, lineHeight: 1 }}>🆓</span>
                         <span style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>
-                          חיפושים נותרו
+                          המסלול שלך כרגע
                         </span>
                       </>
                     ) : (
@@ -325,13 +322,10 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
 
             {/* Chips */}
             <div style={{ display: 'flex', gap: 7, padding: '14px 14px 10px', flexWrap: 'wrap' }}>
-              {isFreeUser
-                ? <Chip accent={freeAccent}>🔍 {searchesLeft} חיפושים נותרו</Chip>
-                : <Chip accent={freeAccent}>🔍 חיפושים בהצטרפות</Chip>
-              }
+              <Chip accent={freeAccent}>🔍 חיפוש רכב פתוח לכולם</Chip>
               {(freePackage?.chips?.length
                 ? freePackage.chips
-                : ['🤝 +חיפושים על הפניות', '🔓 ללא תפוגה']
+                : ['🤝 ימי Premium על הפניות', '🔓 ללא תפוגה']
               ).map((c, i) => <Chip key={i} accent={freeAccent}>{c}</Chip>)}
             </div>
 

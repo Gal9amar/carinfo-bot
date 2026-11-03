@@ -8,7 +8,7 @@ import {
   adminUpdateSettings, adminFetchPackages,
   adminAddPackage, adminUpdatePackage, adminDeletePackage, adminReorderPackages,
   adminFetchGrants, adminAddGrant, adminUpdateGrant, adminDeleteGrant, adminReorderGrants,
-  adminGrantUser,
+  adminGrantUser, adminFetchPlans,
   adminRevokeSubscription,
   adminFetchTickets, adminFetchTicket, adminReplyTicket, adminUpdateTicketStatus,
   adminFetchPayments, adminApprovePayment, adminDeclinePayment,
@@ -864,7 +864,7 @@ function normalizeFeatures(raw) {
 function getDefaultChips(pkg) {
   const s = typeof pkg.searches === 'number' ? pkg.searches : parseInt(pkg.searches)
   const duration = typeof pkg.duration_months === 'number' ? pkg.duration_months : parseInt(pkg.duration_months) || 1
-  if (s === 0)  return ['🔍 חיפושים בהצטרפות', '🤝 +חיפושים על הפניות', '🔓 ללא תפוגה']
+  if (s === 0)  return ['🆓 חיפוש בסיסי חינם', '🤝 ימי Premium על הפניות', '🔓 ללא תפוגה']
   if (s === -1) return ['♾️ ללא הגבלה', '💳 חד-פעמי', `📅 תוקף ${duration > 1 ? `${duration} חודשים` : 'חודש'}`]
   return [`🔍 ${s} חיפושים`, '💳 חד-פעמי', '🔓 ללא תפוגה']
 }
@@ -995,7 +995,7 @@ function PackagesTab() {
       </div>
       <div className="admin-item-list" style={{ marginBottom: 16 }}>
       {paidPkgs.map((pkg, idx) => {
-        const desc = pkg.searches === -1 ? 'חיפושים ללא הגבלה (Premium)' : `${pkg.searches} חיפושים`
+        const desc = pkg.searches === -1 ? 'מנוי Premium' : `חבילה ישנה (${pkg.searches})`
         const isDragging = dragIdx === idx
         const isActive = pkg.is_active !== false
         return (
@@ -1978,7 +1978,7 @@ function PackageModal({ title, form, setForm, saving, onSave, onClose, suggestio
         {!isFreePkg && (
           <>
             <div className="field-row">
-              <Field label="חיפושים" hint="-1 = בלתי מוגבל">
+              <Field label="סוג" hint="-1 = מנוי (משך בשדה חודשים) · אחר = חבילה ישנה, לא בשימוש">
                 <input className="input" type="number" inputMode="numeric" dir="ltr" style={{ textAlign: 'start' }} value={form.searches} onChange={e => setForm(f => ({ ...f, searches: e.target.value }))} />
               </Field>
               <Field label="מחיר (₪)">
@@ -2133,18 +2133,38 @@ function grantTypeLabel(searches) {
   return `הוספת ${searches} חיפושים`
 }
 
+// Subscription plans (active unlimited packages) an admin can pick for a benefit / code / gift.
+function usePlans() {
+  const [plans, setPlans] = useState(null)
+  useEffect(() => { adminFetchPlans().then(p => setPlans(Array.isArray(p) ? p : [])).catch(() => setPlans([])) }, [])
+  return plans
+}
+
+function PlanSelect({ id, value, onChange, plans, disabled }) {
+  const def = (plans || []).find(p => p.default)
+  return (
+    <select id={id} className="input" value={value || ''} disabled={disabled || !plans}
+      onChange={e => onChange(e.target.value ? parseInt(e.target.value) : null)}
+      style={{ margin: 0, height: 44, borderRadius: 12 }}>
+      <option value="">{def ? `ברירת מחדל (${def.label})` : 'ברירת מחדל'}</option>
+      {(plans || []).map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+    </select>
+  )
+}
+
 function grantBadge(searches) {
   if (searches === 0) return { text: 'איפוס', tone: 'mute' }
-  if (searches === -1) return { text: 'Premium לחודש', tone: 'good' }
-  if (searches === -2) return { text: 'Premium קבוע', tone: 'warn' }
-  return { text: `+${searches} חיפושים`, tone: '' }
+  if (searches === -1) return { text: 'מנוי ל-30 יום', tone: 'good' }
+  if (searches === -2) return { text: 'מנוי קבוע', tone: 'warn' }
+  return { text: `+${searches} ימי מנוי`, tone: '' }
 }
 
 function AdminGrantsTab() {
   const [grants, setGrants] = useState(null)
   const [editing, setEditing] = useState(null)
   const [adding, setAdding] = useState(false)
-  const [form, setForm] = useState({ label: '', searches: '' })
+  const [form, setForm] = useState({ label: '', searches: '', plan_id: null })
+  const plans = usePlans()
   const [saving, setSaving] = useState(false)
   const [dragIdx, setDragIdx] = useState(null)
   const [reordering, setReordering] = useState(false)
@@ -2179,7 +2199,7 @@ function AdminGrantsTab() {
   async function saveEdit() {
     setSaving(true)
     try {
-      await adminUpdateGrant(editing.id, { label: form.label, searches: parseInt(form.searches) })
+      await adminUpdateGrant(editing.id, { label: form.label, searches: parseInt(form.searches), plan_id: form.plan_id || null })
       setGrants(await adminFetchGrants())
       setEditing(null)
     } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
@@ -2189,7 +2209,7 @@ function AdminGrantsTab() {
   async function saveAdd() {
     setSaving(true)
     try {
-      setGrants(await adminAddGrant({ label: form.label, searches: parseInt(form.searches) }))
+      setGrants(await adminAddGrant({ label: form.label, searches: parseInt(form.searches), plan_id: form.plan_id || null }))
       setAdding(false)
     } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
     setSaving(false)
@@ -2222,11 +2242,11 @@ function AdminGrantsTab() {
           <summary>מה המשמעות של הערכים?</summary>
           <ul>
             <li><span className="val">0</span><span>איפוס למסלול החינמי</span></li>
-            <li><span className="val">-1</span><span>מסלול Premium לתקופה (חודש כברירת מחדל)</span></li>
-            <li><span className="val">-2</span><span>Premium קבוע, ללא תפוגה</span></li>
-            <li><span className="val">1+</span><span>הוספת חיפושים (מספר חיובי)</span></li>
+            <li><span className="val">-1</span><span>מנוי ל-30 יום</span></li>
+            <li><span className="val">-2</span><span>מנוי קבוע, ללא תפוגה</span></li>
+            <li><span className="val">1+</span><span>מספר ימי מנוי (מתווספים לתוקף קיים)</span></li>
           </ul>
-          <p className="note">מסלול Premium = חיפושים ללא הגבלה וכל יכולות הפרימיום לתקופה.</p>
+          <p className="note">בכל הטבה בוחרים איזה מנוי היא מעניקה. מי שכבר מנוי מקבל הארכה של התוקף.</p>
         </details>
       </div>
       
@@ -2248,11 +2268,11 @@ function AdminGrantsTab() {
               title={g.label}
               badge={<bdi>{badge.text}</bdi>}
               badgeTone={badge.tone}
-              subtitle={grantTypeLabel(g.searches)}
+              subtitle={`${grantTypeLabel(g.searches)}${g.plan_id ? ' · ' + ((plans || []).find(p => p.id === g.plan_id)?.label || 'מנוי נבחר') : ''}`}
               actions={<>
                 <AdminItemBtn icon="▲" label="למעלה" ariaLabel={`הזז למעלה: ${g.label}`} disabled={idx === 0 || reordering} onClick={() => moveGrant(idx, idx - 1)} />
                 <AdminItemBtn icon="▼" label="למטה" ariaLabel={`הזז למטה: ${g.label}`} disabled={idx === grants.length - 1 || reordering} onClick={() => moveGrant(idx, idx + 1)} />
-                <AdminItemBtn icon="✏️" label="ערוך" ariaLabel={`ערוך הטבה: ${g.label}`} onClick={() => { setEditing(g); setForm({ label: g.label, searches: String(g.searches) }) }} />
+                <AdminItemBtn icon="✏️" label="ערוך" ariaLabel={`ערוך הטבה: ${g.label}`} onClick={() => { setEditing(g); setForm({ label: g.label, searches: String(g.searches), plan_id: g.plan_id || null }) }} />
                 <AdminItemBtn icon="🗑️" label="מחק" ariaLabel={`מחק הטבה: ${g.label}`} danger onClick={() => setConfirmId(g.id)} />
               </>}
               footer={confirmId === g.id && (
@@ -2264,7 +2284,7 @@ function AdminGrantsTab() {
         })}
       </div>
       
-      <button className="btn btn-success" onClick={() => { setAdding(true); setForm({ label: '', searches: '' }) }} style={{ padding: '16px', fontSize: 15, fontWeight: 800, borderRadius: 16, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+      <button className="btn btn-success" onClick={() => { setAdding(true); setForm({ label: '', searches: '', plan_id: null }) }} style={{ padding: '16px', fontSize: 15, fontWeight: 800, borderRadius: 16, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
         <span style={{ fontSize: 20 }}>➕</span> הוסף תוכנית הטבה חדשה
       </button>
 
@@ -2305,16 +2325,16 @@ function AdminGrantsTab() {
       </div>
 
       {editing && (
-        <AdminGrantModal title="✏️ עריכת הטבה" form={form} setForm={setForm} saving={saving} onSave={saveEdit} onClose={() => setEditing(null)} />
+        <AdminGrantModal plans={plans} title="✏️ עריכת הטבה" form={form} setForm={setForm} saving={saving} onSave={saveEdit} onClose={() => setEditing(null)} />
       )}
       {adding && (
-        <AdminGrantModal title="➕ הטבה חדשה" form={form} setForm={setForm} saving={saving} onSave={saveAdd} onClose={() => setAdding(false)} />
+        <AdminGrantModal plans={plans} title="➕ הטבה חדשה" form={form} setForm={setForm} saving={saving} onSave={saveAdd} onClose={() => setAdding(false)} />
       )}
     </div>
   )
 }
 
-function AdminGrantModal({ title, form, setForm, saving, onSave, onClose }) {
+function AdminGrantModal({ title, form, setForm, saving, onSave, onClose, plans }) {
   return (
     <Sheet title={title} onClose={onClose} footer={<>
       <button className="btn" disabled={saving || !form.label.trim()} onClick={onSave}>{saving ? '...' : 'שמור'}</button>
@@ -2323,8 +2343,11 @@ function AdminGrantModal({ title, form, setForm, saving, onSave, onClose }) {
       <Field label="שם ההטבה">
         <input className="input" value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} />
       </Field>
-      <Field label="חיפושים" hint="0 = איפוס לחינמי · -1 = Premium לתקופה (חודש) · -2 = Premium קבוע · מספר חיובי = הוספת חיפושים">
+      <Field label="ימי מנוי" hint="0 = איפוס לחינמי · -1 = מנוי ל-30 יום · -2 = מנוי קבוע · מספר חיובי = מספר ימים">
         <input className="input" type="number" inputMode="numeric" dir="ltr" style={{ textAlign: 'start' }} value={form.searches} onChange={e => setForm(f => ({ ...f, searches: e.target.value }))} />
+      </Field>
+      <Field label="איזה מנוי">
+        <PlanSelect plans={plans} value={form.plan_id} onChange={v => setForm(f => ({ ...f, plan_id: v }))} />
       </Field>
     </Sheet>
   )
@@ -2492,7 +2515,8 @@ function PaymentsTab() {
 
 function CodesSection({ standalone }) {
   const [codes, setCodes] = useState(null)
-  const [form, setForm] = useState({ searches: 50, unlimited: false, single_use: true, monthly: false })
+  const [form, setForm] = useState({ searches: 7, unlimited: false, single_use: true, monthly: false, plan_id: null })
+  const plans = usePlans()
   const [creating, setCreating] = useState(false)
   const [confirmCode, setConfirmCode] = useState(null)
   const [deletingCode, setDeletingCode] = useState(false)
@@ -2503,7 +2527,7 @@ function CodesSection({ standalone }) {
   async function createCode() {
     setCreating(true)
     try {
-      const res = await adminCreateCode(form)
+      const res = await adminCreateCode({ ...form, searches: form.unlimited ? 0 : form.searches })
       window.Telegram?.WebApp?.showAlert(`✅ קוד נוצר:\n${res.code}`)
       load()
     } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
@@ -2539,17 +2563,21 @@ function CodesSection({ standalone }) {
 
         <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, marginBottom: 6 }}>כמות חיפושים</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, marginBottom: 6 }}>ימי מנוי</div>
             <input
               className="input"
               type="number"
               min="1"
-              placeholder="לדוגמה: 50"
+              placeholder="לדוגמה: 7"
               value={form.searches}
-              onChange={e => setForm(f => ({ ...f, searches: parseInt(e.target.value) || 50 }))}
+              onChange={e => setForm(f => ({ ...f, searches: parseInt(e.target.value) || 7 }))}
               style={{ margin: 0, height: 44, borderRadius: 12 }}
-              disabled={form.unlimited}
+              disabled={form.unlimited || form.monthly}
             />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, marginBottom: 6 }}>איזה מנוי</div>
+            <PlanSelect plans={plans} value={form.plan_id} onChange={v => setForm(f => ({ ...f, plan_id: v }))} />
           </div>
           <div style={{ display: 'flex', alignItems: 'flex-end' }}>
             <button
@@ -2564,7 +2592,7 @@ function CodesSection({ standalone }) {
         </div>
         
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, background: 'var(--bg)', padding: '12px', borderRadius: 12, border: '1px solid var(--border)' }}>
-          {[['unlimited', '♾️ Premium קבוע'], ['monthly', '📅 Premium לחודש'], ['single_use', '1️⃣ קוד חד-פעמי']].map(([key, label]) => (
+          {[['unlimited', '♾️ מנוי קבוע'], ['monthly', '📅 מנוי ל-30 יום'], ['single_use', '1️⃣ קוד חד-פעמי']].map(([key, label]) => (
             <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', fontWeight: form[key] ? 700 : 500, color: form[key] ? 'var(--text-main)' : 'var(--text-muted)' }}>
               <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${form[key] ? 'var(--primary)' : 'var(--border)'}`, background: form[key] ? 'var(--primary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
                 {form[key] && <span style={{ color: '#fff', fontSize: 12 }}>✓</span>}
@@ -2599,7 +2627,7 @@ function CodesSection({ standalone }) {
           const expired = c.expires && new Date(c.expires) < new Date()
           const status = used ? 'נוצל' : expired ? 'פג תוקף' : 'פעיל'
           const tone = used ? '' : expired ? 'mute' : 'good'
-          const desc = c.unlimited ? (c.monthly ? 'מסלול Premium לחודש' : 'Premium קבוע ללא תפוגה') : `${c.searches} חיפושים`
+          const desc = (c.unlimited && !(c.searches > 0) ? 'מנוי קבוע ללא תפוגה' : `${c.searches} ימי מנוי`) + (c.plan_label ? ` · ${c.plan_label}` : '')
 
           return (
             <AdminItemCard
@@ -2735,8 +2763,10 @@ function GlobalUnlimitedSection() {
 }
 
 function GiftAllSection({ onDone }) {
-  const [giftType, setGiftType] = useState('searches')
-  const [searches, setSearches] = useState(10)
+  const [giftType, setGiftType] = useState('days')
+  const [searches, setSearches] = useState(7)
+  const [planId, setPlanId] = useState(null)
+  const plans = usePlans()
   const [message, setMessage] = useState('')
   const [imageb64, setImageb64] = useState('')
   const [compressing, setCompressing] = useState(false)
@@ -2767,18 +2797,18 @@ function GiftAllSection({ onDone }) {
   }
 
   async function send() {
-    if (giftType === 'searches' && (!searches || searches < 1)) return
+    if (giftType === 'days' && (!searches || searches < 1)) return
     const preview = giftType === 'monthly'
-      ? `להעניק מנוי חופשי חודשי לכל המשתמשים${message.trim() ? ' ולשלוח הודעה' : ''}?`
-      : `להוסיף ${searches} חיפושים לכל המשתמשים${message.trim() ? ' ולשלוח הודעה' : ''}?`
+      ? `להעניק 30 ימי מנוי לכל המשתמשים${message.trim() ? ' ולשלוח הודעה' : ''}?`
+      : `להוסיף ${searches} ימי מנוי לכל המשתמשים${message.trim() ? ' ולשלוח הודעה' : ''}?`
     window.Telegram?.WebApp?.showConfirm(preview, async ok => {
       if (!ok) return
       setSending(true)
       try {
-        const res = await adminGiftAll(searches, message.trim(), imageb64, giftType)
+        const res = await adminGiftAll(searches, message.trim(), imageb64, giftType, planId)
         const successMsg = giftType === 'monthly'
-          ? `🎁 הושלם!\n✅ מנוי חופשי חודשי הוענק לכולם${res.notified ? `\n📤 הודעה נשלחה ל-${res.notified} משתמשים` : ''}`
-          : `🎁 הושלם!\n✅ ${searches} חיפושים נוספו לכולם${res.notified ? `\n📤 הודעה נשלחה ל-${res.notified} משתמשים` : ''}`
+          ? `🎁 הושלם!\n✅ 30 ימי מנוי הוענקו לכולם${res.notified ? `\n📤 הודעה נשלחה ל-${res.notified} משתמשים` : ''}`
+          : `🎁 הושלם!\n✅ ${searches} ימי מנוי נוספו לכולם${res.notified ? `\n📤 הודעה נשלחה ל-${res.notified} משתמשים` : ''}`
         window.Telegram?.WebApp?.showAlert(successMsg)
         setMessage('')
         setImageb64('')
@@ -2804,13 +2834,13 @@ function GiftAllSection({ onDone }) {
   return (
     <div style={{ marginTop: 12 }}>
       <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-        {typeBtn('searches', '🔢 כמות חיפושים')}
-        {typeBtn('monthly', '♾️ מנוי חודשי')}
+        {typeBtn('days', '🔢 מספר ימים')}
+        {typeBtn('monthly', '📅 30 יום')}
       </div>
 
-      {giftType === 'searches' && (
+      {giftType === 'days' && (
         <>
-          <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8 }}>כמות חיפושים לכל משתמש:</div>
+          <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8 }}>מספר ימי מנוי לכל משתמש:</div>
           <input
             className="input"
             type="number"
@@ -2824,15 +2854,17 @@ function GiftAllSection({ onDone }) {
 
       {giftType === 'monthly' && (
         <div style={{ background: 'rgba(33,150,243,0.1)', border: '1px solid rgba(33,150,243,0.3)', borderRadius: 10, padding: '10px 14px', marginBottom: 10, fontSize: 13, color: 'var(--hint)' }}>
-          ♾️ כל המשתמשים יקבלו גישה ללא הגבלת חיפושים ל-30 יום ויצורפו לקבוצת מנויים.
+          📅 כל המשתמשים יקבלו 30 ימי מנוי (מי שכבר מנוי יקבל הארכה) ויצורפו לקבוצת מנויים.
         </div>
       )}
 
+      <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8 }}>איזה מנוי:</div>
+      <div style={{ marginBottom: 10 }}><PlanSelect plans={plans} value={planId} onChange={setPlanId} /></div>
       <div style={{ fontSize: 13, color: 'var(--hint)', marginBottom: 8 }}>הודעה למשתמשים (אופציונלי):</div>
       <textarea
         className="input"
         rows={3}
-        placeholder={giftType === 'monthly' ? 'לדוגמה: 🎉 חגיגת שנה! קיבלת מנוי חופשי חודשי' : 'לדוגמה: 🎉 חגיגת שנה! קיבלת 10 חיפושים במתנה'}
+        placeholder={giftType === 'monthly' ? 'לדוגמה: 🎉 חגיגת שנה! קיבלת 30 ימי מנוי' : 'לדוגמה: 🎉 חגיגת שנה! קיבלת 7 ימי מנוי במתנה'}
         value={message}
         onChange={e => setMessage(e.target.value)}
         style={{ resize: 'vertical', fontFamily: 'inherit', marginBottom: 10 }}
@@ -2873,7 +2905,7 @@ function GiftAllSection({ onDone }) {
         onClick={send}
         style={{ marginTop: 0, background: 'linear-gradient(135deg,#f5a623,#f76b1c)', border: 'none' }}
       >
-        {sending ? '⏳ מעבד...' : giftType === 'monthly' ? '🎁 הענק מנוי חודשי לכולם' : `🎁 הענק ${searches || ''} חיפושים לכולם`}
+        {sending ? '⏳ מעבד...' : giftType === 'monthly' ? '🎁 הענק 30 ימי מנוי לכולם' : `🎁 הענק ${searches || ''} ימי מנוי לכולם`}
       </button>
     </div>
   )
@@ -2882,8 +2914,7 @@ function GiftAllSection({ onDone }) {
 function userStatus(u) {
   if (u.blocked) return { label: 'חסום', color: '#c53030', bg: '#c5303018' }
   if (u.is_subscriber || u.searches_left === -1) return { label: 'מנוי', color: '#0066d6', bg: '#0066d618' }
-  if (u.searches_left > 0) return { label: 'חינם', color: '#177a33', bg: '#177a3318' }
-  return { label: 'אזל', color: '#975a16', bg: '#975a1618' }
+  return { label: 'חינמי', color: '#177a33', bg: '#177a3318' }
 }
 
 function relativeTime(ts) {
@@ -2917,7 +2948,6 @@ function UserCard({ u, expanded, onToggle, onEdit, onMessage, onHistory, onReloa
   const [blocking, setBlocking] = useState(false)
   const [togglingConsent, setTogglingConsent] = useState(false)
   const st = userStatus(u)
-  const left = u.searches_left === -1 ? '∞' : u.searches_left
   const displayName = u.username ? `@${u.username}` : u.full_name || `id:${u.user_id}`
   const initials = getInitials(u)
 
@@ -2977,7 +3007,7 @@ function UserCard({ u, expanded, onToggle, onEdit, onMessage, onHistory, onReloa
           <div style={{ fontSize: 13, color: 'var(--text-muted)', display: 'flex', gap: 8 }}>
             <span>🔍 {u.searches_done} נעשו</span>
             <span>·</span>
-            <span style={{ color: u.searches_left === 0 ? '#975a16' : 'var(--text-muted)' }}>{left} נותרו</span>
+            <span style={{ color: 'var(--text-muted)' }}>{u.searches_left === -1 ? (u.quota_expires ? `מנוי עד ${String(u.quota_expires).slice(0, 10)}` : 'מנוי קבוע') : 'חינמי'}</span>
             {u.last_seen && <><span>·</span><span>{relativeTime(u.last_seen)}</span></>}
           </div>
         </div>
@@ -2995,7 +3025,7 @@ function UserCard({ u, expanded, onToggle, onEdit, onMessage, onHistory, onReloa
             {[
               { label: 'נעשו', value: u.searches_done, color: '#0066d6' },
               { label: 'נותרו', value: left, color: st.color },
-              { label: 'קוטה', value: u.searches_quota === -1 ? '∞' : u.searches_quota, color: '#0066d6' },
+              { label: 'מסלול', value: u.searches_quota === -1 ? 'מנוי' : 'חינמי', color: '#0066d6' },
               { label: 'מזהה', value: u.user_id, mono: true },
             ].map(({ label, value, color, mono }) => (
               <div key={label} style={{
@@ -3201,7 +3231,7 @@ function ReferralsTab() {
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             }}>
               <span style={{ fontSize: 14, color: 'var(--text-muted)', fontWeight: 600 }}>🎁 בונוס שהוענק</span>
-              <span style={{ fontSize: 20, fontWeight: 800, color: '#047857' }}>+{selected.bonus} חיפושים</span>
+              <span style={{ fontSize: 20, fontWeight: 800, color: '#047857' }}>{selected.bonus_days > 0 ? `+${selected.bonus_days} ימי Premium` : selected.bonus > 0 ? `+${selected.bonus} חיפושים` : '—'}</span>
             </div>
 
             {/* Referee */}
@@ -3356,6 +3386,8 @@ function UsersTab() {
 
 function GrantModal({ user, onClose, onDone }) {
   const [grants, setGrants] = useState(null)
+  const plans = usePlans()
+  const [customPlan, setCustomPlan] = useState(null)
   const [mode, setMode] = useState('grants') // 'grants' | 'custom' | 'watch' | 'history' | 'referrals'
   const [customAmount, setCustomAmount] = useState('')
   const [watchQuotaInput, setWatchQuotaInput] = useState(user.watch_quota != null ? String(user.watch_quota) : '')
@@ -3380,10 +3412,10 @@ function GrantModal({ user, onClose, onDone }) {
 
   const name = user.username ? `@${user.username}` : user.full_name || `id:${user.user_id}`
 
-  async function grant(searches) {
+  async function grant(searches, planId = null) {
     setSaving(true)
     try {
-      const res = await adminGrantUser(user.user_id, searches)
+      const res = await adminGrantUser(user.user_id, searches, planId)
       window.Telegram?.WebApp?.showAlert(res.msg || '✅ עודכן')
       await onDone()
     } catch {
@@ -3400,13 +3432,13 @@ function GrantModal({ user, onClose, onDone }) {
     if (!pendingGrant) return
     if (pendingGrant.searches === 0) {
       window.Telegram?.WebApp?.showConfirm(
-        'להסיר את יתרת החיפושים ולהסיר מקבוצת המנויים?',
+        'לאפס למסלול החינמי ולהסיר מקבוצת המנויים?',
         async (ok) => { if (ok) { setPendingGrant(null); await grant(0) } }
       )
       return
     }
     setPendingGrant(null)
-    await grant(pendingGrant.searches)
+    await grant(pendingGrant.searches, pendingGrant.plan_id || customPlan)
   }
 
   const TABS = [
@@ -3508,17 +3540,18 @@ function GrantModal({ user, onClose, onDone }) {
 
         {mode === 'custom' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <PlanSelect plans={plans} value={customPlan} onChange={setCustomPlan} />
             <input
               className="input"
               type="number" min="1"
-              placeholder="כמות חיפושים להוסיף"
+              placeholder="ימי מנוי להוסיף"
               value={customAmount}
               onChange={e => setCustomAmount(e.target.value)}
               style={{ fontSize: 13 }}
             />
             <button
               disabled={saving || !customAmount || parseInt(customAmount) < 1}
-              onClick={() => grant(parseInt(customAmount))}
+              onClick={() => grant(parseInt(customAmount), customPlan)}
               style={{
                 padding: '10px', borderRadius: 10, border: 'none',
                 background: 'var(--accent)', color: '#fff', fontSize: 13,
@@ -3616,8 +3649,8 @@ function GrantModal({ user, onClose, onDone }) {
                     <div style={{ fontSize: 11, color: 'var(--hint)' }}>הצטרפו</div>
                   </div>
                   <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '8px', textAlign: 'center' }}>
-                    <div style={{ fontSize: 20, fontWeight: 700 }}>{referralData.total_bonus}</div>
-                    <div style={{ fontSize: 11, color: 'var(--hint)' }}>חיפושים הרוויח</div>
+                    <div style={{ fontSize: 20, fontWeight: 700 }}>{referralData.total_bonus_days ?? 0}</div>
+                    <div style={{ fontSize: 11, color: 'var(--hint)' }}>ימי Premium הרוויח</div>
                   </div>
                 </div>
                 {/* Note */}
@@ -4068,9 +4101,10 @@ function PromoTab() {
   const [saving, setSaving]       = useState(false)
   const [msg, setMsg]             = useState(null) // { ok, text }
   const [confirmClear, setConfirmClear] = useState(false)
-  // mode: 'off' | 'premium' | 'count'
+  // mode: 'off' | 'premium' (plan days)
   const [mode, setMode]           = useState('off')
-  const [count, setCount]         = useState('10')
+  const [planId, setPlanId]       = useState(null)
+  const plans = usePlans()
   const [days, setDays]           = useState('30')
   const [isSub, setIsSub]         = useState(false)
   const [label, setLabel]         = useState('')
@@ -4081,8 +4115,8 @@ function PromoTab() {
 
   function applySettings(s) {
     const ps = Number(s.promo_searches ?? 0)
-    setMode(ps === 0 ? 'off' : ps < 0 ? 'premium' : 'count')
-    setCount(ps > 0 ? String(ps) : '10')
+    setMode(ps === 0 ? 'off' : 'premium')
+    setPlanId(s.promo_plan_id || null)
     setDays(String(s.promo_duration_days ?? 30))
     setIsSub(!!s.promo_is_subscriber)
     setLabel(s.promo_label || '')
@@ -4099,9 +4133,7 @@ function PromoTab() {
   useEffect(load, [])
 
   const daysN  = Math.max(0, parseInt(days) || 0)
-  const countN = Math.max(0, parseInt(count) || 0)
   const rangeBad = mode !== 'off' && !noEnd && end && start && end < start
-  const countBad = mode === 'count' && countN < 1
 
   async function persist(payload, local, okText) {
     setSaving(true); setMsg(null)
@@ -4118,13 +4150,14 @@ function PromoTab() {
 
   function save() {
     if (mode === 'off') { setConfirmClear(true); return }
-    if (rangeBad || countBad) return
+    if (rangeBad) return
     persist({
-      promo_searches: mode === 'premium' ? -1 : countN,
+      promo_searches: -1,   // on/off switch (legacy name)
+      promo_plan_id: planId || 0,
       promo_start: start,
       promo_end: noEnd ? '' : end,
-      promo_duration_days: mode === 'premium' ? daysN : (settings?.promo_duration_days ?? 30),
-      promo_is_subscriber: mode === 'premium' ? true : isSub,   // Premium always opens the premium features
+      promo_duration_days: daysN,
+      promo_is_subscriber: true,   // a plan always opens the premium features
       promo_label: label.trim(),
     }, false, 'המבצע נשמר ופעיל לפי התאריכים שהוגדרו')
   }
@@ -4134,7 +4167,7 @@ function PromoTab() {
     await persist({
       promo_searches: 0, promo_start: '', promo_end: '',
       promo_duration_days: 30, promo_is_subscriber: false, promo_label: '',
-    }, true, 'המבצע בוטל. משתמשים חדשים יקבלו רק את החיפושים החינמיים')
+    }, true, 'המבצע בוטל. משתמשים חדשים יקבלו רק את ימי הניסיון הרגילים')
   }
 
   function fmt(d) {
@@ -4171,23 +4204,20 @@ function PromoTab() {
   // Live preview of the form values
   let preview
   if (mode === 'off') {
-    preview = 'אין מבצע: משתמש חדש יקבל רק את החיפושים החינמיים הרגילים.'
+    preview = 'אין מבצע: משתמש חדש יקבל רק את ימי הניסיון הרגילים (אם הוגדרו).'
   } else {
-    const gift = mode === 'premium'
-      ? (daysN > 0 ? <>מסלול Premium ל-{daysN} ימים</> : <>מסלול Premium ללא הגבלת זמן</>)
-      : <>{countN} חיפושים חינם</>
+    const planName = (plans || []).find(p => p.id === planId)?.label || (plans || []).find(p => p.default)?.label || 'Premium'
+    const gift = daysN > 0 ? <>{planName} ל-{daysN} ימים</> : <>{planName} ללא הגבלת זמן</>
     const when = noEnd
       ? (start ? <>, מ-{L(fmt(start))} ואילך</> : <>, ללא תאריך סיום</>)
       : <>{start ? <>, בין {L(fmt(start))} ל-{L(fmt(end) || '...')}</> : <>, עד {L(fmt(end) || '...')}</>}</>
-    preview = <>משתמש חדש שיצטרף יקבל {gift}{when}.{mode === 'premium' ? ' כל פיצ׳רי הפרימיום פתוחים לו.' : ''}{mode === 'count' && isSub ? ' הוא גם יצורף לקבוצת המנויים, כך שהפיצ׳רים יהיו פתוחים לו.' : ''}</>
+    preview = <>משתמש חדש שיצטרף יקבל {gift}{when}. כל פיצ׳רי המנוי פתוחים לו.</>
   }
 
   const MODES = [
-    { id: 'off',     title: 'ללא מבצע',            sub: 'משתמש חדש מקבל רק חיפושים חינמיים' },
-    { id: 'premium', title: 'מסלול Premium',        sub: 'חיפושים ללא הגבלה לתקופה מוגדרת' },
-    { id: 'count',   title: 'כמות חיפושים חינם',    sub: 'מספר חיפושים קבוע במתנה' },
+    { id: 'off',     title: 'ללא מבצע',      sub: 'משתמש חדש מקבל רק את ימי הניסיון הרגילים' },
+    { id: 'premium', title: 'ימי מנוי במתנה', sub: 'מנוי לבחירתכם לתקופה מוגדרת' },
   ]
-  const countPkgs = packages.filter(p => p && Number(p.searches) > 0)
 
   return (
     <div className="tab-fade-in promo-tab">
@@ -4221,49 +4251,22 @@ function PromoTab() {
         </div>
 
         {mode === 'premium' && (
-          <div className="promo-field">
-            <label htmlFor="promo-days">תוקף ההטבה (בימים)</label>
-            <input id="promo-days" className="input" type="number" inputMode="numeric" min="0" dir="ltr"
-              value={days} onChange={e => setDays(e.target.value)} />
-            <p className="promo-hint">נספר מיום ההצטרפות של כל משתמש. 0 = ללא הגבלת זמן.</p>
-          </div>
-        )}
-
-        {mode === 'count' && (
-          <div className="promo-field">
-            <label htmlFor="promo-count">מספר חיפושים</label>
-            <input id="promo-count" className="input" type="number" inputMode="numeric" min="1" dir="ltr"
-              value={count} onChange={e => setCount(e.target.value)} aria-invalid={countBad} />
-            {countBad && <p className="promo-err">יש להזין לפחות חיפוש אחד.</p>}
-            {countPkgs.length > 0 && (
-              <div className="promo-chips" aria-label="מילוי מהיר לפי חבילה">
-                {countPkgs.map(p => (
-                  <button key={p.id} type="button" className={'promo-chip' + (String(p.searches) === count ? ' on' : '')}
-                    onClick={() => { setCount(String(p.searches)); if (!label) setLabel(p.label || '') }}>
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <>
+            <div className="promo-field">
+              <label htmlFor="promo-days">מספר ימי מנוי</label>
+              <input id="promo-days" className="input" type="number" inputMode="numeric" min="0" dir="ltr"
+                value={days} onChange={e => setDays(e.target.value)} />
+              <p className="promo-hint">נספר מיום ההצטרפות של כל משתמש. 0 = ללא הגבלת זמן.</p>
+            </div>
+            <div className="promo-field">
+              <label htmlFor="promo-plan">איזה מנוי</label>
+              <PlanSelect id="promo-plan" plans={plans} value={planId} onChange={setPlanId} />
+            </div>
+          </>
         )}
 
         {mode !== 'off' && (
           <>
-            {mode === 'premium' ? (
-              <p className="promo-hint" style={{ margin: '0 0 12px' }}>
-                ✓ מסלול Premium כולל תמיד חיפושים ללא הגבלה וכל פיצ׳רי הפרימיום (דוח PDF, מחיר שוק, התראות) — אין צורך להגדיר אותם בנפרד.
-              </p>
-            ) : (
-              <label className="promo-switch">
-                <input type="checkbox" checked={isSub} onChange={e => setIsSub(e.target.checked)} />
-                <span className="promo-switch-t">
-                  <b>פתח גם את פיצ׳רי Premium</b>
-                  <small>המשתמש יצורף לקבוצת המנויים וייהנה מדוח PDF, מחיר שוק והתראות לצד החיפושים החינמיים.</small>
-                </span>
-              </label>
-            )}
-
             <div className="promo-field">
               <label htmlFor="promo-label">תיאור ההטבה בהודעת הברוכים הבאים</label>
               <input id="promo-label" className="input" type="text" maxLength={60}
@@ -4751,13 +4754,18 @@ function SettingsTab() {
   const [loadError, setLoadError]   = useState(false)
   const [toggleError, setToggleError] = useState('')
   const [freeInput, setFreeInput]   = useState('')
+  const [welcomePlan, setWelcomePlan] = useState(null)
+  const [referralPlan, setReferralPlan] = useState(null)
+  const plans = usePlans()
   const [referralDaysInput, setReferralDaysInput] = useState('')
 
   function loadSettings() {
     setLoadError(false)
     adminFetchSettings().then(s => {
       setSettings(s)
-      setFreeInput(String(s.free_searches ?? 10))
+      setFreeInput(String(s.welcome_premium_days ?? 0))
+      setWelcomePlan(s.welcome_plan_id || null)
+      setReferralPlan(s.referral_plan_id || null)
       setReferralDaysInput(String(s.referral_bonus_premium_days ?? 0))
     }).catch(() => setLoadError(true))
   }
@@ -4787,8 +4795,8 @@ function SettingsTab() {
     setSaving(true)
     try {
       const v = parseInt(freeInput) || 0
-      await adminUpdateSettings({ free_searches: v })
-      setSettings(s => ({ ...s, free_searches: v }))
+      await adminUpdateSettings({ welcome_premium_days: v, welcome_plan_id: welcomePlan || 0 })
+      setSettings(s => ({ ...s, welcome_premium_days: v, welcome_plan_id: welcomePlan || 0 }))
       window.Telegram?.WebApp?.showAlert('✅ עודכן בהצלחה')
     } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
     setSaving(false)
@@ -4798,8 +4806,8 @@ function SettingsTab() {
     setSaving(true)
     try {
       const days = Math.max(0, parseInt(referralDaysInput) || 0)
-      await adminUpdateSettings({ referral_bonus_premium_days: days })
-      setSettings(s => ({ ...s, referral_bonus_premium_days: days }))
+      await adminUpdateSettings({ referral_bonus_premium_days: days, referral_plan_id: referralPlan || 0 })
+      setSettings(s => ({ ...s, referral_bonus_premium_days: days, referral_plan_id: referralPlan || 0 }))
       window.Telegram?.WebApp?.showAlert('✅ עודכן בהצלחה')
     } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
     setSaving(false)
@@ -4882,10 +4890,10 @@ function SettingsTab() {
         {/* Free searches */}
         <div className="card" style={{ padding: '20px', borderLeft: '4px solid #0066d6' }}>
           <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-main)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
-            🆓 חיפושים חינמיים ללקוח חדש
+            🆓 ימי ניסיון ללקוח חדש
           </div>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>כמות החיפושים החינמיים שיקבל כל משתמש חדש שנרשם לבוט.</div>
-          
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>כמה ימי מנוי יקבל כל משתמש חדש שנרשם לבוט, ואיזה מנוי (0 = ללא ניסיון). אחרי שהימים נגמרים הוא עובר למסלול החינמי. מבצע הצטרפות פעיל (טאב מבצעים) גובר על ההגדרה הזו.</div>
+          <div style={{ marginBottom: 12 }}><PlanSelect plans={plans} value={welcomePlan} onChange={setWelcomePlan} /></div>
           <div style={{ display: 'flex', gap: 12 }}>
             <div style={{ position: 'relative', flex: 1 }}>
               <div style={{ position: 'absolute', top: 0, bottom: 0, right: 14, display: 'flex', alignItems: 'center', color: 'var(--text-muted)' }}>🔍</div>
@@ -4893,7 +4901,7 @@ function SettingsTab() {
                 className="input" 
                 type="number" 
                 min="0" 
-                aria-label="חיפושים חינם למשתמש חדש"
+                aria-label="ימי ניסיון למשתמש חדש"
                 value={freeInput} 
                 onChange={e => setFreeInput(e.target.value)} 
                 style={{ margin: 0, paddingRight: 40, height: 48, borderRadius: 12, fontWeight: 700, fontSize: 16 }}
@@ -4917,7 +4925,9 @@ function SettingsTab() {
           </div>
           <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>כל חבר חדש שמצטרף דרך הלינק מזכה את מי שהפנה אותו בימי Premium. למי שכבר במסלול Premium הימים מתווספים לתוקף, ולמי שלא — מתחיל מסלול Premium לכמות הימים הזו.</div>
 
-          <label htmlFor="ref-days" style={{ display: 'block', fontSize: 13, fontWeight: 700, marginBottom: 6 }}>ימי Premium לכל חבר שמצטרף (0 = ללא הטבה)</label>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>איזה מנוי</div>
+          <div style={{ marginBottom: 12 }}><PlanSelect plans={plans} value={referralPlan} onChange={setReferralPlan} /></div>
+          <label htmlFor="ref-days" style={{ display: 'block', fontSize: 13, fontWeight: 700, marginBottom: 6 }}>ימי מנוי לכל חבר שמצטרף (0 = ללא הטבה)</label>
           <div style={{ display: 'flex', gap: 12 }}>
             <div style={{ position: 'relative', flex: 1 }}>
               <div style={{ position: 'absolute', top: 0, bottom: 0, right: 14, display: 'flex', alignItems: 'center', color: 'var(--text-muted)' }}>🎁</div>

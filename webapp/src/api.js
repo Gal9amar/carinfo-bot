@@ -303,11 +303,11 @@ export async function adminRevokeSubscription(userId) {
   return r.json()
 }
 
-export async function adminGrantUser(userId, searches) {
+export async function adminGrantUser(userId, searches, planId = null) {
   const r = await fetch(`${BASE}/api/admin/users/${userId}/grant`, {
     method: 'POST',
     headers: headers(),
-    body: JSON.stringify({ searches }),
+    body: JSON.stringify({ searches, plan_id: planId || null }),
   })
   if (!r.ok) throw new Error('Failed')
   return r.json()
@@ -688,9 +688,9 @@ export async function adminMaintenance(action, confirm) {
 }
 
 // Gift searches to all users
-export async function adminGiftAll(searches, message, image_b64 = '', gift_type = 'searches') {
+export async function adminGiftAll(searches, message, image_b64 = '', gift_type = 'days', plan_id = null) {
   const r = await fetch(`${BASE}/api/admin/gift-all`, {
-    method: 'POST', headers: headers(), body: JSON.stringify({ searches, message, image_b64, gift_type }),
+    method: 'POST', headers: headers(), body: JSON.stringify({ searches, message, image_b64, gift_type, plan_id }),
   })
   if (!r.ok) throw new Error('Failed')
   return r.json()
@@ -991,5 +991,12 @@ export async function adminResetReportLayout() {
   })
   if (!r.ok) throw new Error('Failed')
   _getCache.delete('report-layout')
+  return r.json()
+}
+
+// Subscription plans an admin can pick for a benefit / code / gift (active unlimited packages)
+export async function adminFetchPlans() {
+  const r = await fetch(`${BASE}/api/admin/plans`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
   return r.json()
 }

@@ -1,7 +1,7 @@
 import BackButton from '../components/BackButton.jsx'
 import PageBanners from '../components/PageBanners.jsx'
 
-export default function HowItWorksPage({ onBack, freeSearches = 10, onPrivacy, onNavigate }) {
+export default function HowItWorksPage({ onBack, trialDays = 0, onPrivacy, onNavigate }) {
   return (
     <div className="page" style={{ paddingBottom: 32 }}>
       <BackButton onClick={onBack} />
@@ -41,11 +41,11 @@ export default function HowItWorksPage({ onBack, freeSearches = 10, onPrivacy, o
       </Section>
 
       {/* Free searches */}
-      <Section title="🆓 חיפושים חינמיים">
+      <Section title="🆓 מסלול חינמי וימי ניסיון">
         <p style={{ fontSize: 14, lineHeight: 1.7, margin: 0 }}>
-          משתמש חדש מקבל חיפושים חינמיים בהתאם להטבה התקפה במועד הצטרפותו.
-          {freeSearches > 0 && <> כרגע: <strong>{freeSearches} חיפושים חינמיים</strong> לכל משתמש חדש.</>}
-          המכסה נקבעת על-ידי המפעיל ועשויה להשתנות — החיפושים שהתקבלו תקפים לשימוש ללא הגבלת זמן.
+          חיפוש רכב פתוח לכל המשתמשים. פיצ׳רי הפרימיום (מחיר שוק, התראות, דוח PDF ועוד) זמינים למנויים.
+          {trialDays > 0 && <> משתמש חדש מקבל <strong>{trialDays} ימי Premium</strong> לניסיון.</>}
+          ההטבה נקבעת על-ידי המפעיל ועשויה להשתנות.
         </p>
       </Section>
 

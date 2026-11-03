@@ -88,14 +88,12 @@ def fmt_date(raw: str) -> str:
 # ─────────────────────────────────────────────
 
 def quota_line(left: int, expires: Optional[str] = None) -> str:
-    """One-line account status. left: -1 unlimited, >0 remaining, 0 = full access."""
+    """One-line account status. left: -1 = live subscription, anything else = free plan."""
     if left == -1:
         if expires:
-            return f"♾️ המנוי החודשי שלך פעיל עד {b(fmt_date(expires))}"
-        return "♾️ יש לך גישה בלתי מוגבלת"
-    if left > 0:
-        return f"🆓 נותרו לך {b(_count(left, 'בדיקה אחת', 'בדיקות'))}"
-    return "✅ הגישה שלך פעילה"
+            return f"⭐ מסלול Premium פעיל עד {b(fmt_date(expires))}"
+        return "⭐ יש לך מסלול Premium קבוע"
+    return "🆓 מסלול חינמי — לפיצ'רי הפרימיום אפשר להצטרף למנוי"
 
 
 def welcome(name: str, status_html: str, is_new: bool = False) -> str:
@@ -159,11 +157,6 @@ def consent_required(name: str) -> str:
 
 
 def status(name: str, left: int, expires: Optional[str] = None) -> str:
-    if left == 0:
-        return (
-            f"🔒 {_n(name)}, הבדיקות החינמיות שלך נוצלו.\n\n"
-            f"רוצה להמשיך? שלח {code('/buy')} ונפתח לך את מסלול ה-Premium 🛒"
-        )
     return f"📊 {_n(name)}, הנה מצב החשבון שלך:\n\n{quota_line(left, expires)}"
 
 
@@ -179,7 +172,7 @@ def help_text(name: str) -> str:
         f"{b('פקודות שימושיות:')}\n"
         f"{code('/status')} — מצב החשבון שלך\n"
         f"{code('/buy')} — מסלול Premium\n"
-        f"{code('/compare 1234567 7654321')} — השוואה בין שני רכבים (שתי בדיקות)\n"
+        f"{code('/compare 1234567 7654321')} — השוואה בין שני רכבים\n"
         f"{code('/code XXXXXXXX')} — הפעלת קוד הטבה\n\n"
         + quote("צריך עזרה? אני כאן 🙂 אפשר לפתוח פנייה לתמיכה מתוך התפריט.")
     )
@@ -201,9 +194,9 @@ def how_it_works(name: str, free: int, packages_html: str) -> str:
         "👥 בעלויות – כמה בעלים, פרטי/סוחר\n"
         "💰 הערכת מחיר שוק – על בסיס Yad2\n"
         "⚠️ ריקולים – תקלות ידועות של הדגם\n\n"
-        f"🆓 {b('חינם:')} כל משתמש חדש מקבל {b(f'{free} חיפושים')} לניסיון\n\n"
-        f"🎁 {b('רוצה חיפושים במתנה?')}\n"
-        "הפנה חברים לבוט וקבל חיפושים על כל הצטרפות\n\n"
+        f"🆓 {b('חינם:')} כל משתמש חדש מקבל {b(f'{free} ימי Premium')} לניסיון\n\n"
+        f"🎁 {b('רוצה ימי Premium במתנה?')}\n"
+        "הפנה חברים לבוט וקבל ימי Premium על כל הצטרפות\n\n"
         f"⭐ {b('מסלולי מנוי:')}\n{packages_html}\n\n"
         + quote(
             f"🔑 יש קוד גישה? שלח {code('/code XXXXXXXX')}\n"
@@ -456,13 +449,10 @@ def result_intro(name: str, plate: str) -> str:
 
 
 def result_quota_text(left: int, expires: Optional[str]) -> str:
-    """Plain-text quota note under a result card. left = remaining AFTER this search (or -1)."""
-    if left == -1:
-        if expires:
-            return '♾️ מנוי חודשי פעיל — תוקף עד ' + fmt_date(expires)
-        return '✅ גישה בלתי מוגבלת'
-    emoji = "🟢" if left > 5 else ("🟡" if left > 1 else "🔴")
-    return f'{emoji} נותרו לך ' + _count(left, 'בדיקה אחת', 'בדיקות')
+    """Plain-text plan note under a result card (only for a live subscription)."""
+    if expires:
+        return '⭐ מסלול Premium פעיל — תוקף עד ' + fmt_date(expires)
+    return '⭐ מסלול Premium קבוע'
 
 
 def result_quota_footer(left: int, expires: Optional[str]) -> str:
@@ -620,7 +610,7 @@ def compare_not_enough(name: str) -> str:
 
 def feature_locked(name: str, feature: str) -> str:
     return (
-        f"🔒 {_n(name)}, {b(feature)} זמין למנויי Premium ולמשתמשים עם חיפושים פעילים.\n\n"
+        f"🔒 {_n(name)}, {b(feature)} זמין למנויי Premium.\n\n"
         f"שלח {code('/buy')} כדי לראות את החבילות 🛒"
     )
 
@@ -721,12 +711,12 @@ def payment_approved(name: str, label: str, desc: str) -> str:
 def payment_approved_simple(name: str, searches: int) -> str:
     if searches == -1:
         return (
-            f"🎉 {_n(name)}, המנוי החודשי שלך פעיל!\n"
-            "אפשר לחפש ללא הגבלה למשך 30 יום 🚗"
+            f"🎉 {_n(name)}, מסלול Premium שלך פעיל!\n"
+            "כל הפיצ'רים פתוחים לך למשך 30 יום 🚗"
         )
     return (
         f"🎉 {_n(name)}, התשלום אושר!\n"
-        f"נוספו לך {b(_count(searches, 'בדיקה אחת', 'בדיקות רכב'))}. אפשר להתחיל מיד! 🚗"
+        f"נוספו לך {b(_count(searches, 'יום מנוי', 'ימי מנוי'))}. אפשר להתחיל מיד! 🚗"
     )
 
 
@@ -742,7 +732,7 @@ def payment_declined(name: str, label: str = "") -> str:
 def payment_received(name: str, searches: int, amount_ils) -> str:
     return (
         f"✅ {_n(name)}, התשלום התקבל!\n\n"
-        f"נוספו לך {b(_count(searches, 'בדיקה אחת', 'בדיקות רכב'))}\n"
+        f"נוספו לך {b(_count(searches, 'יום מנוי', 'ימי מנוי'))}\n"
         f"סכום שחויב: {b(f'₪{amount_ils}')}\n\n"
         "תודה על הרכישה! 🙏"
     )
@@ -762,7 +752,8 @@ def grant_update(name: str, searches: int, expires: str = "") -> str:
     if searches == -1:
         end = f"\n⏰ בתוקף עד: {b(fmt_date(expires))}" if expires else ""
         return f"{head}📦 מסוג: {b('מנוי חודשי')}\n📅 החל מ: {today}{end}{footer}"
-    return f"{head}📦 נוספו: {b(_count(searches, 'חיפוש אחד', 'חיפושים'))} 🔍\n📅 החל מ: {today}{footer}"
+    end = f"\n⏰ בתוקף עד: {b(fmt_date(expires))}" if expires else ""
+    return f"{head}📦 נוספו: {b(_count(searches, 'יום מנוי', 'ימי מנוי'))} ⭐\n📅 החל מ: {today}{end}{footer}"
 
 
 def grant_cmd(name: str, searches: int, summary: str) -> str:
@@ -771,7 +762,7 @@ def grant_cmd(name: str, searches: int, summary: str) -> str:
         return f"🎖️ {_n(name)}, קיבלת גישה חופשית ללא הגבלת זמן!\nאפשר לחפש רכבים בלי הגבלה 🚗"
     if searches == -1:
         return f"🎉 {_n(name)}, המנוי החודשי שלך אושר!\n\n{esc(summary)}\n\nאפשר לחפש רכבים ללא הגבלה 🚗"
-    return f"🎉 {_n(name)}, נוספו לך {b(_count(searches, 'בדיקה אחת', 'בדיקות רכב'))}!\nאפשר להתחיל לחפש מיד 🚗"
+    return f"🎉 {_n(name)}, נוספו לך {b(_count(searches, 'יום מנוי', 'ימי מנוי'))}!\nכל פיצ'רי הפרימיום פתוחים לך 🚗"
 
 
 def promo_welcome(name: str, label: str, duration_text: str, expires_text: str) -> str:
@@ -802,7 +793,7 @@ def referral_bonus(name: str, friend: str, bonus: int) -> str:
     return (
         f"🎉 {_n(name)}, חבר חדש הצטרף דרך הלינק שלך!\n\n"
         f"👤 {esc(friend)} הצטרף לבוט\n"
-        f"🎁 קיבלת {b(_count(bonus, 'חיפוש אחד', 'חיפושים'))} בונוס!"
+        f"🎁 קיבלת {b(_count(bonus, 'יום מנוי', 'ימי מנוי'))} בונוס!"
     )
 
 
@@ -992,7 +983,7 @@ def admin_settings(free: int, maintenance_on: bool, rich_on: bool = False,
 
     return (
         f"⚙️ {b('הגדרות בוט')}\n\n"
-        f"• בדיקות חינמיות למשתמש חדש: {b(free)}\n"
+        f"• ימי ניסיון Premium למשתמש חדש: {b(free)}\n"
         f"• מצב תחזוקה: {b(maint)}\n"
         f"• תוצאת חיפוש כטבלה: {b(onoff(rich_on))}\n"
         f"• תזכורות טסט: {b(onoff(reminders_on))}\n"

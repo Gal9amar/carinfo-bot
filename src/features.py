@@ -5,7 +5,7 @@ feature gets it in both places, a user who isn't is blocked in both.
 
 Rule for feature `prefix` (settings `{prefix}_enabled / _public / _public_start / _public_end / _groups`):
 admin ✔ · unlimited plan (quota -1) ✔ · subscriber (מנויים / VIP) ✔ · member of one of `{prefix}_groups` ✔ ·
-free user with searches left ✔ · otherwise only while `{prefix}_enabled != "0"` and the public window is open.
+otherwise only while `{prefix}_enabled != "0"` and the public window is open.
 """
 import json
 import os
@@ -27,7 +27,7 @@ async def feature_open(user_id: int, prefix: str, *, quota: Optional[int] = None
         db_user, global_unlimited = await asyncio.gather(get_user_by_id(user_id), is_global_unlimited_active())
         quota = db_user.get("searches_quota", 0) if db_user else 0
         left = -1 if global_unlimited else (db_user.get("searches_left", 0) if db_user else 0)
-    if quota == -1 or left != 0:
+    if quota == -1 or left == -1:   # own subscription, or the global "unlimited for everyone" benefit
         return True
     if subscriber is None:
         subscriber = await is_subscriber(user_id)

@@ -35,8 +35,6 @@ export default function ProfilePage({ user, onNavigate, onBack, onAccountDeleted
 
   if (!user) return <div className="loading"></div>
 
-  const searchesLeft = user.searches_left
-  const isUnlimited  = searchesLeft === -1
   const plan         = getPlan(user)
   const isSubscriber = !plan.isFree
   const globalBenefit = getGlobalBenefit(user)
@@ -58,9 +56,6 @@ export default function ProfilePage({ user, onNavigate, onBack, onAccountDeleted
 
   const mainTiles = tiles.filter(t => !['ticket', 'admin'].includes(t.id))
   const adminTile = tiles.find(t => t.id === 'admin')
-  const quotaPct = isUnlimited ? 100
-    : user.searches_quota > 0 ? Math.max(4, Math.min(100, Math.round((searchesLeft / user.searches_quota) * 100)))
-    : 0
 
   return (
     <div className="page" style={{ paddingBottom: 24 }}>
@@ -88,18 +83,11 @@ export default function ProfilePage({ user, onNavigate, onBack, onAccountDeleted
 
       {/* Plan and quota */}
       <div className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>יתרת חיפושים</span>
-          <span style={{
-            fontSize: 26, fontWeight: 900, letterSpacing: '-0.5px',
-            color: searchesLeft === 0 ? 'var(--danger)' : 'var(--text-main)',
-          }}>{isUnlimited ? '∞' : searchesLeft}</span>
-        </div>
-        <div aria-hidden="true" style={{ height: 8, borderRadius: 99, background: 'rgba(0, 100, 200, 0.1)', overflow: 'hidden' }}>
-          <div style={{
-            width: `${quotaPct}%`, height: '100%', borderRadius: 99,
-            background: searchesLeft === 0 ? 'var(--danger)' : 'linear-gradient(90deg, #0066d6, #00c6ff)',
-          }} />
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+          <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>המסלול שלך</span>
+          <span style={{ fontSize: 18, fontWeight: 900, overflowWrap: 'anywhere' }}>
+            <span aria-hidden="true">{planIcon(plan)} </span>{plan.name}
+          </span>
         </div>
         {plan.expires && (
           <div style={{

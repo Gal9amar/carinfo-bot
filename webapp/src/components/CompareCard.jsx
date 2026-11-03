@@ -80,7 +80,6 @@ export default function CompareCard({ plate, user, onNavigate }) {
   const inputRef = useRef(null)
 
   const digits = input.replace(/\D/g, '')
-  const unlimited = user?.searches_left === -1
   const canSubmit = digits.length >= 5 && state !== 'loading'
 
   async function submit(e) {
@@ -125,7 +124,7 @@ export default function CompareCard({ plate, user, onNavigate }) {
           </button>
         </div>
         <div id="compare-quota-note" style={{ fontSize: 12, color: 'var(--hint)', marginTop: 8 }}>
-          {unlimited ? 'המנוי שלך כולל השוואות ללא הגבלה' : 'ההשוואה צורכת חיפוש אחד'}
+          השוואת רכבים פתוחה לכל המשתמשים
         </div>
       </form>
 

@@ -11,7 +11,7 @@
 
 ## Architecture Overview
 
-Israeli vehicle lookup service — Telegram Bot + React Mini App (WebApp), monetised by search quotas, subscriptions, alert packs and digital products.
+Israeli vehicle lookup service — Telegram Bot + React Mini App (WebApp), monetised by subscription plans, subscriptions, alert packs and digital products.
 
 - **Backend**: FastAPI (`api.py`) + Telegram Bot (`bot.py`, python-telegram-bot 22, polling). One process: `python bot.py` starts uvicorn in a daemon thread next to the bot.
 - **Database**: Turso (libsql / serverless SQLite) via `src/db.py::execute` (async; runs on a 6-thread pool with one connection per thread, so it never blocks the event loop and `asyncio.gather` overlaps round-trips; positional `?` params, rows are **tuples**, auto-reconnect on 502/hrana). `get_bot_setting` reads a 5 s in-memory snapshot of all of `bot_settings` (invalidated by `set_bot_setting`) — never add per-key SELECTs. Query count is the cost driver: batch with scalar sub-selects / `gather`.
@@ -81,9 +81,9 @@ Created idempotently at startup (`init_db()` in `src/db.py` plus per-module `ini
 |-------|-------------|---------|
 | **users** | user_id PK, username, full_name, searches_done, searches_quota, first_seen, last_seen, last_plate, blocked, quota_expires, channel, referred_by, **member_id**, **watch_quota**, **broadcast_consent** | Accounts + quota. `member_id` = sequential public id used in order refs. `watch_quota` = per-user override of alert limit |
 | **user_groups** / **user_group_members** | (group_id,user_id) | Groups: `מנויים`, `מנהלים`, `VIP` (created on demand) |
-| **codes** / **user_codes** | code PK | Promo codes (`unlimited` + `searches` = days for monthly) |
+| **codes** / **user_codes** | code PK, searches(=plan DAYS), unlimited, plan_id | Promo codes: `searches` is a number of plan DAYS; `unlimited` with 0 days = permanent plan; `plan_id` = which plan (NULL = default) |
 | **grants** | user_id, granted_by, searches, note | Audit of admin/payment grants |
-| **admin_grants** | label, searches, display_order | Preset "benefits" the admin can grant (not an audit log) |
+| **admin_grants** | label, searches(=days / −1 / −2 / 0), plan_id, display_order | Preset "benefits" the admin can grant: days of a chosen plan (not an audit log) |
 | **referrals** | referrer_id, referee_id, bonus | Referral records |
 | **search_history** | user_id, plate, searched_at | Lookup log |
 | **vehicle_notes** | (user_id, plate), note | Private note per plate |
@@ -114,10 +114,11 @@ Created idempotently at startup (`init_db()` in `src/db.py` plus per-module `ini
 | Key | Default | Purpose |
 |-----|---------|---------|
 | `maintenance` | 0 | Blocks lookups for non-admins when 1 (see Maintenance) |
-| `free_searches` | 10 | Welcome quota for new users |
+| `welcome_premium_days` / `welcome_plan_id` | 7 / 0 | Trial days of a subscription plan (0 = default plan) a NEW user gets on join; 0 days = none. Replaces the old `free_searches` welcome quota |
 | `referral_bonus` | 10 | Legacy, unused (referrals now give Premium days) |
 | `referral_bonus_premium_days` | 7 | Premium days the referrer earns per new friend (any plan); 0 = no benefit. Referral rows store `bonus_days` |
-| `promo_searches` / `promo_duration_days` / `promo_is_subscriber` / `promo_label` / `promo_start` / `promo_end` | 0 / 30 / 0 / "" / "" / "" | Join promo (searches: 0=off, -1=unlimited, >0=count). `promo_is_subscriber=1` also adds new users to "מנויים" |
+| `referral_plan_id` | 0 | Plan the referrer's days belong to (0 = default plan) |
+| `promo_searches` / `promo_plan_id` / `promo_duration_days` / `promo_is_subscriber` / `promo_label` / `promo_start` / `promo_end` | 0 / 0 / 30 / 0 / "" / "" / "" | Join promo. `promo_searches` is now only the on/off switch (0 = off); the benefit is `promo_duration_days` of plan `promo_plan_id` (0 days = permanent). Overrides the welcome trial while active |
 | `global_unlimited_enabled` / `_start` / `_end` / `_label` | — | Admin's "unlimited for everyone" benefit (see VIP below) |
 | `yad2_market_enabled` / `_public` / `_public_start` / `_public_end` / `_public_label` / `_groups` | 0 … [] | Market-price feature gate (see Feature access) |
 | `yad2_watch_enabled` / `_public*` / `_groups` / `yad2_watch_max` | 0 … / 2 | New-listing alerts feature + default per-user limit |
@@ -143,7 +144,7 @@ Auth: header `X-Init-Data` = Telegram WebApp initData, HMAC-validated with the b
 | Area | Endpoints |
 |------|-----------|
 | Profile | `GET /api/user` (quota, flags `show_market_price/show_pdf_report/show_watch`, `is_subscriber`, `global_unlimited_active`, `watch_max`, labels…) · `/api/user/history` · `/api/user/orders` · `/api/user/referral` · `/api/user/referrals` |
-| Vehicle | `GET /api/vehicle/{plate}` (consumes quota, 403 `quota_exceeded`, 404 not found) · `/api/vehicle/{plate}/pdf` · `/api/vehicle/{plate}/market-price` · `GET /api/vehicle/{plate}/levi` (+ `POST …/levi/calc`, `GET /api/levi/owners|status`, `POST /api/levi/send-sms|validate|logout`; gated by `levi_open` → 403 `locked`; `comparison` only for users who may see Yad2 market data) · `GET /api/vehicle/{plate}/insurance` (gated by `insurance_open`) · `GET/POST /api/notes/{plate}` |
+| Vehicle | `GET /api/vehicle/{plate}` (logs a lookup, no quota, 404 not found) · `/api/vehicle/{plate}/pdf` · `/api/vehicle/{plate}/market-price` · `GET /api/vehicle/{plate}/levi` (+ `POST …/levi/calc`, `GET /api/levi/owners|status`, `POST /api/levi/send-sms|validate|logout`; gated by `levi_open` → 403 `locked`; `comparison` only for users who may see Yad2 market data) · `GET /api/vehicle/{plate}/insurance` (gated by `insurance_open`) · `GET/POST /api/notes/{plate}` |
 | Payment | `POST /api/payment/initiate` (`package_id` XOR `product_id`, `quantity`, `intent_only`) · `POST /api/payment/promote` (intent→created + notify admin) |
 | Garage | `GET/POST /api/user/garage` · `GET …/check/{plate}` · `PATCH/DELETE …/{id}` · `POST …/{id}/sell` · `POST …/{id}/expenses` · `DELETE …/{id}/expenses/{eid}` |
 | Alerts | `GET /api/watches/makes`, `/api/watches/models` · `GET/POST /api/user/watches` · `DELETE …/{id}` · `PATCH …/{id}/toggle` |
@@ -164,21 +165,21 @@ Screens: `loading`, `error`, `home`, `report`, `packages`, `payment`, `success`,
 
 ## Key Business Logic
 
-### Quota (`users.searches_quota`)
-`> 0` fixed (left = quota − done) · `-1` unlimited · `0` exhausted. `quota_expires` applies only to `-1`; after expiry `is_allowed()` resets quota to 0 and removes from "מנויים"; hourly job `expire_subscriptions()` does the same, daily jobs send expiry reminders (30/7/1/0 days, 06:00 UTC). Blocked → never allowed. **Global unlimited** (`is_global_unlimited_active`, live from settings, date window) → everyone allowed, searches don't consume quota; switching it on from the bot admin menu (`bot.py` adm callback) puts all non-blocked users in the **VIP** group (new users join on creation); switching it off clears VIP.
+### Plans, not search counters (`users.searches_quota`, `users.plan_id`)
+**There is no search counter any more.** Every non-blocked user may look up vehicles; `searches_done` is only a statistic. `searches_quota = -1` = a live subscription (with `quota_expires`, NULL = permanent), anything else = free plan. `users.plan_id` = the subscription plan (`packages.id` of an unlimited package) the grant belongs to; display label via `users.get_plan_label`. Options an admin picks from = active `searches=-1` packages (`GET /api/admin/plans`); NULL/0 = `users.default_plan_id()`. Everything that used to hand out searches now hands out **plan days**: `users.grant_plan_days(user_id, days, note, plan_id, permanent)` → `started` / `extended` (on top of the live expiry) / `permanent` / `none` — used by welcome trial, join promo, codes, admin benefits (`admin_grant`), gift-all, referrals and payments. After expiry `is_allowed()` / hourly `expire_subscriptions()` reset to free (`plan_id` cleared) and remove from "מנויים"; daily jobs send expiry reminders (30/7/1/0 days). Premium features are gated by `features.feature_open` (own subscription, subscriber group, global unlimited, groups, public window) — leftover searches no longer open anything. One-time migrations (flags in bot_settings): old search packs deactivated (`search_packs_retired`), old "+N searches" presets and unused search-count codes deleted (`search_counts_retired`). **Global unlimited** (`is_global_unlimited_active`) still opens everything for everyone and puts users in **VIP**.
 
 ### Subscriber status (group "מנויים")
 `is_subscriber()` = member of "מנויים" **or "VIP"**. Granted by:
 - Payment approval (`_grant_payment` → `admin_grant` + `add_to_subscribers`) for `searches`-type packages.
-- `admin_grant` with `-2` (permanent unlimited) or `-1` (N-month unlimited) — **these also add to "מנויים"**; a count grant (`>0`) does not; `0` resets to free and removes.
+- `admin_grant` with `-2` (permanent plan), `-1` (30 days) or `>0` (that many DAYS) — **all add to "מנויים"**; `0` resets to free and removes.
 - Join promo with `promo_is_subscriber=1`.
-Revoked: quota exhausted (`increment_search`), expiry, `admin_grant(0)`, `POST /api/admin/users/{id}/revoke-subscription`. Promo **codes** and referral bonuses add searches but do not add to "מנויים".
+Revoked: expiry, `admin_grant(0)`, `POST /api/admin/users/{id}/revoke-subscription`. Promo **codes** and referral bonuses add searches but do not add to "מנויים".
 
 ### Payment flow (manual approval — no PayPal API/webhook)
 1. `POST /api/payment/initiate` computes price/searches **server-side** (for the unlimited/Premium package `quantity` N = N months: price × N, `duration_months` × N, max 12) from the package/product row → `pending_payments` + `paypal_transactions` (`intent` or `created`), ref = `{member_id}-{seq:05d}`; returns `approval_url` built from the ACTIVE PayPal payment method (admin → אמצעי תשלום, matched by name via `payment_methods.is_paypal`, link + `/{price}ILS`; empty when PayPal is disabled/missing). The payment screen and the bot's pay buttons (`_paypal_keyboard`) list active methods only — disabling a method removes it everywhere; `PAYPAL_ME`/`PAYBOX_URL` env vars are no longer used for buttons.
 2. User pays externally; UI calls `/api/payment/promote` → status `created`, admin notified through `notifier`.
 3. Admin approves (`/api/admin/payments/{ref}/approve`) → `_grant_payment` by `package_type`:
-   - `searches` → `admin_grant` + subscriber
+   - `searches` → `admin_grant(-1, duration_months)` + subscriber (always time-based now)
    - `alerts` → raise `users.watch_quota` (cap 10)
    - `product` → auto: claim stock unit(s) and DM content; manual (or out of stock): status `pending_delivery`, admin delivers via `/orders/{ref}/deliver`
    Then status updated, user notified, activity logged.
@@ -218,20 +219,20 @@ Users watch make/model/year; `_yad2_watch_job` runs every 30 min and DMs new lis
 
 | Function | Purpose |
 |----------|---------|
-| `is_allowed(user_id, username, full_name)` | Creates user if new (welcome quota, member_id, promo/VIP), checks blocked/global-unlimited/expiry → `(bool, searches_left)` (`-1` unlimited) |
-| `increment_search(user_id, plate)` | Count + history; skips quota while global unlimited; removes subscriber when exhausted |
-| `admin_grant(admin_id, target_id, searches, note, duration_months)` | `0` reset · `-2` permanent unlimited · `-1` N×30-day unlimited (**extends** a live plan from its expiry; a permanent plan is never downgraded) · `>0` add count |
+| `is_allowed(user_id, username, full_name)` | Creates user if new (welcome trial / promo, member_id, VIP), → `(allowed, -1 if subscribed else 0)`; blocked users only are refused |
+| `increment_search(user_id, plate)` | History + lookup statistic only (nothing is consumed) |
+| `admin_grant(admin_id, target_id, searches, note, duration_months, plan_id)` | `0` reset · `-2` permanent plan · `-1` N×30 days · `>0` that many DAYS (all via `grant_plan_days`) |
 | `apply_code(user_id, code, username)` | Promo code |
 | `add_to_subscribers` / `remove_from_subscribers` / `is_subscriber` | "מנויים" group (+VIP in `is_subscriber`) |
 | `add_to_vip` / `add_all_to_vip` / `clear_vip_group` / `is_global_unlimited_active` | Global-unlimited benefit |
 | `record_referral`, `get_referrals`, `get_referral_count` | Referrals |
 | `expire_subscriptions`, `get_users_expiring_in_days` | Expiry jobs |
-| `load_welcome_settings()` / `get_current_welcome_quota()` / `is_promo_active()` | Module-level promo/quota globals loaded from DB |
+| `load_welcome_settings()` / `get_current_welcome_benefit()` / `is_promo_active()` | Module-level welcome/promo globals (`WELCOME_DAYS`, `PROMO_*`) loaded from DB |
 | `admin_stats()`, `get_all_users()`, block/unblock, broadcast consent, sent-message log | Admin support |
 
 ## src/packages.py — Defaults
 Plan-card feature lists: ONE shared list `PLAN_FEATURES` (`src/packages.py`, mirrored in `PackagesPage.jsx` and `DEFAULT_PKG_FEATURES` in AdminPage): the FREE and the Premium (`searches=-1`) card show the same lines in the same order; lines not in the plan are ✗ on FREE and ✓ on Premium. `_upgrade_default_features()` resets both cards to it once per `_PLAN_FEATURES_VERSION` (now "3": added the Levi Yitzhak and insurance-registration lines) (setting `plan_features_version`); afterwards the admin may edit freely — bump the version to force another reset.
-Seeded when table empty: 🔍 50 חיפושים ₪10 · 🔍 100 חיפושים ₪20 · 🔍 200 חיפושים ₪30 · ♾️ מנוי חודשי ₪25 (`searches=-1`), plus a FREE card (`searches=0`, ₪0) with default feature/chip lists. Admin edits these live in the DB; defaults are not re-applied. Packages page colours cycle by index%3 (Silver `#1e40af→#0ea5e9`, Gold `#92400e→#f59e0b`, Platinum `#4c1d95→#a855f7`).
+Seeded when table empty: ♾️ מנוי חודשי ₪25 (`searches=-1`), plus a FREE card (`searches=0`, ₪0) with default feature/chip lists. (Old 50/100/200-search packs are deactivated by a one-time migration.) Admin edits these live in the DB; defaults are not re-applied. Packages page colours cycle by index%3 (Silver `#1e40af→#0ea5e9`, Gold `#92400e→#f59e0b`, Platinum `#4c1d95→#a855f7`).
 
 ---
 

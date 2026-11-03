@@ -220,7 +220,7 @@ function AppInner() {
   if (screen === 'howItWorks') {
     return (
       <div key="howItWorks" className="page-enter">
-        <HowItWorksPage onBack={goBack} freeSearches={user?.free_searches ?? 10} onPrivacy={() => navigate('privacy')} onNavigate={navigate} />
+        <HowItWorksPage onBack={goBack} trialDays={user?.welcome_premium_days ?? 0} onPrivacy={() => navigate('privacy')} onNavigate={navigate} />
       </div>
     )
   }

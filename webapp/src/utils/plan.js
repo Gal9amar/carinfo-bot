@@ -6,11 +6,11 @@ export function getPlan(user) {
   const unlimited = user.searches_left === -1
   let kind = user.plan_kind
   if (!kind) {
-    kind = user.is_admin ? 'admin' : unlimited ? 'premium' : user.is_subscriber ? 'searches' : 'free'
+    kind = user.is_admin ? 'admin' : unlimited ? 'premium' : user.is_subscriber ? 'member' : 'free'
   }
   const names = {
     admin: 'מנהל · גישה מלאה', premium: 'מסלול Premium', permanent: 'מסלול Premium קבוע',
-    searches: 'חבילת חיפושים', free: 'מסלול חינמי',
+    member: 'מנוי', free: 'מסלול חינמי',
   }
   const daysLeft = Number.isFinite(user.plan_days_left) ? user.plan_days_left : null
   const expires = kind === 'premium' ? (user.plan_expires || null) : null
@@ -50,7 +50,7 @@ export function planExpiryLine(plan) {
 
 export function planIcon(plan) {
   if (!plan) return '🆓'
-  return plan.kind === 'admin' ? '🛡️' : plan.kind === 'free' ? '🆓' : plan.kind === 'searches' ? '🔍' : '⭐'
+  return plan.kind === 'admin' ? '🛡️' : plan.kind === 'free' ? '🆓' : '⭐'
 }
 
 export function globalBenefit(user) {

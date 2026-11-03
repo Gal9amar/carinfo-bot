@@ -8,9 +8,6 @@ import json
 from src.db import execute
 
 _DEFAULT_PACKAGES = [
-    (1, "🔍 50 חיפושים",   50,  10, "", 1, 1),
-    (2, "🔍 100 חיפושים", 100,  20, "", 2, 1),
-    (3, "🔍 200 חיפושים", 200,  30, "", 3, 1),
     (4, "♾️ מנוי חודשי",   -1,  25, "", 4, 1),
 ]
 
@@ -80,7 +77,18 @@ async def init_packages() -> None:
             ["🆓 מסלול FREE", 0, 0, "", 0, 1, json.dumps(_DEFAULT_FREE_FEATURES, ensure_ascii=False), default_free_chips],
         )
     await _upgrade_default_features()
+    await _retire_search_packs()
     await get_packages(force_reload=True)
+
+
+async def _retire_search_packs() -> None:
+    """One-time: fixed search packs (searches > 0) no longer exist - there is no search counter - so hide them.
+    The admin can still re-activate or delete them."""
+    from src.db import get_bot_setting, set_bot_setting
+    if (await get_bot_setting("search_packs_retired")) == "1":
+        return
+    await execute("UPDATE packages SET is_active=0 WHERE searches > 0 AND COALESCE(package_type,'searches')='searches'")
+    await set_bot_setting("search_packs_retired", "1")
 
 
 async def _upgrade_default_features() -> None:

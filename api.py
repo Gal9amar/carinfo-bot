@@ -30,7 +30,7 @@ WEBAPP_URL   = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_U
 # Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
 # webapp can detect a new release and force-reload instead of running stale
 # cached JS. Falls back to process start time for non-Render environments.
-APP_VERSION = "1793800001"
+APP_VERSION = "1793900002"
 
 api = FastAPI()
 
@@ -176,6 +176,17 @@ async def list_packages():
     from src.packages import get_packages
     pkgs = await get_packages(active_only=True)
     return [{"id": p[0], "label": p[1], "searches": p[2], "price": p[3], "image_url": p[4], "display_order": p[5], "duration_months": p[6] if len(p) > 6 else 1, "features": p[7] if len(p) > 7 else [], "chips": p[8] if len(p) > 8 else [], "package_type": p[9] if len(p) > 9 else "searches"} for p in pkgs]
+
+
+@api.get("/api/admin/plans")
+async def admin_list_plans(_: dict = Depends(_require_admin)):
+    """Subscription plans an admin can pick for a benefit / code / welcome gift: the active unlimited
+    (searches = -1) packages. `default` marks the one used when no plan is chosen."""
+    from src.packages import get_packages
+    from src.users import default_plan_id
+    default = await default_plan_id()
+    return [{"id": p[0], "label": p[1], "default": p[0] == default}
+            for p in await get_packages(active_only=True) if p[2] == -1 and p[9] == "searches"]
 
 
 @api.get("/api/payment-methods")
@@ -473,28 +484,22 @@ async def get_user_info(user: dict = Depends(_get_user)):
     levi_public_label  = await _public_label("levi")
     insurance_public_label = await _public_label("insurance")
 
-    # Find matching package label by searches count
-    subscription_label = None
-    if is_subscriber or quota == -1:
-        pkg_r = await execute(
-            "SELECT label FROM packages WHERE searches=? ORDER BY price DESC LIMIT 1",
-            [quota]
-        )
-        if pkg_r.rows:
-            subscription_label = pkg_r.rows[0][0]
-        elif quota == -1:
-            subscription_label = 'הטבת מנהל'
+    # The user's subscription plan label (the plan the admin/payment/code granted; "Premium" when unknown)
+    from src.users import get_plan_label
+    subscription_label = (await get_plan_label(user_id)) if quota == -1 else None
+    if quota == -1 and not subscription_label:
+        subscription_label = "Premium"
 
     # The user's OWN plan, independent of any "unlimited for everyone" benefit:
-    # kind = admin | premium (time-limited unlimited) | permanent | searches (counted pack) | free
+    # kind = admin | premium (time-limited subscription) | permanent | member (subscriber group only) | free
     own_expires = quota_expires
     if user_id == ADMIN_ID:
         plan_kind, plan_name = "admin", "מנהל · גישה מלאה"
     elif quota == -1:
         plan_kind = "premium" if own_expires else "permanent"
-        plan_name = "מסלול Premium" if own_expires else "מסלול Premium קבוע"
+        plan_name = f"מסלול {subscription_label}" + ("" if own_expires else " קבוע")
     elif is_subscriber:
-        plan_kind, plan_name = "searches", subscription_label or "מנוי"
+        plan_kind, plan_name = "member", "מנוי"
     else:
         plan_kind, plan_name = "free", "מסלול חינמי"
     plan_days_left = None
@@ -519,6 +524,7 @@ async def get_user_info(user: dict = Depends(_get_user)):
         "is_admin": user_id == ADMIN_ID,
         "searches_left": left,
         "searches_quota": quota,
+        "welcome_premium_days": __import__("src.users", fromlist=["x"]).WELCOME_DAYS,
         "quota_expires": quota_expires,
         "maintenance": maintenance,
         "show_market_price": show_market,
@@ -823,7 +829,8 @@ async def _grant_payment(
             return "pending_delivery"
     else:
         from src.users import admin_grant, add_to_subscribers
-        await admin_grant(0, user_id, searches, duration_months=duration_months)
+        # No search counter any more: a paid plan is always time-based (legacy "N searches" packs count as months).
+        await admin_grant(0, user_id, -1 if searches != -2 else -2, duration_months=max(1, duration_months))
         await add_to_subscribers(user_id)
         return "completed"
 
@@ -1201,8 +1208,10 @@ async def admin_get_settings(_: dict = Depends(_require_admin)):
         "mirror_enabled": (await get_bot_setting("mirror_enabled")) == "1",
         "mirror_miniapp": (await get_bot_setting("mirror_miniapp")) != "0",
         "mirror_bound": bool(await get_bot_setting("mirror_chat_id")),
-        "free_searches":       _u.FREE_SEARCHES,
-        "referral_bonus":      int((await get_bot_setting("referral_bonus")) or "10"),
+        "welcome_premium_days": _u.WELCOME_DAYS,
+        "welcome_plan_id":     _u.WELCOME_PLAN_ID,
+        "promo_plan_id":       _u.PROMO_PLAN_ID,
+        "referral_plan_id":    int((await get_bot_setting("referral_plan_id")) or 0),
         "referral_bonus_premium_days": int((await get_bot_setting("referral_bonus_premium_days")) or "0"),
         "promo_searches":      _u.PROMO_SEARCHES,
         "promo_start":         _u.PROMO_START,
@@ -1253,8 +1262,10 @@ class SettingsUpdate(BaseModel):
     test_reminders_garage_sync: bool  | None = None
     mirror_enabled: bool              | None = None
     mirror_miniapp: bool              | None = None
-    free_searches:       int          | None = None
-    referral_bonus:      int          | None = None
+    welcome_premium_days: int         | None = None
+    welcome_plan_id:     int          | None = None
+    promo_plan_id:       int          | None = None
+    referral_plan_id:    int          | None = None
     referral_bonus_premium_days: int  | None = None
     promo_searches:      int          | None = None
     promo_start:         str          | None = None
@@ -1317,15 +1328,17 @@ async def admin_update_settings(body: SettingsUpdate, _: dict = Depends(_require
         mirror.invalidate()
     if body.test_reminders_garage_sync is not None:
         await set_bot_setting("test_reminders_garage_sync", "1" if body.test_reminders_garage_sync else "0")
-    if body.free_searches is not None:
-        _u.FREE_SEARCHES = max(0, body.free_searches)
-        await set_bot_setting("free_searches", str(_u.FREE_SEARCHES))
-    if body.referral_bonus is not None:
-        try:
-            rb = max(1, int(body.referral_bonus))
-            await set_bot_setting("referral_bonus", str(rb))
-        except Exception:
-            pass
+    if body.welcome_premium_days is not None:
+        _u.WELCOME_DAYS = max(0, min(365, body.welcome_premium_days))
+        await set_bot_setting("welcome_premium_days", str(_u.WELCOME_DAYS))
+    if body.welcome_plan_id is not None:
+        _u.WELCOME_PLAN_ID = max(0, body.welcome_plan_id)
+        await set_bot_setting("welcome_plan_id", str(_u.WELCOME_PLAN_ID))
+    if body.promo_plan_id is not None:
+        _u.PROMO_PLAN_ID = max(0, body.promo_plan_id)
+        await set_bot_setting("promo_plan_id", str(_u.PROMO_PLAN_ID))
+    if body.referral_plan_id is not None:
+        await set_bot_setting("referral_plan_id", str(max(0, body.referral_plan_id)))
     if body.referral_bonus_premium_days is not None:
         await set_bot_setting("referral_bonus_premium_days", str(max(0, min(365, int(body.referral_bonus_premium_days)))))
     if body.promo_searches is not None:
@@ -1873,12 +1886,13 @@ async def admin_reorder_payment_methods(body: dict, _: dict = Depends(_require_a
 
 
 def _grants_json(pkgs):
-    return [{"id": g[0], "label": g[1], "searches": g[2], "display_order": g[3]} for g in pkgs]
+    return [{"id": g[0], "label": g[1], "searches": g[2], "display_order": g[3], "plan_id": g[4] if len(g) > 4 and g[4] else None} for g in pkgs]
 
 
 class AdminGrantBody(BaseModel):
     label: str
-    searches: int
+    searches: int          # plan amount: >0 days · -1 = 30 days · -2 = permanent · 0 = reset to free
+    plan_id: int | None = None   # subscription plan (packages.id); None = default plan
 
 
 class AdminGrantReorderBody(BaseModel):
@@ -1904,14 +1918,14 @@ async def admin_reorder_grants(body: AdminGrantReorderBody, _: dict = Depends(_r
 @api.post("/api/admin/grants")
 async def admin_add_grant(body: AdminGrantBody, _: dict = Depends(_require_admin)):
     from src.admin_grants import add_admin_grant, get_admin_grants
-    await add_admin_grant(body.label, body.searches)
+    await add_admin_grant(body.label, body.searches, body.plan_id)
     return _grants_json(await get_admin_grants(force_reload=True))
 
 
 @api.put("/api/admin/grants/{grant_id}")
 async def admin_update_grant(grant_id: int, body: AdminGrantBody, _: dict = Depends(_require_admin)):
     from src.admin_grants import update_admin_grant
-    await update_admin_grant(grant_id, body.label, body.searches)
+    await update_admin_grant(grant_id, body.label, body.searches, body.plan_id)
     return {"ok": True}
 
 
@@ -1923,19 +1937,20 @@ async def admin_delete_grant(grant_id: int, _: dict = Depends(_require_admin)):
 
 
 class GrantBody(BaseModel):
-    searches: int
+    searches: int          # plan amount: >0 days · -1 = 30 days · -2 = permanent · 0 = reset to free
+    plan_id: int | None = None
 
 
 @api.post("/api/admin/users/{user_id}/grant")
 async def admin_grant_user(user_id: int, body: GrantBody, admin: dict = Depends(_require_admin)):
     from src.users import admin_grant
-    msg = await admin_grant(int(admin["id"]), user_id, body.searches)
+    msg = await admin_grant(int(admin["id"]), user_id, body.searches, plan_id=body.plan_id)
     try:
         from src.activity import log as _log
         desc = (
             "מנוי חינם" if body.searches == 0 else
             "ללא הגבלה" if body.searches == -2 else
-            ("מנוי חודשי" if body.searches == -1 else f"{body.searches} חיפושים")
+            ("מנוי חודשי" if body.searches == -1 else f"{body.searches} ימי מנוי")
         )
         await _log("grant", f"הענקה למשתמש {user_id}: {desc}")
     except Exception:
@@ -2301,20 +2316,23 @@ async def admin_paypal_transactions(_: dict = Depends(_require_admin)):
 async def admin_list_codes(_: dict = Depends(_require_admin)):
     from src.db import execute
     r = await execute(
-        "SELECT code, searches, unlimited, single_use, expires, used_by, used_at, created FROM codes ORDER BY created DESC"
+        "SELECT c.code, c.searches, c.unlimited, c.single_use, c.expires, c.used_by, c.used_at, c.created, c.plan_id, p.label "
+        "FROM codes c LEFT JOIN packages p ON p.id = c.plan_id ORDER BY c.created DESC"
     )
     return [{
         "code": row[0], "searches": row[1], "unlimited": bool(row[2]),
         "single_use": bool(row[3]), "expires": row[4],
-        "used_by": row[5], "used_at": row[6], "created": row[7]
+        "used_by": row[5], "used_at": row[6], "created": row[7],
+        "plan_id": row[8], "plan_label": row[9] or "",
     } for row in r.rows]
 
 
 class CodeCreateBody(BaseModel):
-    searches: int = 50
+    searches: int = 7            # plan DAYS the code grants (0 + unlimited = permanent plan)
     unlimited: bool = False
     single_use: bool = True
     monthly: bool = False
+    plan_id: int | None = None   # subscription plan (packages.id); None = default plan
 
 
 @api.post("/api/admin/codes")
@@ -2325,10 +2343,11 @@ async def admin_create_code(body: CodeCreateBody, _: dict = Depends(_require_adm
         unlimited=body.unlimited,
         single_use=body.single_use,
         monthly=body.monthly,
+        plan_id=body.plan_id,
     )
     try:
         from src.activity import log as _log
-        desc = "ללא הגבלה" if body.unlimited else f"{body.searches} חיפושים"
+        desc = "מסלול קבוע" if (body.unlimited and body.searches <= 0) else f"{30 if body.monthly else body.searches} ימי מנוי"
         await _log("code_created", f"קוד גישה נוצר: {code} ({desc})")
     except Exception:
         pass
@@ -2454,7 +2473,8 @@ async def admin_all_referrals(_: dict = Depends(_require_admin)):
                   ru.username AS referrer_username, ru.full_name AS referrer_name,
                   ru.searches_quota AS referrer_quota, ru.searches_done AS referrer_done,
                   eu.username AS referee_username, eu.full_name AS referee_name,
-                  eu.searches_quota AS referee_quota, eu.searches_done AS referee_done
+                  eu.searches_quota AS referee_quota, eu.searches_done AS referee_done,
+                  COALESCE(rf.bonus_days, 0) AS bonus_days
            FROM referrals rf
            LEFT JOIN users ru ON ru.user_id = rf.referrer_id
            LEFT JOIN users eu ON eu.user_id = rf.referee_id
@@ -2473,13 +2493,14 @@ async def admin_all_referrals(_: dict = Depends(_require_admin)):
             "referrer_id":           row[1],
             "referee_id":            row[2],
             "bonus":                 row[3],
+            "bonus_days":            row[13],
             "joined_at":             row[4],
             "referrer_name":         _name(row[1], row[5], row[6]),
-            "referrer_searches_left": -1 if referrer_quota == -1 else max(0, (referrer_quota or 0) - (row[8] or 0)),
+            "referrer_searches_left": -1 if referrer_quota == -1 else 0,
             "referee_name":          _name(row[2], row[9], row[10]),
-            "referee_searches_left": -1 if referee_quota == -1 else max(0, (referee_quota or 0) - (row[12] or 0)),
+            "referee_searches_left": -1 if referee_quota == -1 else 0,
         })
-    return {"referrals": rows, "count": len(rows), "total_bonus": sum(r["bonus"] for r in rows)}
+    return {"referrals": rows, "count": len(rows), "total_bonus": sum(r["bonus"] for r in rows), "total_bonus_days": sum(r["bonus_days"] for r in rows)}
 
 
 @api.get("/api/admin/users/{user_id}/referrals")
@@ -2487,7 +2508,8 @@ async def admin_user_referrals(user_id: int, _: dict = Depends(_require_admin)):
     from src.users import get_referrals
     refs = await get_referrals(user_id)
     total_bonus = sum(r["bonus"] for r in refs)
-    return {"referrals": refs, "count": len(refs), "total_bonus": total_bonus}
+    return {"referrals": refs, "count": len(refs), "total_bonus": total_bonus,
+            "total_bonus_days": sum(r.get("bonus_days", 0) for r in refs)}
 
 
 @api.get("/api/admin/users/{user_id}/history")
@@ -2594,7 +2616,8 @@ class GiftAllBody(BaseModel):
     searches: int = 0
     message: str = ""
     image_b64: str = ""
-    gift_type: str = "searches"  # "searches" | "monthly"
+    gift_type: str = "days"  # "days" (searches = number of days) | "monthly" (30 days)
+    plan_id: int | None = None
 
 
 @api.post("/api/admin/gift-all")
@@ -2603,32 +2626,32 @@ async def admin_gift_all(body: GiftAllBody, _: dict = Depends(_require_admin)):
     from src.db import execute
     msg = body.message.strip()[:500]
 
-    if body.gift_type == "monthly":
-        expires = (datetime.datetime.utcnow() + datetime.timedelta(days=30)).strftime('%Y-%m-%dT%H:%M:%S')
+    from src.users import default_plan_id
+    days = 30 if body.gift_type == "monthly" else int(body.searches)
+    if days < 1:
+        raise HTTPException(status_code=400, detail="days must be >= 1")
+    plan_id = body.plan_id or await default_plan_id()
+    # One statement for everyone: a live plan is extended, a permanent one is left alone, free users start a plan.
+    now = datetime.datetime.now()
+    await execute(
+        "UPDATE users SET "
+        "quota_expires = CASE "
+        "  WHEN searches_quota = -1 AND quota_expires IS NULL THEN NULL "
+        "  WHEN searches_quota = -1 AND quota_expires > ? THEN strftime('%Y-%m-%dT%H:%M:%S', quota_expires, ?) "
+        "  ELSE ? END, "
+        "plan_id = CASE WHEN searches_quota = -1 AND quota_expires IS NULL THEN plan_id ELSE COALESCE(?, plan_id) END, "
+        "searches_quota = -1 "
+        "WHERE blocked = 0",
+        [now.isoformat(), f"+{days} days", (now + datetime.timedelta(days=days)).isoformat(), plan_id],
+    )
+    grp = await execute("SELECT id FROM user_groups WHERE name='מנויים' LIMIT 1")
+    if grp.rows:
         await execute(
-            "UPDATE users SET searches_quota = -1, quota_expires = ? WHERE blocked = 0",
-            [expires],
+            "INSERT OR IGNORE INTO user_group_members (group_id, user_id) SELECT ?, user_id FROM users WHERE blocked = 0",
+            [grp.rows[0][0]],
         )
-        # Add all non-blocked users to מנויים group
-        grp = await execute("SELECT id FROM user_groups WHERE name='מנויים' LIMIT 1")
-        if grp.rows:
-            group_id = grp.rows[0][0]
-            await execute(
-                "INSERT OR IGNORE INTO user_group_members (group_id, user_id) "
-                "SELECT ?, user_id FROM users WHERE blocked = 0",
-                [group_id],
-            )
-        gift_text = "🎁 קיבלת מנוי חופשי חודשי!\n\nגישה ללא הגבלת חיפושים ל-30 ימים 🎉" + (f"\n\n{msg}" if msg else "")
-        log_desc = f"מתנה לכולם: מנוי חופשי חודשי. הודעה: {msg[:60]}"
-    else:
-        if body.searches < 1:
-            raise HTTPException(status_code=400, detail="searches must be >= 1")
-        await execute(
-            "UPDATE users SET searches_quota = searches_quota + ? WHERE searches_quota >= 0 AND blocked = 0",
-            [body.searches],
-        )
-        gift_text = f"🎁 קיבלת {body.searches} חיפושים במתנה!" + (f"\n\n{msg}" if msg else "")
-        log_desc = f"מתנה לכולם: +{body.searches} חיפושים. הודעה: {msg[:60]}"
+    gift_text = f"🎁 קיבלת {days} ימי מנוי Premium במתנה!" + (f"\n\n{msg}" if msg else "")
+    log_desc = f"מתנה לכולם: +{days} ימי מנוי. הודעה: {msg[:60]}"
 
     notified = 0
     try:

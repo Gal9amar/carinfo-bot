@@ -10,11 +10,13 @@ from typing import Optional
 
 from src.db import execute
 
-FREE_SEARCHES       = 10   # base welcome quota (loaded from DB at startup)
-PROMO_SEARCHES      = 0    # 0 = inactive, -1 = unlimited, >0 = specific count
+WELCOME_DAYS        = 7    # trial days of the default plan for a new user (0 = none; loaded from DB at startup)
+WELCOME_PLAN_ID     = 0    # plan (packages.id) given on join; 0 = the default subscription plan
+PROMO_SEARCHES      = 0    # join promo switch (legacy name): 0 = inactive, anything else = active; the benefit is PROMO_DURATION_DAYS of plan PROMO_PLAN_ID
+PROMO_PLAN_ID       = 0    # plan (packages.id) the join promo grants; 0 = the default subscription plan
 PROMO_START         = ''   # 'YYYY-MM-DD' or '' (no restriction)
 PROMO_END           = ''   # 'YYYY-MM-DD' or '' (no expiry)
-PROMO_DURATION_DAYS = 30   # days from join date (0 = no expiry)
+PROMO_DURATION_DAYS = 30   # plan days granted by the join promo (0 = permanent)
 PROMO_IS_SUBSCRIBER = False
 PROMO_LABEL         = ''   # display label for welcome message
 
@@ -127,11 +129,11 @@ def is_promo_active() -> bool:
     return start_ok and end_ok
 
 
-def get_current_welcome_quota() -> int:
-    """Returns the quota a new user should receive right now."""
+def get_current_welcome_benefit() -> tuple[int, int, bool]:
+    """(days, plan_id, permanent) a new user should receive right now. days=0 and not permanent = nothing."""
     if is_promo_active():
-        return PROMO_SEARCHES
-    return FREE_SEARCHES
+        return PROMO_DURATION_DAYS, PROMO_PLAN_ID, PROMO_DURATION_DAYS <= 0
+    return WELCOME_DAYS, WELCOME_PLAN_ID, False
 
 
 def get_promo_welcome_info() -> dict | None:
@@ -143,13 +145,11 @@ def get_promo_welcome_info() -> dict | None:
         from datetime import date, timedelta
         exp = date.today() + timedelta(days=PROMO_DURATION_DAYS)
         expires_str = exp.strftime("%d/%m/%Y")
-    searches = PROMO_SEARCHES
     label = PROMO_LABEL or (
-        "גישה ללא הגבלה" if searches == -1 else f"{searches} חיפושים"
+        "מסלול Premium ללא הגבלת זמן" if PROMO_DURATION_DAYS <= 0 else f"{PROMO_DURATION_DAYS} ימי Premium"
     )
     return {
         "label": label,
-        "searches": searches,
         "duration_days": PROMO_DURATION_DAYS,
         "expires_str": expires_str,
         "is_subscriber": PROMO_IS_SUBSCRIBER,
@@ -158,15 +158,17 @@ def get_promo_welcome_info() -> dict | None:
 
 async def load_welcome_settings() -> None:
     """Load welcome/promo settings from DB into module-level vars."""
-    global FREE_SEARCHES, PROMO_SEARCHES, PROMO_START, PROMO_END
-    global PROMO_DURATION_DAYS, PROMO_IS_SUBSCRIBER, PROMO_LABEL
+    global WELCOME_DAYS, WELCOME_PLAN_ID, PROMO_SEARCHES, PROMO_START, PROMO_END
+    global PROMO_DURATION_DAYS, PROMO_IS_SUBSCRIBER, PROMO_LABEL, PROMO_PLAN_ID
     from src.db import get_bot_setting
     try:
-        fs = await get_bot_setting("free_searches")
-        if fs:
-            FREE_SEARCHES = int(fs)
+        wd = await get_bot_setting("welcome_premium_days")
+        if wd is not None and wd != "":
+            WELCOME_DAYS = max(0, int(wd))
+        WELCOME_PLAN_ID = int((await get_bot_setting("welcome_plan_id")) or 0)
         ps = await get_bot_setting("promo_searches")
         PROMO_SEARCHES = int(ps) if ps else 0
+        PROMO_PLAN_ID = int((await get_bot_setting("promo_plan_id")) or 0)
         PROMO_START = (await get_bot_setting("promo_start")) or ''
         PROMO_END   = (await get_bot_setting("promo_end"))   or ''
         pd = await get_bot_setting("promo_duration_days")
@@ -197,16 +199,17 @@ async def _ensure_user(user_id: int, username: str = "", full_name: str = "") ->
     is_new = not bool(exists.rows)
 
     if is_new:
-        quota = get_current_welcome_quota()
-        expires = None
-        if is_promo_active() and PROMO_SEARCHES != 0 and PROMO_DURATION_DAYS > 0:
-            expires = (datetime.now() + timedelta(days=PROMO_DURATION_DAYS)).isoformat()
         # member_id computed inside the INSERT so concurrent sign-ups can't share one.
         await execute(
             "INSERT OR IGNORE INTO users (user_id, username, full_name, searches_quota, quota_expires, member_id) "
-            "VALUES (?, ?, ?, ?, ?, (SELECT COALESCE(MAX(member_id), 0) + 1 FROM users))",
-            [user_id, username, full_name, quota, expires],
+            "VALUES (?, ?, ?, 0, NULL, (SELECT COALESCE(MAX(member_id), 0) + 1 FROM users))",
+            [user_id, username, full_name],
         )
+        days, plan_id, permanent = get_current_welcome_benefit()
+        if permanent:
+            await grant_plan_days(user_id, 0, "הטבת הצטרפות", plan_id or None, permanent=True)
+        elif days > 0:
+            await grant_plan_days(user_id, days, "הטבת הצטרפות", plan_id or None)
         if is_promo_active() and PROMO_IS_SUBSCRIBER:
             await add_to_subscribers(user_id)
         if await is_global_unlimited_active():
@@ -229,7 +232,8 @@ async def _touch_user(user_id: int, username: str, full_name: str):
 # ── Public API ─────────────────────────────────────────────────────────────
 
 async def is_allowed(user_id: int, username: str = "", full_name: str = "") -> tuple[bool, int]:
-    """Returns (allowed, searches_left). -1 = unlimited."""
+    """Returns (allowed, plan_state). There is no search counter any more: every non-blocked user may
+    look vehicles up. plan_state is -1 while the user has a live subscription, else 0 (free)."""
     select_sql = "SELECT searches_done, searches_quota, blocked, quota_expires FROM users WHERE user_id = ?"
     # Existing user (the common case): refresh last_seen and read the row in parallel.
     # A brand-new user matches no row for the UPDATE and an empty SELECT -> create below.
@@ -247,42 +251,31 @@ async def is_allowed(user_id: int, username: str = "", full_name: str = "") -> t
         return True, -1
 
     quota         = u["searches_quota"]
-    done          = u["searches_done"]
     quota_expires = u.get("quota_expires")
 
-    # If unlimited but time-limited – check expiry
+    # Time-limited subscription – check expiry
     if quota == -1 and quota_expires:
         try:
             if datetime.now() > datetime.fromisoformat(quota_expires):
-                # Subscription expired – revert to 0 and remove from subscribers
+                # Subscription expired – back to the free plan and out of the subscribers group
                 await execute(
-                    "UPDATE users SET searches_quota = 0, quota_expires = NULL WHERE user_id = ?",
+                    "UPDATE users SET searches_quota = 0, quota_expires = NULL, plan_id = NULL WHERE user_id = ?",
                     [user_id],
                 )
                 await remove_from_subscribers(user_id)
-                return False, 0
+                return True, 0
         except Exception:
             pass
 
-    if quota == -1:
-        return True, -1
-
-    left = max(0, quota - done)
-    return left > 0, left
+    return True, (-1 if quota == -1 else 0)
 
 
 async def increment_search(user_id: int, plate: str = "", details: dict | None = None) -> None:
-    # While the global "unlimited for everyone" benefit is active, searches
-    # don't consume the user's own quota — so cancelling the benefit later
-    # restores everyone's real balance exactly as it was.
-    global_unlimited = await is_global_unlimited_active()
-    if global_unlimited:
-        bump = execute("UPDATE users SET last_seen = datetime('now') WHERE user_id = ?", [user_id])
-    else:
-        bump = execute(
-            "UPDATE users SET searches_done = searches_done + 1, last_seen = datetime('now') WHERE user_id = ?",
-            [user_id],
-        )
+    """Log a successful lookup (history + lookup counter, kept only as a statistic — nothing is consumed)."""
+    bump = execute(
+        "UPDATE users SET searches_done = searches_done + 1, last_seen = datetime('now') WHERE user_id = ?",
+        [user_id],
+    )
     if plate:
         d = details or {}
         await asyncio.gather(bump, execute(
@@ -290,16 +283,6 @@ async def increment_search(user_id: int, plate: str = "", details: dict | None =
             [user_id, plate, d.get("make", ""), d.get("model", ""), d.get("year", ""), d.get("color", "")]))
     else:
         await bump
-    if global_unlimited:
-        return
-    # Remove from subscribers group when quota is fully exhausted
-    r = await execute(
-        "SELECT searches_quota, searches_done FROM users WHERE user_id = ?",
-        [user_id],
-    )
-    u = _row(r)
-    if u and u["searches_quota"] != -1 and u["searches_quota"] <= u["searches_done"]:
-        await remove_from_subscribers(user_id)
 
 
 async def get_last_plate(user_id: int) -> str:
@@ -343,46 +326,25 @@ async def apply_code(user_id: int, code: str, username: str = "") -> tuple[bool,
         except Exception:
             pass
 
+    # The code's "searches" field holds PLAN DAYS (legacy rows: monthly code = 30 days). An unlimited code with
+    # no days is a permanent plan. The plan is the one chosen when the code was created (default plan if none).
     unlimited = bool(code_data["unlimited"])
-    add       = code_data["searches"]
+    days      = int(code_data["searches"] or 0)
+    plan_id   = code_data.get("plan_id") or None
     now_iso   = datetime.now().isoformat()
-    # monthly = unlimited code that carries a duration (searches field holds days)
-    is_monthly = unlimited and add and add > 0
 
-    if unlimited:
-        if is_monthly:
-            # add = number of days the subscription lasts
-            expires_dt  = datetime.now() + timedelta(days=int(add))
-            expires_iso = expires_dt.isoformat()
-            await execute(
-                "UPDATE users SET searches_quota = -1, quota_expires = ? WHERE user_id = ?",
-                [expires_iso, user_id],
-            )
-            exp_str = expires_dt.strftime("%d/%m/%Y")
-            result_msg = f"✅ גישה חופשית לחודש הופעלה\\!\nתוקף עד: *{exp_str}*"
+    if days > 0:
+        status, exp = await grant_plan_days(user_id, days, f"קוד {code}", plan_id)
+        if status == "permanent":
+            result_msg = "כבר יש לך מסלול Premium קבוע"
         else:
-            await execute(
-                "UPDATE users SET searches_quota = -1, quota_expires = NULL WHERE user_id = ?",
-                [user_id],
-            )
-            result_msg = "✅ גישה בלתי מוגבלת הופעלה"
+            verb = "הוארך" if status == "extended" else "הופעל"
+            result_msg = f"המסלול {verb} ב-{days} ימים · תוקף עד {datetime.fromisoformat(exp).strftime('%d/%m/%Y')}"
+    elif unlimited:
+        await grant_plan_days(user_id, 0, f"קוד {code}", plan_id, permanent=True)
+        result_msg = "מסלול Premium קבוע הופעל"
     else:
-        r2 = await execute(
-            "SELECT searches_quota, searches_done FROM users WHERE user_id = ?",
-            [user_id],
-        )
-        u = _row(r2)
-        quota = u["searches_quota"]
-        done  = u["searches_done"]
-        if quota == -1:
-            result_msg = "✅ כבר יש לך גישה בלתי מוגבלת"
-        else:
-            new_quota = quota + add
-            await execute(
-                "UPDATE users SET searches_quota = ? WHERE user_id = ?",
-                [new_quota, user_id],
-            )
-            result_msg = f"✅ נוספו {add} בדיקות \\(סה\"כ {max(0, new_quota - done)} נותרו\\)"
+        return False, "קוד לא תקין"
 
     await execute(
         "UPDATE codes SET used_by = ?, used_at = ? WHERE code = ?",
@@ -395,99 +357,51 @@ async def apply_code(user_id: int, code: str, username: str = "") -> tuple[bool,
     return True, result_msg
 
 
-async def admin_grant(admin_id: int, target_id: int, searches: int, note: str = "", duration_months: int = 1) -> str:
+async def admin_grant(admin_id: int, target_id: int, searches: int, note: str = "", duration_months: int = 1,
+                      plan_id: int | None = None) -> str:
+    """Admin benefit. `searches` keeps its legacy name but is now a PLAN amount:
+    0 = reset to the free plan · -2 = permanent plan · -1 = `duration_months`×30 days · >0 = that many DAYS.
+    `plan_id` picks the subscription plan (default plan when omitted)."""
     await _ensure_user(target_id)
-    r = await execute(
-        "SELECT searches_quota, searches_done FROM users WHERE user_id = ?",
-        [target_id],
-    )
-    u = _row(r)
-    quota = u["searches_quota"] if u else FREE_SEARCHES
-    done  = u["searches_done"]  if u else 0
-
-    if searches == 0:  # reset to free tier — 0 searches
+    if searches == 0:  # reset to the free plan
         await remove_from_subscribers(target_id)
         await execute(
-            "UPDATE users SET searches_quota = 0, searches_done = 0, quota_expires = NULL WHERE user_id = ?",
+            "UPDATE users SET searches_quota = 0, searches_done = 0, quota_expires = NULL, plan_id = NULL WHERE user_id = ?",
             [target_id],
         )
-        msg = "מנוי חינם — 0 חיפושים"
-    elif searches == -2:  # permanent unlimited
-        await execute(
-            "UPDATE users SET searches_quota = -1, searches_done = 0, quota_expires = NULL WHERE user_id = ?",
-            [target_id],
-        )
-        await add_to_subscribers(target_id)
-        msg = "גישה חופשית ללא הגבלת זמן"
-    elif searches == -1:
-        from datetime import timedelta
-        days = max(1, duration_months) * 30
-        # Renewal: a live plan is extended, not restarted; a permanent one is never downgraded.
-        cur = await execute("SELECT searches_quota, quota_expires FROM users WHERE user_id = ?", [target_id])
-        cur_quota, cur_exp = (cur.rows[0][0], cur.rows[0][1]) if cur.rows else (0, None)
-        if cur_quota == -1 and not cur_exp:
-            await add_to_subscribers(target_id)
-            return "כבר במסלול Premium קבוע"
-        base = datetime.now()
-        if cur_quota == -1 and cur_exp:
-            try:
-                live = datetime.fromisoformat(cur_exp)
-                if live > base:
-                    base = live
-            except ValueError:
-                pass
-        expires = (base + timedelta(days=days)).isoformat()
-        await execute(
-            "UPDATE users SET searches_quota = -1, searches_done = 0, quota_expires = ? WHERE user_id = ?",
-            [expires, target_id],
-        )
-        await add_to_subscribers(target_id)
-        months_label = f"{duration_months} חודש" if duration_months == 1 else f"{duration_months} חודשים"
-        msg = f"מנוי {months_label} עד {expires[:10]}"
-    elif quota == -1:
-        msg = "כבר יש לו גישה בלתי מוגבלת"
+        msg = "מסלול חינמי"
+        await execute("INSERT INTO grants (user_id, granted_by, searches, note) VALUES (?, ?, ?, ?)", [target_id, admin_id, searches, note])
+        return msg
+    if searches == -2:
+        await grant_plan_days(target_id, 0, note, plan_id, permanent=True)
+        msg = "מסלול קבוע ללא הגבלת זמן"
     else:
-        # Base new quota on searches_done so the user gets exactly `searches` new searches
-        new_q = done + searches
-        await execute(
-            "UPDATE users SET searches_quota = ? WHERE user_id = ?",
-            [new_q, target_id],
-        )
-        msg = f"נוספו {searches} בדיקות \\(סה\"כ {searches} נותרו\\)"
-
-    await execute(
-        "INSERT INTO grants (user_id, granted_by, searches, note) VALUES (?, ?, ?, ?)",
-        [target_id, admin_id, searches, note],
-    )
+        days = max(1, duration_months) * 30 if searches == -1 else searches
+        status, exp = await grant_plan_days(target_id, days, note, plan_id)
+        if status == "permanent":
+            return "כבר במסלול קבוע"
+        msg = f"נוספו {days} ימי מנוי · עד {exp[:10]}"
+    await execute("INSERT INTO grants (user_id, granted_by, searches, note) VALUES (?, ?, ?, ?)", [target_id, admin_id, searches, note])
     return msg
 
 
 async def generate_code(
-    searches: int = 10,
+    searches: int = 7,
     single_use: bool = True,
     unlimited: bool = False,
     monthly: bool = False,
     expires_days: int = 90,
+    plan_id: int | None = None,
 ) -> str:
+    """Create a promo code. `searches` is the number of plan DAYS the code grants (legacy parameter name);
+    `unlimited` with days=0 = permanent plan; `monthly` = 30 days. `plan_id` = the subscription plan it grants."""
     code = secrets.token_hex(4).upper()
     expires = (datetime.now() + timedelta(days=expires_days)).isoformat()
-    if monthly:
-        # unlimited=True, searches holds subscription duration in days (30)
-        await execute(
-            """
-            INSERT INTO codes (code, searches, unlimited, single_use, expires)
-            VALUES (?, ?, 1, ?, ?)
-            """,
-            [code, 30, int(single_use), expires],
-        )
-    else:
-        await execute(
-            """
-            INSERT INTO codes (code, searches, unlimited, single_use, expires)
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            [code, searches, int(unlimited), int(single_use), expires],
-        )
+    days = 30 if monthly else max(0, int(searches or 0))
+    await execute(
+        "INSERT INTO codes (code, searches, unlimited, single_use, expires, plan_id) VALUES (?, ?, ?, ?, ?, ?)",
+        [code, days, 1 if (monthly or unlimited or days > 0) else 0, int(single_use), expires, plan_id or None],
+    )
     return code
 
 
@@ -530,16 +444,32 @@ async def extend_premium_days(user_id: int, days: int) -> Optional[str]:
     return new_exp
 
 
-async def grant_premium_days(user_id: int, days: int, note: str = "") -> tuple[str, Optional[str]]:
-    """Give `days` of Premium (unlimited plan) to anyone.
-    Returns (status, expiry_iso): "extended" (live plan prolonged), "started" (a new plan began —
-    free / search-pack users are switched to unlimited until the expiry), "permanent" (already
-    permanent Premium, nothing to add) or "none" (days <= 0)."""
-    if days <= 0:
+async def default_plan_id() -> Optional[int]:
+    """The subscription plan used when no plan is chosen: the first active unlimited (searches=-1) package."""
+    from src.packages import get_packages
+    for p in await get_packages(active_only=True):
+        if p[2] == -1 and p[9] == "searches":
+            return p[0]
+    return None
+
+
+async def grant_plan_days(user_id: int, days: int, note: str = "", plan_id: int | None = None,
+                          permanent: bool = False) -> tuple[str, Optional[str]]:
+    """Give `days` of a subscription plan (default: Premium) to anyone, from today or on top of a live plan.
+    Returns (status, expiry_iso): "extended" (live plan prolonged), "started" (a new plan began),
+    "permanent" (already, or now, a permanent plan) or "none" (nothing to give).
+    `permanent=True` grants a permanent plan instead of days."""
+    if days <= 0 and not permanent:
         return "none", None
     await _ensure_user(user_id)
     r = await execute("SELECT searches_quota, quota_expires FROM users WHERE user_id=?", [user_id])
     quota, cur_exp = (r.rows[0][0], r.rows[0][1]) if r.rows else (0, None)
+    plan_id = plan_id or await default_plan_id()
+    if permanent:
+        await execute("UPDATE users SET searches_quota = -1, quota_expires = NULL, plan_id = ? WHERE user_id = ?", [plan_id, user_id])
+        await add_to_subscribers(user_id)
+        await execute("INSERT INTO grants (user_id, granted_by, searches, note) VALUES (?, ?, ?, ?)", [user_id, 0, -2, note or "מסלול קבוע"])
+        return "permanent", None
     if quota == -1 and not cur_exp:
         return "permanent", None
     base = datetime.now()
@@ -553,12 +483,26 @@ async def grant_premium_days(user_id: int, days: int, note: str = "") -> tuple[s
             pass
     expires = (base + timedelta(days=days)).isoformat()
     await execute(
-        "UPDATE users SET searches_quota = -1, searches_done = CASE WHEN ? = 'extended' THEN searches_done ELSE 0 END, quota_expires = ? WHERE user_id = ?",
-        [status, expires, user_id],
+        "UPDATE users SET searches_quota = -1, quota_expires = ?, plan_id = COALESCE(?, plan_id) WHERE user_id = ?",
+        [expires, plan_id, user_id],
     )
     await add_to_subscribers(user_id)
-    await execute("INSERT INTO grants (user_id, granted_by, searches, note) VALUES (?, ?, ?, ?)", [user_id, 0, -1, note or f"+{days} ימי Premium"])
+    await execute("INSERT INTO grants (user_id, granted_by, searches, note) VALUES (?, ?, ?, ?)", [user_id, 0, days, note or f"+{days} ימי מנוי"])
     return status, expires
+
+
+grant_premium_days = grant_plan_days  # backwards-compatible name
+
+
+async def get_plan_label(user_id: int) -> Optional[str]:
+    """Label of the plan the user's live subscription belongs to (None = free)."""
+    r = await execute(
+        "SELECT p.label FROM users u LEFT JOIN packages p ON p.id = u.plan_id WHERE u.user_id = ? AND u.searches_quota = -1",
+        [user_id],
+    )
+    if not r.rows:
+        return None
+    return r.rows[0][0] or "Premium"
 
 
 async def get_referral_count(user_id: int) -> int:
@@ -612,7 +556,7 @@ async def get_all_users() -> list[dict]:
     for u in _rows(r):
         quota = u["searches_quota"]
         done  = u["searches_done"]
-        u["searches_left"] = -1 if quota == -1 else max(0, quota - done)
+        u["searches_left"] = -1 if quota == -1 else 0
         u["is_subscriber"] = bool(u.get("is_subscriber", 0))
         if global_unlimited and not u.get("blocked"):
             u["is_subscriber"] = True
@@ -632,7 +576,7 @@ async def get_user_by_username(username: str) -> Optional[dict]:
         return None
     quota = u["searches_quota"]
     done  = u["searches_done"]
-    u["searches_left"] = -1 if quota == -1 else max(0, quota - done)
+    u["searches_left"] = -1 if quota == -1 else 0
     return u
 
 
@@ -647,7 +591,7 @@ async def get_user_by_id(user_id: int) -> Optional[dict]:
         return None
     quota = u["searches_quota"]
     done  = u["searches_done"]
-    u["searches_left"] = -1 if quota == -1 else max(0, quota - done)
+    u["searches_left"] = -1 if quota == -1 else 0
     return u
 
 
@@ -850,7 +794,7 @@ async def expire_subscriptions() -> list[int]:
     if not expired_ids:
         return []
     await execute(
-        "UPDATE users SET searches_quota = 0, quota_expires = NULL "
+        "UPDATE users SET searches_quota = 0, quota_expires = NULL, plan_id = NULL "
         "WHERE searches_quota = -1 AND quota_expires IS NOT NULL AND quota_expires <= datetime('now')"
     )
     gid = await _get_subscribers_group_id()

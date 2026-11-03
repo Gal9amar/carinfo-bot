@@ -79,9 +79,6 @@ def _pkgs() -> list[tuple[str, int, int]]:
     if _cache:
         return [(p[1], p[2], p[3]) for p in _cache]
     return [
-        ("🔍 50 חיפושים",  50,  10),
-        ("🔍 100 חיפושים", 100, 20),
-        ("🔍 200 חיפושים", 200, 30),
         ("♾️ מנוי חודשי",  -1,  25),
     ]
 
@@ -351,7 +348,8 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             bonus_days = int(days_str) if days_str and days_str.isdigit() else 0
             ref_uname = f"@{user.username}" if user.username else str(user_id)
             # Every new friend earns the referrer `bonus_days` of Premium (admin-configurable; 0 = no reward).
-            status, new_exp = await grant_premium_days(referrer_id, bonus_days, "בונוס הפניית חבר")
+            ref_plan = int((await get_bot_setting("referral_plan_id")) or 0)
+            status, new_exp = await grant_premium_days(referrer_id, bonus_days, "בונוס הפניית חבר", ref_plan or None)
             await record_referral(user_id, referrer_id, 0, bonus_days if status in ("extended", "started") else 0)
             if status in ("extended", "started"):
                 referral_msg = M.referral_bonus_days(await _name_of(referrer_id), ref_uname, bonus_days, new_exp, started=(status == "started"))
@@ -427,7 +425,7 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         from src.users import get_quota_expires
         expires = await get_quota_expires(user.id)
     await update.message.reply_text(
-        M.status(_first_name(user), left if allowed else 0, expires),
+        M.status(_first_name(user), left, expires),
         parse_mode=HTML,
     )
 
@@ -928,11 +926,11 @@ def _admin_main_keyboard() -> InlineKeyboardMarkup:
 
 def _admin_gen_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎫 10 בדיקות",  callback_data="adm|gen|10|single"),
-         InlineKeyboardButton("🎫 25 בדיקות",  callback_data="adm|gen|25|single")],
-        [InlineKeyboardButton("🎫 50 בדיקות",  callback_data="adm|gen|50|single"),
-         InlineKeyboardButton("🎫 100 בדיקות", callback_data="adm|gen|100|single")],
-        [InlineKeyboardButton("📅 חודש – חיפושים חופשיים", callback_data="adm|gen|monthly|single")],
+        [InlineKeyboardButton("🎫 7 ימי מנוי",  callback_data="adm|gen|7|single"),
+         InlineKeyboardButton("🎫 14 ימי מנוי", callback_data="adm|gen|14|single")],
+        [InlineKeyboardButton("🎫 30 ימי מנוי", callback_data="adm|gen|30|single"),
+         InlineKeyboardButton("🎫 90 ימי מנוי", callback_data="adm|gen|90|single")],
+        [InlineKeyboardButton("♾️ מנוי קבוע", callback_data="adm|gen|-1|single")],
         [InlineKeyboardButton("🔙 חזרה", callback_data="adm|main")],
     ])
 
@@ -944,7 +942,7 @@ def _admin_settings_keyboard(maintenance_on: bool = False, rich_on: bool = False
     maint_style = "danger" if maintenance_on else None
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("✏️ שנה הודעת תשלום",         callback_data="adm|set_payment")],
-        [InlineKeyboardButton("🆓 שנה מספר בדיקות חינמיות", callback_data="adm|set_free")],
+        [InlineKeyboardButton("🆓 שנה ימי ניסיון למשתמש חדש", callback_data="adm|set_free")],
         [InlineKeyboardButton(maint_label,                   callback_data="adm|toggle_maintenance", style=maint_style)],
         [InlineKeyboardButton("📊 כבה תוצאה כטבלה" if rich_on else "📊 הפעל תוצאה כטבלה", callback_data="adm|toggle_rich")],
         [InlineKeyboardButton("🔔 כבה תזכורות טסט" if reminders_on else "🔔 הפעל תזכורות טסט", callback_data="adm|toggle_reminders")],
@@ -963,7 +961,7 @@ async def _settings_view() -> tuple[str, InlineKeyboardMarkup]:
     mirror_on   = (await get_bot_setting("mirror_enabled")) == "1"
     mirror_bound = bool(await get_bot_setting("mirror_chat_id"))
     return (
-        M.admin_settings(_u.FREE_SEARCHES, maintenance, rich_on, reminders, garage_sync, mirror_on, mirror_bound),
+        M.admin_settings(_u.WELCOME_DAYS, maintenance, rich_on, reminders, garage_sync, mirror_on, mirror_bound),
         _admin_settings_keyboard(maintenance, rich_on, reminders, garage_sync, mirror_on),
     )
 
@@ -1005,7 +1003,7 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             single = "multi" not in args
             if len(args) > 1 and args[1] == "monthly":
                 code = await generate_code(monthly=True, single_use=single)
-                kind = "חודש חיפושים חופשיים"
+                kind = "חודש מנוי"
             else:
                 try:
                     count = int(args[1]) if len(args) > 1 else 10
@@ -1013,7 +1011,7 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     count = 10
                 unlimited = count == -1
                 code = await generate_code(searches=count, single_use=single, unlimited=unlimited)
-                kind = f"{count} בדיקות"
+                kind = "מנוי קבוע" if unlimited else f"{count} ימי מנוי"
             use_str = "חד פעמי" if single else "רב פעמי"
             await update.message.reply_text(
                 f"✅ קוד חדש ({M.esc(kind)}, {use_str}):\n{M.code(code)}",
@@ -1066,7 +1064,7 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
                 reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 חזרה", callback_data="adm|main")]]),
             )
             return
-        lines = [f"👥 {M.b('משתמשים')} (מסודר לפי בדיקות)\n\n"]
+        lines = [f"👥 {M.b('משתמשים')} (מסודר לפי חיפושים שבוצעו)\n\n"]
         for u in users[:25]:
             uname    = f"@{u['username']}" if u.get("username") else ""
             fullname = u.get("full_name", "")
@@ -1076,7 +1074,7 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
             left     = u.get("searches_left", 0)
             quota_str = "∞" if quota == -1 else str(quota)
             left_str  = "∞" if left  == -1 else str(left)
-            lines.append(f"• {M.esc(display)}: {done}/{quota_str} (נותרו: {left_str})\n")
+            lines.append(f"• {M.esc(display)}: {'מנוי' if quota == -1 else 'חינמי'} · {done} חיפושים\n")
         await query.edit_message_text(
             "".join(lines),
             parse_mode=HTML,
@@ -1086,7 +1084,7 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
     if action == "gen_menu":
         await query.edit_message_text(
-            f"🔑 {M.b('יצירת קוד גישה')}\n\nבחר כמות בדיקות לקוד:",
+            f"🔑 {M.b('יצירת קוד גישה')}\n\nבחר כמה ימי מנוי הקוד יעניק:",
             parse_mode=HTML,
             reply_markup=_admin_gen_keyboard(),
         )
@@ -1100,12 +1098,12 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
         if is_monthly:
             code = await generate_code(monthly=True, single_use=single)
-            kind = "📅 חודש – חיפושים חופשיים"
+            kind = "📅 חודש מנוי"
         else:
             count     = int(count_str)
             unlimited = count == -1
             code = await generate_code(searches=count, single_use=single, unlimited=unlimited)
-            kind = f"{count} בדיקות"
+            kind = "♾️ מנוי קבוע" if unlimited else f"{count} ימי מנוי"
 
         use_str = "חד פעמי" if single else "רב פעמי"
         await query.edit_message_text(
@@ -1161,7 +1159,7 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
     if action == "set_free":
         import src.users as _u
         await query.message.reply_text(
-            f"🆓 {M.b('שינוי בדיקות חינמיות')}\n\nהערך הנוכחי: {M.b(_u.FREE_SEARCHES)}\n\nשלח את המספר החדש:",
+            f"🆓 {M.b('ימי ניסיון Premium למשתמש חדש')}\n\nהערך הנוכחי: {M.b(_u.WELCOME_DAYS)} ימים\n\nשלח את מספר הימים החדש (0 = ללא ניסיון):",
             parse_mode=HTML,
         )
         context.user_data["admin_setting"] = "free_count"
@@ -1362,7 +1360,7 @@ async def handle_how_it_works(update: Update, context: ContextTypes.DEFAULT_TYPE
     pkg_lines = [f"• {M.esc(label)} – ₪{price}" for label, _searches, price in _pkgs()]
     pkg_text = "\n".join(pkg_lines) if pkg_lines else "אין חבילות זמינות כרגע"
     await query.edit_message_text(
-        M.how_it_works(_first_name(query.from_user), _u.FREE_SEARCHES, pkg_text),
+        M.how_it_works(_first_name(query.from_user), _u.WELCOME_DAYS, pkg_text),
         parse_mode=HTML,
         reply_markup=_persistent_keyboard(is_admin),
     )
@@ -1394,8 +1392,8 @@ async def _build_user_grant_keyboard(uid: int, blocked: bool) -> InlineKeyboardM
     grants = await get_admin_grants()
     rows: list[list[InlineKeyboardButton]] = []
     row: list[InlineKeyboardButton] = []
-    for _gid, label, searches, _order in grants:
-        row.append(InlineKeyboardButton(label, callback_data=f"ugrant|{uid}|{searches}"))
+    for _gid, label, searches, _order, plan_id in grants:
+        row.append(InlineKeyboardButton(label, callback_data=f"ugrant|{uid}|{searches}|{plan_id}"))
         if len(row) == 2:
             rows.append(row)
             row = []
@@ -1413,7 +1411,7 @@ def _grant_description(amount: int) -> str:
         return "מנוי חודשי"
     if amount == 0:
         return "מסלול FREE"
-    return f"{amount} בדיקות"
+    return f"{amount} ימי מנוי"
 
 
 async def handle_user_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1449,8 +1447,7 @@ async def handle_user_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         info = (
             f"👤 {display}\n"
             f"🆔 {uid}\n"
-            f"📊 בדיקות: {done}/{quota_str}{exp_str}\n"
-            f"📌 נותרו: {left_str}\n"
+            f"📊 מסלול: {'מנוי' if quota == -1 else 'חינמי'}{exp_str} · חיפושים שבוצעו: {done}\n"
             f"{'🔴 חסום' if blocked else '🟢 פעיל'}"
         )
         buttons = await _build_user_grant_keyboard(uid, blocked)
@@ -1462,7 +1459,8 @@ async def handle_user_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     if parts[0] == "ugrant":
         uid     = int(parts[1])
         amount  = int(parts[2])
-        await admin_grant(ADMIN_ID, uid, amount, "granted via admin panel")
+        plan_id = int(parts[3]) if len(parts) > 3 else 0
+        await admin_grant(ADMIN_ID, uid, amount, "granted via admin panel", plan_id=plan_id or None)
         desc    = _grant_description(amount)
         await query.answer(f"✅ הוענקו {desc}", show_alert=True)
         # Notify user with rich subscription update message
@@ -1494,8 +1492,7 @@ async def handle_user_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         info = (
             f"👤 {display}\n"
             f"🆔 {uid}\n"
-            f"📊 בדיקות: {done}/{quota_str}{exp_str}\n"
-            f"📌 נותרו: {left_str}\n"
+            f"📊 מסלול: {'מנוי' if quota == -1 else 'חינמי'}{exp_str} · חיפושים שבוצעו: {done}\n"
             f"{'🔴 חסום' if blocked else '🟢 פעיל'}"
         )
         await query.edit_message_text(info, reply_markup=await _build_user_grant_keyboard(uid, blocked))
@@ -1542,8 +1539,7 @@ async def handle_user_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         info = (
             f"👤 {display}\n"
             f"🆔 {uid}\n"
-            f"📊 בדיקות: {done}/{quota_str}{exp_str}\n"
-            f"📌 נותרו: {left_str}\n"
+            f"📊 מסלול: {'מנוי' if quota == -1 else 'חינמי'}{exp_str} · חיפושים שבוצעו: {done}\n"
             f"{'🔴 חסום' if blocked else '🟢 פעיל'}"
         )
         await query.edit_message_text(info, reply_markup=await _build_user_grant_keyboard(uid, blocked))
@@ -1577,7 +1573,7 @@ async def handle_admin_keyboard(update: Update, context: ContextTypes.DEFAULT_TY
             left     = u.get("searches_left", 0)
             quota_str = "∞" if quota == -1 else str(quota)
             left_str  = "∞" if left == -1 else str(left)
-            label    = f"{blocked}{display} ({done}/{quota_str}, נותרו:{left_str})"
+            label    = f"{blocked}{display} ({'מנוי' if quota == -1 else 'חינמי'}, {done} חיפושים)"
             buttons.append([InlineKeyboardButton(label, callback_data=f"usr|{uid}")])
         await update.message.reply_text(
             "👥 בחר משתמש:",
@@ -2021,9 +2017,10 @@ async def handle_plate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 return
             new_val = int(raw)
             import src.users as _u
-            _u.FREE_SEARCHES = new_val
+            _u.WELCOME_DAYS = min(365, new_val)
+            await set_bot_setting("welcome_premium_days", str(_u.WELCOME_DAYS))
             context.user_data.pop("admin_setting", None)
-            await update.message.reply_text(f"✅ עודכן! בדיקות חינמיות: {M.b(new_val)}", parse_mode=HTML)
+            await update.message.reply_text(f"✅ עודכן! ימי ניסיון Premium למשתמש חדש: {M.b(_u.WELCOME_DAYS)}", parse_mode=HTML)
             return
         if setting == "payment_msg":
             PAYMENT_MSG = raw
@@ -2375,9 +2372,6 @@ async def _compare_flow(message, tg_user, chat_id: int, context, plate_a: str, p
         return
     last_plate = await get_last_plate(user_id)
     to_charge = [p for p in (plate_a, plate_b) if p != last_plate]   # a plate paid for just now is free, as in a normal lookup
-    if left != -1 and left < len(to_charge):
-        await message.reply_text(M.compare_not_enough(name), parse_mode=HTML, reply_markup=_payment_keyboard(is_admin))
-        return
     try:
         rec_a, rec_b = await asyncio.gather(_get_record(plate_a), _get_record(plate_b))
     except Exception as exc:
@@ -2558,9 +2552,6 @@ async def _lookup_flow(message, tg_user, chat_id: int, context: ContextTypes.DEF
             )
         return
 
-    if left == 1:
-        await message.reply_text(M.last_free_search(name), parse_mode=HTML)
-
     # cache hit — skip API call
     record = cache.get(plate)
     if record is None:
@@ -2644,9 +2635,6 @@ async def _lookup_flow(message, tg_user, chat_id: int, context: ContextTypes.DEF
             expires = await get_quota_expires(user_id)
             card += M.result_quota_footer(-1, expires)
             footer_text = M.result_quota_text(-1, expires)
-        elif left > 0:
-            card += M.result_quota_footer(left - 1, None)
-            footer_text = M.result_quota_text(left - 1, None)
 
     if searching_msg:
         try:

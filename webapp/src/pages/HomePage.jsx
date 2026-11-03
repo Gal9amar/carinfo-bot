@@ -22,9 +22,6 @@ export default function HomePage({ user, onNavigate, onSearchPlate }) {
   const [plateInput, setPlateInput] = useState('')
   const [recent, setRecent] = useState([])
 
-  const searchesLeft = user?.searches_left
-  const searchesQuota = user?.searches_quota
-  const isUnlimited  = searchesLeft === -1
   const maintenance  = !!user?.maintenance
   // Admin is exempt server-side, so only block the search button for everyone else.
   const searchBlocked = maintenance && !user?.is_admin
@@ -47,10 +44,6 @@ export default function HomePage({ user, onNavigate, onSearchPlate }) {
   function handleSearch() {
     if (digits.length >= 5 && !searchBlocked) onSearchPlate(digits)
   }
-
-  const quotaPct = isUnlimited ? 100
-    : searchesQuota > 0 ? Math.max(4, Math.min(100, Math.round((searchesLeft / searchesQuota) * 100)))
-    : 0
 
   const tiles = [
     { id: 'history',  icon: '📄', label: 'הדוחות שלי',  sub: 'חיפושי עבר' },
@@ -115,12 +108,6 @@ export default function HomePage({ user, onNavigate, onSearchPlate }) {
               <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>המסלול שלך</div>
               <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-main)', overflowWrap: 'anywhere' }}>{plan.name}</div>
             </div>
-            <div style={{ textAlign: 'center', flexShrink: 0 }}>
-              <div style={{ fontSize: 22, fontWeight: 900, lineHeight: 1, color: searchesLeft === 0 ? 'var(--danger)' : 'var(--text-main)' }}>
-                {isUnlimited ? '∞' : searchesLeft ?? 0}
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>חיפושים</div>
-            </div>
           </div>
 
           {plan.expires ? (
@@ -132,18 +119,13 @@ export default function HomePage({ user, onNavigate, onSearchPlate }) {
               <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>{formatPlanExpiry(plan.expires)}</span>
               {' · '}{daysLeftLabel(plan.daysLeft)}
             </div>
-          ) : plan.isFree || plan.kind === 'searches' ? (
-            <div style={{ marginTop: 10 }}>
-              <div style={{ fontSize: 13, color: 'var(--text-main)', marginBottom: 6 }}>
-                {isUnlimited ? 'חיפושים ללא הגבלה' : `נותרו ${searchesLeft ?? 0} חיפושים`}
-              </div>
-              <div aria-hidden="true" style={{ height: 8, borderRadius: 99, background: 'rgba(0, 100, 200, 0.1)', overflow: 'hidden' }}>
-                <div style={{ width: `${quotaPct}%`, height: '100%', borderRadius: 99, background: 'linear-gradient(90deg, #0066d6, #00c6ff)' }} />
-              </div>
+          ) : plan.isFree || plan.kind === 'member' ? (
+            <div style={{ marginTop: 10, fontSize: 13, color: 'var(--text-main)' }}>
+              חיפוש רכב פתוח לכולם · פיצ׳רי הפרימיום למנויים
             </div>
           ) : (
             <div style={{ marginTop: 10, fontSize: 13, color: 'var(--text-main)' }}>
-              {plan.kind === 'admin' ? 'גישה מלאה לכל התכונות' : 'חיפושים ללא הגבלה, ללא תאריך סיום'}
+              {plan.kind === 'admin' ? 'גישה מלאה לכל התכונות' : 'כל פיצ׳רי הפרימיום, ללא תאריך סיום'}
             </div>
           )}
 
@@ -153,7 +135,7 @@ export default function HomePage({ user, onNavigate, onSearchPlate }) {
               className={plan.isFree || plan.expiringSoon ? 'btn' : 'btn btn-outline'}
               style={{ marginTop: 12, padding: 12, minHeight: 44 }}
             >
-              {plan.isFree ? 'שדרגו ל-Premium' : plan.kind === 'searches' ? 'הוספת חיפושים' : 'להארכה'}
+              {plan.isFree ? 'שדרגו ל-Premium' : 'להארכה'}
             </button>
           )}
 
