@@ -162,10 +162,6 @@ export default function LeviCard({ plate, user, onNavigate }) {
 
       {phase === 'result' && s && (
         <>
-          <Row label="דגם" value={[s.manufacturer, s.model].filter(Boolean).join(' ')} />
-          <Row label="גרסה" value={s.trim} />
-          <Row label="שנה" value={s.year} />
-          <Row label="רמת גימור" value={s.trim_level} />
           <Row label="מחיר מחירון (בסיס)" value={s.price ? <span dir="ltr">{shekel(s.price)}</span> : 'לא נמצא מחיר'} strong />
           {data.comparison_text ? <Row label="מחירון מול יד2" value={data.comparison_text} /> : null}
           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>מחיר בסיס, לפני התאמה לק״מ, ידיים וסוג בעלות. הערכה בלבד.</div>
