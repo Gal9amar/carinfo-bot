@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import PremiumLock from './PremiumLock.jsx'
+import PremiumHeader from './PremiumHeader.jsx'
 import {
   fetchVehicleLevi, fetchLeviOwners, calcVehicleLevi,
   adminLeviSendSms as leviSendSms, adminLeviValidate as leviValidate, adminLeviLogout as leviLogout,
@@ -18,18 +19,6 @@ const BTN = (primary = true, busy = false) => ({
   opacity: busy ? 0.6 : 1, border: primary ? 'none' : '1px solid var(--border)',
   background: primary ? 'var(--btn)' : 'var(--bg)', color: primary ? 'var(--btn-text)' : 'var(--text-main)',
 })
-
-function Header({ publicLabel }) {
-  return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <div style={{ fontWeight: 700, fontSize: 15 }}>📗 מחירון לוי יצחק</div>
-        <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, background: '#15803d', color: '#fff', borderRadius: 20, padding: '4px 10px' }}>למנויים בלבד</span>
-      </div>
-      {publicLabel ? <div style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--text-muted)', marginTop: 6 }}>{publicLabel}</div> : null}
-    </div>
-  )
-}
 
 function Row({ label, value, strong }) {
   if (value === null || value === undefined || value === '') return null
@@ -112,7 +101,7 @@ export default function LeviCard({ plate, user, onNavigate }) {
     return (
       <PremiumLock locked title="מחירון לוי יצחק" publicLabel={user?.levi_public_label} onNavigate={onNavigate}>
         <div className="card" style={{ margin: 0 }}>
-          <Header />
+          <PremiumHeader title="📗 מחירון לוי יצחק" />
           <Row label="מחיר מחירון (בסיס)" value="₪63,000" />
           <Row label="מחירון מול יד2" value="נמוך ב־8% מחציון המודעות" />
         </div>
@@ -124,7 +113,7 @@ export default function LeviCard({ plate, user, onNavigate }) {
 
   return (
     <div className="card" style={{ marginBottom: 12 }} role="group" aria-label="מחירון לוי יצחק">
-      <Header publicLabel={user?.levi_public_label} />
+      <PremiumHeader title="📗 מחירון לוי יצחק" publicLabel={user?.levi_public_label} />
 
       {phase === 'loading' && <div style={{ display: 'flex', justifyContent: 'center', padding: 12 }}><div className="loading"></div></div>}
 

@@ -1,22 +1,11 @@
 import { useState, useEffect } from 'react'
 import PremiumLock from './PremiumLock.jsx'
+import PremiumHeader from './PremiumHeader.jsx'
 import { fetchVehicleInsurance } from '../api.js'
 
 const ROW = {
   display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
   padding: '6px 0', borderBottom: '1px solid rgba(0,100,200,0.1)', fontSize: 14, gap: 8,
-}
-
-function Header({ publicLabel }) {
-  return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <div style={{ fontWeight: 700, fontSize: 15 }}>🛡 חברת ביטוח רשומה</div>
-        <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, background: '#1d4ed8', color: '#fff', borderRadius: 20, padding: '4px 10px' }}>למנויים בלבד</span>
-      </div>
-      {publicLabel ? <div style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--text-muted)', marginTop: 6 }}>{publicLabel}</div> : null}
-    </div>
-  )
 }
 
 export default function InsuranceCard({ plate, user, onNavigate }) {
@@ -38,7 +27,7 @@ export default function InsuranceCard({ plate, user, onNavigate }) {
     return (
       <PremiumLock locked title="חברת ביטוח רשומה" publicLabel={user?.insurance_public_label} onNavigate={onNavigate}>
         <div className="card" style={{ margin: 0 }}>
-          <Header />
+          <PremiumHeader title="🛡 חברת ביטוח רשומה" />
           <div style={ROW}><span style={{ color: 'var(--hint)' }}>ביטוח צד ג׳ / מקיף</span><span style={{ fontWeight: 700 }}>ליברה</span></div>
         </div>
       </PremiumLock>
@@ -49,7 +38,7 @@ export default function InsuranceCard({ plate, user, onNavigate }) {
 
   return (
     <div className="card" style={{ marginBottom: 12 }} role="group" aria-label="חברת ביטוח רשומה">
-      <Header publicLabel={user?.insurance_public_label} />
+      <PremiumHeader title="🛡 חברת ביטוח רשומה" publicLabel={user?.insurance_public_label} />
 
       {state === 'loading' && <div style={{ display: 'flex', justifyContent: 'center', padding: 12 }}><div className="loading"></div></div>}
 

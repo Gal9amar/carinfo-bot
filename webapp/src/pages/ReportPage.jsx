@@ -9,6 +9,7 @@ import CompareCard from '../components/CompareCard.jsx'
 import LeviCard from '../components/LeviCard.jsx'
 import InsuranceCard from '../components/InsuranceCard.jsx'
 import PremiumLock from '../components/PremiumLock.jsx'
+import PremiumHeader from '../components/PremiumHeader.jsx'
 import { getMarketStats } from '../utils/marketPrice.js'
 import { fmtDate, testStatus } from '../utils/time.js'
 import { useReportLayout } from '../utils/reportLayout.js'
@@ -406,23 +407,6 @@ function Sec({ title, children }) {
 
 // Shared header of the premium cards: title on ONE line with the "subscribers only" badge beside it;
 // the optional public-mode explanation sits on its own line underneath (never squeezes the title).
-function PremiumHeader({ title, publicLabel }) {
-  return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <div style={{ fontWeight: 700, fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{title}</div>
-        <span style={{
-          flexShrink: 0, fontSize: 11, fontWeight: 700, background: '#0066d6', color: '#fff',
-          borderRadius: 20, padding: '4px 10px', whiteSpace: 'nowrap',
-        }}>למנויים בלבד</span>
-      </div>
-      {publicLabel && (
-        <div style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--text-muted)', marginTop: 6 }}>{publicLabel}</div>
-      )}
-    </div>
-  )
-}
-
 export default function ReportPage({ plate, onBack, user, onNavigate }) {
   const [activeTab, setActiveTab] = useState('summary')
   const layout = useReportLayout()
