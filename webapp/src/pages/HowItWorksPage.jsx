@@ -65,7 +65,7 @@ export default function HowItWorksPage({ onBack, freeSearches = 10, onPrivacy, o
       {/* Packages */}
       <Section title="⭐ רכישת מנוי">
         <Row icon="🔍" text="רכישת מנוי מקנה סל חיפושים לשימוש בקצב שלך — ללא הגבלת זמן לניצול היתרה" />
-        <Row icon="⭐" text="גישה לתכונות המיועדות למנויים בלבד — כגון מחיר שוק Yad2 ותכונות עתידיות" />
+        <Row icon="⭐" text="גישה לתכונות המיועדות למנויים בלבד — כגון מחיר שוק Yad2, מחירון לוי יצחק, בדיקת חברת הביטוח ותכונות עתידיות" />
         <Row icon="💳" text="תשלום חד-פעמי בלבד — אין חיוב חוזר, אין מנוי אוטומטי" />
         <Row icon="🔓" text="מסלול Premium תקף לתקופה שנרכשה (לפי מספר החודשים שבחרת); אפשר להאריך בכל עת" />
         <p style={{ fontSize: 13, color: 'var(--hint)', margin: '8px 0 0', lineHeight: 1.5 }}>

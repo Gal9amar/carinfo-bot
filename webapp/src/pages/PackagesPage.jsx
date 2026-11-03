@@ -15,6 +15,8 @@ const PLAN_FEATURES = [
   ['מחיר שוק Yad2', true],
   ['התראות על מודעות חדשות ב-Yad2', true],
   ['דוח PDF מפורט', true],
+  ['בדיקת מחירון לוי יצחק ושקלול מחיר', true],
+  ['בדיקת רישום בחברות הביטוח', true],
   ['גישה לכל פיצ׳רי הפרימיום העתידיים', true],
 ]
 const FREE_FEATURES = PLAN_FEATURES.map(([text, premiumOnly]) => ({ text, included: !premiumOnly }))

@@ -26,11 +26,13 @@ PLAN_FEATURES = [
     ("מחיר שוק Yad2", True),
     ("התראות על מודעות חדשות ב-Yad2", True),
     ("דוח PDF מפורט", True),
+    ("בדיקת מחירון לוי יצחק ושקלול מחיר", True),
+    ("בדיקת רישום בחברות הביטוח", True),
     ("גישה לכל פיצ׳רי הפרימיום העתידיים", True),
 ]
 _DEFAULT_FREE_FEATURES = [{"text": t, "included": not premium_only} for t, premium_only in PLAN_FEATURES]
 _DEFAULT_PREMIUM_FEATURES = [{"text": t, "included": True} for t, _ in PLAN_FEATURES]
-_PLAN_FEATURES_VERSION = "2"
+_PLAN_FEATURES_VERSION = "3"
 
 _cache: list[tuple] | None = None  # (id, label, searches, price, image_url, display_order, duration_months, features, chips, package_type, is_active)
 
