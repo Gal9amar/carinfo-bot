@@ -55,8 +55,9 @@ async def feature_open(user_id: int, prefix: str, *, quota: Optional[int] = None
 
 
 async def levi_open(user_id: int, *, quota: Optional[int] = None, subscriber: Optional[bool] = None) -> bool:
-    """Levi Yitzhak price check: admin always; everyone else only while `levi_enabled == "1"`
-    AND they are a subscriber (unlimited plan / מנויים / VIP). Free users with searches left do NOT get it."""
+    """Levi Yitzhak price check: admin always; everyone else only while `levi_enabled == "1"` AND they are
+    a subscriber (unlimited plan / מנויים / VIP) OR the "open to everyone" window (`levi_public` + dates) is on.
+    Free users with searches left do NOT get it by default (unlike feature_open)."""
     from src.db import get_bot_setting
     from src.users import get_user_by_id, is_subscriber
     if user_id == ADMIN_ID:
@@ -70,4 +71,11 @@ async def levi_open(user_id: int, *, quota: Optional[int] = None, subscriber: Op
         return True
     if subscriber is None:
         subscriber = await is_subscriber(user_id)
-    return bool(subscriber)
+    if subscriber:
+        return True
+    if (await get_bot_setting("levi_public")) == "1":
+        today = str(date.today())
+        ps = (await get_bot_setting("levi_public_start")) or ""
+        pe = (await get_bot_setting("levi_public_end")) or ""
+        return (not ps or today >= ps) and (not pe or today <= pe)
+    return False

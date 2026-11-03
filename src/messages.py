@@ -469,18 +469,59 @@ def result_quota_footer(left: int, expires: Optional[str]) -> str:
     return f"\n{i(result_quota_text(left, expires))}"
 
 
-def levi_card_line(price) -> str:
-    """One extra line on the result card: Levi Yitzhak base list price."""
-    return f"📗 {b('מחירון לוי יצחק')} (בסיס): {b(f'₪{int(price):,}')}"
+LEVI_ROW_LABEL = "📗 מחירון לוי יצחק"
 
 
-def result_card_rich(name: str, plate: str, summary_html: str, footer_text: str = "", extra_html: str = "") -> str:
+def levi_calc_ask_km(name: str) -> str:
+    return (
+        f"⚖️ {_n(name)}, נשקלל את המחיר לפי הרכב שלך.\n\n"
+        f"כמה קילומטרים הרכב עבר? שלח מספר (למשל {code('85000')})\n"
+        f"{i('לביטול: /cancel')}"
+    )
+
+
+def levi_calc_km_invalid() -> str:
+    return "🔢 שלח מספר קילומטרים תקין (0 עד 999,999), או /cancel לביטול."
+
+
+def levi_calc_ask_hands() -> str:
+    return f"🖐 כמה ידיים היו לרכב, {b('כולל הבעלים הנוכחי')}? בחר מספר (או שלח מספר)."
+
+
+def levi_calc_hands_invalid() -> str:
+    return "🔢 שלח מספר ידיים בין 1 ל־20, או /cancel לביטול."
+
+
+def levi_calc_ask_owner(idx: int, total: int) -> str:
+    cur = " (הבעלות הנוכחית)" if idx == total else ""
+    return f"👤 {b(f'יד {idx} מתוך {total}')}{esc(cur)}\nמה סוג הבעלות?"
+
+
+def levi_calc_result(s: dict, km: int, owner_names: list, price) -> str:
+    title = " ".join(str(p) for p in (s.get("manufacturer"), s.get("model"), s.get("year")) if p) or "רכב"
+    lines = [
+        f"⚖️ {b('שקלול מחיר — מחירון לוי יצחק')}",
+        f"🚗 {esc(title)} · {code(s.get('plate', ''))}",
+        f"🛣 קילומטראז': {b(f'{km:,}')}",
+        f"🖐 ידיים: {b(len(owner_names))} ({esc(', '.join(owner_names))})",
+        "",
+    ]
+    if price:
+        lines.append(f"💰 {b('מחיר מחירון מותאם:')} {b(f'₪{int(price):,}')}")
+        if s.get("price"):
+            lines.append(i(f"מחיר בסיס: ₪{int(s['price']):,}"))
+    else:
+        lines.append(f"💰 {i('לא התקבל מחיר מותאם מהמחירון')}")
+    lines += ["", i("הערכה לפי מחירון לוי יצחק, לא אישור רשמי")]
+    return "\n".join(lines)
+
+
+def result_card_rich(name: str, plate: str, summary_html: str, footer_text: str = "") -> str:
     """Result card for sendRichMessage (summary_html is already Rich HTML)."""
     footer = f"<p><i>{esc(footer_text)}</i></p>" if footer_text else ""
-    extra = f"<p>{extra_html}</p>" if extra_html else ""
     return (
         f"<p>🔖 {b(name)}, הנה מה שמצאתי על לוחית {code(plate)}:</p>"
-        f"{summary_html}{extra}{footer}"
+        f"{summary_html}{footer}"
     )
 
 

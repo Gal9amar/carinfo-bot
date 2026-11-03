@@ -4337,6 +4337,10 @@ function FeaturesTab() {
   const [watchPublicLabel, setWatchPublicLabel] = useState('')
   const [watchSaving, setWatchSaving]           = useState(false)
   const [leviEnabled, setLeviEnabled]           = useState(false)
+  const [leviPublic, setLeviPublic]             = useState(false)
+  const [leviPublicStart, setLeviPublicStart]   = useState('')
+  const [leviPublicEnd, setLeviPublicEnd]       = useState('')
+  const [leviPublicLabel, setLeviPublicLabel]   = useState('')
   const [leviSaving, setLeviSaving]             = useState(false)
 
   useEffect(() => {
@@ -4359,6 +4363,10 @@ function FeaturesTab() {
       setWatchPublicEnd(s.yad2_watch_public_end || '')
       setWatchPublicLabel(s.yad2_watch_public_label || '')
       setLeviEnabled(!!s.levi_enabled)
+      setLeviPublic(!!s.levi_public)
+      setLeviPublicStart(s.levi_public_start || '')
+      setLeviPublicEnd(s.levi_public_end || '')
+      setLeviPublicLabel(s.levi_public_label || '')
     }).catch(() => {})
   }, [])
 
@@ -4392,15 +4400,18 @@ function FeaturesTab() {
     setPdfSaving(false)
   }
 
-  async function toggleLevi() {
-    const next = !leviEnabled
-    setLeviEnabled(next); setLeviSaving(true)
+  async function saveLevi() {
+    setLeviSaving(true)
     try {
-      await adminUpdateSettings({ levi_enabled: next })
-    } catch {
-      setLeviEnabled(!next)
-      window.Telegram?.WebApp?.showAlert('שגיאה')
-    }
+      await adminUpdateSettings({
+        levi_enabled:      leviEnabled,
+        levi_public:       leviPublic,
+        levi_public_start: leviPublicStart,
+        levi_public_end:   leviPublicEnd,
+        levi_public_label: leviPublicLabel,
+      })
+      window.Telegram?.WebApp?.showAlert('✅ הגדרות עודכנו')
+    } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
     setLeviSaving(false)
   }
 
@@ -4655,16 +4666,72 @@ function FeaturesTab() {
 
         {/* Levi Yitzhak price list */}
         <div className="card" style={{ padding: '24px', borderTop: '4px solid #15803d' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 24, background: 'rgba(21, 128, 61, 0.1)', width: 44, height: 44, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>📗</span>
               <div>
                 <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-main)' }}>מחירון לוי יצחק</div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{leviEnabled ? 'פתוח למנויים (אחרי הזדהות בטלפון וקוד SMS). אדמין תמיד רואה.' : 'כבוי — רק אדמין רואה את הכפתור'}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>מחיר מחירון ושקלול מחיר, אחרי הזדהות בטלפון וקוד SMS. אדמין תמיד רואה.</div>
               </div>
             </div>
-            <button type="button" role="switch" aria-checked={!!leviEnabled} aria-label="מחירון לוי יצחק — פתוח למנויים" disabled={leviSaving} className={`toggle ${leviEnabled ? 'on' : ''}`} onClick={toggleLevi} />
+            <label className="toggle-row" style={{ margin: 0, padding: 0 }}>
+              <button type="button" role="switch" aria-checked={!!leviEnabled} aria-label="מחירון לוי יצחק — הפעלה" className={`toggle ${leviEnabled ? 'on' : ''}`} onClick={() => setLeviEnabled(v => !v)} style={{ margin: 0 }} />
+            </label>
           </div>
+
+          {leviEnabled && (
+            <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 16, animation: 'fadeIn 0.3s' }}>
+              <div style={{ background: 'var(--bg)', borderRadius: 16, padding: '20px', border: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: leviPublic ? 16 : 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 18 }}>🌐</span>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-main)' }}>פתוח לכולם (חינמי)</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>הפעלת הפיצ'ר גם למשתמשים ללא מנוי</div>
+                    </div>
+                  </div>
+                  <button type="button" role="switch" aria-checked={!!leviPublic} aria-label="מחירון לוי יצחק — פתוח גם ללא מנוי" className={`toggle ${leviPublic ? 'on' : ''}`} onClick={() => setLeviPublic(v => !v)} />
+                </div>
+
+                {leviPublic && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>טקסט תצוגה למשתמש</div>
+                      <input type="text" className="input" style={{ margin: 0, borderRadius: 10 }}
+                        placeholder='לדוגמה: פתוח לכולם עד 01/07/2026'
+                        value={leviPublicLabel} onChange={e => setLeviPublicLabel(e.target.value)} />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>תאריך התחלה</div>
+                        <input type="date" aria-label="תאריך התחלה" className="input" style={{ margin: 0, borderRadius: 10 }}
+                          value={leviPublicStart} onChange={e => setLeviPublicStart(e.target.value)} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>תאריך סיום</div>
+                        <input type="date" aria-label="תאריך סיום" className="input" style={{ margin: 0, borderRadius: 10 }}
+                          value={leviPublicEnd} onChange={e => setLeviPublicEnd(e.target.value)} />
+                      </div>
+                    </div>
+                    {(() => {
+                      const today = new Date().toISOString().slice(0, 10)
+                      const inWindow = (!leviPublicStart || today >= leviPublicStart) &&
+                                       (!leviPublicEnd   || today <= leviPublicEnd)
+                      return (
+                        <div style={{ fontSize: 12, fontWeight: 700, color: inWindow ? '#047857' : '#9a4a07', background: inWindow ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', padding: '8px 12px', borderRadius: 8, display: 'inline-block', marginTop: 4 }}>
+                          {inWindow ? '🟢 פעיל כעת לכולם' : '🟡 מחוץ לטווח התאריכים (מוסתר מחינמיים)'}
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <button className="btn" style={{ marginTop: 20, width: '100%', height: 44, borderRadius: 12, fontWeight: 700, background: 'var(--bg)', border: '1px solid var(--primary)', color: 'var(--primary)' }} disabled={leviSaving} onClick={saveLevi}>
+            {leviSaving ? '⏳ שומר...' : '💾 שמור הגדרות מחירון לוי יצחק'}
+          </button>
         </div>
       </div>
     </div>

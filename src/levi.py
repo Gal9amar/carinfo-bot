@@ -236,3 +236,116 @@ async def lookup_plate(user_id: int, plate: str) -> dict:
         msg = res.get("msg") if isinstance(res, dict) else None
         raise LeviError(str(msg or "הרכב לא נמצא במחירון לוי יצחק"))
     return {"summary": summarize_plate(res["data"], plate), "raw": res["data"]}
+
+
+# ── Price adjustment (שקלול מחיר): km + hands + ownership types ──────────────
+
+import math
+import time as _time
+
+_owner_cache: dict = {"at": 0.0, "items": None}
+
+
+async def _auth_post(user_id: int, path: str, body: dict) -> dict:
+    """POST with the user's Levi token. Raises LeviAuthError when it is missing/expired, LeviError otherwise."""
+    token = await get_token(user_id)
+    if not token:
+        raise LeviAuthError("צריך להתחבר ללוי יצחק")
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+            r = await client.post(f"{API_BASE}{path}", json=body,
+                                  headers={**_HEADERS, "Authorization": f"Bearer {token}"})
+    except httpx.HTTPError as e:
+        logger.warning("Levi %s network error: %s", path, e)
+        raise LeviError("אין חיבור לשרת של לוי יצחק כרגע, נסו שוב בעוד רגע")
+    if r.status_code in (401, 403):
+        await execute("UPDATE levi_sessions SET token=NULL WHERE user_id=?", [user_id])
+        raise LeviAuthError("פג תוקף ההתחברות ללוי יצחק")
+    try:
+        res = r.json()
+    except ValueError:
+        raise LeviError(f"תשובה לא תקינה מהשרת ({r.status_code})")
+    if not isinstance(res, dict) or res.get("status") != 1:
+        msg = res.get("msg") if isinstance(res, dict) else None
+        raise LeviError(str(msg or "השרת של לוי יצחק לא החזיר תשובה"))
+    return res
+
+
+async def owner_types(user_id: int) -> list[dict]:
+    """Ownership types ('פרטי', 'חברה', 'ליסינג'…) as [{"id", "name", "time"}]. Cached for an hour."""
+    if _owner_cache["items"] and _time.time() - _owner_cache["at"] < 3600:
+        return _owner_cache["items"]
+    res = await _auth_post(user_id, "/main/get-owners/", {"bikes": "false"})
+    data = res.get("data") or {}
+    try:
+        raw_items = data["ArrayOfBealimKodmim"]["BealimKodmim"]
+    except (KeyError, TypeError):
+        raw_items = []
+    items = []
+    for it in raw_items if isinstance(raw_items, list) else []:
+        if not isinstance(it, dict):
+            continue
+        oid = _first(it.get("lineID")) or _first(it.get("LineID")) or _first(it.get("Id"))
+        name = _first(it.get("Teur"))
+        if oid and name:
+            items.append({"id": str(oid), "name": str(name), "time": _first(it.get("MONUSED"))})
+    if items:
+        _owner_cache.update(at=_time.time(), items=items)
+    return items
+
+
+def calc_params(raw: dict) -> Optional[dict]:
+    """Model parameters the price call needs, from a plate-lookup `raw` ({search, car}). None if incomplete."""
+    search = (raw or {}).get("search") or {}
+    car = (raw or {}).get("car") or {}
+    sub = search.get("subModel")
+    kod_raw = _first(sub.get("id")) if isinstance(sub, dict) else None
+    kod_raw = kod_raw or _first(car.get("id"))
+    year_raw = _first(car.get("year")) or _first(car.get("singleYear"))
+    aliya = _first(car.get("aliyaDate")) or _first(search.get("aliya"))
+    try:
+        kod = int(str(kod_raw).strip())
+        year = int(str(year_raw).strip())
+    except (TypeError, ValueError):
+        return None
+    if not aliya:
+        return None
+    isau = _num(car.get("isau"))
+    return {"kod": kod, "year": year, "aliya": str(aliya), "isau": int(isau) if isau is not None else 1}
+
+
+def _aliya_ddmmyyyy(aliya: str, fallback_year: int) -> tuple[str, int]:
+    """'2019-03-01T12:00:00.000Z' / '2019-03' → ('01/03/2019', 2019). Same format the official app sends."""
+    m = re.match(r"^(\d{4})-(\d{2})(?:-(\d{2}))?", aliya or "")
+    if not m:
+        return f"01/01/{fallback_year}", fallback_year
+    y, mo, d = int(m.group(1)), m.group(2), m.group(3) or "01"
+    return f"{d}/{mo}/{y}", y
+
+
+async def calc_price(user_id: int, params: dict, km: int, owner_ids: list[str]) -> dict:
+    """Adjusted price for km + one ownership type per hand (current hand last).
+    Payload mirrors the official app's `get-price` call; returns {"price": int|None, "raw": data}."""
+    aliya_str, aliya_year = _aliya_ddmmyyyy(params["aliya"], params["year"])
+    body = {
+        "kod": params["kod"],
+        "year": str(aliya_year),
+        "isau": params["isau"],
+        "owners": len(owner_ids),
+        "km": str(int(km)),
+        "aliya": aliya_str,
+        "addons": "",
+        "newOld": 1,
+        "percent": "",
+        "ownersArr": ",".join(f"{oid}-2" for oid in owner_ids),
+        "propertyId": "",
+        "props": [],
+        "truckWeight": "0",
+        "siyurTiyur": 0,
+        "refinement": [],
+    }
+    res = await _auth_post(user_id, "/main/get-price/", body)
+    data = res.get("data") or {}
+    lcp = data.get("LeviCarPrice") if isinstance(data, dict) else None
+    price = _num(lcp.get("Price")) if isinstance(lcp, dict) else None
+    return {"price": int(math.floor(price)) if price else None, "raw": data}

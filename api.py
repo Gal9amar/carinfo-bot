@@ -30,7 +30,7 @@ WEBAPP_URL   = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_U
 # Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
 # webapp can detect a new release and force-reload instead of running stale
 # cached JS. Falls back to process start time for non-Render environments.
-APP_VERSION = "1793743296"
+APP_VERSION = "1793743690"
 
 api = FastAPI()
 
@@ -373,6 +373,7 @@ async def get_user_info(user: dict = Depends(_get_user)):
 
     pdf_public_label   = await _public_label("pdf_report")
     watch_public_label = await _public_label("yad2_watch")
+    levi_public_label  = await _public_label("levi")
 
     # Find matching package label by searches count
     subscription_label = None
@@ -428,6 +429,7 @@ async def get_user_info(user: dict = Depends(_get_user)):
         "show_levi": show_levi,
         "pdf_public_label": pdf_public_label,
         "watch_public_label": watch_public_label,
+        "levi_public_label": levi_public_label,
         "watch_max": watch_max,
         "is_subscriber": is_subscriber,
         "subscription_label": subscription_label,
@@ -1112,6 +1114,10 @@ async def admin_get_settings(_: dict = Depends(_require_admin)):
         "pdf_report_public_end":     (await get_bot_setting("pdf_report_public_end"))   or "",
         "pdf_report_public_label":   (await get_bot_setting("pdf_report_public_label")) or "",
         "levi_enabled":              (await get_bot_setting("levi_enabled")) == "1",
+        "levi_public":               (await get_bot_setting("levi_public")) == "1",
+        "levi_public_start":         (await get_bot_setting("levi_public_start")) or "",
+        "levi_public_end":           (await get_bot_setting("levi_public_end"))   or "",
+        "levi_public_label":         (await get_bot_setting("levi_public_label")) or "",
     }
 
 
@@ -1155,6 +1161,10 @@ class SettingsUpdate(BaseModel):
     pdf_report_public_end:     str          | None = None
     pdf_report_public_label:   str          | None = None
     levi_enabled:              bool         | None = None
+    levi_public:               bool         | None = None
+    levi_public_start:         str          | None = None
+    levi_public_end:           str          | None = None
+    levi_public_label:         str          | None = None
 
 
 @api.post("/api/admin/settings")
@@ -1286,6 +1296,14 @@ async def admin_update_settings(body: SettingsUpdate, _: dict = Depends(_require
         await set_bot_setting("pdf_report_public_label", body.pdf_report_public_label.strip())
     if body.levi_enabled is not None:
         await set_bot_setting("levi_enabled", "1" if body.levi_enabled else "0")
+    if body.levi_public is not None:
+        await set_bot_setting("levi_public", "1" if body.levi_public else "0")
+    if body.levi_public_start is not None:
+        await set_bot_setting("levi_public_start", body.levi_public_start.strip())
+    if body.levi_public_end is not None:
+        await set_bot_setting("levi_public_end", body.levi_public_end.strip())
+    if body.levi_public_label is not None:
+        await set_bot_setting("levi_public_label", body.levi_public_label.strip())
     return {"ok": True}
 
 

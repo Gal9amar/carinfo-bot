@@ -111,6 +111,7 @@ def _log_text(html_text: str) -> str:
 
 WAITING_CODE = 1
 LEVI_PHONE, LEVI_CODE, LEVI_PLATE = 11, 12, 13
+LEVI_CALC_KM, LEVI_CALC_HANDS, LEVI_CALC_OWNER = 21, 22, 23
 LEVI_LOGIN_TIMEOUT = 600  # seconds of silence before the Levi check session closes
 
 def _persistent_rows(is_admin: bool = False) -> list:
@@ -176,6 +177,7 @@ def build_result_keyboard(
     record: dict | None = None,
     yad2_link: str = "",
     features: frozenset = frozenset({"yad2_watch"}),
+    levi_state: str | None = None,
 ) -> InlineKeyboardMarkup:
     """`features`: premium features this user is entitled to (src.features) — locked buttons are hidden
     exactly where the Mini App shows its locked state, so both surfaces agree."""
@@ -198,8 +200,15 @@ def build_result_keyboard(
             row3.append(InlineKeyboardButton("👀 מעקב מודעות", web_app=WebAppInfo(url=f"{webapp_url}/?page=watches")))
         row3.append(InlineKeyboardButton("📤 שתף", callback_data="share_report"))
         rows.append(row3)
-        if "levi" in features:
-            rows.append([InlineKeyboardButton("📗 מחירון לוי יצחק", callback_data=f"levi|plate|{plate}")])
+        state = levi_state or ("plate" if "levi" in features else None)
+        levi_btn = {
+            "login": ("🔑 התחבר ללוי יצחק", f"levi|plate|{plate}"),
+            "calc": ("⚖️ שקלול מחיר", f"levi|calc|{plate}"),
+            "retry": ("🔄 מחירון לוי יצחק", f"levi|plate|{plate}"),
+            "plate": ("📗 מחירון לוי יצחק", f"levi|plate|{plate}"),
+        }.get(state)
+        if levi_btn:
+            rows.append([InlineKeyboardButton(levi_btn[0], callback_data=levi_btn[1])])
     rows.extend(_persistent_rows(is_admin))
     return InlineKeyboardMarkup(rows)
 
@@ -613,6 +622,155 @@ async def cb_levi_no(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await query.message.edit_text("בסדר, לא עכשיו 👌")
     except Exception:
         pass
+
+
+# ── Levi Yitzhak price adjustment (שקלול מחיר): km → hands → ownership type per hand ──
+
+async def cb_levi_calc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Result-card button for a verified user: collect km / hands / ownership types, then compute."""
+    from src.features import levi_open
+    query = update.callback_query
+    user = query.from_user
+    await query.answer()
+    if not await levi_open(user.id):
+        await query.message.reply_text(M.levi_locked(_first_name(user)), parse_mode=HTML)
+        return ConversationHandler.END
+    plate = query.data.split("|")[2]
+    await context.bot.send_chat_action(query.message.chat_id, "typing")
+    try:
+        res = await _levi.lookup_plate(user.id, plate)
+        params = _levi.calc_params(res["raw"])
+        owners = await _levi.owner_types(user.id)
+    except _levi.LeviAuthError:
+        await query.message.reply_text(
+            M.levi_error("פג תוקף ההתחברות ללוי יצחק, צריך להזדהות מחדש") + "\n\n" + M.levi_intro(_first_name(user)),
+            parse_mode=HTML, reply_markup=_levi_intro_keyboard(plate),
+        )
+        return ConversationHandler.END
+    except _levi.LeviError as e:
+        await query.message.reply_text(M.levi_error(str(e)), parse_mode=HTML)
+        return ConversationHandler.END
+    if not params or not owners:
+        await query.message.reply_text(M.levi_error("לא ניתן לשקלל מחיר לרכב הזה (חסרים נתוני דגם מהשרת)"), parse_mode=HTML)
+        return ConversationHandler.END
+    context.user_data["levi_calc"] = {
+        "plate": plate, "summary": res["summary"], "params": params, "owners": owners,
+        "km": None, "hands": 0, "picked": [],
+    }
+    await query.message.reply_text(M.levi_calc_ask_km(_first_name(user)), parse_mode=HTML)
+    return LEVI_CALC_KM
+
+
+async def levi_calc_km(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    calc = context.user_data.get("levi_calc")
+    if not calc:
+        return ConversationHandler.END
+    digits = re.sub(r"[,\s]", "", update.message.text or "")
+    if not digits.isdigit() or int(digits) > 999_999:
+        await update.message.reply_text(M.levi_calc_km_invalid(), parse_mode=HTML)
+        return LEVI_CALC_KM
+    calc["km"] = int(digits)
+    rows = [[InlineKeyboardButton(str(n), callback_data=f"levi|h|{n}") for n in range(1, 5)],
+            [InlineKeyboardButton(str(n), callback_data=f"levi|h|{n}") for n in range(5, 9)]]
+    await update.message.reply_text(M.levi_calc_ask_hands(), parse_mode=HTML, reply_markup=InlineKeyboardMarkup(rows))
+    return LEVI_CALC_HANDS
+
+
+async def _levi_calc_ask_owner(message, calc: dict) -> None:
+    n = calc["hands"]
+    i = len(calc["picked"]) + 1
+    rows = [[InlineKeyboardButton(o["name"], callback_data=f"levi|o|{idx}")] for idx, o in enumerate(calc["owners"])]
+    await message.reply_text(M.levi_calc_ask_owner(i, n), parse_mode=HTML, reply_markup=InlineKeyboardMarkup(rows))
+
+
+async def _levi_calc_set_hands(message, calc: dict, hands: int) -> int:
+    calc["hands"] = hands
+    calc["picked"] = []
+    await _levi_calc_ask_owner(message, calc)
+    return LEVI_CALC_OWNER
+
+
+async def levi_calc_hands(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    calc = context.user_data.get("levi_calc")
+    if not calc:
+        return ConversationHandler.END
+    try:
+        await query.message.edit_reply_markup(None)
+    except Exception:
+        pass
+    return await _levi_calc_set_hands(query.message, calc, int(query.data.split("|")[2]))
+
+
+async def levi_calc_hands_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    calc = context.user_data.get("levi_calc")
+    if not calc:
+        return ConversationHandler.END
+    txt = (update.message.text or "").strip()
+    if not txt.isdigit() or not 1 <= int(txt) <= 20:
+        await update.message.reply_text(M.levi_calc_hands_invalid(), parse_mode=HTML)
+        return LEVI_CALC_HANDS
+    return await _levi_calc_set_hands(update.message, calc, int(txt))
+
+
+async def levi_calc_owner(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    user = query.from_user
+    await query.answer()
+    calc = context.user_data.get("levi_calc")
+    if not calc:
+        return ConversationHandler.END
+    idx = int(query.data.split("|")[2])
+    if not 0 <= idx < len(calc["owners"]):
+        return LEVI_CALC_OWNER
+    try:
+        await query.message.edit_reply_markup(None)
+    except Exception:
+        pass
+    calc["picked"].append(idx)
+    if len(calc["picked"]) < calc["hands"]:
+        await _levi_calc_ask_owner(query.message, calc)
+        return LEVI_CALC_OWNER
+
+    # all hands collected → compute
+    await context.bot.send_chat_action(query.message.chat_id, "typing")
+    ids = [calc["owners"][i]["id"] for i in calc["picked"]]
+    names = [calc["owners"][i]["name"] for i in calc["picked"]]
+    try:
+        out = await _levi.calc_price(user.id, calc["params"], calc["km"], ids)
+    except _levi.LeviAuthError:
+        context.user_data.pop("levi_calc", None)
+        await query.message.reply_text(
+            M.levi_error("פג תוקף ההתחברות ללוי יצחק, צריך להזדהות מחדש") + "\n\n" + M.levi_intro(_first_name(user)),
+            parse_mode=HTML, reply_markup=_levi_intro_keyboard(calc["plate"]),
+        )
+        return ConversationHandler.END
+    except _levi.LeviError as e:
+        context.user_data.pop("levi_calc", None)
+        await query.message.reply_text(M.levi_error(str(e)), parse_mode=HTML)
+        return ConversationHandler.END
+    context.user_data.pop("levi_calc", None)
+    is_admin = user.id == ADMIN_ID
+    rows = [[InlineKeyboardButton("🔁 שקלול מחדש", callback_data=f"levi|calc|{calc['plate']}")]]
+    if is_admin:
+        context.user_data["levi_raw"] = out["raw"]
+        rows.append([InlineKeyboardButton("📄 תשובה גולמית (JSON)", callback_data="levi|raw")])
+    await query.message.reply_text(
+        M.levi_calc_result(calc["summary"], calc["km"], names, out["price"]),
+        parse_mode=HTML, reply_markup=InlineKeyboardMarkup(rows),
+    )
+    return ConversationHandler.END
+
+
+async def levi_calc_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    context.user_data.pop("levi_calc", None)
+    await update.effective_message.reply_text("בסדר, ביטלתי את שקלול המחיר 👌")
+    return ConversationHandler.END
+
+
+async def levi_calc_timeout(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    context.user_data.pop("levi_calc", None)
 
 
 async def cb_levi_login(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -2379,8 +2537,26 @@ async def _lookup_flow(message, tg_user, chat_id: int, context: ContextTypes.DEF
         except Exception:
             pass
 
+    # Levi Yitzhak row (entitled users only): price when verified, otherwise "יש להתחבר" + a login button.
+    open_features = await _result_features(user_id)
+    levi_rows, levi_state = [], None
+    if "levi" in open_features:
+        if await _levi.is_logged_in(user_id):
+            try:
+                levi_res = await asyncio.wait_for(_levi.lookup_plate(user_id, plate), timeout=6)
+                levi_price = levi_res["summary"].get("price")
+                levi_rows = [(M.LEVI_ROW_LABEL, f"₪{int(levi_price):,} (בסיס)" if levi_price else "לא נמצא מחיר")]
+                levi_state = "calc"
+            except _levi.LeviAuthError:
+                levi_rows, levi_state = [(M.LEVI_ROW_LABEL, "יש להתחבר")], "login"
+            except Exception as exc:
+                logger.info("Levi inline price skipped for %s: %s", plate, exc)
+                levi_rows, levi_state = [(M.LEVI_ROW_LABEL, "לא זמין כרגע")], "retry"
+        else:
+            levi_rows, levi_state = [(M.LEVI_ROW_LABEL, "יש להתחבר")], "login"
+
     try:
-        card = M.result_intro(name, plate) + quick_summary(record)
+        card = M.result_intro(name, plate) + quick_summary(record, extra_rows=levi_rows)
         context.user_data["last_share_text"] = get_share_text(record)
     except Exception as exc:
         logger.error("quick_summary failed for plate %s: %s", plate, exc)
@@ -2394,22 +2570,6 @@ async def _lookup_flow(message, tg_user, chat_id: int, context: ContextTypes.DEF
             reply_markup=_persistent_keyboard(is_admin),
         )
         return
-
-    # Entitled + already verified with Levi Yitzhak: show the list price right on the card.
-    # Anything slow or failing just falls back to the "📗 מחירון לוי יצחק" button.
-    open_features = await _result_features(user_id)
-    levi_html = ""
-    if "levi" in open_features and await _levi.is_logged_in(user_id):
-        try:
-            levi_res = await asyncio.wait_for(_levi.lookup_plate(user_id, plate), timeout=6)
-            levi_price = levi_res["summary"].get("price")
-            if levi_price:
-                levi_html = M.levi_card_line(levi_price)
-                open_features = open_features - {"levi"}
-        except Exception as exc:
-            logger.info("Levi inline price skipped for %s: %s", plate, exc)
-    if levi_html:
-        card += "\n" + levi_html
 
     footer_text = ""
     if not is_repeat:
@@ -2431,11 +2591,12 @@ async def _lookup_flow(message, tg_user, chat_id: int, context: ContextTypes.DEF
     yad2_link = _yad2.build_url(record)
     result_kb = build_result_keyboard(
         is_admin=(user_id == ADMIN_ID), record=record, yad2_link=yad2_link, features=open_features,
+        levi_state=levi_state,
     )
     # Table layout via sendRichMessage (admin setting rich_messages_enabled); any failure falls through to classic HTML.
     if await send_rich_message(
         chat_id,
-        M.result_card_rich(name, plate, quick_summary_rich(record), footer_text, extra_html=levi_html),
+        M.result_card_rich(name, plate, quick_summary_rich(record, extra_rows=levi_rows), footer_text),
         reply_markup=result_kb,
     ):
         return
@@ -2448,6 +2609,7 @@ async def _lookup_flow(message, tg_user, chat_id: int, context: ContextTypes.DEF
                 record=record,
                 yad2_link=yad2_link,
                 features=open_features,
+                levi_state=levi_state,
             ),
         )
     except Exception as exc:
@@ -2461,6 +2623,7 @@ async def _lookup_flow(message, tg_user, chat_id: int, context: ContextTypes.DEF
                     record=record,
                     yad2_link=yad2_link,
                     features=open_features,
+                    levi_state=levi_state,
                 ),
             )
         except Exception as exc2:
@@ -2992,6 +3155,21 @@ def main() -> None:
     ))
 
     app.add_handler(CommandHandler("levi_logout", cmd_levi_logout))
+    app.add_handler(ConversationHandler(
+        entry_points=[CallbackQueryHandler(cb_levi_calc, pattern=r"^levi\|calc\|\d+$")],
+        states={
+            LEVI_CALC_KM: [MessageHandler(filters.TEXT & ~filters.COMMAND, levi_calc_km)],
+            LEVI_CALC_HANDS: [
+                CallbackQueryHandler(levi_calc_hands, pattern=r"^levi\|h\|\d+$"),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, levi_calc_hands_text),
+            ],
+            LEVI_CALC_OWNER: [CallbackQueryHandler(levi_calc_owner, pattern=r"^levi\|o\|\d+$")],
+            ConversationHandler.TIMEOUT: [TypeHandler(Update, levi_calc_timeout)],
+        },
+        fallbacks=[CommandHandler("cancel", levi_calc_cancel)],
+        conversation_timeout=LEVI_LOGIN_TIMEOUT,
+        per_message=False,
+    ))
     app.add_handler(CallbackQueryHandler(cb_levi_raw, pattern=r"^levi\|raw$"))
     app.add_handler(CallbackQueryHandler(cb_levi_plate, pattern=r"^levi\|plate\|\d+$"))
     app.add_handler(CallbackQueryHandler(cb_levi_no, pattern=r"^levi\|no$"))

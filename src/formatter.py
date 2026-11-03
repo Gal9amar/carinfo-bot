@@ -610,8 +610,9 @@ def _owners_text(owners) -> str:
     return "בעלים אחד" if owners == 1 else f"{owners} בעלים"
 
 
-def quick_summary(record: dict) -> str:
-    """Short summary block for the top of every result (HTML parse mode)."""
+def quick_summary(record: dict, extra_rows: list | None = None) -> str:
+    """Short summary block for the top of every result (HTML parse mode).
+    `extra_rows`: optional [(label, value)] shown after the test line (e.g. Levi Yitzhak price)."""
     f = _summary_fields(record)
     header = f"🚗 <b>{_escape(f['make_model'])}</b> {_escape(f['rest_of_title'])}"
     lines = [
@@ -623,6 +624,8 @@ def quick_summary(record: dict) -> str:
         f"🛣 {_escape(f['km'])}\n",
         f"📅 <b>{_escape('טסט')}:</b> {_escape(f['test'])}\n",
     ]
+    for label, value in extra_rows or []:
+        lines.append(f"<b>{_escape(label)}:</b> {_escape(value)}\n")
     if f["agra"]:
         lines.append(f"📋 <b>{_escape('אגרת רישוי')}:</b> {_escape(f['agra'])}\n")
         lines.append(f"<i>{_escape('הסכום המדויק מופיע ברשיון הרכב')}</i>\n")
@@ -639,7 +642,7 @@ def quick_summary(record: dict) -> str:
     return "".join(lines)
 
 
-def quick_summary_rich(record: dict) -> str:
+def quick_summary_rich(record: dict, extra_rows: list | None = None) -> str:
     """Same facts as quick_summary, as a table in Rich HTML (sendRichMessage)."""
     f = _summary_fields(record)
     rows = [
@@ -649,6 +652,7 @@ def quick_summary_rich(record: dict) -> str:
         ("🛣 קילומטראז'", f["km"]),
         ("📅 טסט", f["test"]),
     ]
+    rows.extend(extra_rows or [])
     if f["agra"]:
         rows.append(("📋 אגרת רישוי (משוער)", f["agra"]))
     if f["tag_nache"]:
