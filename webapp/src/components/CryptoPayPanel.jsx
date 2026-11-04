@@ -30,7 +30,7 @@ function verifyMessage(res, method) {
   }
 }
 
-function CopyRow({ label, value, strong }) {
+function CopyRow({ label, value, strong, display }) {
   const [copied, setCopied] = useState(false)
   function copy() {
     try { navigator.clipboard?.writeText(String(value)) } catch { /* ignore */ }
@@ -44,7 +44,7 @@ function CopyRow({ label, value, strong }) {
         <div dir="ltr" style={{
           fontFamily: 'monospace', fontWeight: strong ? 900 : 700, fontSize: strong ? 24 : 14,
           wordBreak: 'break-all', unicodeBidi: 'isolate', textAlign: 'right',
-        }}>{value}</div>
+        }}>{display ?? value}</div>
       </div>
       <button type="button" className="btn btn-outline" onClick={copy}
         style={{ width: 'auto', margin: 0, padding: '8px 14px', minHeight: 40 }}>
@@ -121,7 +121,7 @@ export default function CryptoPayPanel({ method, ensureOrder, onClose }) {
         <li>העתיקו את {isPayId ? 'ה-Order ID / Transaction ID מהקבלה ב-Binance' : 'ה-TX Hash של ההעברה מהארנק'}.</li>
         <li>הדביקו אותו כאן ולחצו "אמת תשלום" — האישור אוטומטי.</li>
       </ol>
-      <CopyRow label="סכום לשליחה (USDT)" value={Number(pay.amount_usd).toFixed(2)} strong />
+      <CopyRow label="סכום לשליחה (USDT)" value={Number(pay.amount_usd).toFixed(2)} display={`$${Number(pay.amount_usd).toFixed(2)}`} strong />
       {isPayId
         ? <CopyRow label="Binance Pay ID של היעד" value={pay.pay_id} />
         : <CopyRow label={`כתובת ארנק · רשת ${pay.network}`} value={pay.address} />}
