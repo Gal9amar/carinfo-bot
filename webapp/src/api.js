@@ -1018,6 +1018,13 @@ export async function startCryptoPayment(ref, method) {
   }
   return r.json()
 }
+export async function verifyCryptoPayment(ref, txId) {
+  const r = await fetch(`${BASE}/api/payment/crypto/verify`, {
+    method: 'POST', headers: headers(), body: JSON.stringify({ ref, tx_id: txId }),
+  })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
 export async function fetchCryptoStatus(ref) {
   const r = await fetch(`${BASE}/api/payment/crypto/${encodeURIComponent(ref)}`, { headers: headers(), cache: 'no-store' })
   if (!r.ok) throw new Error('Failed')

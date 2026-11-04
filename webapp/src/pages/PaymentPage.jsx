@@ -116,7 +116,7 @@ export default function PaymentPage({ pkg, onBack }) {
           {hasCrypto && (
             <>
               <div style={{ fontSize: 12, color: 'var(--hint)', paddingRight: 2, marginTop: 2 }}>
-                🪙 קריפטו · אישור אוטומטי תוך דקות
+                🪙 קריפטו · הדבקת מזהה עסקה ואישור אוטומטי
               </div>
               {cryptoOpts.binance_pay && <MethodButton m={{ name: cryptoOpts.binance_pay_name || 'Binance Pay', logo_url: cryptoOpts.binance_pay_logo }} disabled={false} onClick={() => setCryptoMethod('BINANCE_PAY')} />}
               {cryptoOpts.usdt_trc20 && <MethodButton m={{ name: cryptoOpts.usdt_trc20_name || 'USDT · כתובת ארנק (TRC20)', logo_url: cryptoOpts.usdt_trc20_logo }} disabled={false} onClick={() => setCryptoMethod('USDT_TRC20')} />}

@@ -30,7 +30,7 @@ WEBAPP_URL   = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_U
 # Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
 # webapp can detect a new release and force-reload instead of running stale
 # cached JS. Falls back to process start time for non-Render environments.
-APP_VERSION = "1794000004"
+APP_VERSION = "1794000005"
 
 api = FastAPI()
 
@@ -747,6 +747,19 @@ async def crypto_start(body: CryptoStartBody, user: dict = Depends(_get_user)):
         return await start_payment(uid, body.ref, body.method)
     except CryptoError as e:
         raise HTTPException(status_code=400, detail=e.code)
+
+
+class CryptoVerifyBody(BaseModel):
+    ref: str
+    tx_id: str
+
+
+@api.post("/api/payment/crypto/verify")
+async def crypto_verify(body: CryptoVerifyBody, user: dict = Depends(_get_user)):
+    """The buyer pasted the transaction id (Binance Pay order/transaction id, or the TRC20 tx hash): verify it and,
+    when valid, approve the order automatically. Always 200 with {ok, error?} so the UI can explain what is wrong."""
+    from src.crypto_pay import verify_payment
+    return await verify_payment(int(user["id"]), body.ref, body.tx_id)
 
 
 @api.get("/api/payment/crypto/{ref}")

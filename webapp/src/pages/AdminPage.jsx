@@ -5019,7 +5019,7 @@ function CryptoMethodsSection() {
           <span aria-hidden="true" style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(240, 185, 11, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>🪙</span>
           <div style={{ minWidth: 0 }}>
             <h2 style={{ margin: 0, fontWeight: 800, fontSize: 18 }}>קריפטו · זיהוי אוטומטי</h2>
-            <div style={{ fontSize: 13, opacity: 0.8, marginTop: 2 }}>הקונה מקבל סכום USDT ייחודי; כשההעברה מגיעה ההזמנה מאושרת אוטומטית.</div>
+            <div style={{ fontSize: 13, opacity: 0.8, marginTop: 2 }}>הקונה משלם ומדביק את מזהה העסקה (Binance Pay Order ID או TX Hash); האימות והאישור אוטומטיים.</div>
           </div>
         </div>
       </div>
@@ -5043,7 +5043,7 @@ function CryptoMethodsSection() {
                     <span style={{ fontSize: 12, fontWeight: 700, padding: '2px 10px', borderRadius: 12, background: live ? '#dcfce7' : '#fee2e2', color: live ? '#166534' : '#991b1b' }}>
                       {live ? '✓ פעיל' : m.flag ? '⚠️ לא מוגדר במלואו' : '⏸ מושבת'}
                     </span>
-                    <span style={{ fontSize: 12, fontWeight: 700, padding: '2px 10px', borderRadius: 12, background: 'var(--bg)', border: '1px solid var(--border)' }}>🤖 אישור אוטומטי</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, padding: '2px 10px', borderRadius: 12, background: 'var(--bg)', border: '1px solid var(--border)' }}>🤖 אימות אוטומטי לאחר הדבקה</span>
                   </div>
                 </div>
               </div>
@@ -5076,14 +5076,14 @@ function CryptoMethodsSection() {
             <input id="cr-fx" className="input" style={{ margin: 0, height: 44, borderRadius: 12 }} type="number" step="0.01" dir="ltr" value={gen.fx} onChange={e => setGen(g => ({ ...g, fx: e.target.value }))} />
           </div>
           <div style={{ flex: 1 }}>
-            <label htmlFor="cr-ex" style={{ fontSize: 12, fontWeight: 700 }}>תוקף בקשה (דקות)</label>
+            <label htmlFor="cr-ex" style={{ fontSize: 12, fontWeight: 700 }}>נעילת שער (דקות)</label>
             <input id="cr-ex" className="input" style={{ margin: 0, height: 44, borderRadius: 12 }} type="number" dir="ltr" value={gen.expiry} onChange={e => setGen(g => ({ ...g, expiry: e.target.value }))} />
           </div>
         </div>
         <button type="button" className="btn" disabled={busy === 'gen'} onClick={saveGeneral} style={{ marginTop: 12 }}>{busy === 'gen' ? '⏳...' : 'שמור'}</button>
         {genMsg && <div role={genMsg.ok ? 'status' : 'alert'} style={{ marginTop: 8, fontSize: 13, color: genMsg.ok ? '#177a33' : '#c53030' }}>{genMsg.text}</div>}
         <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-muted)' }}>
-          השער קובע כמה USDT הקונה ישלם על מחיר ב-₪. אפשר להוסיף TRONGRID_API_KEY בשרת להגברת מכסת הבקשות של סריקת הארנק.
+          השער קובע כמה USDT הקונה ישלם על מחיר ב-₪ (הסכום ננעל בפתיחת הבקשה, ואפשר לאמת עסקה עד 24 שעות אחריה). אפשר להוסיף TRONGRID_API_KEY בשרת להגברת מכסת הבקשות של סריקת הארנק.
         </div>
       </div>
 
