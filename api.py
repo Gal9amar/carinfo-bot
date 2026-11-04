@@ -30,7 +30,7 @@ WEBAPP_URL   = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_U
 # Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
 # webapp can detect a new release and force-reload instead of running stale
 # cached JS. Falls back to process start time for non-Render environments.
-APP_VERSION = "1793900002"
+APP_VERSION = "1794000003"
 
 api = FastAPI()
 
@@ -718,6 +718,53 @@ async def promote_payment(body: dict, user: dict = Depends(_get_user)):
     return {"ok": True}
 
 
+# ── Crypto payments (Binance Pay / USDT TRC20, detected automatically — see src/crypto_pay.py) ──────────
+@api.get("/api/payment/crypto/options")
+async def crypto_options(user: dict = Depends(_get_user)):
+    from src.crypto_pay import get_config
+    cfg = await get_config()
+    return {
+        "binance_pay": cfg["binance_pay"]["enabled"], "usdt_trc20": cfg["usdt_trc20"]["enabled"],
+        "fx_rate": cfg["fx_rate"], "expiry_minutes": cfg["expiry_minutes"],
+    }
+
+
+class CryptoStartBody(BaseModel):
+    ref: str
+    method: str   # BINANCE_PAY | USDT_TRC20
+
+
+@api.post("/api/payment/crypto/start")
+async def crypto_start(body: CryptoStartBody, user: dict = Depends(_get_user)):
+    from src.crypto_pay import start_payment, CryptoError
+    from src.users import is_blocked
+    uid = int(user["id"])
+    if await is_blocked(uid):
+        raise HTTPException(status_code=403, detail="blocked")
+    try:
+        return await start_payment(uid, body.ref, body.method)
+    except CryptoError as e:
+        raise HTTPException(status_code=400, detail=e.code)
+
+
+@api.get("/api/payment/crypto/{ref}")
+async def crypto_status(ref: str, user: dict = Depends(_get_user)):
+    from src.crypto_pay import get_payment_status
+    st = await get_payment_status(int(user["id"]), ref)
+    if st is None:
+        raise HTTPException(status_code=404, detail="not_found")
+    return st
+
+
+@api.get("/api/admin/crypto/payments")
+async def admin_crypto_payments(_: dict = Depends(_require_admin)):
+    from src.crypto_pay import list_recent, get_config
+    cfg = await get_config()
+    return {"payments": await list_recent(60), "config": {
+        "binance_api_configured": cfg["binance_api_configured"],
+        "binance_pay": cfg["binance_pay"]["enabled"], "usdt_trc20": cfg["usdt_trc20"]["enabled"]}}
+
+
 @api.get("/api/payment/cancel/{ref}")
 async def payment_cancel(ref: str):
     """Legacy return link. It must NOT change anything: it is unauthenticated and order refs are
@@ -1212,6 +1259,14 @@ async def admin_get_settings(_: dict = Depends(_require_admin)):
         "welcome_plan_id":     _u.WELCOME_PLAN_ID,
         "promo_plan_id":       _u.PROMO_PLAN_ID,
         "referral_plan_id":    int((await get_bot_setting("referral_plan_id")) or 0),
+        "crypto_enabled":          (await get_bot_setting("crypto_enabled")) == "1",
+        "crypto_binance_enabled":  (await get_bot_setting("crypto_binance_enabled")) == "1",
+        "crypto_binance_id":       (await get_bot_setting("crypto_binance_id")) or "",
+        "crypto_trc20_enabled":    (await get_bot_setting("crypto_trc20_enabled")) == "1",
+        "crypto_trc20_address":    (await get_bot_setting("crypto_trc20_address")) or "",
+        "crypto_fx_rate":          float((await get_bot_setting("crypto_fx_rate")) or 3.6),
+        "crypto_expiry_minutes":   int((await get_bot_setting("crypto_expiry_minutes")) or 30),
+        "crypto_binance_api_configured": bool(os.environ.get("BINANCE_API_KEY") and os.environ.get("BINANCE_API_SECRET")),
         "referral_bonus_premium_days": int((await get_bot_setting("referral_bonus_premium_days")) or "0"),
         "promo_searches":      _u.PROMO_SEARCHES,
         "promo_start":         _u.PROMO_START,
@@ -1266,6 +1321,13 @@ class SettingsUpdate(BaseModel):
     welcome_plan_id:     int          | None = None
     promo_plan_id:       int          | None = None
     referral_plan_id:    int          | None = None
+    crypto_enabled:         bool       | None = None
+    crypto_binance_enabled: bool       | None = None
+    crypto_binance_id:      str        | None = None
+    crypto_trc20_enabled:   bool       | None = None
+    crypto_trc20_address:   str        | None = None
+    crypto_fx_rate:         float      | None = None
+    crypto_expiry_minutes:  int        | None = None
     referral_bonus_premium_days: int  | None = None
     promo_searches:      int          | None = None
     promo_start:         str          | None = None
@@ -1337,6 +1399,24 @@ async def admin_update_settings(body: SettingsUpdate, _: dict = Depends(_require
     if body.promo_plan_id is not None:
         _u.PROMO_PLAN_ID = max(0, body.promo_plan_id)
         await set_bot_setting("promo_plan_id", str(_u.PROMO_PLAN_ID))
+    for _k in ("crypto_enabled", "crypto_binance_enabled", "crypto_trc20_enabled"):
+        _v = getattr(body, _k)
+        if _v is not None:
+            await set_bot_setting(_k, "1" if _v else "0")
+    if body.crypto_binance_id is not None:
+        await set_bot_setting("crypto_binance_id", body.crypto_binance_id.strip()[:40])
+    if body.crypto_trc20_address is not None:
+        from src.crypto_pay import valid_trc20_address
+        _addr = body.crypto_trc20_address.strip()
+        if _addr and not valid_trc20_address(_addr):
+            raise HTTPException(status_code=400, detail="invalid_trc20_address")
+        await set_bot_setting("crypto_trc20_address", _addr)
+    if body.crypto_fx_rate is not None:
+        if not (0.5 <= body.crypto_fx_rate <= 20):
+            raise HTTPException(status_code=400, detail="invalid_fx_rate")
+        await set_bot_setting("crypto_fx_rate", str(round(body.crypto_fx_rate, 4)))
+    if body.crypto_expiry_minutes is not None:
+        await set_bot_setting("crypto_expiry_minutes", str(max(5, min(240, body.crypto_expiry_minutes))))
     if body.referral_plan_id is not None:
         await set_bot_setting("referral_plan_id", str(max(0, body.referral_plan_id)))
     if body.referral_bonus_premium_days is not None:
@@ -2205,6 +2285,14 @@ async def admin_order_approve(ref: str, admin: dict = Depends(_require_admin)):
     endpoint always called admin_grant+add_to_subscribers regardless of
     package_type, which incorrectly granted search credits for 'alerts' and
     'product' orders approved from this endpoint."""
+    if not await _approve_order(ref, completed_label="admin_approved", note="אישור מנהל ידני"):
+        raise HTTPException(status_code=404, detail="Order not found")
+    return {"ok": True}
+
+
+async def _approve_order(ref: str, *, completed_label: str, note: str) -> bool:
+    """Grant the reward of an order (by its paypal_transactions row) and close it. Shared by the admin's manual
+    approval and the automatic crypto detection. False when the order doesn't exist."""
     from src.db import execute as _dbexec
     r = await _dbexec(
         "SELECT user_id, label, searches, COALESCE(duration_months,1), COALESCE(package_type,'searches'), product_id, "
@@ -2212,7 +2300,7 @@ async def admin_order_approve(ref: str, admin: dict = Depends(_require_admin)):
         [ref],
     )
     if not r.rows:
-        raise HTTPException(status_code=404, detail="Order not found")
+        return False
     user_id, label, searches, duration_months, package_type, product_id, product_quantity = (
         int(r.rows[0][0]), r.rows[0][1], r.rows[0][2], int(r.rows[0][3]), r.rows[0][4], r.rows[0][5], int(r.rows[0][6]),
     )
@@ -2221,14 +2309,14 @@ async def admin_order_approve(ref: str, admin: dict = Depends(_require_admin)):
         ref=ref, product_id=product_id, product_quantity=product_quantity,
     )
     await _dbexec("DELETE FROM pending_payments WHERE ref=?", [ref])
-    status_label = "admin_approved" if result_status == "completed" else result_status
+    status_label = completed_label if result_status == "completed" else result_status
     await _dbexec(
         "UPDATE paypal_transactions SET status=?, updated_at=datetime('now') WHERE ref=?",
         [status_label, ref],
     )
     await _order_notify(ref, status_label)
     # Product orders get their own delivery-specific message from
-    # _grant_payment/deliver_order — skip the generic "X searches added" DM.
+    # _grant_payment/deliver_order — skip the generic "plan added" DM.
     if result_status == "completed" and package_type != "product":
         try:
             from src.notifier import notify_user_payment_approved
@@ -2237,10 +2325,10 @@ async def admin_order_approve(ref: str, admin: dict = Depends(_require_admin)):
             pass
     try:
         from src.activity import log as _alog
-        await _alog("payment_approved", f"אישור מנהל ידני: {label} למשתמש {user_id}")
+        await _alog("payment_approved", f"{note}: {label} למשתמש {user_id}")
     except Exception:
         pass
-    return {"ok": True}
+    return True
 
 
 @api.post("/api/admin/orders/{ref}/cancel")

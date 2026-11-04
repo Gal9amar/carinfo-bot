@@ -3094,6 +3094,7 @@ def main() -> None:
         'admin_approved':   '✅ אושר ע״י מנהל',
         'admin_cancelled':  '🚫 בוטל ע״י מנהל',
         'pending_delivery': '📦 ממתין למשלוח ידני',
+        'crypto_auto':      '🪙 אושר אוטומטית (קריפטו)',
     }
 
     async def _notify_admin_order(ref, status, label, amount, username, member_id):
@@ -3109,6 +3110,17 @@ def main() -> None:
 
     from src.notifier import register_admin_order_notifier
     register_admin_order_notifier(_notify_admin_order)
+
+    async def _notify_admin_text(text: str):
+        if not ADMIN_ID:
+            return
+        try:
+            await app.bot.send_message(ADMIN_ID, text)
+        except Exception:
+            pass
+
+    from src.notifier import register_admin_text_notifier
+    register_admin_text_notifier(_notify_admin_text)
 
     async def _notify_admin_product_delivery(ref, user_id, label):
         if not ADMIN_ID:
@@ -3401,6 +3413,15 @@ def main() -> None:
 
         app.job_queue.run_repeating(_mirror_flush_job, interval=3, first=6, name="mirror_flush")
         app.job_queue.run_repeating(_scheduled_broadcast_job, interval=30, first=20, name="scheduled_broadcast")
+
+        async def _crypto_scan_job(context):
+            try:
+                from src.crypto_pay import scan_once
+                await scan_once()
+            except Exception:
+                logger.exception("crypto scan failed")
+
+        app.job_queue.run_repeating(_crypto_scan_job, interval=30, first=25, name="crypto_scan")
         app.job_queue.run_daily(
             _test_reminders_job,
             time=_dt.time(hour=7, minute=0, tzinfo=_dt.timezone.utc),   # 10:00 Israel (summer)

@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { monthsLabel } from '../utils/plan.js'
 import BackButton from '../components/BackButton.jsx'
-import { initiatePayment, initiateProductPayment, fetchPaymentMethods } from '../api.js'
+import { initiatePayment, initiateProductPayment, fetchPaymentMethods, fetchCryptoOptions } from '../api.js'
+import CryptoPayPanel from '../components/CryptoPayPanel.jsx'
 import paypalLogo     from '../assets/paypal-logo.webp'
 import visaLogo       from '../assets/visa.svg'
 import mastercardLogo from '../assets/mastercard.svg'
@@ -19,6 +20,9 @@ export default function PaymentPage({ pkg, onBack }) {
   const [preparing, setPreparing]   = useState(true)
   const [extraMethods, setExtraMethods] = useState([])
   const [hasPaypal, setHasPaypal]   = useState(false)
+  const [cryptoOpts, setCryptoOpts] = useState({ binance_pay: false, usdt_trc20: false })
+  const [cryptoMethod, setCryptoMethod] = useState(null)
+  const cryptoOrderRef = useRef(null)
 
   const qty        = pkg._qty ?? 1
   const totalPrice = pkg.price * qty
@@ -50,6 +54,19 @@ export default function PaymentPage({ pkg, onBack }) {
     }
     return orderRef.current
   }
+
+  useEffect(() => { fetchCryptoOptions().then(setCryptoOpts).catch(() => {}) }, [])
+
+  // A crypto payment gets its OWN order (intent only: the admin is told when it is detected, not when it is opened).
+  const ensureCryptoOrder = useCallback(() => {
+    if (!cryptoOrderRef.current) {
+      cryptoOrderRef.current = (pkg._isProduct ? initiateProductPayment(pkg.id, qty, true) : initiatePayment(pkg.id, qty, true))
+        .catch(err => { cryptoOrderRef.current = null; throw err })
+    }
+    return cryptoOrderRef.current
+  }, [pkg.id, pkg._isProduct, qty])
+
+  const hasCrypto = cryptoOpts.binance_pay || cryptoOpts.usdt_trc20
 
   async function pay(urlOf) {
     if (busy) return
@@ -84,7 +101,9 @@ export default function PaymentPage({ pkg, onBack }) {
         <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-1px', unicodeBidi: 'isolate', direction: 'ltr' }}>₪{totalPrice}</div>
       </div>
 
-      {preparing ? (
+      {cryptoMethod ? (
+        <CryptoPayPanel key={cryptoMethod} method={cryptoMethod} ensureOrder={ensureCryptoOrder} onClose={() => { cryptoOrderRef.current = null; setCryptoMethod(null) }} />
+      ) : preparing ? (
         <div role="status" style={{ textAlign: 'center', padding: 24, color: 'var(--hint)', fontSize: 14 }}>
           ⏳ מכין קישור תשלום...
         </div>
@@ -94,7 +113,16 @@ export default function PaymentPage({ pkg, onBack }) {
           <h2 className="section-label" style={{ margin: '14px 4px 2px' }}>
             בחר אמצעי תשלום · אישור ידני, המנהל יאשר תוך זמן קצר
           </h2>
-          {!hasPaypal && extraMethods.length === 0 && (
+          {hasCrypto && (
+            <>
+              <div style={{ fontSize: 12, color: 'var(--hint)', paddingRight: 2, marginTop: 2 }}>
+                🪙 קריפטו · אישור אוטומטי תוך דקות
+              </div>
+              {cryptoOpts.binance_pay && <button type="button" className="btn btn-outline" style={{ margin: 0 }} onClick={() => setCryptoMethod('BINANCE_PAY')}>Binance Pay (USDT)</button>}
+              {cryptoOpts.usdt_trc20 && <button type="button" className="btn btn-outline" style={{ margin: 0 }} onClick={() => setCryptoMethod('USDT_TRC20')}>USDT · כתובת ארנק (TRC20)</button>}
+            </>
+          )}
+          {!hasCrypto && !hasPaypal && extraMethods.length === 0 && (
             <div role="status" className="card" style={{ textAlign: 'center', fontSize: 14 }}>
               אין כרגע אמצעי תשלום זמינים. נסו שוב מאוחר יותר או פנו לתמיכה.
             </div>

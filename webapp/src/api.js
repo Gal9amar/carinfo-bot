@@ -1000,3 +1000,32 @@ export async function adminFetchPlans() {
   if (!r.ok) throw new Error('Failed')
   return r.json()
 }
+
+// ── Crypto payments (Binance Pay / USDT TRC20, detected automatically) ──
+export async function fetchCryptoOptions() {
+  const r = await fetch(`${BASE}/api/payment/crypto/options`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+export async function startCryptoPayment(ref, method) {
+  const r = await fetch(`${BASE}/api/payment/crypto/start`, {
+    method: 'POST', headers: headers(), body: JSON.stringify({ ref, method }),
+  })
+  if (!r.ok) {
+    let code = 'failed'
+    try { code = (await r.json()).detail || code } catch { /* keep default */ }
+    throw new Error(code)
+  }
+  return r.json()
+}
+export async function fetchCryptoStatus(ref) {
+  const r = await fetch(`${BASE}/api/payment/crypto/${encodeURIComponent(ref)}`, { headers: headers(), cache: 'no-store' })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+export function refreshUserCache() { _getCache.delete('user') }
+export async function adminFetchCryptoPayments() {
+  const r = await fetch(`${BASE}/api/admin/crypto/payments`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}

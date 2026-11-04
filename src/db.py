@@ -419,7 +419,8 @@ async def _init_modules() -> None:
     from src.products import init_products
     from src.banners import init_banners
     from src.levi import init_levi
-    await asyncio.gather(init_packages(), init_admin_grants(), init_products(), init_banners(), init_levi())
+    from src.crypto_pay import init_crypto
+    await asyncio.gather(init_packages(), init_admin_grants(), init_products(), init_banners(), init_levi(), init_crypto())
 
 
 async def get_vehicle_note(user_id: int, plate: str) -> str:

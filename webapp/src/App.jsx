@@ -92,6 +92,11 @@ function AppInner() {
     fetchPackages().then(setPackages).catch(() => {})
   }
 
+  // Deep links (e.g. ?page=profile) skip loadHome(): make sure the store never opens with an empty plan list.
+  useEffect(() => {
+    if (screen === 'packages' && packages.length === 0) fetchPackages().then(setPackages).catch(() => {})
+  }, [screen, packages.length])
+
   // After first paint, warm the chunks users most often open next.
   useEffect(() => {
     const warm = () => { loaders.report(); loaders.packages() }

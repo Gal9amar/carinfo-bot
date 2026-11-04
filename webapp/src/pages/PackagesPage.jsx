@@ -11,7 +11,6 @@ const PLAN_FEATURES = [
   ['היסטוריית חיפושים אישית', false],
   ['השוואת רכבים', false],
   ['תזכורת טסט וניהול ״רכבים שקניתי״', false],
-  ['חיפושים ללא הגבלה', true],
   ['מחיר שוק Yad2', true],
   ['התראות על מודעות חדשות ב-Yad2', true],
   ['דוח PDF מפורט', true],
@@ -371,7 +370,7 @@ export default function PackagesPage({ packages, user, highlightProductId, onSel
                     background: freeGrad, color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer',
                     boxShadow: '0 4px 14px rgba(20,60,120,0.2)',
                   }}
-                >🤝 קבל עוד חיפושים חינם</button>
+                >🤝 קבל ימי Premium בחינם</button>
               )}
             </div>
           </div>

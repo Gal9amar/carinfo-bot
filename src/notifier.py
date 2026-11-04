@@ -179,3 +179,17 @@ async def send_user_document(user_id: int, pdf_bytes: bytes, filename: str, capt
     if _send_user_document_fn is None:
         return False
     return await _send_user_document_fn(user_id, pdf_bytes, filename, caption)
+
+
+_notify_admin_text_fn: Optional[Callable[..., Awaitable[Any]]] = None
+
+
+def register_admin_text_notifier(fn: Callable[..., Awaitable[Any]]) -> None:
+    global _notify_admin_text_fn
+    _notify_admin_text_fn = fn
+
+
+async def notify_admin_text(text: str) -> None:
+    """Plain operational alert to the admin (no template)."""
+    if _notify_admin_text_fn:
+        await _notify_admin_text_fn(text)

@@ -8,7 +8,7 @@ import {
   adminUpdateSettings, adminFetchPackages,
   adminAddPackage, adminUpdatePackage, adminDeletePackage, adminReorderPackages,
   adminFetchGrants, adminAddGrant, adminUpdateGrant, adminDeleteGrant, adminReorderGrants,
-  adminGrantUser, adminFetchPlans,
+  adminGrantUser, adminFetchPlans, adminFetchCryptoPayments,
   adminRevokeSubscription,
   adminFetchTickets, adminFetchTicket, adminReplyTicket, adminUpdateTicketStatus,
   adminFetchPayments, adminApprovePayment, adminDeclinePayment,
@@ -845,7 +845,6 @@ const DEFAULT_PKG_FEATURES = [
   'היסטוריית חיפושים אישית',
   'השוואת רכבים',
   'תזכורת טסט וניהול ״רכבים שקניתי״',
-  'חיפושים ללא הגבלה',
   'מחיר שוק Yad2',
   'התראות על מודעות חדשות ב-Yad2',
   'דוח PDF מפורט',
@@ -4949,8 +4948,95 @@ function SettingsTab() {
           </div>
         </div>
 
+        <CryptoSettingsCard />
+
         <MaintenanceTools />
       </div>
+    </div>
+  )
+}
+
+// Crypto payments (Binance Pay / USDT TRC20 wallet) — detected automatically by a unique amount.
+function CryptoSettingsCard() {
+  const [s, setS] = useState(null)
+  const [f, setF] = useState(null)
+  const [payments, setPayments] = useState([])
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState(null)
+
+  function load() {
+    adminFetchSettings().then(x => {
+      setS(x)
+      setF({
+        enabled: !!x.crypto_enabled, binance: !!x.crypto_binance_enabled, binanceId: x.crypto_binance_id || '',
+        trc20: !!x.crypto_trc20_enabled, address: x.crypto_trc20_address || '',
+        fx: String(x.crypto_fx_rate ?? 3.6), expiry: String(x.crypto_expiry_minutes ?? 30),
+      })
+    }).catch(() => setMsg({ ok: false, text: 'טעינת ההגדרות נכשלה' }))
+    adminFetchCryptoPayments().then(r => setPayments(r.payments || [])).catch(() => {})
+  }
+  useEffect(load, [])
+
+  async function save() {
+    setSaving(true); setMsg(null)
+    try {
+      await adminUpdateSettings({
+        crypto_enabled: f.enabled, crypto_binance_enabled: f.binance, crypto_binance_id: f.binanceId,
+        crypto_trc20_enabled: f.trc20, crypto_trc20_address: f.address,
+        crypto_fx_rate: parseFloat(f.fx) || 0, crypto_expiry_minutes: parseInt(f.expiry) || 30,
+      })
+      setMsg({ ok: true, text: 'נשמר' })
+      load()
+    } catch { setMsg({ ok: false, text: 'השמירה נכשלה — בדקו שער (0.5–20) וכתובת TRC20 תקינה (34 תווים, מתחילה ב-T)' }) }
+    setSaving(false)
+  }
+
+  if (!f) return null
+  const set = (k, v) => setF(o => ({ ...o, [k]: v }))
+  const Row = ({ id, label, checked, onChange, hint }) => (
+    <label htmlFor={id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, margin: '10px 0', cursor: 'pointer' }}>
+      <input id={id} type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} style={{ width: 22, height: 22, flexShrink: 0, marginTop: 2 }} />
+      <span><b style={{ fontSize: 14 }}>{label}</b>{hint && <small style={{ display: 'block', color: 'var(--text-muted)' }}>{hint}</small>}</span>
+    </label>
+  )
+  const inp = { margin: 0, height: 44, borderRadius: 12, fontWeight: 600 }
+  return (
+    <div className="card" style={{ padding: '20px', borderLeft: '4px solid #f0b90b' }}>
+      <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>🪙 תשלום בקריפטו (זיהוי אוטומטי)</div>
+      <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 8 }}>
+        הקונה מקבל סכום USDT ייחודי (עם סנטים משלו). כשההעברה מגיעה בסכום המדויק, ההזמנה מאושרת אוטומטית.
+      </div>
+      <Row id="cr-on" label="הפעל תשלום בקריפטו" checked={f.enabled} onChange={v => set('enabled', v)} />
+      <Row id="cr-bn" label="Binance Pay" checked={f.binance} onChange={v => set('binance', v)}
+        hint={s.crypto_binance_api_configured ? '✓ מפתח Binance מוגדר בשרת' : '⚠️ חסרים BINANCE_API_KEY / BINANCE_API_SECRET במשתני הסביבה (מפתח קריאה בלבד) — בלעדיהם השיטה לא תוצג'} />
+      <input className="input" style={inp} dir="ltr" placeholder="Binance Pay ID שאליו הקונים ישלחו" aria-label="Binance Pay ID" value={f.binanceId} onChange={e => set('binanceId', e.target.value)} />
+      <Row id="cr-tr" label="USDT לכתובת ארנק (TRC20)" checked={f.trc20} onChange={v => set('trc20', v)} hint="נסרק דרך TronGrid. אפשר להוסיף TRONGRID_API_KEY להגברת מכסת הבקשות." />
+      <input className="input" style={inp} dir="ltr" placeholder="כתובת ארנק (T...)" aria-label="כתובת ארנק TRC20" value={f.address} onChange={e => set('address', e.target.value)} />
+      <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+        <div style={{ flex: 1 }}>
+          <label htmlFor="cr-fx" style={{ fontSize: 12, fontWeight: 700 }}>שער: ₪ לכל 1 USDT</label>
+          <input id="cr-fx" className="input" style={inp} type="number" step="0.01" dir="ltr" value={f.fx} onChange={e => set('fx', e.target.value)} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <label htmlFor="cr-ex" style={{ fontSize: 12, fontWeight: 700 }}>תוקף בקשה (דקות)</label>
+          <input id="cr-ex" className="input" style={inp} type="number" dir="ltr" value={f.expiry} onChange={e => set('expiry', e.target.value)} />
+        </div>
+      </div>
+      <button className="btn" disabled={saving} onClick={save} style={{ marginTop: 14 }}>{saving ? '⏳...' : 'שמור'}</button>
+      {msg && <div role={msg.ok ? 'status' : 'alert'} style={{ marginTop: 8, fontSize: 13, color: msg.ok ? '#177a33' : '#c53030' }}>{msg.text}</div>}
+
+      {payments.length > 0 && (
+        <div style={{ marginTop: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 6 }}>תשלומי קריפטו אחרונים</div>
+          {payments.slice(0, 8).map(p => (
+            <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12, padding: '6px 0', borderTop: '1px solid var(--border)' }}>
+              <span dir="ltr">{p.ref}</span>
+              <span>{p.method === 'BINANCE_PAY' ? 'Binance Pay' : 'TRC20'} · <span dir="ltr">{Number(p.amount_usd).toFixed(2)}$</span></span>
+              <b style={{ color: p.status === 'confirmed' ? '#177a33' : p.status === 'pending' ? '#0066d6' : 'var(--text-muted)' }}>{p.status}</b>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
