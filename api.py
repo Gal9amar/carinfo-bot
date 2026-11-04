@@ -30,7 +30,7 @@ WEBAPP_URL   = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_U
 # Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
 # webapp can detect a new release and force-reload instead of running stale
 # cached JS. Falls back to process start time for non-Render environments.
-APP_VERSION = "1794000003"
+APP_VERSION = "1794000004"
 
 api = FastAPI()
 
@@ -725,6 +725,8 @@ async def crypto_options(user: dict = Depends(_get_user)):
     cfg = await get_config()
     return {
         "binance_pay": cfg["binance_pay"]["enabled"], "usdt_trc20": cfg["usdt_trc20"]["enabled"],
+        "binance_pay_name": cfg["binance_pay"]["name"], "binance_pay_logo": cfg["binance_pay"]["logo"],
+        "usdt_trc20_name": cfg["usdt_trc20"]["name"], "usdt_trc20_logo": cfg["usdt_trc20"]["logo"],
         "fx_rate": cfg["fx_rate"], "expiry_minutes": cfg["expiry_minutes"],
     }
 
@@ -1259,9 +1261,12 @@ async def admin_get_settings(_: dict = Depends(_require_admin)):
         "welcome_plan_id":     _u.WELCOME_PLAN_ID,
         "promo_plan_id":       _u.PROMO_PLAN_ID,
         "referral_plan_id":    int((await get_bot_setting("referral_plan_id")) or 0),
-        "crypto_enabled":          (await get_bot_setting("crypto_enabled")) == "1",
         "crypto_binance_enabled":  (await get_bot_setting("crypto_binance_enabled")) == "1",
         "crypto_binance_id":       (await get_bot_setting("crypto_binance_id")) or "",
+        "crypto_binance_name":     (await get_bot_setting("crypto_binance_name")) or "",
+        "crypto_binance_logo":     (await get_bot_setting("crypto_binance_logo")) or "",
+        "crypto_trc20_name":       (await get_bot_setting("crypto_trc20_name")) or "",
+        "crypto_trc20_logo":       (await get_bot_setting("crypto_trc20_logo")) or "",
         "crypto_trc20_enabled":    (await get_bot_setting("crypto_trc20_enabled")) == "1",
         "crypto_trc20_address":    (await get_bot_setting("crypto_trc20_address")) or "",
         "crypto_fx_rate":          float((await get_bot_setting("crypto_fx_rate")) or 3.6),
@@ -1321,7 +1326,10 @@ class SettingsUpdate(BaseModel):
     welcome_plan_id:     int          | None = None
     promo_plan_id:       int          | None = None
     referral_plan_id:    int          | None = None
-    crypto_enabled:         bool       | None = None
+    crypto_binance_name:    str        | None = None
+    crypto_binance_logo:    str        | None = None
+    crypto_trc20_name:      str        | None = None
+    crypto_trc20_logo:      str        | None = None
     crypto_binance_enabled: bool       | None = None
     crypto_binance_id:      str        | None = None
     crypto_trc20_enabled:   bool       | None = None
@@ -1399,10 +1407,14 @@ async def admin_update_settings(body: SettingsUpdate, _: dict = Depends(_require
     if body.promo_plan_id is not None:
         _u.PROMO_PLAN_ID = max(0, body.promo_plan_id)
         await set_bot_setting("promo_plan_id", str(_u.PROMO_PLAN_ID))
-    for _k in ("crypto_enabled", "crypto_binance_enabled", "crypto_trc20_enabled"):
+    for _k in ("crypto_binance_enabled", "crypto_trc20_enabled"):
         _v = getattr(body, _k)
         if _v is not None:
             await set_bot_setting(_k, "1" if _v else "0")
+    for _k in ("crypto_binance_name", "crypto_binance_logo", "crypto_trc20_name", "crypto_trc20_logo"):
+        _v = getattr(body, _k)
+        if _v is not None:
+            await set_bot_setting(_k, _v.strip()[:300])
     if body.crypto_binance_id is not None:
         await set_bot_setting("crypto_binance_id", body.crypto_binance_id.strip()[:40])
     if body.crypto_trc20_address is not None:

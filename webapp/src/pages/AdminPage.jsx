@@ -3990,6 +3990,8 @@ function PaymentMethodsTab() {
         })}
       </div>
 
+      <CryptoMethodsSection />
+
       {(showAdd || editingMethod) && (
         <PaymentMethodModal
           method={editingMethod}
@@ -4948,86 +4950,146 @@ function SettingsTab() {
           </div>
         </div>
 
-        <CryptoSettingsCard />
-
         <MaintenanceTools />
       </div>
     </div>
   )
 }
 
-// Crypto payments (Binance Pay / USDT TRC20 wallet) — detected automatically by a unique amount.
-function CryptoSettingsCard() {
+// Crypto payment methods (Binance Pay / USDT TRC20 wallet) — detected automatically by a unique amount.
+// Same controls as the other payment methods: show/hide switch and edit.
+function CryptoMethodsSection() {
   const [s, setS] = useState(null)
-  const [f, setF] = useState(null)
   const [payments, setPayments] = useState([])
-  const [saving, setSaving] = useState(false)
-  const [msg, setMsg] = useState(null)
+  const [editing, setEditing] = useState(null)   // 'binance' | 'trc20' | null
+  const [busy, setBusy] = useState(null)
+  const [error, setError] = useState('')
+  const [gen, setGen] = useState({ fx: '3.6', expiry: '30' })
+  const [genMsg, setGenMsg] = useState(null)
 
   function load() {
     adminFetchSettings().then(x => {
       setS(x)
-      setF({
-        enabled: !!x.crypto_enabled, binance: !!x.crypto_binance_enabled, binanceId: x.crypto_binance_id || '',
-        trc20: !!x.crypto_trc20_enabled, address: x.crypto_trc20_address || '',
-        fx: String(x.crypto_fx_rate ?? 3.6), expiry: String(x.crypto_expiry_minutes ?? 30),
-      })
-    }).catch(() => setMsg({ ok: false, text: 'טעינת ההגדרות נכשלה' }))
+      setGen({ fx: String(x.crypto_fx_rate ?? 3.6), expiry: String(x.crypto_expiry_minutes ?? 30) })
+    }).catch(() => setError('טעינת הגדרות הקריפטו נכשלה'))
     adminFetchCryptoPayments().then(r => setPayments(r.payments || [])).catch(() => {})
   }
   useEffect(load, [])
 
-  async function save() {
-    setSaving(true); setMsg(null)
+  async function toggle(key, current) {
+    setBusy(key); setError('')
     try {
-      await adminUpdateSettings({
-        crypto_enabled: f.enabled, crypto_binance_enabled: f.binance, crypto_binance_id: f.binanceId,
-        crypto_trc20_enabled: f.trc20, crypto_trc20_address: f.address,
-        crypto_fx_rate: parseFloat(f.fx) || 0, crypto_expiry_minutes: parseInt(f.expiry) || 30,
-      })
-      setMsg({ ok: true, text: 'נשמר' })
+      await adminUpdateSettings({ [key === 'binance' ? 'crypto_binance_enabled' : 'crypto_trc20_enabled']: !current })
       load()
-    } catch { setMsg({ ok: false, text: 'השמירה נכשלה — בדקו שער (0.5–20) וכתובת TRC20 תקינה (34 תווים, מתחילה ב-T)' }) }
-    setSaving(false)
+    } catch { setError('העדכון נכשל, נסו שוב') }
+    setBusy(null)
   }
 
-  if (!f) return null
-  const set = (k, v) => setF(o => ({ ...o, [k]: v }))
-  const Row = ({ id, label, checked, onChange, hint }) => (
-    <label htmlFor={id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, margin: '10px 0', cursor: 'pointer' }}>
-      <input id={id} type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} style={{ width: 22, height: 22, flexShrink: 0, marginTop: 2 }} />
-      <span><b style={{ fontSize: 14 }}>{label}</b>{hint && <small style={{ display: 'block', color: 'var(--text-muted)' }}>{hint}</small>}</span>
-    </label>
-  )
-  const inp = { margin: 0, height: 44, borderRadius: 12, fontWeight: 600 }
+  async function saveGeneral() {
+    setBusy('gen'); setGenMsg(null)
+    try {
+      await adminUpdateSettings({ crypto_fx_rate: parseFloat(gen.fx) || 0, crypto_expiry_minutes: parseInt(gen.expiry) || 30 })
+      setGenMsg({ ok: true, text: 'נשמר' }); load()
+    } catch { setGenMsg({ ok: false, text: 'השמירה נכשלה — שער חייב להיות בין 0.5 ל-20' }) }
+    setBusy(null)
+  }
+
+  if (!s) return null
+  const apiOk = !!s.crypto_binance_api_configured
+  const methods = [
+    {
+      key: 'binance', icon: '🟡', flag: !!s.crypto_binance_enabled,
+      name: s.crypto_binance_name || 'Binance Pay', logo: s.crypto_binance_logo,
+      dest: s.crypto_binance_id ? `Pay ID: ${s.crypto_binance_id}` : '',
+      missing: [!s.crypto_binance_id && 'Pay ID', !apiOk && 'מפתח Binance בשרת (BINANCE_API_KEY / BINANCE_API_SECRET)'].filter(Boolean),
+    },
+    {
+      key: 'trc20', icon: '🔷', flag: !!s.crypto_trc20_enabled,
+      name: s.crypto_trc20_name || 'USDT · כתובת ארנק (TRC20)', logo: s.crypto_trc20_logo,
+      dest: s.crypto_trc20_address || '',
+      missing: [!s.crypto_trc20_address && 'כתובת ארנק'].filter(Boolean),
+    },
+  ]
+  const actionBtn = { margin: 0, width: '100%', minHeight: 44, padding: '0 10px', borderRadius: 12, fontSize: 14, fontWeight: 700 }
+
   return (
-    <div className="card" style={{ padding: '20px', borderLeft: '4px solid #f0b90b' }}>
-      <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>🪙 תשלום בקריפטו (זיהוי אוטומטי)</div>
-      <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 8 }}>
-        הקונה מקבל סכום USDT ייחודי (עם סנטים משלו). כשההעברה מגיעה בסכום המדויק, ההזמנה מאושרת אוטומטית.
-      </div>
-      <Row id="cr-on" label="הפעל תשלום בקריפטו" checked={f.enabled} onChange={v => set('enabled', v)} />
-      <Row id="cr-bn" label="Binance Pay" checked={f.binance} onChange={v => set('binance', v)}
-        hint={s.crypto_binance_api_configured ? '✓ מפתח Binance מוגדר בשרת' : '⚠️ חסרים BINANCE_API_KEY / BINANCE_API_SECRET במשתני הסביבה (מפתח קריאה בלבד) — בלעדיהם השיטה לא תוצג'} />
-      <input className="input" style={inp} dir="ltr" placeholder="Binance Pay ID שאליו הקונים ישלחו" aria-label="Binance Pay ID" value={f.binanceId} onChange={e => set('binanceId', e.target.value)} />
-      <Row id="cr-tr" label="USDT לכתובת ארנק (TRC20)" checked={f.trc20} onChange={v => set('trc20', v)} hint="נסרק דרך TronGrid. אפשר להוסיף TRONGRID_API_KEY להגברת מכסת הבקשות." />
-      <input className="input" style={inp} dir="ltr" placeholder="כתובת ארנק (T...)" aria-label="כתובת ארנק TRC20" value={f.address} onChange={e => set('address', e.target.value)} />
-      <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-        <div style={{ flex: 1 }}>
-          <label htmlFor="cr-fx" style={{ fontSize: 12, fontWeight: 700 }}>שער: ₪ לכל 1 USDT</label>
-          <input id="cr-fx" className="input" style={inp} type="number" step="0.01" dir="ltr" value={f.fx} onChange={e => set('fx', e.target.value)} />
-        </div>
-        <div style={{ flex: 1 }}>
-          <label htmlFor="cr-ex" style={{ fontSize: 12, fontWeight: 700 }}>תוקף בקשה (דקות)</label>
-          <input id="cr-ex" className="input" style={inp} type="number" dir="ltr" value={f.expiry} onChange={e => set('expiry', e.target.value)} />
+    <div style={{ marginTop: 24 }}>
+      <div className="card" style={{ padding: 16, marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span aria-hidden="true" style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(240, 185, 11, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>🪙</span>
+          <div style={{ minWidth: 0 }}>
+            <h2 style={{ margin: 0, fontWeight: 800, fontSize: 18 }}>קריפטו · זיהוי אוטומטי</h2>
+            <div style={{ fontSize: 13, opacity: 0.8, marginTop: 2 }}>הקונה מקבל סכום USDT ייחודי; כשההעברה מגיעה ההזמנה מאושרת אוטומטית.</div>
+          </div>
         </div>
       </div>
-      <button className="btn" disabled={saving} onClick={save} style={{ marginTop: 14 }}>{saving ? '⏳...' : 'שמור'}</button>
-      {msg && <div role={msg.ok ? 'status' : 'alert'} style={{ marginTop: 8, fontSize: 13, color: msg.ok ? '#177a33' : '#c53030' }}>{msg.text}</div>}
+
+      {error && <div role="alert" style={{ marginBottom: 12, padding: '10px 14px', borderRadius: 12, background: '#fee2e2', color: '#991b1b', fontSize: 14, fontWeight: 600 }}>{error}</div>}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))', gap: 12 }}>
+        {methods.map(m => {
+          const incomplete = m.missing.length > 0
+          const live = m.flag && !incomplete
+          const isBusy = busy === m.key
+          return (
+            <div key={m.key} className="card" style={{ padding: 16, margin: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                {m.logo
+                  ? <img src={m.logo} alt="" width={48} height={48} style={{ width: 48, height: 48, objectFit: 'contain', borderRadius: 12, background: '#fff', padding: 6, border: '1px solid var(--border)', flexShrink: 0, filter: live ? 'none' : 'grayscale(1)' }} onError={e => { e.currentTarget.style.visibility = 'hidden' }} />
+                  : <div aria-hidden="true" style={{ width: 48, height: 48, borderRadius: 12, background: 'var(--bg)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>{m.icon}</div>}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 16, fontWeight: 800, overflowWrap: 'anywhere', lineHeight: 1.25 }}>{m.name}</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, padding: '2px 10px', borderRadius: 12, background: live ? '#dcfce7' : '#fee2e2', color: live ? '#166534' : '#991b1b' }}>
+                      {live ? '✓ פעיל' : m.flag ? '⚠️ לא מוגדר במלואו' : '⏸ מושבת'}
+                    </span>
+                    <span style={{ fontSize: 12, fontWeight: 700, padding: '2px 10px', borderRadius: 12, background: 'var(--bg)', border: '1px solid var(--border)' }}>🤖 אישור אוטומטי</span>
+                  </div>
+                </div>
+              </div>
+
+              <div dir="ltr" style={{ marginTop: 12, padding: '8px 12px', borderRadius: 10, background: 'var(--bg)', fontSize: 13, textAlign: 'left', overflowWrap: 'anywhere', userSelect: 'text', unicodeBidi: 'isolate' }}>
+                {m.dest || '—'}
+              </div>
+              {incomplete && <div role="note" style={{ marginTop: 8, fontSize: 12, color: '#92400e' }}>חסר: {m.missing.join(' · ')}. עד שיושלם השיטה לא תוצג ללקוחות.</div>}
+
+              <button type="button" role="switch" aria-checked={m.flag} disabled={isBusy} onClick={() => toggle(m.key, m.flag)}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, width: '100%', marginTop: 12, minHeight: 48, padding: '0 14px', textAlign: 'start', fontFamily: 'inherit', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, color: 'var(--text-main)', cursor: 'pointer', opacity: isBusy ? 0.6 : 1 }}>
+                <span style={{ fontSize: 14, fontWeight: 700 }}>{m.flag ? 'מוצג ללקוחות' : 'מוסתר מלקוחות'}</span>
+                <span aria-hidden="true" style={{ width: 44, height: 24, borderRadius: 12, flexShrink: 0, position: 'relative', background: m.flag ? '#177a33' : '#6e6e73', transition: 'background 0.2s' }}>
+                  <span style={{ position: 'absolute', top: 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'inset-inline-start 0.2s', insetInlineStart: m.flag ? 23 : 3 }} />
+                </span>
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={() => setEditing(m.key)} aria-label={`עריכה: ${m.name}`} style={{ ...actionBtn, marginTop: 8, border: '1px solid var(--border)' }}>
+                <span aria-hidden="true">✏️ </span>עריכה
+              </button>
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="card" style={{ padding: 16, marginTop: 12 }}>
+        <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 8 }}>הגדרות משותפות לקריפטו</div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ flex: 1 }}>
+            <label htmlFor="cr-fx" style={{ fontSize: 12, fontWeight: 700 }}>שער: ₪ לכל 1 USDT</label>
+            <input id="cr-fx" className="input" style={{ margin: 0, height: 44, borderRadius: 12 }} type="number" step="0.01" dir="ltr" value={gen.fx} onChange={e => setGen(g => ({ ...g, fx: e.target.value }))} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label htmlFor="cr-ex" style={{ fontSize: 12, fontWeight: 700 }}>תוקף בקשה (דקות)</label>
+            <input id="cr-ex" className="input" style={{ margin: 0, height: 44, borderRadius: 12 }} type="number" dir="ltr" value={gen.expiry} onChange={e => setGen(g => ({ ...g, expiry: e.target.value }))} />
+          </div>
+        </div>
+        <button type="button" className="btn" disabled={busy === 'gen'} onClick={saveGeneral} style={{ marginTop: 12 }}>{busy === 'gen' ? '⏳...' : 'שמור'}</button>
+        {genMsg && <div role={genMsg.ok ? 'status' : 'alert'} style={{ marginTop: 8, fontSize: 13, color: genMsg.ok ? '#177a33' : '#c53030' }}>{genMsg.text}</div>}
+        <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-muted)' }}>
+          השער קובע כמה USDT הקונה ישלם על מחיר ב-₪. אפשר להוסיף TRONGRID_API_KEY בשרת להגברת מכסת הבקשות של סריקת הארנק.
+        </div>
+      </div>
 
       {payments.length > 0 && (
-        <div style={{ marginTop: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 6 }}>תשלומי קריפטו אחרונים</div>
+        <div className="card" style={{ padding: 16, marginTop: 12 }}>
+          <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 6 }}>תשלומי קריפטו אחרונים</div>
           {payments.slice(0, 8).map(p => (
             <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12, padding: '6px 0', borderTop: '1px solid var(--border)' }}>
               <span dir="ltr">{p.ref}</span>
@@ -5037,7 +5099,47 @@ function CryptoSettingsCard() {
           ))}
         </div>
       )}
+
+      {editing && <CryptoMethodModal kind={editing} s={s} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load() }} />}
     </div>
+  )
+}
+
+function CryptoMethodModal({ kind, s, onClose, onSaved }) {
+  const isBn = kind === 'binance'
+  const [name, setName] = useState((isBn ? s.crypto_binance_name : s.crypto_trc20_name) || '')
+  const [logo, setLogo] = useState((isBn ? s.crypto_binance_logo : s.crypto_trc20_logo) || '')
+  const [dest, setDest] = useState(isBn ? (s.crypto_binance_id || '') : (s.crypto_trc20_address || ''))
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState('')
+
+  async function save() {
+    setSaving(true); setErr('')
+    try {
+      await adminUpdateSettings(isBn
+        ? { crypto_binance_name: name, crypto_binance_logo: logo, crypto_binance_id: dest }
+        : { crypto_trc20_name: name, crypto_trc20_logo: logo, crypto_trc20_address: dest })
+      onSaved()
+    } catch { setErr(isBn ? 'השמירה נכשלה' : 'השמירה נכשלה — כתובת TRC20 תקינה היא 34 תווים ומתחילה ב-T') }
+    setSaving(false)
+  }
+
+  return (
+    <Sheet title={isBn ? '✏️ עריכת Binance Pay' : '✏️ עריכת USDT · TRC20'} onClose={onClose} footer={<>
+      <button className="btn" disabled={saving} onClick={save}>{saving ? '...' : 'שמור'}</button>
+      <button className="btn btn-secondary" onClick={onClose}>ביטול</button>
+    </>}>
+      <Field label="שם שמוצג ללקוחות" hint="ריק = שם ברירת המחדל">
+        <input className="input" value={name} onChange={e => setName(e.target.value)} />
+      </Field>
+      <Field label="קישור ללוגו (אופציונלי)">
+        <input className="input" dir="ltr" value={logo} onChange={e => setLogo(e.target.value)} placeholder="https://…" />
+      </Field>
+      <Field label={isBn ? 'Binance Pay ID שאליו הקונים שולחים' : 'כתובת הארנק (TRC20)'} hint={isBn ? 'נדרש גם מפתח קריאה בלבד של Binance בשרת' : 'מתחילה ב-T, 34 תווים. שלחו רק USDT ברשת TRC20.'}>
+        <input className="input" dir="ltr" value={dest} onChange={e => setDest(e.target.value)} />
+      </Field>
+      {err && <div role="alert" style={{ color: '#c53030', fontSize: 13 }}>{err}</div>}
+    </Sheet>
   )
 }
 

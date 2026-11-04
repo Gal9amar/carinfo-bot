@@ -118,8 +118,8 @@ export default function PaymentPage({ pkg, onBack }) {
               <div style={{ fontSize: 12, color: 'var(--hint)', paddingRight: 2, marginTop: 2 }}>
                 🪙 קריפטו · אישור אוטומטי תוך דקות
               </div>
-              {cryptoOpts.binance_pay && <button type="button" className="btn btn-outline" style={{ margin: 0 }} onClick={() => setCryptoMethod('BINANCE_PAY')}>Binance Pay (USDT)</button>}
-              {cryptoOpts.usdt_trc20 && <button type="button" className="btn btn-outline" style={{ margin: 0 }} onClick={() => setCryptoMethod('USDT_TRC20')}>USDT · כתובת ארנק (TRC20)</button>}
+              {cryptoOpts.binance_pay && <MethodButton m={{ name: cryptoOpts.binance_pay_name || 'Binance Pay', logo_url: cryptoOpts.binance_pay_logo }} disabled={false} onClick={() => setCryptoMethod('BINANCE_PAY')} />}
+              {cryptoOpts.usdt_trc20 && <MethodButton m={{ name: cryptoOpts.usdt_trc20_name || 'USDT · כתובת ארנק (TRC20)', logo_url: cryptoOpts.usdt_trc20_logo }} disabled={false} onClick={() => setCryptoMethod('USDT_TRC20')} />}
             </>
           )}
           {!hasCrypto && !hasPaypal && extraMethods.length === 0 && (

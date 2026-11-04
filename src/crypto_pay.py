@@ -93,7 +93,6 @@ async def init_crypto() -> None:
 
 async def get_config() -> dict:
     """Effective configuration (what the buyer may use right now)."""
-    enabled = (await get_bot_setting("crypto_enabled")) == "1"
     try:
         fx = float((await get_bot_setting("crypto_fx_rate")) or "3.6")
     except ValueError:
@@ -105,12 +104,20 @@ async def get_config() -> dict:
     binance_id = ((await get_bot_setting("crypto_binance_id")) or "").strip()
     address = ((await get_bot_setting("crypto_trc20_address")) or "").strip()
     api_ready = bool(os.environ.get("BINANCE_API_KEY") and os.environ.get("BINANCE_API_SECRET"))
-    binance_on = enabled and (await get_bot_setting("crypto_binance_enabled")) == "1" and bool(binance_id) and api_ready
-    trc20_on = enabled and (await get_bot_setting("crypto_trc20_enabled")) == "1" and valid_trc20_address(address)
+    binance_flag = (await get_bot_setting("crypto_binance_enabled")) == "1"
+    trc20_flag = (await get_bot_setting("crypto_trc20_enabled")) == "1"
+    binance_ready = bool(binance_id) and api_ready          # can be scanned (even if just switched off)
+    trc20_ready = valid_trc20_address(address)
+    binance_on = binance_flag and binance_ready             # offered to buyers
+    trc20_on = trc20_flag and trc20_ready
     return {
-        "enabled": enabled, "fx_rate": fx if fx > 0 else 3.6, "expiry_minutes": max(5, min(240, expiry)),
-        "binance_pay": {"enabled": binance_on, "pay_id": binance_id},
-        "usdt_trc20": {"enabled": trc20_on, "address": address},
+        "enabled": binance_on or trc20_on, "fx_rate": fx if fx > 0 else 3.6, "expiry_minutes": max(5, min(240, expiry)),
+        "binance_pay": {"enabled": binance_on, "ready": binance_ready, "flag": binance_flag, "pay_id": binance_id,
+                        "name": ((await get_bot_setting("crypto_binance_name")) or "").strip() or "Binance Pay",
+                        "logo": ((await get_bot_setting("crypto_binance_logo")) or "").strip()},
+        "usdt_trc20": {"enabled": trc20_on, "ready": trc20_ready, "flag": trc20_flag, "address": address,
+                       "name": ((await get_bot_setting("crypto_trc20_name")) or "").strip() or "USDT · כתובת ארנק (TRC20)",
+                       "logo": ((await get_bot_setting("crypto_trc20_logo")) or "").strip()},
         "binance_api_configured": api_ready,
     }
 
@@ -308,8 +315,6 @@ async def scan_once() -> int:
         return 0
     async with _scan_lock:
         cfg = await get_config()
-        if not cfg["enabled"]:
-            return 0
         now = _now()
         await execute("UPDATE crypto_payments SET status='expired' WHERE status='pending' AND expires_at <= ?", [_iso(now)])
         horizon = _iso(now - timedelta(hours=_LATE_WINDOW_HOURS))
@@ -325,7 +330,7 @@ async def scan_once() -> int:
             if not mine:
                 continue
             opt = cfg["binance_pay"] if method == "BINANCE_PAY" else cfg["usdt_trc20"]
-            if not opt["enabled"]:
+            if not opt["ready"]:          # a method switched OFF still gets its already-open payments detected
                 continue
             since = min(_parse(row[10]) for row in mine) - timedelta(minutes=2)
             since_ms = int(since.replace(tzinfo=timezone.utc).timestamp() * 1000)
