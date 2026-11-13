@@ -159,6 +159,8 @@ Screens: `loading`, `error`, `home`, `report`, `packages`, `payment`, `success`,
 ## Key Business Logic
 
 ### Quota (`users.searches_quota`)
+> **Owner note (unverified against the code):** the product is meant to be monthly-subscription based, with no per-search quotas. The quota code and per-search copy below still exist and have **not** been removed or reconciled; do not write user-facing text that promises or denies a search deduction (e.g. `lookup_error` no longer says "הבדיקה לא נוכתה").
+
 `> 0` fixed (left = quota − done) · `-1` unlimited · `0` exhausted. `quota_expires` applies only to `-1`; after expiry `is_allowed()` resets quota to 0 and removes from "מנויים"; hourly job `expire_subscriptions()` does the same, daily jobs send expiry reminders (30/7/1/0 days, 06:00 UTC). Blocked → never allowed. **Global unlimited** (`is_global_unlimited_active`, live from settings, date window) → everyone allowed, searches don't consume quota; switching it on from the bot admin menu (`bot.py` adm callback) puts all non-blocked users in the **VIP** group (new users join on creation); switching it off clears VIP.
 
 ### Subscriber status (group "מנויים")
