@@ -321,7 +321,7 @@ def not_found(name: str, plate: str) -> str:
 def lookup_error(name: str) -> str:
     return (
         f"😬 אופס {_n(name)}, משהו השתבש בשליפת הנתונים.\n"
-        "נסה שוב בעוד כמה שניות — הבדיקה לא נוכתה."
+        "נסה שוב בעוד כמה שניות."
     )
 
 
