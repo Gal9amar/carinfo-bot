@@ -148,10 +148,10 @@ Auth: header `X-Init-Data` = Telegram WebApp initData, HMAC-validated with the b
 | Payment | `POST /api/payment/initiate` (`package_id` XOR `product_id`, `quantity`, `intent_only`) · `POST /api/payment/promote` (intent→created + notify admin) |
 | Garage | `GET/POST /api/user/garage` · `GET …/check/{plate}` · `PATCH/DELETE …/{id}` · `POST …/{id}/sell` · `POST …/{id}/expenses` · `DELETE …/{id}/expenses/{eid}` |
 | Alerts | `GET /api/watches/makes`, `/api/watches/models` · `GET/POST /api/user/watches` · `DELETE …/{id}` · `PATCH …/{id}/toggle` |
-| Support | `POST/GET /api/tickets` · `GET /api/tickets/{id}` · `POST …/{id}/reply` |
+| Support | `POST/GET /api/tickets` · `GET /api/tickets/{id}` · `POST …/{id}/reply` · `POST /api/tickets/upload` (multipart `file`; png/jpg/webp/gif ≤5MB, magic-byte checked, no SVG → `{url:"/uploads/t….ext"}`; any signed-in user incl. admin). `create`/`reply` (user and admin) take an optional `image_url` (must be one of those uploads) and may be image-only; stored in `tickets.image_url` / `ticket_replies.image_url` |
 
 ### Admin (`/api/admin/…`)
-stats · users (+`/{id}/grant`, `/block`, `/message`, `/watch-quota`, `/revoke-subscription`, `/broadcast-consent`, `/referrals`, `/history`, `/sent-messages`) · settings (GET/POST) · groups (+members) · packages · products (+stock) · banners · payment-methods · grants (benefit presets) · payments (`/{ref}/approve|decline`) · orders (`/{ref}/approve|cancel|deliver`) · paypal/transactions · codes · broadcast (+history) · gift-all · referrals · activity · tickets (+reply/status) · watches (+makes/models/preview) · market-price · upload-logo. Lists with drag-order have `PUT …/reorder`.
+stats · users (+`/{id}/grant`, `/block`, `/message`, `/watch-quota`, `/revoke-subscription`, `/broadcast-consent`, `/referrals`, `/history`, `/tickets` (the user's support tickets → admin user-edit modal tab 🎫 פניות, tap opens the ticket in the Tickets tab), `/sent-messages`) · settings (GET/POST) · groups (+members) · packages · products (+stock) · banners · payment-methods · grants (benefit presets) · payments (`/{ref}/approve|decline`) · orders (`/{ref}/approve|cancel|deliver`) · paypal/transactions · codes · broadcast (+history) · gift-all · referrals · activity · tickets (+reply/status) · watches (+makes/models/preview) · market-price · upload-logo. Lists with drag-order have `PUT …/reorder`.
 
 ---
 

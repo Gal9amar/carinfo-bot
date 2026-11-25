@@ -330,11 +330,21 @@ export async function fetchSearchHistory() {
 }
 
 // Tickets (user)
-export async function createTicket(subject, message) {
+export async function uploadTicketImage(file) {
+  const form = new FormData()
+  form.append('file', file)
+  const h = headers()
+  delete h['Content-Type']   // let the browser set the multipart boundary
+  const r = await fetch(`${BASE}/api/tickets/upload`, { method: 'POST', headers: h, body: form })
+  if (!r.ok) throw new Error(r.status === 413 ? 'TOO_LARGE' : 'Upload failed')
+  return r.json()
+}
+
+export async function createTicket(subject, message, image_url = '') {
   const r = await fetch(`${BASE}/api/tickets`, {
     method: 'POST',
     headers: headers(),
-    body: JSON.stringify({ subject, message }),
+    body: JSON.stringify({ subject, message, image_url }),
   })
   if (!r.ok) throw new Error('Failed')
   return r.json()
@@ -352,11 +362,11 @@ export async function fetchTicket(id) {
   return r.json()
 }
 
-export async function replyTicket(id, message) {
+export async function replyTicket(id, message, image_url = '') {
   const r = await fetch(`${BASE}/api/tickets/${id}/reply`, {
     method: 'POST',
     headers: headers(),
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({ message, image_url }),
   })
   if (!r.ok) throw new Error('Failed')
   return r.json()
@@ -376,11 +386,11 @@ export async function adminFetchTicket(id) {
   return r.json()
 }
 
-export async function adminReplyTicket(id, message) {
+export async function adminReplyTicket(id, message, image_url = '') {
   const r = await fetch(`${BASE}/api/admin/tickets/${id}/reply`, {
     method: 'POST',
     headers: headers(),
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({ message, image_url }),
   })
   if (!r.ok) throw new Error('Failed')
   return r.json()
@@ -623,6 +633,12 @@ export async function adminFetchUserHistory(userId) {
 // System messages sent to user (admin view)
 export async function adminFetchUserSentMessages(userId) {
   const r = await fetch(`${BASE}/api/admin/users/${userId}/sent-messages`, { headers: headers() })
+  if (!r.ok) throw new Error('Failed')
+  return r.json()
+}
+
+export async function adminFetchUserTickets(userId) {
+  const r = await fetch(`${BASE}/api/admin/users/${userId}/tickets`, { headers: headers() })
   if (!r.ok) throw new Error('Failed')
   return r.json()
 }

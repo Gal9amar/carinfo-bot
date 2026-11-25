@@ -30,7 +30,7 @@ WEBAPP_URL   = os.environ.get("WEBAPP_URL") or os.environ.get("RENDER_EXTERNAL_U
 # Changes every deploy (Render sets RENDER_GIT_COMMIT automatically) so the
 # webapp can detect a new release and force-reload instead of running stale
 # cached JS. Falls back to process start time for non-Render environments.
-APP_VERSION = "1794000005"
+APP_VERSION = "1794000006"
 
 api = FastAPI()
 
@@ -2087,11 +2087,53 @@ async def admin_set_watch_quota(user_id: int, body: WatchQuotaBody, _: dict = De
 # ── Tickets (user) ────────────────────────────────────────────────────────────
 class TicketCreateBody(BaseModel):
     subject: str
-    message: str
+    message: str = ""
+    image_url: str = ""
 
 
 class TicketReplyBody(BaseModel):
-    message: str
+    message: str = ""
+    image_url: str = ""
+
+
+_TICKET_IMG_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}   # no SVG: it can carry scripts
+_TICKET_IMG_MAX = 5 * 1024 * 1024
+_TICKET_IMG_MAGIC = (b"\x89PNG\r\n\x1a\n", b"\xff\xd8\xff", b"GIF87a", b"GIF89a", b"RIFF")
+
+
+def _clean_ticket_image(url: str) -> str:
+    """Only accept a file this server stored via /api/tickets/upload (no external / traversal URLs)."""
+    url = (url or "").strip()
+    if not url:
+        return ""
+    name = url[len("/uploads/"):] if url.startswith("/uploads/") else ""
+    if not name or "/" in name or "\\" in name or ".." in name \
+            or os.path.splitext(name)[1].lower() not in _TICKET_IMG_EXTS:
+        raise HTTPException(status_code=400, detail="Invalid image")
+    return url
+
+
+@api.post("/api/tickets/upload")
+async def upload_ticket_image(request: Request, user: dict = Depends(_get_user)):
+    """Image attachment for a ticket — any signed-in user (the admin included)."""
+    import uuid
+    from starlette.datastructures import UploadFile   # what request.form() really returns
+    form = await request.form()
+    file = form.get("file")
+    if not file or not isinstance(file, UploadFile):
+        raise HTTPException(status_code=400, detail="No file")
+    ext = os.path.splitext(file.filename or "")[1].lower() or ".jpg"
+    if ext not in _TICKET_IMG_EXTS:
+        raise HTTPException(status_code=400, detail="Invalid file type")
+    data = await file.read(_TICKET_IMG_MAX + 1)
+    if len(data) > _TICKET_IMG_MAX:
+        raise HTTPException(status_code=413, detail="File too large (max 5MB)")
+    if not data.startswith(_TICKET_IMG_MAGIC):
+        raise HTTPException(status_code=400, detail="Not an image")
+    filename = f"t{uuid.uuid4().hex}{ext}"
+    with open(os.path.join(_UPLOADS_DIR, filename), "wb") as f:
+        f.write(data)
+    return {"url": f"/uploads/{filename}"}
 
 
 @api.post("/api/tickets")
@@ -2099,15 +2141,16 @@ async def create_ticket_api(body: TicketCreateBody, user: dict = Depends(_get_us
     from src.tickets import create_ticket
     subject = body.subject.strip()[:120]
     message = body.message.strip()[:2000]
-    if not subject or not message:
+    image   = _clean_ticket_image(body.image_url)
+    if not subject or not (message or image):
         raise HTTPException(status_code=400, detail="Subject and message required")
     uid      = int(user["id"])
     username = user.get("username", "")
     name     = user.get("first_name", str(uid))
-    ticket_id = await create_ticket(uid, username, name, subject, message)
+    ticket_id = await create_ticket(uid, username, name, subject, message, image)
     try:
         from src.notifier import notify_admin_ticket
-        await notify_admin_ticket(ticket_id, uid, name, subject, message)
+        await notify_admin_ticket(ticket_id, uid, name, subject, message or "📷 תמונה")
     except Exception:
         pass
     try:
@@ -2146,9 +2189,12 @@ async def user_reply_ticket(ticket_id: int, body: TicketReplyBody, user: dict = 
         raise HTTPException(status_code=403, detail="Forbidden")
     if ticket["status"] == "closed":
         raise HTTPException(status_code=400, detail="Ticket is closed")
-    msg  = body.message.strip()[:2000]
+    msg   = body.message.strip()[:2000]
+    image = _clean_ticket_image(body.image_url)
+    if not msg and not image:
+        raise HTTPException(status_code=400, detail="Message required")
     name = user.get("first_name", str(user["id"]))
-    await add_ticket_reply(ticket_id, int(user["id"]), name, False, msg)
+    await add_ticket_reply(ticket_id, int(user["id"]), name, False, msg, image)
     return {"ok": True}
 
 
@@ -2175,11 +2221,15 @@ async def admin_reply_ticket(ticket_id: int, body: TicketReplyBody, admin: dict 
     ticket = await get_ticket(ticket_id)
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
-    msg = body.message.strip()[:2000]
-    await add_ticket_reply(ticket_id, int(admin["id"]), "תמיכה", True, msg)
+    msg   = body.message.strip()[:2000]
+    image = _clean_ticket_image(body.image_url)
+    if not msg and not image:
+        raise HTTPException(status_code=400, detail="Message required")
+    await add_ticket_reply(ticket_id, int(admin["id"]), "תמיכה", True, msg, image)
     try:
         from src.notifier import notify_user_ticket_reply
-        await notify_user_ticket_reply(ticket["user_id"], ticket_id, ticket["subject"], msg)
+        await notify_user_ticket_reply(ticket["user_id"], ticket_id, ticket["subject"],
+                                       (msg + "\n\n📷 צורפה תמונה — פתח את הפנייה לצפייה").strip() if image else msg)
     except Exception:
         pass
     try:
@@ -2634,6 +2684,12 @@ async def admin_user_history(user_id: int, _: dict = Depends(_require_admin)):
         [user_id],
     )
     return [{"plate": row[0], "searched_at": row[1]} for row in r.rows]
+
+
+@api.get("/api/admin/users/{user_id}/tickets")
+async def admin_user_tickets(user_id: int, _: dict = Depends(_require_admin)):
+    from src.tickets import admin_get_user_tickets
+    return await admin_get_user_tickets(user_id)
 
 
 @api.get("/api/admin/users/{user_id}/sent-messages")

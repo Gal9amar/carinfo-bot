@@ -164,6 +164,8 @@ def _init_core() -> None:
     message     TEXT    NOT NULL,
     created_at  TEXT    DEFAULT (datetime('now'))
 )""",
+        "ALTER TABLE tickets ADD COLUMN image_url TEXT DEFAULT ''",
+        "ALTER TABLE ticket_replies ADD COLUMN image_url TEXT DEFAULT ''",
         """CREATE TABLE IF NOT EXISTS activity_log (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     event_type  TEXT    NOT NULL,

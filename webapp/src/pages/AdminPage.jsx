@@ -17,6 +17,7 @@ import {
   adminToggleBlock,
   adminSendUserMessage,
   adminFetchUserHistory,
+  adminFetchUserTickets,
   adminFetchAllReferrals,
   adminFetchUserReferrals,
   adminFetchUserSentMessages,
@@ -45,6 +46,7 @@ import {
   adminLeviStatus, adminLeviSendSms, adminLeviValidate, adminLeviLookup, adminLeviLogout,
 } from '../api.js'
 import BackButton from '../components/BackButton.jsx'
+import { useTicketImage, AttachButton, ImagePreview, BubbleImage } from '../components/TicketImage.jsx'
 import AdminItemCard, { AdminItemBtn, AdminItemConfirm } from '../components/AdminItemCard.jsx'
 
 const TABS = [
@@ -71,6 +73,7 @@ const TABS = [
 
 export default function AdminPage({ user, onBack }) {
   const [tab, setTab] = useState('stats')
+  const [openTicketId, setOpenTicketId] = useState(null)   // jump from a user card to a ticket
   const [menuOpen, setMenuOpen] = useState(false)
   const currentTab = TABS.find(t => t.id === tab) || TABS[0]
 
@@ -132,14 +135,14 @@ export default function AdminPage({ user, onBack }) {
       {tab === 'levi' && <LeviTab />}
       {tab === 'grants'   && <AdminGrantsTab />}
       {tab === 'codes'    && <CodesSection standalone />}
-      {tab === 'users'     && <UsersTab />}
+      {tab === 'users'     && <UsersTab onOpenTicket={(id) => { setOpenTicketId(id); setTab('tickets') }} />}
       {tab === 'referrals' && <ReferralsTab />}
       {tab === 'groups'    && <GroupsTab />}
       {tab === 'features'  && <FeaturesTab />}
       {tab === 'promo'     && <PromoTab />}
       {tab === 'broadcast' && <BroadcastTab />}
       {tab === 'settings'  && <SettingsTab />}
-      {tab === 'tickets'         && <TicketsTab />}
+      {tab === 'tickets'         && <TicketsTab initialId={openTicketId} onConsumed={() => setOpenTicketId(null)} />}
       {tab === 'payment_methods' && <PaymentMethodsTab />}
       {tab === 'watches'   && <WatchesTab />}
     </div>
@@ -3254,7 +3257,7 @@ function ReferralsTab() {
   )
 }
 
-function UsersTab() {
+function UsersTab({ onOpenTicket }) {
   const [users, setUsers]               = useState(null)
   const [filter, setFilter]             = useState('all')
   const [search, setSearch]             = useState('')
@@ -3368,6 +3371,7 @@ function UsersTab() {
         <GrantModal
           user={editingUser}
           onClose={() => setEditingUser(null)}
+          onOpenTicket={(id) => { setEditingUser(null); onOpenTicket?.(id) }}
           onDone={async () => { load(); setEditingUser(null) }}
         />
       )}
@@ -3381,7 +3385,7 @@ function UsersTab() {
   )
 }
 
-function GrantModal({ user, onClose, onDone }) {
+function GrantModal({ user, onClose, onDone, onOpenTicket }) {
   const [grants, setGrants] = useState(null)
   const plans = usePlans()
   const [customPlan, setCustomPlan] = useState(null)
@@ -3392,6 +3396,7 @@ function GrantModal({ user, onClose, onDone }) {
   const [history, setHistory] = useState(null)
   const [referralData, setReferralData] = useState(null)
   const [sentMessages, setSentMessages] = useState(null)
+  const [userTickets, setUserTickets] = useState(null)
   const [pendingGrant, setPendingGrant] = useState(null)
 
   useEffect(() => { adminFetchGrants().then(setGrants).catch(() => {}) }, [])
@@ -3401,6 +3406,9 @@ function GrantModal({ user, onClose, onDone }) {
     }
     if (mode === 'referrals' && referralData === null) {
       adminFetchUserReferrals(user.user_id).then(setReferralData).catch(() => setReferralData({ referrals: [], count: 0, total_bonus: 0 }))
+    }
+    if (mode === 'tickets' && userTickets === null) {
+      adminFetchUserTickets(user.user_id).then(setUserTickets).catch(() => setUserTickets([]))
     }
     if (mode === 'messages' && sentMessages === null) {
       adminFetchUserSentMessages(user.user_id).then(setSentMessages).catch(() => setSentMessages([]))
@@ -3444,6 +3452,7 @@ function GrantModal({ user, onClose, onDone }) {
     ['watch',     '🔔', 'התראות'],
     ['history',   '📋', 'חיפושים'],
     ['referrals', '🤝', 'הפניות'],
+    ['tickets',   '🎫', 'פניות'],
     ['messages',  '📨', 'הודעות'],
   ]
 
@@ -3678,6 +3687,42 @@ function GrantModal({ user, onClose, onDone }) {
                   </div>
                 ))}
               </>
+            )}
+          </div>
+        )}
+
+        {mode === 'tickets' && (
+          <div>
+            {userTickets === null && <div className="loading"></div>}
+            {userTickets !== null && userTickets.length === 0 && (
+              <div style={{ color: 'var(--hint)', fontSize: 13, textAlign: 'center', padding: 12 }}>
+                למשתמש הזה אין פניות תמיכה
+              </div>
+            )}
+            {userTickets !== null && userTickets.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ fontSize: 11, color: 'var(--hint)', marginBottom: 2 }}>{userTickets.length} פניות · לחץ לפתיחה וטיפול</div>
+                {userTickets.map(t => (
+                  <button
+                    key={t.id}
+                    onClick={() => onOpenTicket?.(t.id)}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, textAlign: 'start',
+                      background: 'var(--bg)', borderRadius: 8, padding: '9px 10px', cursor: 'pointer',
+                      border: '1px solid var(--border)', borderRight: `3px solid ${STATUS_COLOR[t.status] || '#999'}`,
+                    }}
+                  >
+                    <span style={{ minWidth: 0 }}>
+                      <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>#{t.id} · {t.subject}</span>
+                      <span style={{ display: 'block', fontSize: 11, color: 'var(--hint)' }}>{fmtDateIL(t.updated_at || t.created_at)}</span>
+                    </span>
+                    <span style={{
+                      fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 20, flexShrink: 0,
+                      background: STATUS_BG[t.status], color: STATUS_COLOR[t.status],
+                    }}>{STATUS_LABEL[t.status] || t.status}</span>
+                  </button>
+                ))}
+              </div>
             )}
           </div>
         )}
@@ -5518,10 +5563,12 @@ const STATUS_LABEL = { open: 'פתוח', in_progress: 'בטיפול', closed: '�
 const STATUS_COLOR = { open: '#9a4a07', in_progress: '#0066d6', closed: '#047857' }
 const STATUS_BG = { open: 'rgba(245, 158, 11, 0.1)', in_progress: 'rgba(59, 130, 246, 0.1)', closed: 'rgba(16, 185, 129, 0.1)' }
 
-function TicketsTab() {
+function TicketsTab({ initialId = null, onConsumed }) {
   const [allTickets, setAllTickets] = useState(null)
   const [filter, setFilter] = useState('open')
-  const [selected, setSelected] = useState(null)
+  const [selected, setSelected] = useState(initialId)
+
+  useEffect(() => { if (initialId) onConsumed?.() }, [])
 
   async function load() {
     const data = await adminFetchTickets()
@@ -5625,6 +5672,7 @@ function AdminTicketThread({ ticketId, onBack }) {
   const [reply, setReply] = useState('')
   const [sending, setSending] = useState(false)
   const [updating, setUpdating] = useState(false)
+  const img = useTicketImage()
 
   async function load() {
     const t = await adminFetchTicket(ticketId)
@@ -5634,11 +5682,12 @@ function AdminTicketThread({ ticketId, onBack }) {
   useEffect(() => { load().catch(() => {}) }, [ticketId])
 
   async function sendReply() {
-    if (!reply.trim()) return
+    if ((!reply.trim() && !img.url) || img.uploading) return
     setSending(true)
     try {
-      await adminReplyTicket(ticketId, reply.trim())
+      await adminReplyTicket(ticketId, reply.trim(), img.url)
       setReply('')
+      img.clear()
       await load()
     } catch { window.Telegram?.WebApp?.showAlert('שגיאה') }
     setSending(false)
@@ -5656,7 +5705,7 @@ function AdminTicketThread({ ticketId, onBack }) {
   if (!ticket) return <div className="loading"></div>
 
   const allMessages = [
-    { id: 'orig', sender_name: ticket.full_name || ticket.username || `id:${ticket.user_id}`, is_admin: false, message: ticket.message, created_at: ticket.created_at },
+    { id: 'orig', sender_name: ticket.full_name || ticket.username || `id:${ticket.user_id}`, is_admin: false, message: ticket.message, image_url: ticket.image_url, created_at: ticket.created_at },
     ...(ticket.replies || []),
   ]
 
@@ -5711,6 +5760,7 @@ function AdminTicketThread({ ticketId, onBack }) {
                 boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
               }}>
                 {msg.message}
+                <BubbleImage src={msg.image_url} />
               </div>
               <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6, fontWeight: 500, padding: '0 4px' }}>
                 {isAdmin ? '🛠️ צוות תמיכה' : '👤 ' + name} • {fmtDateTime(msg.created_at)}
@@ -5722,7 +5772,9 @@ function AdminTicketThread({ ticketId, onBack }) {
 
       {ticket.status !== 'closed' && (
         <div style={{ position: 'fixed', bottom: 0, right: 0, left: 0, padding: '16px', background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(12px)', borderTop: '1px solid var(--border)', zIndex: 10 }}>
+          <div style={{ maxWidth: 480, margin: '0 auto' }}><ImagePreview img={img} /></div>
           <div style={{ display: 'flex', gap: 12, maxWidth: 480, margin: '0 auto', background: 'var(--bg-card)', padding: '6px', borderRadius: 16, border: '1px solid var(--border)', boxShadow: '0 4px 16px rgba(0,0,0,0.06)' }}>
+            <AttachButton onPick={img.pick} disabled={img.uploading || !!img.local} style={{ border: 'none' }} />
             <input
               style={{ flex: 1, margin: 0, border: 'none', background: 'transparent', padding: '0 12px', fontSize: 15, color: 'var(--text-main)', outline: 'none' }}
               placeholder="כתוב תגובה למשתמש..."
@@ -5733,13 +5785,13 @@ function AdminTicketThread({ ticketId, onBack }) {
             <button
               style={{
                 width: 44, height: 44, borderRadius: 12, border: 'none',
-                background: reply.trim() ? 'var(--primary)' : 'var(--bg)',
-                color: reply.trim() ? '#fff' : 'var(--text-muted)',
+                background: (reply.trim() || img.url) ? 'var(--primary)' : 'var(--bg)',
+                color: (reply.trim() || img.url) ? '#fff' : 'var(--text-muted)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
-                cursor: reply.trim() && !sending ? 'pointer' : 'default', transition: 'all 0.2s',
-                boxShadow: reply.trim() ? '0 4px 12px rgba(0, 122, 255, 0.2)' : 'none'
+                cursor: (reply.trim() || img.url) && !sending ? 'pointer' : 'default', transition: 'all 0.2s',
+                boxShadow: (reply.trim() || img.url) ? '0 4px 12px rgba(0, 122, 255, 0.2)' : 'none'
               }}
-              disabled={sending || !reply.trim()}
+              disabled={sending || img.uploading || (!reply.trim() && !img.url)}
               onClick={sendReply}
             >
               {sending ? '⏳' : '↑'}

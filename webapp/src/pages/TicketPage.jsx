@@ -3,6 +3,7 @@ import { createTicket, fetchMyTickets, fetchTicket, replyTicket } from '../api.j
 import { fmtDateTime, fmtDate } from '../utils/time.js'
 import BackButton from '../components/BackButton.jsx'
 import PageBanners from '../components/PageBanners.jsx'
+import { useTicketImage, AttachButton, ImagePreview, BubbleImage } from '../components/TicketImage.jsx'
 
 const STATUS_LABEL = { open: 'פתוח', in_progress: 'בטיפול', closed: 'סגור' }
 const STATUS_COLOR = { open: '#964a08', in_progress: '#0066d6', closed: '#177a33' }
@@ -106,15 +107,17 @@ function CreateView({ onBack, onCreated }) {
   const [subject, setSubject] = useState('')
   const [message, setMessage] = useState('')
   const [saving, setSaving] = useState(false)
+  const img = useTicketImage()
+  const canSend = subject.trim() && (message.trim() || img.url) && !img.uploading
 
   async function submit() {
-    if (!subject.trim() || !message.trim()) {
+    if (!canSend) {
       window.Telegram?.WebApp?.showAlert('נא למלא נושא והודעה')
       return
     }
     setSaving(true)
     try {
-      const res = await createTicket(subject.trim(), message.trim())
+      const res = await createTicket(subject.trim(), message.trim(), img.url)
       await onCreated(res.id)
     } catch {
       window.Telegram?.WebApp?.showAlert('שגיאה בשליחה, נסה שוב')
@@ -145,7 +148,12 @@ function CreateView({ onBack, onCreated }) {
         onChange={e => setMessage(e.target.value)}
         style={{ resize: 'vertical' }}
       />
-      <button className="btn" disabled={saving || !subject.trim() || !message.trim()} onClick={submit}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+        <AttachButton onPick={img.pick} disabled={img.uploading || !!img.local} />
+        <span style={{ fontSize: 12, color: 'var(--hint)' }}>צרף תמונה (אופציונלי, עד 5MB)</span>
+      </div>
+      <ImagePreview img={img} />
+      <button className="btn" disabled={saving || !canSend} onClick={submit}>
         {saving ? '⏳ שולח...' : '📤 שלח פנייה'}
       </button>
       <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={onBack}>ביטול</button>
@@ -156,16 +164,18 @@ function CreateView({ onBack, onCreated }) {
 function ThreadView({ ticket, onBack, onRefresh }) {
   const [reply, setReply] = useState('')
   const [sending, setSending] = useState(false)
+  const img = useTicketImage()
   const bottomRef = useRef(null)
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [ticket.replies?.length])
 
   async function sendReply() {
-    if (!reply.trim() || ticket.status === 'closed') return
+    if ((!reply.trim() && !img.url) || img.uploading || ticket.status === 'closed') return
     setSending(true)
     try {
-      await replyTicket(ticket.id, reply.trim())
+      await replyTicket(ticket.id, reply.trim(), img.url)
       setReply('')
+      img.clear()
       await onRefresh()
     } catch {
       window.Telegram?.WebApp?.showAlert('שגיאה')
@@ -174,7 +184,7 @@ function ThreadView({ ticket, onBack, onRefresh }) {
   }
 
   const allMessages = [
-    { id: 'orig', sender_name: ticket.full_name || 'אתה', is_admin: false, message: ticket.message, created_at: ticket.created_at },
+    { id: 'orig', sender_name: ticket.full_name || 'אתה', is_admin: false, message: ticket.message, image_url: ticket.image_url, created_at: ticket.created_at },
     ...(ticket.replies || []),
   ]
 
@@ -214,6 +224,7 @@ function ThreadView({ ticket, onBack, onRefresh }) {
             wordBreak: 'break-word',
           }}>
             {msg.message}
+            <BubbleImage src={msg.image_url} />
           </div>
           <div style={{ fontSize: 11, color: 'var(--hint)', marginTop: 3 }}>
             {msg.is_admin ? '🛠 תמיכה' : 'אתה'} · {fmtDateTime(msg.created_at)}
@@ -225,7 +236,9 @@ function ThreadView({ ticket, onBack, onRefresh }) {
 
       {ticket.status !== 'closed' && (
         <div style={{ position: 'fixed', bottom: 0, right: 0, left: 0, padding: '10px 16px', background: 'rgba(255,255,255,0.94)', backdropFilter: 'blur(20px)', borderTop: '1px solid var(--border)' }}>
+          <div style={{ maxWidth: 480, margin: '0 auto' }}><ImagePreview img={img} /></div>
           <div style={{ display: 'flex', gap: 8, maxWidth: 480, margin: '0 auto' }}>
+            <AttachButton onPick={img.pick} disabled={img.uploading || !!img.local} />
             <input
               className="input"
               style={{ flex: 1, marginBottom: 0 }}
@@ -238,7 +251,7 @@ function ThreadView({ ticket, onBack, onRefresh }) {
             <button
               className="btn"
               style={{ width: 'auto', padding: '0 16px', marginTop: 0 }}
-              disabled={sending || !reply.trim()}
+              disabled={sending || img.uploading || (!reply.trim() && !img.url)}
               onClick={sendReply}
             >
               <span aria-hidden="true">{sending ? '⏳' : '↑'}</span><span className="sr-only">{sending ? 'שולח' : 'שלח תגובה'}</span>
