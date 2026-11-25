@@ -208,7 +208,8 @@ def generate_pdf(
     make      = _v(record, "tozeret_nm")
     model     = _v(record, "kinuy_mishari", "degem_nm")
     year      = _v(record, "shnat_yitzur")
-    now_str   = datetime.now().strftime("%d/%m/%Y %H:%M")
+    from src.tz import il_now
+    now_str   = il_now().strftime("%d/%m/%Y %H:%M")
     tg_url    = _full_url(tg_link)
 
     # ── Color objects ──────────────────────────────────────────────────────────

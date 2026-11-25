@@ -76,6 +76,15 @@ def _count(n: int, one: str, many: str) -> str:
     return one if n == 1 else f"{n} {many}"
 
 
+def fmt_expiry(raw: str) -> str:
+    """Subscription expiry (stored as naive UTC) shown as an Israel-time date."""
+    try:
+        from src.tz import utc_to_il
+        return utc_to_il(raw).strftime("%d/%m/%Y")
+    except Exception:
+        return fmt_date(raw)
+
+
 def fmt_date(raw: str) -> str:
     try:
         return datetime.fromisoformat(str(raw)[:10]).strftime("%d/%m/%Y")
@@ -91,7 +100,7 @@ def quota_line(left: int, expires: Optional[str] = None) -> str:
     """One-line account status. left: -1 = live subscription, anything else = free plan."""
     if left == -1:
         if expires:
-            return f"⭐ מסלול Premium פעיל עד {b(fmt_date(expires))}"
+            return f"⭐ מסלול Premium פעיל עד {b(fmt_expiry(expires))}"
         return "⭐ יש לך מסלול Premium קבוע"
     return "🆓 מסלול חינמי — לפיצ'רי הפרימיום אפשר להצטרף למנוי"
 
@@ -450,7 +459,7 @@ def result_intro(name: str, plate: str) -> str:
 def result_quota_text(left: int, expires: Optional[str]) -> str:
     """Plain-text plan note under a result card (only for a live subscription)."""
     if expires:
-        return '⭐ מסלול Premium פעיל — תוקף עד ' + fmt_date(expires)
+        return '⭐ מסלול Premium פעיל — תוקף עד ' + fmt_expiry(expires)
     return '⭐ מסלול Premium קבוע'
 
 
@@ -738,7 +747,8 @@ def payment_received(name: str, searches: int, amount_ils) -> str:
 
 
 def grant_update(name: str, searches: int, expires: str = "") -> str:
-    today = datetime.now().strftime("%d/%m/%Y")
+    from src.tz import il_now
+    today = il_now().strftime("%d/%m/%Y")
     head = f"🔔 {_n(name)}, המנוי שלך עודכן!\n\n"
     footer = "\n\n" + quote("לפרטים על הפיצ'רים של המנוי שלך — היכנס לתפריט <b>רכישת מנויים</b>.")
     if searches == 0:
@@ -749,9 +759,9 @@ def grant_update(name: str, searches: int, expires: str = "") -> str:
             f"⏰ בתוקף: {b('ללא הגבלת זמן')}{footer}"
         )
     if searches == -1:
-        end = f"\n⏰ בתוקף עד: {b(fmt_date(expires))}" if expires else ""
+        end = f"\n⏰ בתוקף עד: {b(fmt_expiry(expires))}" if expires else ""
         return f"{head}📦 מסוג: {b('מנוי חודשי')}\n📅 החל מ: {today}{end}{footer}"
-    end = f"\n⏰ בתוקף עד: {b(fmt_date(expires))}" if expires else ""
+    end = f"\n⏰ בתוקף עד: {b(fmt_expiry(expires))}" if expires else ""
     return f"{head}📦 נוספו: {b(_count(searches, 'יום מנוי', 'ימי מנוי'))} ⭐\n📅 החל מ: {today}{end}{footer}"
 
 
@@ -801,7 +811,7 @@ def referral_bonus_days(name: str, friend: str, days: int, expires: str, started
     return (
         f"🎉 {_n(name)}, חבר חדש הצטרף דרך הלינק שלך!\n\n"
         f"👤 {esc(friend)} הצטרף לבוט\n"
-        f"🎁 {what}{b(_count(days, 'יום אחד', 'ימים'))} — עד {b(fmt_date(expires))}"
+        f"🎁 {what}{b(_count(days, 'יום אחד', 'ימים'))} — עד {b(fmt_expiry(expires))}"
     )
 
 

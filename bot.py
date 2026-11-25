@@ -3398,8 +3398,9 @@ def main() -> None:
 
     if app.job_queue:
         import datetime as _dt
-        # 9:00 Israel time = 06:00 UTC (UTC+3 in summer)
-        _notify_time = _dt.time(hour=6, minute=0, tzinfo=_dt.timezone.utc)
+        from src.tz import IL as _IL
+        # 9:00 Israel time (follows daylight saving)
+        _notify_time = _dt.time(hour=9, minute=0, tzinfo=_IL)
         for _days in (30, 7, 1, 0):
             _d = _days
             app.job_queue.run_daily(
@@ -3415,7 +3416,7 @@ def main() -> None:
         app.job_queue.run_repeating(_scheduled_broadcast_job, interval=30, first=20, name="scheduled_broadcast")
         app.job_queue.run_daily(
             _test_reminders_job,
-            time=_dt.time(hour=7, minute=0, tzinfo=_dt.timezone.utc),   # 10:00 Israel (summer)
+            time=_dt.time(hour=10, minute=0, tzinfo=_IL),   # 10:00 Israel time
             name="test_reminders",
         )
         app.job_queue.run_repeating(

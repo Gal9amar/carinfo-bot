@@ -142,8 +142,9 @@ def get_promo_welcome_info() -> dict | None:
         return None
     expires_str = None
     if PROMO_DURATION_DAYS > 0:
-        from datetime import date, timedelta
-        exp = date.today() + timedelta(days=PROMO_DURATION_DAYS)
+        from datetime import timedelta
+        from src.tz import il_today
+        exp = il_today() + timedelta(days=PROMO_DURATION_DAYS)
         expires_str = exp.strftime("%d/%m/%Y")
     label = PROMO_LABEL or (
         "מסלול Premium ללא הגבלת זמן" if PROMO_DURATION_DAYS <= 0 else f"{PROMO_DURATION_DAYS} ימי Premium"
@@ -339,7 +340,8 @@ async def apply_code(user_id: int, code: str, username: str = "") -> tuple[bool,
             result_msg = "כבר יש לך מסלול Premium קבוע"
         else:
             verb = "הוארך" if status == "extended" else "הופעל"
-            result_msg = f"המסלול {verb} ב-{days} ימים · תוקף עד {datetime.fromisoformat(exp).strftime('%d/%m/%Y')}"
+            from src.tz import utc_to_il
+            result_msg = f"המסלול {verb} ב-{days} ימים · תוקף עד {utc_to_il(exp).strftime('%d/%m/%Y')}"
     elif unlimited:
         await grant_plan_days(user_id, 0, f"קוד {code}", plan_id, permanent=True)
         result_msg = "מסלול Premium קבוע הופעל"
