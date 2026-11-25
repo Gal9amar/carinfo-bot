@@ -120,8 +120,8 @@ export default function LeviCard({ plate, user, onNavigate }) {
       {phase === 'login' && (
         <div style={{ display: 'grid', gap: 10 }}>
           <div style={{ fontSize: 13, color: 'var(--hint)', lineHeight: 1.6 }}>
-            כדי לראות את מחיר המחירון צריך להזדהות מול לוי יצחק, כמו באפליקציה שלהם: מספר נייד, ואז קוד בן 6 ספרות ב־SMS.
-            המספר נשלח ללוי יצחק לצורך האימות; אצלנו נשמרים רק המספר ואסימון הגישה, ואפשר להתנתק בכל רגע.
+            רוצים לראות את מחיר המחירון? זה לוקח חצי דקה ⚡️ מזינים מספר נייד, ולוי יצחק שולחים לכם קוד ב־SMS ישירות אליכם.
+            אפשר להתנתק בכל רגע.
           </div>
           <input style={INPUT} inputMode="tel" dir="ltr" placeholder="05XXXXXXXX" value={phone} onChange={e => setPhone(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !busy && phone.trim() && sendSms()} />
